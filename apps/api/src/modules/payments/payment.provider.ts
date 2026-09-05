@@ -163,8 +163,8 @@ export class NullPaymentProvider implements PaymentProvider {
     const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET || 'null-test-secret';
     const headers = normalizeHeaders(input.headers);
     const sig = headers['x-signature'] || headers['x-null-signature'] || '';
-    // Aceita assinatura de teste explícita ou secret configurado em modo null.
-    if (sig && sig !== secret && sig !== `ts=0,v1=${secret}`) {
+    // Assinatura obrigatória mesmo no provider null (#9).
+    if (!sig || (sig !== secret && sig !== `ts=0,v1=${secret}`)) {
       const err: any = new Error('Assinatura de webhook inválida');
       err.status = 401;
       err.code = 'WEBHOOK_SIGNATURE_INVALID';

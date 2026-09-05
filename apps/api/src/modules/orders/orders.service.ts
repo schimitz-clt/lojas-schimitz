@@ -16,9 +16,9 @@ export class OrdersService {
   private readonly log = new Logger(OrdersService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly inventory: InventoryService,
-    private readonly audit: AuditService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(InventoryService) private readonly inventory: InventoryService,
+    @Inject(AuditService) private readonly audit: AuditService,
     @Inject('ShippingProvider') private readonly shipping: ShippingProvider,
     @Inject('PaymentProvider') private readonly paymentsProvider: PaymentProvider,
   ) {}

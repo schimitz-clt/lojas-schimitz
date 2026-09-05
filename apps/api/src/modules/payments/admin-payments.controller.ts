@@ -1,4 +1,4 @@
-import { Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Inject, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,7 +10,7 @@ import { PaymentsService } from './payments.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminPaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}
 
   @Post(':id/refund')
   async refund(@CurrentUser('sub') adminId: string, @Param('id') id: string) {

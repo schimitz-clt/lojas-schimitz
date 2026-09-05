@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ok } from '../../common/http';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -9,7 +9,7 @@ import { CreatePaymentIntentDto } from './dto';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}
 
   @Post('intents')
   @UseGuards(JwtAuthGuard)
@@ -38,9 +38,10 @@ export class PaymentsController {
 
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}
 
   @Post('mercadopago')
+  @HttpCode(200)
   @Throttle({ default: { limit: 120, ttl: 60000 } })
   async mercadopago(@Req() req: any, @Body() body: unknown) {
     const result = await this.payments.handleWebhook(req.headers || {}, body);

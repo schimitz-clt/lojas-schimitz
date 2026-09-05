@@ -29,10 +29,10 @@ export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly audit: AuditService,
-    private readonly orders: OrdersService,
-    private readonly inventory: InventoryService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(OrdersService) private readonly orders: OrdersService,
+    @Inject(InventoryService) private readonly inventory: InventoryService,
     @Inject('PaymentProvider') private readonly provider: PaymentProvider,
   ) {}
 
@@ -606,7 +606,7 @@ export class PaymentsService {
     if (info.status === 'refunded') {
       // Só via admin refund normalmente; webhook de refund confirma
       if (payment.status === 'refunded') return { applied: false, reason: 'already_refunded' };
-      if (payment.status !== 'approved' && payment.status !== 'refunded') {
+      if (payment.status !== 'approved') {
         return { applied: false, reason: 'not_approved' };
       }
       await this.finalizeRefundLocal(paymentId);

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 
 const INTERVAL_MS = 60_000;
@@ -9,7 +9,7 @@ export class ReservationsExpiryService implements OnModuleInit, OnModuleDestroy 
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
-  constructor(private readonly orders: OrdersService) {}
+  constructor(@Inject(OrdersService) private readonly orders: OrdersService) {}
 
   onModuleInit() {
     this.timer = setInterval(() => {

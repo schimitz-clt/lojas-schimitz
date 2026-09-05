@@ -22,6 +22,8 @@ type Order = {
   payments?: Payment[];
 };
 
+const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
+
 export default function PedidoPage() {
   const { publicId } = useParams<{ publicId: string }>();
   const [o, setO] = useState<Order | null>(null);
@@ -30,6 +32,7 @@ export default function PedidoPage() {
   const [paying, setPaying] = useState(false);
   const [intent, setIntent] = useState<{ payment: Payment } | null>(null);
   const [simulating, setSimulating] = useState(false);
+  const [cardToken, setCardToken] = useState('');
 
   const reload = useCallback(() => {
     return api<Order>(`/orders/${publicId}`).then((order) => {
@@ -57,14 +60,12 @@ export default function PedidoPage() {
         key = crypto.randomUUID();
         sessionStorage.setItem(persistKey, key);
       }
+      const body: Record<string, unknown> = { orderId: o.id, method };
+      if (method === 'card' && cardToken) body.cardToken = cardToken;
       const data = await api<{ payment: Payment }>('/payments/intents', {
         method: 'POST',
         headers: { 'Idempotency-Key': key },
-        body: JSON.stringify({
-          orderId: o.id,
-          method,
-          // cardToken só necessário com PAYMENTS_PROVIDER=mercadopago + Bricks
-        }),
+        body: JSON.stringify(body),
       });
       setIntent(data);
       await reload();
@@ -123,8 +124,8 @@ export default function PedidoPage() {
       {awaiting && !intent ? (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="body">
-            <h3>Pagamento</h3>
-            <p className="muted">Escolha o método (MVP: PIX ou cartão).</p>
+            <h3>Pagamento (SCH-003)</h3>
+            <p className="muted">Escolha o método (MVP: PIX ou cartão). Intent em rota separada.</p>
             <label style={{ display: 'block', marginBottom: 8 }}>
               <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX
             </label>
@@ -132,10 +133,25 @@ export default function PedidoPage() {
               <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão
             </label>
             {method === 'card' ? (
-              <p className="muted" style={{ fontSize: 14 }}>
-                Com Mercado Pago real, o Checkout Bricks tokeniza o cartão no cliente.
-                Em modo <code>null</code> a intent é criada sem PAN/CVV.
-              </p>
+              <div style={{ marginBottom: 12 }}>
+                {MP_PUBLIC_KEY ? (
+                  <p className="muted" style={{ fontSize: 14 }}>
+                    Public key configurada. Monte o Checkout Bricks no cliente e cole o token abaixo
+                    (API nunca recebe PAN/CVV).
+                  </p>
+                ) : (
+                  <p className="muted" style={{ fontSize: 14 }}>
+                    Sem <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code>: em <code>PAYMENTS_PROVIDER=null</code>
+                    a intent de cartão funciona sem token. Com Mercado Pago real, informe o cardToken do Bricks.
+                  </p>
+                )}
+                <input
+                  placeholder="cardToken (Bricks) — opcional no provider null"
+                  value={cardToken}
+                  onChange={(e) => setCardToken(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
             ) : null}
             <button className="btn" disabled={paying} onClick={createIntent}>
               {paying ? 'Gerando pagamento...' : 'Pagar agora'}
@@ -160,7 +176,7 @@ export default function PedidoPage() {
                 {simulating ? 'Confirmando...' : 'Simular aprovação (dev / provider null)'}
               </button>
             ) : null}
-            {o.status === 'paid' ? <p style={{ color: 'green' }}>Pedido pago. Estoque confirmado.</p> : null}
+            {o.status === 'paid' ? <p style={{ color: 'green' }}>Pedido pago. Estoque confirmado (commitSale).</p> : null}
           </div>
         </div>
       ) : null}
