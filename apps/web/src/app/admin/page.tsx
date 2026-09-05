@@ -148,6 +148,29 @@ const emptyBannerForm = (): BannerForm => ({
   active: true,
 });
 
+type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+type AdminUserForm = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+const emptyAdminUserForm = (): AdminUserForm => ({
+  name: '',
+  email: '',
+  password: '',
+});
+
+
 type AdminReview = {
   id: string;
   rating: number;
@@ -294,6 +317,10 @@ export default function AdminPage() {
   const [savingBanner, setSavingBanner] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerBusyId, setBannerBusyId] = useState<string | null>(null);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [adminForm, setAdminForm] = useState<AdminUserForm>(emptyAdminUserForm());
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -313,8 +340,9 @@ export default function AdminPage() {
       api<AdminReview[]>('/admin/reviews'),
       api<StoreSeoSettings>('/admin/store/settings'),
       api<AdminBanner[]>('/admin/banners'),
+      api<AdminUser[]>('/admin/admins'),
     ])
-      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList]) => {
+      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
@@ -333,6 +361,7 @@ export default function AdminPage() {
           ogImageUrl: seo.ogImageUrl || '',
         });
         setBanners(bannersList);
+        setAdmins(adminsList);
         setErr('');
       })
       .catch((e) => setErr(e.message));
@@ -872,6 +901,67 @@ export default function AdminPage() {
     }
   }
 
+
+  async function saveAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingAdmin(true);
+    setErr('');
+    setMsg('');
+    const name = adminForm.name.trim();
+    const email = adminForm.email.trim().toLowerCase();
+    const password = adminForm.password;
+    if (!name || !email || !password) {
+      setErr('Informe nome, e-mail e senha do administrador.');
+      setSavingAdmin(false);
+      return;
+    }
+    if (password.length < 8) {
+      setErr('A senha deve ter pelo menos 8 caracteres (letras e números).');
+      setSavingAdmin(false);
+      return;
+    }
+    try {
+      await api('/admin/admins', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password }),
+      });
+      setMsg('Administrador criado. A pessoa já pode entrar em /admin com esse e-mail e senha.');
+      setAdminForm(emptyAdminUserForm());
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao criar administrador');
+    } finally {
+      setSavingAdmin(false);
+    }
+  }
+
+  async function toggleAdminStatus(a: AdminUser) {
+    const me = currentUser();
+    if (me?.id === a.id && a.status === 'active') {
+      setErr('Você não pode desativar a si mesmo.');
+      return;
+    }
+    const next = a.status === 'active' ? 'blocked' : 'active';
+    const label = next === 'blocked' ? 'desativar' : 'reativar';
+    if (!confirm(`Confirma ${label} o admin ${a.email}?`)) return;
+    setAdminBusyId(a.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/admins/${a.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: next }),
+      });
+      setMsg(next === 'blocked' ? 'Administrador desativado.' : 'Administrador reativado.');
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao atualizar administrador');
+    } finally {
+      setAdminBusyId(null);
+    }
+  }
+
+
   return (
     <div style={{ padding: '24px 0' }}>
       <h1>Admin Schimitz</h1>
@@ -882,6 +972,99 @@ export default function AdminPage() {
       {msg ? <div className="ok">{msg}</div> : null}
 
 
+
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Administradores</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Crie contas extras para a equipe. Todas têm o mesmo acesso ao painel. Desativar impede o login
+            (não apaga o cadastro). Você não pode desativar a si mesmo nem o último admin ativo.
+          </p>
+          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveAdmin}>
+            <label>
+              Nome *
+              <input
+                value={adminForm.name}
+                onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
+                placeholder="Ex.: Maria Schimitz"
+                required
+              />
+            </label>
+            <label>
+              E-mail *
+              <input
+                type="email"
+                value={adminForm.email}
+                onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                placeholder="admin2@loja.com"
+                required
+              />
+            </label>
+            <label>
+              Senha * (mín. 8, letras e números)
+              <input
+                type="password"
+                value={adminForm.password}
+                onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                placeholder="••••••••"
+                minLength={8}
+                required
+                autoComplete="new-password"
+              />
+            </label>
+            <button className="btn" type="submit" disabled={savingAdmin}>
+              {savingAdmin ? 'Salvando...' : 'Criar administrador'}
+            </button>
+          </form>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {admins.map((a) => {
+              const me = currentUser();
+              const isMe = me?.id === a.id;
+              const active = a.status === 'active';
+              return (
+                <div
+                  key={a.id}
+                  className="row"
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    flexWrap: 'wrap',
+                    opacity: active ? 1 : 0.7,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <b>{a.name}</b>{' '}
+                    {isMe ? <span className="badge">Você</span> : null}
+                    {!active ? <span className="badge">Desativado</span> : null}
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      {a.email}
+                      {' · '}
+                      desde {new Date(a.createdAt).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={adminBusyId === a.id || (isMe && active)}
+                    onClick={() => void toggleAdminStatus(a)}
+                    title={isMe && active ? 'Você não pode desativar a si mesmo' : undefined}
+                  >
+                    {adminBusyId === a.id ? '...' : active ? 'Desativar' : 'Reativar'}
+                  </button>
+                </div>
+              );
+            })}
+            {!admins.length ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Nenhum administrador listado.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">

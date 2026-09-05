@@ -28,6 +28,7 @@ import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
 import { AdminSalesReportService } from './admin-sales-report.service';
+import { AdminUsersService } from './admin-users.service';
 import {
   AdminCreateCouponDto,
   AdminCreateProductDto,
@@ -43,6 +44,8 @@ import {
   AdminCreateBannerDto,
   AdminUpdateBannerDto,
   AdminReorderBannersDto,
+  AdminCreateAdminDto,
+  AdminUpdateAdminStatusDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -69,7 +72,28 @@ export class AdminController {
     private readonly salesReports: AdminSalesReportService,
     private readonly reviews: ReviewsService,
     private readonly storefront: StorefrontService,
+    private readonly adminUsers: AdminUsersService,
   ) {}
+
+
+  @Get('admins')
+  async listAdmins() {
+    return ok(await this.adminUsers.listAdmins());
+  }
+
+  @Post('admins')
+  async createAdmin(@CurrentUser('sub') actorId: string, @Body() dto: AdminCreateAdminDto) {
+    return ok(await this.adminUsers.createAdmin(actorId, dto));
+  }
+
+  @Patch('admins/:id/status')
+  async updateAdminStatus(
+    @CurrentUser('sub') actorId: string,
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateAdminStatusDto,
+  ) {
+    return ok(await this.adminUsers.setStatus(actorId, id, dto.status));
+  }
 
   @Get('reports/sales')
   async getSalesReport(@Query() query: AdminSalesReportQueryDto) {

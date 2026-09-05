@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsEmail,
   IsIn,
   IsInt,
   IsNumber,
@@ -435,4 +436,26 @@ export class AdminReorderBannersDto {
   @IsArray()
   @IsString({ each: true })
   orderedIds!: string[];
+}
+
+/** Admin: criar outro administrador */
+export class AdminCreateAdminDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsString()
+  @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, { message: 'Senha deve ter letras e números' })
+  password!: string;
+}
+
+/** Admin: ativar/desativar administrador (status active|blocked) */
+export class AdminUpdateAdminStatusDto {
+  @IsIn(['active', 'blocked'])
+  status!: 'active' | 'blocked';
 }

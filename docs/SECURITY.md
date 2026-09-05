@@ -9,5 +9,6 @@
 - Rate limit (Throttler)
 - Helmet
 - Roles: customer / admin (seller reservado)
+- Multi-admin: qualquer `role=admin` + `status=active` acessa o painel; desativar = `status=blocked` (não apaga). Não desativa a si mesmo nem o último admin ativo. Senhas com argon2 (igual ao login).
 - Logs com request-id; sem senha/token
 - HTTPS obrigatório em staging e production

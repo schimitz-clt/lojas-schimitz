@@ -51,4 +51,5 @@ Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `
 
 WhatsApp do admin: botões `wa.me` (pago/enviado) — sem Cloud API. Número da loja: `NEXT_PUBLIC_WHATSAPP`.
 Banners/SEO: admin em `/admin` (SEO + banners); ver `docs/SEO-BANNERS.md`.
+Multi-admin: em `/admin` (seção Administradores) — criar/listar/desativar outros admins (`GET/POST /admin/admins`, `PATCH /admin/admins/:id/status`).
 Chat IA: widget em http://localhost:3000 e POST /api/v1/chat. Env opcional OPENAI_API_KEY, CHAT_API_BASE, CHAT_MODEL. Sem chave = FAQ + WhatsApp. Ver docs/CHAT.md.

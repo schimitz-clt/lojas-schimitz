@@ -52,4 +52,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/POST | `/admin/banners` | admin |
 | PATCH | `/admin/banners/reorder` body `{ orderedIds: string[] }` | admin |
 | PATCH/DELETE | `/admin/banners/:id` | admin |
+| GET | `/admin/admins` → lista usuários role=admin | admin |
+| POST | `/admin/admins` body `{ email, name, password }` (argon2) | admin |
+| PATCH | `/admin/admins/:id/status` body `{ status: "active"|"blocked" }` — não desativa a si mesmo / último admin ativo; ao desativar revoga refresh tokens | admin |
 | POST | `/chat` body `{ message, conversationId? }` → reply + handoff WhatsApp + produtos reais | público (20/min) |

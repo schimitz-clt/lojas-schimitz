@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AdminController } from './admin.controller';
 import { AdminProductsService } from './admin-products.service';
 import { AdminSalesReportService } from './admin-sales-report.service';
+import { AdminUsersService } from './admin-users.service';
 import { OrdersModule } from '../orders/orders.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { CouponsModule } from '../coupons/coupons.module';
@@ -21,6 +22,6 @@ import { StorefrontModule } from '../storefront/storefront.module';
     StorefrontModule,
   ],
   controllers: [AdminController],
-  providers: [AdminProductsService, AdminSalesReportService],
+  providers: [AdminProductsService, AdminSalesReportService, AdminUsersService],
 })
 export class AdminModule {}
