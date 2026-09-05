@@ -186,7 +186,7 @@ export default function CheckoutPage() {
             <>
               <p style={{ marginBottom: 4 }}>
                 {freight.price === 0
-                  ? `Frete grátis (pedidos a partir de ${brl(freight.freeAbove)})`
+                  ? 'Frete grátis'
                   : `Frete: ${brl(freight.price)}`}
                 {' · '}
                 prazo estimado: {freight.days} dia{freight.days === 1 ? '' : 's'}

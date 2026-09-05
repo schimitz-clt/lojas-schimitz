@@ -10,7 +10,8 @@ export const STORE_CATEGORIES = 'eletro, celulares, informática, eletrodomésti
 export const PIX_DISCOUNT_PCT = 5;
 export const INSTALLMENTS = 12;
 export const INSTALLMENTS_PROVIDER = 'Mercado Pago';
-export const FREE_SHIPPING_ABOVE = 299;
+/** Frete grátis em Porto Alegre (CEP prefixo 90); fora, taxa padrão. */
+export const FREE_SHIPPING_REGION = 'Porto Alegre';
 export const DELIVERY_FLOW = 'Separando → Saiu para entrega → Entregue';
 export const CASHBACK_LABEL = 'SCHIMITZ+';
 export const CASHBACK_RATE_PCT = 1;
@@ -31,7 +32,7 @@ export function storeFactsBlock() {
     `${STORE_NAME} — ${STORE_CATEGORIES}. Loja em ${STORE_CITY}.`,
     `PIX: ${PIX_DISCOUNT_PCT}% de desconto à vista.`,
     `Cartão: até ${INSTALLMENTS}x via ${INSTALLMENTS_PROVIDER}.`,
-    `Frete grátis acima de R$ ${FREE_SHIPPING_ABOVE} (entrega própria).`,
+    `Frete grátis em ${FREE_SHIPPING_REGION} (CEP iniciando em 90; entrega própria). Fora de Porto Alegre, aplica-se a taxa padrão.`,
     `Acompanhamento do pedido (entrega própria): ${DELIVERY_FLOW}.`,
     `Cupons no checkout + cashback ${CASHBACK_LABEL} (cerca de ${CASHBACK_RATE_PCT}% em compras pagas).`,
     `Troca em ${RETURN_DAYS} dias, conforme regras da loja.`,

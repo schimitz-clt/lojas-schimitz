@@ -11,7 +11,7 @@ export function Header() {
 
   return (
     <>
-      <div className="topbar">LOJAS SCHIMITZ · OFERTAS TODO DIA · 12x · 5% OFF NO PIX · FRETE GRÁTIS ACIMA DE R$ 299</div>
+      <div className="topbar">LOJAS SCHIMITZ · OFERTAS TODO DIA · 12x · 5% OFF NO PIX · FRETE GRÁTIS EM PORTO ALEGRE</div>
       <header className="header">
         <div className="wrap">
           <div className="header-row">

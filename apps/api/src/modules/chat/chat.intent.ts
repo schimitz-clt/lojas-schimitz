@@ -75,7 +75,7 @@ export function faqReply(message: string): string | null {
   if (pix) bits.push('No PIX você tem 5% de desconto à vista.');
   if (card) bits.push('Dá para parcelar em até 12x pelo Mercado Pago.');
   if (ship) {
-    bits.push('Frete grátis em compras acima de R$ 299. Entrega própria: Separando → Saiu para entrega → Entregue.');
+    bits.push('Frete grátis em Porto Alegre (CEP iniciando em 90). Entrega própria: Separando → Saiu para entrega → Entregue.');
   }
   if (track) {
     bits.push('Acompanhe o pedido na sua conta. A entrega própria segue: Separando → Saiu para entrega → Entregue.');
@@ -98,7 +98,7 @@ export function noLlmFallbackReply(opts: { faq: string | null; hasProducts: bool
   if (opts.hasProducts) {
     return 'Encontrei estes itens no catálogo atual. Os preços são os da loja — não invento produto que não esteja listado. Quer que eu detalhe algum, ou prefere falar no WhatsApp (51) 99625-3766?';
   }
-  return 'No momento o assistente automático está limitado. Posso confirmar políticas da loja (PIX 5% off, 12x no Mercado Pago, frete grátis acima de R$ 299, SCHIMITZ+) ou te passar para um atendente no WhatsApp (51) 99625-3766.';
+  return 'No momento o assistente automático está limitado. Posso confirmar políticas da loja (PIX 5% off, 12x no Mercado Pago, frete grátis em Porto Alegre, SCHIMITZ+) ou te passar para um atendente no WhatsApp (51) 99625-3766.';
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
