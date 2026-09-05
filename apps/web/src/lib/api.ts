@@ -89,8 +89,11 @@ export function currentUser(): SessionUser | null {
 
 /** Label for header/account UI when name may be missing. */
 export function userAccountLabel(user: SessionUser): string {
-  const first = user.name?.trim().split(/\s+/)[0];
-  if (first) return first;
+  const parts = user.name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const first = parts[0];
+  if (first && first.toLowerCase() !== 'admin') return first;
+  // Avoid showing "Admin" when the person's name starts with that word.
+  if (parts[1]) return parts[1];
   const local = user.email?.split('@')[0]?.trim();
   if (local) return local;
   return 'Conta';
