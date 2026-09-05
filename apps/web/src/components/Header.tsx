@@ -20,6 +20,7 @@ export function Header() {
               <input placeholder="Buscar TVs, celulares, notebooks..." value={q} onChange={(e) => setQ(e.target.value)} />
             </form>
             <div className="actions">
+              {user?.role === 'admin' ? <Link className="btn ghost" href="/admin">Admin</Link> : null}
               <Link className="btn ghost" href="/favoritos">Favoritos</Link>
               <Link className="btn ghost" href="/carrinho">Sacola</Link>
               <Link className="btn ghost" href={user ? '/conta' : '/entrar'}>{user ? user.name.split(' ')[0] : 'Entrar'}</Link>

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -7,6 +7,8 @@ import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
 import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto } from '../orders/dto';
+import { AdminProductsService } from './admin-products.service';
+import { AdminCreateProductDto, AdminUpdateProductDto } from './dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -15,6 +17,7 @@ export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(OrdersService) private readonly orders: OrdersService,
+    private readonly productsService: AdminProductsService,
   ) {}
 
   @Get('orders')
@@ -38,9 +41,24 @@ export class AdminController {
 
   @Get('products')
   async products() {
-    const data = await this.prisma.product.findMany({
-      include: { inventory: true, images: true },
-      orderBy: { createdAt: 'desc' },
+    return ok(await this.productsService.list());
+  }
+
+  @Post('products')
+  async createProduct(@Body() dto: AdminCreateProductDto) {
+    return ok(await this.productsService.create(dto));
+  }
+
+  @Patch('products/:id')
+  async updateProduct(@Param('id') id: string, @Body() dto: AdminUpdateProductDto) {
+    return ok(await this.productsService.update(id, dto));
+  }
+
+  @Get('categories')
+  async categories() {
+    const data = await this.prisma.category.findMany({
+      where: { active: true },
+      orderBy: { sort: 'asc' },
     });
     return ok(data);
   }

@@ -57,7 +57,10 @@ export default function ContaPage() {
       {user ? <p className="muted">{user.name} · {user.email} · {user.role}</p> : null}
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
-      <p><Link href="/pedidos">Meus pedidos</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link></p>
+      <p>
+        <Link href="/pedidos">Meus pedidos</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
+        {user?.role === 'admin' ? <> · <Link href="/admin">Admin da loja</Link></> : null}
+      </p>
       <h3>Endereços</h3>
       {addresses.map((a) => (
         <div key={a.id} className="card" style={{ marginBottom: 8 }}>
