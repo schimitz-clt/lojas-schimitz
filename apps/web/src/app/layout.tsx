@@ -1,5 +1,6 @@
 import './globals.css';
 import { Header } from '@/components/Header';
+import { ChatWidget } from '@/components/ChatWidget';
 
 export const metadata = {
   title: { default: 'Lojas Schimitz', template: '%s | Lojas Schimitz' },
@@ -21,11 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="wrap">{children}</main>
         <footer className="footer">
           <div className="wrap">
-            <p><b>Sobre a Lojas Schimitz</b> — eletro, celulares, informática, eletrodomésticos e casa. Atendimento humano no WhatsApp (51) 99625-3766.</p>
+            <p><b>Sobre a Lojas Schimitz</b> — eletro, celulares, informática, eletrodomésticos e casa em Porto Alegre. Atendimento humano no WhatsApp (51) 99625-3766.</p>
             <p>Frete grátis acima de R$ 299 · Troca em 7 dias · PIX 5% off · 12x sem juros*</p>
-            <p>A vitrine Netlify atual permanece no ar até a migração autorizada.</p>
+            <p>Loja própria · assistente no site · WhatsApp (51) 99625-3766</p>
           </div>
         </footer>
+        <ChatWidget />
       </body>
     </html>
   );

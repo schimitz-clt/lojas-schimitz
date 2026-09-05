@@ -46,3 +46,4 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
 | PATCH | `/admin/orders/:id/status` body `{ "status": "separating"|"shipped"|"delivered" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
+| POST | `/chat` body `{ message, conversationId? }` → reply + handoff WhatsApp + produtos reais | público (20/min) |

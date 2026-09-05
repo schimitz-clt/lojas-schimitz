@@ -77,3 +77,9 @@ NEXT_PUBLIC_WHATSAPP=5551996253766
 
 Os botões do admin (`Avisar no WhatsApp`, `Cliente pagou — abrir WhatsApp`)
 abrem `wa.me` com a mensagem pronta. Detalhes: `docs/WHATSAPP.md`.
+
+## Chat IA (Phase 1)
+
+No servico da API (opcional): OPENAI_API_KEY ou CHAT_API_KEY, CHAT_API_BASE, CHAT_MODEL.
+Sem chave o widget continua: FAQ das politicas + link WhatsApp.
+Rate limit proprio 20/min. Ver docs/CHAT.md.

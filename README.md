@@ -2,7 +2,7 @@
 
 Plataforma própria. **SCH-001 fundação + SCH-002 hardening.**
 
-A vitrine Netlify atual **permanece no ar**.
+Loja Next.js no ar. Chat IA Phase 1 no site (FAQ + catalogo + WhatsApp).
 
 - Vitrine: https://tangerine-kulfi-2a165e.netlify.app
 - Este repo: API NestJS + Prisma + loja Next.js
@@ -21,6 +21,7 @@ A vitrine Netlify atual **permanece no ar**.
 | Pagamento Mercado Pago | TODO SCH-003 |
 | Frete real | TODO SCH-004 |
 | Admin profissional | TODO SCH-005 |
+| Chat IA (widget + POST /chat) | Phase 1 |
 
 ## Subir no computador
 
@@ -46,6 +47,7 @@ npm run dev
 - Loja: http://localhost:3000
 - Checkout: http://localhost:3000/checkout
 
-Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/WHATSAPP.md`.
+Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/WHATSAPP.md`, `docs/CHAT.md`.
 
 WhatsApp do admin: botões `wa.me` (pago/enviado) — sem Cloud API. Número da loja: `NEXT_PUBLIC_WHATSAPP`.
+Chat IA: widget em http://localhost:3000 e POST /api/v1/chat. Env opcional OPENAI_API_KEY, CHAT_API_BASE, CHAT_MODEL. Sem chave = FAQ + WhatsApp. Ver docs/CHAT.md.

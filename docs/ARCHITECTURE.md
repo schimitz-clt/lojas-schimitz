@@ -24,3 +24,5 @@ A vitrine Netlify atual continua publicada. Este monorepo é a fundação da pla
 
 development / staging / production via `APP_ENV`.
 Secrets apenas em variáveis de ambiente.
+
+Chat Phase 1: widget na loja + POST /chat. Detalhes em docs/CHAT.md. Sem chave LLM o endpoint responde FAQ + WhatsApp.
