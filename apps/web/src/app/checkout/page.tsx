@@ -7,6 +7,15 @@ type Address = { id: string; label: string; street: string; number: string; city
 type Cart = { items: { id: string; name: string; qty: number; price: number; lineTotal: number }[]; subtotal: number };
 type CouponPreview = { code: string; discount: number; finalSubtotal: number };
 type Loyalty = { balance: number; label: string; rate: number };
+type FreightQuote = {
+  price: number;
+  days: number;
+  carrier: string;
+  modality: string;
+  matchedPrefix: string | null;
+  label: string | null;
+  freeAbove: number;
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -18,6 +27,9 @@ export default function CheckoutPage() {
   const [couponErr, setCouponErr] = useState('');
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
   const [cashbackAmount, setCashbackAmount] = useState('');
+  const [freight, setFreight] = useState<FreightQuote | null>(null);
+  const [freightErr, setFreightErr] = useState('');
+  const [freightLoading, setFreightLoading] = useState(false);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -34,6 +46,41 @@ export default function CheckoutPage() {
     }).catch(() => {});
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, [router]);
+
+  useEffect(() => {
+    if (!cart || !addressId) {
+      setFreight(null);
+      setFreightErr('');
+      return;
+    }
+    const addr = addresses.find((a) => a.id === addressId);
+    if (!addr?.cep) {
+      setFreight(null);
+      return;
+    }
+    let cancelled = false;
+    setFreightLoading(true);
+    setFreightErr('');
+    api<FreightQuote>('/shipping/quote', {
+      method: 'POST',
+      body: JSON.stringify({ cep: addr.cep, subtotal: cart.subtotal }),
+    })
+      .then((q) => {
+        if (!cancelled) setFreight(q);
+      })
+      .catch((e: any) => {
+        if (!cancelled) {
+          setFreight(null);
+          setFreightErr(e.message || 'Não foi possível calcular o frete');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFreightLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cart, addressId, addresses]);
 
   async function applyCoupon() {
     if (!cart || !coupon.trim()) {
@@ -106,12 +153,15 @@ export default function CheckoutPage() {
   const couponDiscount = couponPreview?.discount ?? 0;
   const cashbackNum = Math.max(0, Number(String(cashbackAmount).replace(',', '.')) || 0);
   const cashbackApplied = Math.min(cashbackNum, Math.max(0, cart.subtotal - couponDiscount));
-  const estimated = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied);
+  const freightPrice = freight?.price ?? 0;
+  const estimated = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
 
   return (
     <div style={{ padding: '24px 0' }}>
       <h1>Checkout</h1>
-      <p className="muted">O total é calculado no servidor. O valor da tela é apenas estimativa (frete à parte).</p>
+      <p className="muted">
+        O total definitivo é confirmado no servidor. Abaixo você já vê a estimativa de frete da entrega própria.
+      </p>
       {err ? <div className="alert">{err}</div> : null}
       {cart.items.map((i) => (
         <div key={i.id} className="card" style={{ marginBottom: 8 }}>
@@ -121,13 +171,39 @@ export default function CheckoutPage() {
       <p>Subtotal estimado {brl(cart.subtotal)}</p>
       {couponPreview ? <p className="ok">Cupom {couponPreview.code}: −{brl(couponPreview.discount)}</p> : null}
       {cashbackApplied > 0 ? <p>SCHIMITZ+: −{brl(cashbackApplied)}</p> : null}
-      <p><b>Estimativa (sem frete): {brl(estimated)}</b></p>
       <label>Endereço</label>
       <select value={addressId} onChange={(e) => setAddressId(e.target.value)}>
         {addresses.map((a) => (
-          <option key={a.id} value={a.id}>{a.label} — {a.street}, {a.number} — {a.city}/{a.uf}</option>
+          <option key={a.id} value={a.id}>{a.label} — {a.street}, {a.number} — {a.city}/{a.uf} · CEP {a.cep}</option>
         ))}
       </select>
+      <div className="card" style={{ marginTop: 12, marginBottom: 8 }}>
+        <div className="body">
+          <b>Frete (entrega própria)</b>
+          {freightLoading ? <p className="muted" style={{ marginBottom: 0 }}>Calculando frete...</p> : null}
+          {freightErr ? <div className="alert" style={{ marginTop: 8 }}>{freightErr}</div> : null}
+          {!freightLoading && freight ? (
+            <>
+              <p style={{ marginBottom: 4 }}>
+                {freight.price === 0
+                  ? `Frete grátis (pedidos a partir de ${brl(freight.freeAbove)})`
+                  : `Frete: ${brl(freight.price)}`}
+                {' · '}
+                prazo estimado: {freight.days} dia{freight.days === 1 ? '' : 's'}
+              </p>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+                {freight.label
+                  ? `Zona: ${freight.label}${freight.matchedPrefix ? ` (CEP ${freight.matchedPrefix}…)` : ''}`
+                  : freight.matchedPrefix
+                    ? `Regra de CEP ${freight.matchedPrefix}…`
+                    : 'Taxa padrão da loja (sem zona específica para este CEP).'}
+              </p>
+            </>
+          ) : null}
+          {!addressId ? <p className="muted" style={{ marginBottom: 0 }}>Selecione um endereço para ver o frete.</p> : null}
+        </div>
+      </div>
+      <p><b>Estimativa total: {brl(estimated)}</b></p>
       <div style={{ marginTop: 12 }}>
         <label>Cupom (opcional)</label>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>

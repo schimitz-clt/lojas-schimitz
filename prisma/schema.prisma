@@ -352,3 +352,32 @@ model IdempotencyRecord {
 
   @@index([userId])
 }
+
+/** Frete própria (entrega do lojista) — configuração global. */
+model ShippingSettings {
+  id          String   @id @default("default")
+  /** Frete grátis a partir deste subtotal (BRL). */
+  freeAbove   Decimal  @db.Decimal(12, 2)
+  /** Taxa padrão quando nenhuma zona de CEP casa. */
+  defaultFee  Decimal  @db.Decimal(12, 2)
+  /** Prazo padrão em dias úteis estimados. */
+  defaultDays Int      @default(5)
+  updatedAt   DateTime @updatedAt
+}
+
+/** Regra de frete por prefixo de CEP (1–8 dígitos). Prefixo mais longo vence. */
+model ShippingCepRule {
+  id            String   @id @default(uuid())
+  /** Somente dígitos, ex.: "890" ou "89010". */
+  cepPrefix     String
+  fee           Decimal  @db.Decimal(12, 2)
+  estimatedDays Int      @default(5)
+  label         String?
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([cepPrefix])
+  @@index([active])
+}

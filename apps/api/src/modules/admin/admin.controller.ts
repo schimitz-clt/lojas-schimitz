@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -29,12 +30,16 @@ import { AdminProductsService } from './admin-products.service';
 import {
   AdminCreateCouponDto,
   AdminCreateProductDto,
+  AdminCreateShippingCepRuleDto,
   AdminOrdersQueryDto,
   AdminProductsQueryDto,
   AdminUpdateCouponDto,
   AdminUpdateProductDto,
+  AdminUpdateShippingCepRuleDto,
+  AdminUpdateShippingSettingsDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
+import { ShippingService } from '../shipping/shipping.service';
 import {
   UPLOAD_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
@@ -51,6 +56,7 @@ export class AdminController {
     private readonly productsService: AdminProductsService,
     private readonly uploads: UploadsService,
     private readonly coupons: CouponsService,
+    private readonly shipping: ShippingService,
   ) {}
 
   @Get('orders')
@@ -115,6 +121,32 @@ export class AdminController {
   @Patch('coupons/:id')
   async updateCoupon(@Param('id') id: string, @Body() dto: AdminUpdateCouponDto) {
     return ok(await this.coupons.updateAdmin(id, dto));
+  }
+
+
+  @Get('shipping')
+  async shippingConfig() {
+    return ok(await this.shipping.getAdminConfig());
+  }
+
+  @Patch('shipping/settings')
+  async updateShippingSettings(@Body() dto: AdminUpdateShippingSettingsDto) {
+    return ok(await this.shipping.updateSettings(dto));
+  }
+
+  @Post('shipping/rules')
+  async createShippingRule(@Body() dto: AdminCreateShippingCepRuleDto) {
+    return ok(await this.shipping.createRule(dto));
+  }
+
+  @Patch('shipping/rules/:id')
+  async updateShippingRule(@Param('id') id: string, @Body() dto: AdminUpdateShippingCepRuleDto) {
+    return ok(await this.shipping.updateRule(id, dto));
+  }
+
+  @Delete('shipping/rules/:id')
+  async deleteShippingRule(@Param('id') id: string) {
+    return ok(await this.shipping.deleteRule(id));
   }
 
   /**

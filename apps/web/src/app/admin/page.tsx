@@ -83,6 +83,48 @@ type CouponForm = {
   active: boolean;
 };
 
+
+type ShippingSettings = {
+  id: string;
+  freeAbove: number;
+  defaultFee: number;
+  defaultDays: number;
+};
+
+type ShippingCepRule = {
+  id: string;
+  cepPrefix: string;
+  fee: number;
+  estimatedDays: number;
+  label: string | null;
+  active: boolean;
+  sortOrder: number;
+};
+
+type ShippingConfig = { settings: ShippingSettings; rules: ShippingCepRule[] };
+
+type ShippingSettingsForm = {
+  freeAbove: string;
+  defaultFee: string;
+  defaultDays: string;
+};
+
+type CepRuleForm = {
+  cepPrefix: string;
+  fee: string;
+  estimatedDays: string;
+  label: string;
+  active: boolean;
+};
+
+const emptyCepRuleForm = (): CepRuleForm => ({
+  cepPrefix: '',
+  fee: '',
+  estimatedDays: '5',
+  label: '',
+  active: true,
+});
+
 const emptyCouponForm = (): CouponForm => ({
   code: '',
   type: 'percent',
@@ -138,6 +180,16 @@ export default function AdminPage() {
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [couponForm, setCouponForm] = useState<CouponForm>(emptyCouponForm);
   const [savingCoupon, setSavingCoupon] = useState(false);
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings | null>(null);
+  const [shippingRules, setShippingRules] = useState<ShippingCepRule[]>([]);
+  const [shippingForm, setShippingForm] = useState<ShippingSettingsForm>({
+    freeAbove: '299',
+    defaultFee: '19,90',
+    defaultDays: '5',
+  });
+  const [cepRuleForm, setCepRuleForm] = useState<CepRuleForm>(emptyCepRuleForm());
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [savingCepRule, setSavingCepRule] = useState(false);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -153,12 +205,20 @@ export default function AdminPage() {
       api<AdminOrder[]>(ordersPath),
       api<Category[]>('/admin/categories'),
       api<AdminCoupon[]>('/admin/coupons'),
+      api<ShippingConfig>('/admin/shipping'),
     ])
-      .then(([p, o, c, couponsList]) => {
+      .then(([p, o, c, couponsList, shipping]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
         setCoupons(couponsList);
+        setShippingSettings(shipping.settings);
+        setShippingRules(shipping.rules);
+        setShippingForm({
+          freeAbove: String(shipping.settings.freeAbove).replace('.', ','),
+          defaultFee: String(shipping.settings.defaultFee).replace('.', ','),
+          defaultDays: String(shipping.settings.defaultDays),
+        });
         setErr('');
       })
       .catch((e) => setErr(e.message));
@@ -357,6 +417,113 @@ export default function AdminPage() {
       await load();
     } catch (e: any) {
       setErr(e.message || 'Falha ao atualizar cupom');
+    }
+  }
+
+  async function saveShippingSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingShipping(true);
+    setErr('');
+    setMsg('');
+    const freeAbove = Number(String(shippingForm.freeAbove).replace(',', '.'));
+    const defaultFee = Number(String(shippingForm.defaultFee).replace(',', '.'));
+    const defaultDays = Number.parseInt(shippingForm.defaultDays, 10);
+    if (Number.isNaN(freeAbove) || freeAbove < 0) {
+      setErr('Informe um valor válido para frete grátis a partir de.');
+      setSavingShipping(false);
+      return;
+    }
+    if (Number.isNaN(defaultFee) || defaultFee < 0) {
+      setErr('Informe uma taxa padrão válida.');
+      setSavingShipping(false);
+      return;
+    }
+    if (Number.isNaN(defaultDays) || defaultDays < 1) {
+      setErr('Prazo padrão deve ser pelo menos 1 dia.');
+      setSavingShipping(false);
+      return;
+    }
+    try {
+      await api('/admin/shipping/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ freeAbove, defaultFee, defaultDays }),
+      });
+      setMsg('Configuração de frete salva.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao salvar frete');
+    } finally {
+      setSavingShipping(false);
+    }
+  }
+
+  async function saveCepRule(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingCepRule(true);
+    setErr('');
+    setMsg('');
+    const fee = Number(String(cepRuleForm.fee).replace(',', '.'));
+    const estimatedDays = Number.parseInt(cepRuleForm.estimatedDays, 10);
+    const cepPrefix = cepRuleForm.cepPrefix.replace(/\D/g, '');
+    if (!cepPrefix) {
+      setErr('Informe o prefixo do CEP (somente números).');
+      setSavingCepRule(false);
+      return;
+    }
+    if (Number.isNaN(fee) || fee < 0) {
+      setErr('Taxa da zona inválida.');
+      setSavingCepRule(false);
+      return;
+    }
+    if (Number.isNaN(estimatedDays) || estimatedDays < 1) {
+      setErr('Prazo estimado inválido.');
+      setSavingCepRule(false);
+      return;
+    }
+    try {
+      await api('/admin/shipping/rules', {
+        method: 'POST',
+        body: JSON.stringify({
+          cepPrefix,
+          fee,
+          estimatedDays,
+          label: cepRuleForm.label.trim() || null,
+          active: cepRuleForm.active,
+        }),
+      });
+      setMsg('Zona de CEP criada.');
+      setCepRuleForm(emptyCepRuleForm());
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao criar zona de CEP');
+    } finally {
+      setSavingCepRule(false);
+    }
+  }
+
+  async function toggleCepRule(r: ShippingCepRule) {
+    setErr('');
+    try {
+      await api(`/admin/shipping/rules/${r.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !r.active }),
+      });
+      setMsg(r.active ? 'Zona desativada.' : 'Zona ativada.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao atualizar zona');
+    }
+  }
+
+  async function removeCepRule(r: ShippingCepRule) {
+    if (!window.confirm(`Remover a zona de CEP ${r.cepPrefix}?`)) return;
+    setErr('');
+    try {
+      await api(`/admin/shipping/rules/${r.id}`, { method: 'DELETE' });
+      setMsg('Zona removida.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao remover zona');
     }
   }
 
@@ -637,6 +804,141 @@ export default function AdminPage() {
               </div>
             ))}
             {!coupons.length ? <p className="muted">Nenhum cupom ainda.</p> : null}
+          </div>
+        </div>
+      </section>
+
+
+      <section className="card" style={{ marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Frete — entrega própria</h2>
+          <p className="muted" style={{ fontSize: 14 }}>
+            Sem Melhor Envio/Correios. Defina frete grátis, taxa padrão e zonas por prefixo de CEP
+            (ex.: 890 = região; 89010 = mais específico). O prefixo mais longo vence.
+          </p>
+          <form onSubmit={saveShippingSettings} style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
+            <div className="row" style={{ alignItems: 'stretch' }}>
+              <label style={{ flex: 1 }}>
+                Frete grátis a partir de (R$) *
+                <input
+                  inputMode="decimal"
+                  value={shippingForm.freeAbove}
+                  onChange={(e) => setShippingForm({ ...shippingForm, freeAbove: e.target.value })}
+                  placeholder="299"
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Taxa padrão (R$) *
+                <input
+                  inputMode="decimal"
+                  value={shippingForm.defaultFee}
+                  onChange={(e) => setShippingForm({ ...shippingForm, defaultFee: e.target.value })}
+                  placeholder="19,90"
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Prazo padrão (dias) *
+                <input
+                  inputMode="numeric"
+                  value={shippingForm.defaultDays}
+                  onChange={(e) => setShippingForm({ ...shippingForm, defaultDays: e.target.value })}
+                  placeholder="5"
+                  required
+                />
+              </label>
+            </div>
+            <button className="btn" type="submit" disabled={savingShipping}>
+              {savingShipping ? 'Salvando...' : 'Salvar configuração de frete'}
+            </button>
+            {shippingSettings ? (
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                Atual: grátis ≥ {brl(shippingSettings.freeAbove)} · padrão {brl(shippingSettings.defaultFee)} ·{' '}
+                {shippingSettings.defaultDays} dias
+              </p>
+            ) : null}
+          </form>
+
+          <h3 style={{ fontSize: 16, marginBottom: 8 }}>Zonas por CEP</h3>
+          <form onSubmit={saveCepRule} style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+            <div className="row" style={{ alignItems: 'stretch' }}>
+              <label style={{ flex: 1 }}>
+                Prefixo CEP *
+                <input
+                  value={cepRuleForm.cepPrefix}
+                  onChange={(e) => setCepRuleForm({ ...cepRuleForm, cepPrefix: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                  placeholder="Ex.: 890 ou 89010"
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Taxa (R$) *
+                <input
+                  inputMode="decimal"
+                  value={cepRuleForm.fee}
+                  onChange={(e) => setCepRuleForm({ ...cepRuleForm, fee: e.target.value })}
+                  placeholder="15,00"
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Prazo (dias) *
+                <input
+                  inputMode="numeric"
+                  value={cepRuleForm.estimatedDays}
+                  onChange={(e) => setCepRuleForm({ ...cepRuleForm, estimatedDays: e.target.value })}
+                  placeholder="3"
+                  required
+                />
+              </label>
+            </div>
+            <label>
+              Nome da zona (opcional)
+              <input
+                value={cepRuleForm.label}
+                onChange={(e) => setCepRuleForm({ ...cepRuleForm, label: e.target.value })}
+                placeholder="Ex.: Grande Florianópolis"
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+              <input
+                type="checkbox"
+                checked={cepRuleForm.active}
+                onChange={(e) => setCepRuleForm({ ...cepRuleForm, active: e.target.checked })}
+              />
+              Zona ativa
+            </label>
+            <button className="btn" type="submit" disabled={savingCepRule}>
+              {savingCepRule ? 'Salvando...' : 'Adicionar zona'}
+            </button>
+          </form>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {shippingRules.map((r) => (
+              <div
+                key={r.id}
+                className="row"
+                style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)', flexWrap: 'wrap' }}
+              >
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <b>CEP {r.cepPrefix}…</b>{' '}
+                  {!r.active ? <span className="badge">Inativa</span> : null}
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {brl(r.fee)} · {r.estimatedDays} dia{r.estimatedDays === 1 ? '' : 's'}
+                    {r.label ? ` · ${r.label}` : ''}
+                  </div>
+                </div>
+                <button type="button" className="btn ghost" onClick={() => toggleCepRule(r)}>
+                  {r.active ? 'Desativar' : 'Ativar'}
+                </button>
+                <button type="button" className="btn ghost" onClick={() => removeCepRule(r)}>
+                  Remover
+                </button>
+              </div>
+            ))}
+            {!shippingRules.length ? (
+              <p className="muted">Nenhuma zona ainda. Sem zonas, vale a taxa padrão para todos os CEPs.</p>
+            ) : null}
           </div>
         </div>
       </section>

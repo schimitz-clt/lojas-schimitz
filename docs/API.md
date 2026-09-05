@@ -24,6 +24,12 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` | user |
 | GET | `/orders/:publicId` | user |
 | POST | `/coupons/validate` body `{ code, subtotal }` | user |
+| POST | `/shipping/quote` body `{ cep, subtotal }` | user |
+| GET | `/admin/shipping` | admin |
+| PATCH | `/admin/shipping/settings` body `{ freeAbove, defaultFee, defaultDays }` | admin |
+| POST | `/admin/shipping/rules` body `{ cepPrefix, fee, estimatedDays, label?, active? }` | admin |
+| PATCH | `/admin/shipping/rules/:id` | admin |
+| DELETE | `/admin/shipping/rules/:id` | admin |
 | GET/POST | `/admin/coupons` | admin |
 | PATCH | `/admin/coupons/:id` | admin |
 | GET/POST/DELETE | `/favorites` | user |

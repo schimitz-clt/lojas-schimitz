@@ -165,6 +165,18 @@ async function main() {
     },
   });
 
+
+  await prisma.shippingSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      freeAbove: 299,
+      defaultFee: 19.9,
+      defaultDays: 5,
+    },
+  });
+
   console.log('Seed SCH-001 concluído.');
 }
 

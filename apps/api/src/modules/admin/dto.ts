@@ -247,3 +247,87 @@ export class AdminUpdateCouponDto {
   @IsBoolean()
   active?: boolean;
 }
+
+/** Admin: configuração global de frete própria */
+export class AdminUpdateShippingSettingsDto {
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  freeAbove!: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  defaultFee!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  defaultDays!: number;
+}
+
+/** Admin: criar regra por prefixo de CEP */
+export class AdminCreateShippingCepRuleDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  cepPrefix!: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  fee!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  estimatedDays!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  label?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class AdminUpdateShippingCepRuleDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  cepPrefix?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  fee?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  estimatedDays?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  label?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+}
