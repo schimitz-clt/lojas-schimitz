@@ -57,7 +57,7 @@ export default function ContaPage() {
         <h1>Minha conta</h1>
         <button className="btn ghost" onClick={() => { clearSession(); window.location.href = '/'; }}>Sair</button>
       </div>
-      {user ? <p className="muted">{user.name} · {user.email} · {user.role}</p> : null}
+      {user ? <p className="muted">{user.name?.trim() || user.email || 'Conta'} · {user.email} · {user.role}</p> : null}
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
       <p>

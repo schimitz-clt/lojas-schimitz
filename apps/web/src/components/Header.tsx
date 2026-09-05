@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { currentUser, waLink } from '@/lib/api';
+import { currentUser, userAccountLabel, waLink } from '@/lib/api';
 
 export function Header() {
   const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
@@ -23,7 +23,7 @@ export function Header() {
               {user?.role === 'admin' ? <Link className="btn ghost" href="/admin">Admin</Link> : null}
               <Link className="btn ghost" href="/favoritos">Favoritos</Link>
               <Link className="btn ghost" href="/carrinho">Sacola</Link>
-              <Link className="btn ghost" href={user ? '/conta' : '/entrar'}>{user ? user.name.split(' ')[0] : 'Entrar'}</Link>
+              <Link className="btn ghost" href={user ? '/conta' : '/entrar'}>{user ? userAccountLabel(user) : 'Entrar'}</Link>
               <a className="btn wa" href={waLink()} target="_blank" rel="noreferrer">WhatsApp</a>
             </div>
           </div>

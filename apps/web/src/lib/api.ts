@@ -67,15 +67,33 @@ export function clearSession() {
   localStorage.removeItem('sch_user');
 }
 
-export function currentUser(): { id: string; name: string; email: string; role: string } | null {
+export type SessionUser = { id: string; name: string; email: string; role: string };
+
+export function currentUser(): SessionUser | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('sch_user');
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<SessionUser> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const id = typeof parsed.id === 'string' ? parsed.id.trim() : '';
+    const email = typeof parsed.email === 'string' ? parsed.email.trim() : '';
+    if (!id && !email) return null;
+    const name = typeof parsed.name === 'string' ? parsed.name : '';
+    const role = typeof parsed.role === 'string' && parsed.role ? parsed.role : 'customer';
+    return { id, email, name, role };
   } catch {
     return null;
   }
+}
+
+/** Label for header/account UI when name may be missing. */
+export function userAccountLabel(user: SessionUser): string {
+  const first = user.name?.trim().split(/\s+/)[0];
+  if (first) return first;
+  const local = user.email?.split('@')[0]?.trim();
+  if (local) return local;
+  return 'Conta';
 }
 
 export function brl(n: number | string) {

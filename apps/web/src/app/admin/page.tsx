@@ -713,7 +713,7 @@ export default function AdminPage() {
   }
 
   async function deleteReview(review: AdminReview) {
-    if (!confirm(`Excluir avaliação de ${review.user.name} em "${review.product.name}"?`)) return;
+    if (!confirm(`Excluir avaliação de ${review.user?.name || "usuário"} em "${review.product?.name || "produto"}"?`)) return;
     setReviewBusyId(review.id);
     setErr('');
     setMsg('');
@@ -1686,7 +1686,7 @@ export default function AdminPage() {
                     {r.status === 'hidden' ? <span className="badge">Oculta</span> : <span className="badge">Publicada</span>}
                   </div>
                   <div style={{ marginTop: 4 }}>
-                    <b>{r.user.name}</b>{' '}
+                    <b>{r.user?.name || '—'}</b>{' '}
                     <span className="muted" style={{ fontSize: 13 }}>({r.user.email})</span>
                   </div>
                   <div className="muted" style={{ fontSize: 13 }}>
