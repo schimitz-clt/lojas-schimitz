@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, apiUpload, brl, currentUser } from '@/lib/api';
+import { api, apiUpload, brl, clearSession, currentUser, isUnauthorizedError } from '@/lib/api';
 import { nextFulfillmentStatus, orderStatusLabel } from '@/lib/order-status';
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
 
@@ -364,7 +364,14 @@ export default function AdminPage() {
         setAdmins(adminsList);
         setErr('');
       })
-      .catch((e) => setErr(e.message));
+      .catch((e) => {
+        if (isUnauthorizedError(e)) {
+          clearSession();
+          window.location.href = '/entrar?next=/admin';
+          return;
+        }
+        setErr(e.message);
+      });
   }, [orderStatusFilter]);
 
 
@@ -379,6 +386,11 @@ export default function AdminPage() {
       setSalesFrom(data.from);
       setSalesTo(data.to);
     } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
       setErr(e.message || 'Falha ao carregar relatório de vendas');
     } finally {
       setSalesBusy(false);

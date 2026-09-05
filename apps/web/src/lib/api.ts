@@ -19,7 +19,96 @@ export function getGuestToken() {
   return t;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+function isAuthEndpoint(path: string) {
+  return (
+    path.startsWith('/auth/login') ||
+    path.startsWith('/auth/register') ||
+    path.startsWith('/auth/refresh')
+  );
+}
+
+export function isUnauthorizedError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err || '')).toLowerCase();
+  return (
+    msg.includes('token inválido') ||
+    msg.includes('token invalido') ||
+    msg.includes('não autorizado') ||
+    msg.includes('nao autorizado') ||
+    msg.includes('unauthorized') ||
+    msg.includes('sessão expirada') ||
+    msg.includes('sessao expirada') ||
+    msg.includes('faça login') ||
+    msg.includes('faca login')
+  );
+}
+
+function responseLooksUnauthorized(res: Response, json: ApiOk<unknown> | ApiFail): boolean {
+  if (res.status === 401) return true;
+  if (!json.ok) {
+    const code = (json.error?.code || '').toUpperCase();
+    const msg = (json.error?.message || '').toLowerCase();
+    if (code === 'UNAUTHORIZED') return true;
+    if (
+      msg.includes('token inválido') ||
+      msg.includes('token invalido') ||
+      msg.includes('token ausente') ||
+      msg.includes('unauthorized')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+type SessionPayload = { accessToken: string; refreshToken: string; user: unknown };
+
+/** Single-flight: parallel 401s share one refresh (token rotation). */
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshSession(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refreshToken = localStorage.getItem('sch_refresh');
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch(`${API}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        cache: 'no-store',
+      });
+      const json = (await res.json()) as ApiOk<SessionPayload> | ApiFail;
+      if (!json.ok || !json.data?.accessToken) return false;
+      saveSession(json.data);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+async function handleUnauthorizedAndMaybeRetry<T>(
+  path: string,
+  retry: () => Promise<T>,
+  alreadyRetried: boolean,
+  originalMessage: string,
+): Promise<T> {
+  if (alreadyRetried || isAuthEndpoint(path)) {
+    throw new Error(originalMessage || 'Token inválido');
+  }
+  const refreshed = await tryRefreshSession();
+  if (refreshed) return retry();
+  clearSession();
+  throw new Error('Sessão expirada. Faça login novamente.');
+}
+
+function buildJsonHeaders(init: RequestInit = {}): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string> | undefined),
@@ -28,16 +117,25 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers.Authorization = `Bearer ${token}`;
   const guest = typeof window !== 'undefined' ? localStorage.getItem('sch_guest') : '';
   if (guest) headers['x-guest-token'] = guest;
+  return headers;
+}
 
+export async function api<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
+  const headers = buildJsonHeaders(init);
   const res = await fetch(`${API}${path}`, { ...init, headers, cache: 'no-store' });
   const json = (await res.json()) as ApiOk<T> | ApiFail;
-  if (!json.ok) throw new Error(json.error.message || 'Erro na API');
+
+  const failMsg = !json.ok ? json.error.message || 'Erro na API' : 'Token inválido';
+  if (responseLooksUnauthorized(res, json)) {
+    return handleUnauthorizedAndMaybeRetry(path, () => api<T>(path, init, true), _retried, failMsg);
+  }
+
+  if (!json.ok) throw new Error(failMsg);
   return json.data;
 }
 
-
 /** Multipart upload (não define Content-Type — o browser define o boundary). */
-export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+export async function apiUpload<T>(path: string, formData: FormData, _retried = false): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -51,7 +149,18 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
     cache: 'no-store',
   });
   const json = (await res.json()) as ApiOk<T> | ApiFail;
-  if (!json.ok) throw new Error(json.error.message || 'Erro no upload');
+
+  const failMsg = !json.ok ? json.error.message || 'Erro no upload' : 'Token inválido';
+  if (responseLooksUnauthorized(res, json)) {
+    return handleUnauthorizedAndMaybeRetry(
+      path,
+      () => apiUpload<T>(path, formData, true),
+      _retried,
+      failMsg,
+    );
+  }
+
+  if (!json.ok) throw new Error(failMsg);
   return json.data;
 }
 
