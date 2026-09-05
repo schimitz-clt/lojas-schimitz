@@ -87,7 +87,7 @@ export class AdminController {
 
   /**
    * Multipart upload de imagem de produto (admin).
-   * Campo: `file` — jpg/png/webp, máx. 5 MB.
+   * Campo: `file` — jpg/png/webp, máx. 15 MB.
    * Retorna `{ url }` absoluta servida em GET /api/v1/uploads/:filename
    */
   @Post('uploads')
@@ -108,7 +108,7 @@ export class AdminController {
       throw new BadRequestException('Tipo inválido. Use JPG, PNG ou WebP.');
     }
     if (file.size > UPLOAD_MAX_BYTES) {
-      throw new BadRequestException('Arquivo maior que 5 MB');
+      throw new BadRequestException('Arquivo maior que 15 MB');
     }
     const { filename } = this.uploads.save(file.buffer, file.mimetype);
     const url = this.uploads.publicUrl(filename, req);

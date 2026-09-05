@@ -26,7 +26,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/POST/DELETE | `/favorites` | user |
 | GET/POST | `/products/:id/reviews` | público / user |
 | GET | `/admin/orders` `/admin/products` `/admin/categories` | admin |
-| POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤5MB) → `{ url, filename }` | admin |
+| POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
 | PATCH | `/admin/orders/:id/status` body `{ "status": "separating"|"shipped"|"delivered" }` | admin |

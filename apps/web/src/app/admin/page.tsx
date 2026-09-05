@@ -136,8 +136,8 @@ export default function AdminPage() {
       setErr('Use uma imagem JPG, PNG ou WebP.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErr('A foto deve ter no máximo 5 MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      setErr('A foto deve ter no máximo 15 MB.');
       return;
     }
     setUploading(true);
@@ -360,7 +360,7 @@ export default function AdminPage() {
                 ) : null}
               </div>
               <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
-                JPG, PNG ou WebP · até 5 MB. Você também pode colar um link abaixo.
+                JPG, PNG ou WebP · até 15 MB. Você também pode colar um link abaixo.
               </p>
             </div>
             <label>
