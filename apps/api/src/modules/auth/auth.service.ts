@@ -4,17 +4,23 @@ import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
+import { LoginAttemptService } from './login-attempt.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly attempts: LoginAttemptService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ip = 'unknown') {
+    this.attempts.assertAllowed(ip, dto.email);
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
-    if (exists) throw new ConflictException('E-mail já cadastrado');
+    if (exists) {
+      this.attempts.recordFailure(ip, dto.email);
+      throw new ConflictException('E-mail já cadastrado');
+    }
     const passwordHash = await argon2.hash(dto.password);
     const user = await this.prisma.user.create({
       data: {
@@ -25,14 +31,23 @@ export class AuthService {
         role: 'customer',
       },
     });
+    this.attempts.clear(ip, dto.email);
     return this.issue(user.id, user.email, user.role, user.name);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip = 'unknown') {
+    this.attempts.assertAllowed(ip, dto.email);
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
-    if (!user || user.status !== 'active') throw new UnauthorizedException('Credenciais inválidas');
+    if (!user || user.status !== 'active') {
+      this.attempts.recordFailure(ip, dto.email);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
     const valid = await argon2.verify(user.passwordHash, dto.password);
-    if (!valid) throw new UnauthorizedException('Credenciais inválidas');
+    if (!valid) {
+      this.attempts.recordFailure(ip, dto.email);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+    this.attempts.clear(ip, dto.email);
     const tokens = await this.issue(user.id, user.email, user.role, user.name);
     return tokens;
   }
