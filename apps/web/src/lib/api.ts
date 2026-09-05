@@ -1,3 +1,4 @@
+import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export type ApiOk<T> = { ok: true; data: T; meta?: { requestId: string } };
@@ -81,6 +82,8 @@ export function brl(n: number | string) {
   return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export const WA = process.env.NEXT_PUBLIC_WHATSAPP || '5551996253766';
-export const waLink = (text = 'Olá, vim pela Lojas Schimitz') =>
-  `https://wa.me/${WA}?text=${encodeURIComponent(text)}`;
+export function waLink(text = 'Olá, vim pela Lojas Schimitz') {
+  return waMeUrl(storeWhatsAppDigits(process.env.NEXT_PUBLIC_WHATSAPP), text);
+}
+
+export const WA = DEFAULT_STORE_WHATSAPP;

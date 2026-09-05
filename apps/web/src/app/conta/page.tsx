@@ -24,6 +24,8 @@ export default function ContaPage() {
   const [form, setForm] = useState({ label: 'Casa', cep: '', street: '', number: '', district: '', city: '', uf: 'RS' });
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  const [phone, setPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
 
   useEffect(() => {
     const u = currentUser();
@@ -32,6 +34,7 @@ export default function ContaPage() {
       window.location.href = '/entrar';
       return;
     }
+    api<{ phone?: string | null }>('/me').then((me) => setPhone(me.phone || '')).catch(() => {});
     api<Address[]>('/me/addresses').then(setAddresses).catch((e) => setErr(e.message));
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, []);
@@ -93,6 +96,42 @@ export default function ContaPage() {
           ) : (
             <p className="muted">Carregando saldo...</p>
           )}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 24 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>WhatsApp</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Usamos este número para a loja te avisar sobre pagamento e entrega (abre o WhatsApp com a mensagem pronta).
+          </p>
+          <form
+            className="form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingPhone(true);
+              setErr('');
+              setMsg('');
+              try {
+                await api('/me', { method: 'PATCH', body: JSON.stringify({ phone: phone.trim() || null }) });
+                setMsg('WhatsApp salvo.');
+              } catch (e: any) {
+                setErr(e.message);
+              } finally {
+                setSavingPhone(false);
+              }
+            }}
+          >
+            <input
+              type="tel"
+              placeholder="(51) 99625-3766"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <button className="btn ghost" type="submit" disabled={savingPhone}>
+              {savingPhone ? 'Salvando...' : 'Salvar WhatsApp'}
+            </button>
+          </form>
         </div>
       </section>
 

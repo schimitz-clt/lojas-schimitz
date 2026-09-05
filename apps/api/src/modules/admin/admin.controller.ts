@@ -76,7 +76,7 @@ export class AdminController {
       include: {
         items: true,
         payments: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
     return ok(data);

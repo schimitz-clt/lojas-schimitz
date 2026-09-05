@@ -12,7 +12,7 @@ A vitrine Netlify atual continua publicada. Este monorepo é a fundação da pla
 2. API NestJS (`/api/v1`)
 3. PostgreSQL + Redis
 4. Object storage (R2) — módulo futuro; interim: upload admin em disco (`UPLOADS_DIR`, volume Railway) servido em `/api/v1/uploads`
-5. Provedores (MP, Melhor Envio, WhatsApp) — módulos futuros; neste módulo só interfaces/tabelas
+5. Provedores (MP, Melhor Envio) — Mercado Pago ativo; WhatsApp hoje é clique-para-conversar (`wa.me`, ver `docs/WHATSAPP.md`). Cloud API (Meta) é módulo futuro — sem tokens neste repo.
 
 ## Papéis
 

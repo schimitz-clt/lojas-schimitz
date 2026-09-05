@@ -21,6 +21,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         passwordHash,
         name: dto.name,
+        phone: dto.phone?.trim() || null,
         role: 'customer',
       },
     });

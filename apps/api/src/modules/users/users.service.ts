@@ -29,7 +29,7 @@ export class UsersService {
       where: { id: userId },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+        ...(dto.phone !== undefined ? { phone: (dto.phone || '').trim() || null } : {}),
       },
       select: {
         id: true,

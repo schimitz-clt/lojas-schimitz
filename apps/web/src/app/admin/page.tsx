@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, apiUpload, brl, currentUser } from '@/lib/api';
 import { nextFulfillmentStatus, orderStatusLabel } from '@/lib/order-status';
+import { resolveOrderWhatsApp } from '@/lib/whatsapp';
 
 type AdminOrder = {
   id: string;
@@ -10,8 +11,8 @@ type AdminOrder = {
   status: string;
   total: number;
   items?: { name: string; qty: number }[];
-  user?: { id: string; name: string; email: string } | null;
-  addressSnap?: { city?: string; uf?: string; label?: string } | null;
+  user?: { id: string; name: string; email: string; phone?: string | null } | null;
+  addressSnap?: { city?: string; uf?: string; label?: string; phone?: string | null } | null;
 };
 
 type Category = { id: string; name: string; slug: string };
@@ -189,6 +190,22 @@ function customerHint(o: AdminOrder) {
   return 'Cliente';
 }
 
+function customerPhone(o: AdminOrder) {
+  return o.user?.phone || o.addressSnap?.phone || null;
+}
+
+function orderWa(o: AdminOrder, kind: 'generic' | 'paid' | 'shipped') {
+  return resolveOrderWhatsApp({
+    kind,
+    publicId: o.publicId,
+    total: o.total,
+    status: o.status,
+    customerName: o.user?.name,
+    customerPhone: customerPhone(o),
+    storePhone: process.env.NEXT_PUBLIC_WHATSAPP,
+  });
+}
+
 export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -219,6 +236,7 @@ export default function AdminPage() {
   const [salesFrom, setSalesFrom] = useState(() => addDaysYmd(saoPauloYmd(), -29));
   const [salesTo, setSalesTo] = useState(() => saoPauloYmd());
   const [salesBusy, setSalesBusy] = useState(false);
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -1264,6 +1282,7 @@ export default function AdminPage() {
       <h3>Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
         Entrega própria: avance Separando → Saiu para entrega → Entregue (sem Melhor Envio). Use as abas para filtrar por status.
+        WhatsApp é clique-para-conversar (wa.me) — não envia sozinho.
       </p>
       <div
         style={{
@@ -1298,31 +1317,93 @@ export default function AdminPage() {
       </div>
       {orders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
+        const wa = orderWa(o, 'generic');
+        const waPaid = orderWa(o, 'paid');
+        const waShipped = orderWa(o, 'shipped');
+        const paidLike = o.status === 'paid' || o.status === 'separating';
+        const open = openOrderId === o.id;
+        const phone = customerPhone(o);
         return (
           <div key={o.id} className="card" style={{ marginBottom: 10 }}>
-            <div className="body row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <b>{o.publicId}</b>
-                <div className="muted">
-                  {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
+            <div className="body">
+              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <b>{o.publicId}</b>
+                  <div className="muted">
+                    {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {brl(o.total)} · {customerHint(o)}
+                    {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
+                  </div>
                 </div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {brl(o.total)} · {customerHint(o)}
-                  {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => setOpenOrderId(open ? null : o.id)}
+                  >
+                    {open ? 'Fechar' : 'Detalhe'}
+                  </button>
+                  {next ? (
+                    <button
+                      className="btn"
+                      disabled={busyId === o.id}
+                      onClick={() => advance(o)}
+                      title={`Avançar para ${orderStatusLabel(next)}`}
+                    >
+                      {busyId === o.id ? 'Salvando...' : `Marcar: ${orderStatusLabel(next)}`}
+                    </button>
+                  ) : (
+                    <span className="badge">{orderStatusLabel(o.status)}</span>
+                  )}
                 </div>
               </div>
-              {next ? (
-                <button
-                  className="btn"
-                  disabled={busyId === o.id}
-                  onClick={() => advance(o)}
-                  title={`Avançar para ${orderStatusLabel(next)}`}
+
+              {paidLike ? (
+                <div
+                  className="ok"
+                  style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
                 >
-                  {busyId === o.id ? 'Salvando...' : `Marcar: ${orderStatusLabel(next)}`}
-                </button>
-              ) : (
-                <span className="badge">{orderStatusLabel(o.status)}</span>
-              )}
+                  <span>Cliente pagou — avise no WhatsApp (e-mail já cobre o cliente, se SMTP estiver ativo).</span>
+                  <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
+                    Cliente pagou — abrir WhatsApp
+                  </a>
+                </div>
+              ) : null}
+
+              <div className="row" style={{ marginTop: 12, flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' }}>
+                <a className="btn wa" href={wa.url} target="_blank" rel="noreferrer">
+                  Avisar no WhatsApp
+                </a>
+                {o.status === 'shipped' ? (
+                  <a className="btn wa" href={waShipped.url} target="_blank" rel="noreferrer">
+                    Pedido saiu — abrir WhatsApp
+                  </a>
+                ) : null}
+              </div>
+              <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+                {wa.toCustomer
+                  ? `Abre conversa com o cliente (${phone}).`
+                  : 'Cliente sem telefone — abre o WhatsApp da loja (NEXT_PUBLIC_WHATSAPP) com rascunho interno.'}
+              </p>
+
+              {open ? (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                  <div className="muted" style={{ fontSize: 13, display: 'grid', gap: 4 }}>
+                    <div><b style={{ color: 'var(--text)' }}>Cliente:</b> {o.user?.name || '—'}</div>
+                    <div><b style={{ color: 'var(--text)' }}>E-mail:</b> {o.user?.email || '—'}</div>
+                    <div><b style={{ color: 'var(--text)' }}>WhatsApp:</b> {phone || 'não cadastrado'}</div>
+                    {o.addressSnap?.city ? (
+                      <div>
+                        <b style={{ color: 'var(--text)' }}>Entrega:</b>{' '}
+                        {o.addressSnap.label ? `${o.addressSnap.label} · ` : ''}
+                        {o.addressSnap.city}/{o.addressSnap.uf}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         );

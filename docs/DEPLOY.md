@@ -63,3 +63,17 @@ Provedores comuns (escolha um; configure só as env):
 - Outro SMTP (SendGrid, Amazon SES, provedor do domínio): use host/porta/user/pass do painel.
 
 Após setar as variáveis, faça redeploy do serviço da API.
+
+
+## WhatsApp (clique-para-conversar)
+
+Não é Cloud API. Sem tokens Meta/Twilio.
+
+No serviço **web**, defina:
+
+```
+NEXT_PUBLIC_WHATSAPP=5551996253766
+```
+
+Os botões do admin (`Avisar no WhatsApp`, `Cliente pagou — abrir WhatsApp`)
+abrem `wa.me` com a mensagem pronta. Detalhes: `docs/WHATSAPP.md`.

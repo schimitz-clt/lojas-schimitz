@@ -136,6 +136,10 @@ export class OrdersService {
       where: { id: dto.addressId, userId },
     });
     if (!address) throw new NotFoundException('Endereço não encontrado');
+    const buyer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
 
     if (!cart || cart.items.length === 0) throw new BadRequestException('Carrinho vazio');
 
@@ -213,6 +217,7 @@ export class OrdersService {
               district: address.district,
               city: address.city,
               uf: address.uf,
+              phone: buyer?.phone || null,
             },
             items: {
               create: cart.items.map((i) => ({

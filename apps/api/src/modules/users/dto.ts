@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateMeDto {
   @IsOptional()
@@ -8,5 +8,6 @@ export class UpdateMeDto {
 
   @IsOptional()
   @IsString()
-  phone?: string;
+  @MaxLength(32)
+  phone?: string | null;
 }

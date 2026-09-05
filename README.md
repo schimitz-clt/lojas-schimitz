@@ -46,4 +46,6 @@ npm run dev
 - Loja: http://localhost:3000
 - Checkout: http://localhost:3000/checkout
 
-Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`.
+Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/WHATSAPP.md`.
+
+WhatsApp do admin: botões `wa.me` (pago/enviado) — sem Cloud API. Número da loja: `NEXT_PUBLIC_WHATSAPP`.
