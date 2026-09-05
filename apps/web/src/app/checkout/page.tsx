@@ -21,7 +21,7 @@ export default function CheckoutPage() {
       return;
     }
     api<Cart>('/cart').then(setCart).catch((e) => setErr(e.message));
-    api<Address[]>('/addresses').then((list) => {
+    api<Address[]>('/me/addresses').then((list) => {
       setAddresses(list);
       if (list[0]) setAddressId(list[0].id);
     }).catch(() => {});
