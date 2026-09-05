@@ -1,0 +1,369 @@
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma.service';
+import { randomUUID } from 'crypto';
+import { CreateOrderDto } from './dto';
+import { canonicalOrderHash, requireIdempotencyKey } from './idempotency';
+import { Decimal } from '@prisma/client/runtime/library';
+import { InventoryService } from '../inventory/inventory.service';
+import { AuditService } from '../../common/audit.service';
+import { ShippingProvider } from '../shipping/shipping.provider';
+import { Inject, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { PaymentProvider } from '../payments/payment.provider';
+
+@Injectable()
+export class OrdersService {
+  private readonly log = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventory: InventoryService,
+    private readonly audit: AuditService,
+    @Inject('ShippingProvider') private readonly shipping: ShippingProvider,
+    @Inject('PaymentProvider') private readonly paymentsProvider: PaymentProvider,
+  ) {}
+
+  private publicId() {
+    return `SCH-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 6).toUpperCase()}`;
+  }
+
+  private scopedKey(userId: string, key: string) {
+    return `${userId}:${key}`;
+  }
+
+  private hashPayload(dto: CreateOrderDto, items: { productId: string; qty: number }[]) {
+    return canonicalOrderHash({
+      addressId: dto.addressId,
+      couponCode: dto.couponCode,
+      items,
+    });
+  }
+
+  private isUniqueViolation(e: unknown) {
+    return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+  }
+
+  async create(userId: string, dto: CreateOrderDto, idempotencyKeyRaw?: string) {
+    const idempotencyKey = requireIdempotencyKey(idempotencyKeyRaw);
+    const scoped = this.scopedKey(userId, idempotencyKey);
+
+    const loadExistingOrder = () =>
+      this.prisma.order.findFirst({
+        where: { userId, idempotencyKey },
+        include: { items: true, payments: true },
+      });
+
+    const existingOrder = await loadExistingOrder();
+    const existingRec = await this.prisma.idempotencyRecord.findUnique({ where: { key: scoped } });
+
+    const cart = await this.prisma.cart.findFirst({
+      where: { userId },
+      include: { items: { include: { product: { include: { inventory: true } } } } },
+    });
+    const cartItems = cart?.items ?? [];
+
+    if (existingRec?.status === 'completed' && existingRec.response) {
+      const replayItems = existingOrder
+        ? existingOrder.items.map((i) => ({ productId: i.productId, qty: i.qty }))
+        : [];
+      if (replayItems.length) {
+        const replayHash = this.hashPayload(dto, replayItems);
+        if (existingRec.requestHash && existingRec.requestHash !== '' && existingRec.requestHash !== replayHash) {
+          throw new ConflictException({
+            message: 'Idempotency-Key já usada com outro payload',
+            code: 'IDEMPOTENCY_KEY_REUSED',
+          });
+        }
+      }
+      return existingRec.response as object;
+    }
+
+    if (!cartItems.length && existingOrder) {
+      const replayHash = this.hashPayload(
+        dto,
+        existingOrder.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+      );
+      if (existingRec?.requestHash && existingRec.requestHash !== '' && existingRec.requestHash !== replayHash) {
+        throw new ConflictException({
+          message: 'Idempotency-Key já usada com outro payload',
+          code: 'IDEMPOTENCY_KEY_REUSED',
+        });
+      }
+      return existingOrder;
+    }
+
+    const incomingHash = this.hashPayload(
+      dto,
+      cartItems.map((i) => ({ productId: i.productId, qty: i.qty })),
+    );
+
+    if (existingRec?.requestHash && existingRec.requestHash !== '' && existingRec.requestHash !== incomingHash) {
+      throw new ConflictException({
+        message: 'Idempotency-Key já usada com outro payload',
+        code: 'IDEMPOTENCY_KEY_REUSED',
+      });
+    }
+
+    if (existingOrder) return existingOrder;
+
+    try {
+      await this.prisma.idempotencyRecord.create({
+        data: { key: scoped, userId, requestHash: incomingHash, status: 'pending' },
+      });
+    } catch (e) {
+      if (!this.isUniqueViolation(e)) throw e;
+      const rec = await this.prisma.idempotencyRecord.findUnique({ where: { key: scoped } });
+      if (rec?.requestHash && rec.requestHash !== incomingHash && rec.requestHash !== '') {
+        throw new ConflictException({
+          message: 'Idempotency-Key já usada com outro payload',
+          code: 'IDEMPOTENCY_KEY_REUSED',
+        });
+      }
+      if (rec?.status === 'completed' && rec.response) return rec.response as object;
+      const raced = await loadExistingOrder();
+      if (raced) return raced;
+    }
+
+    const address = await this.prisma.address.findFirst({
+      where: { id: dto.addressId, userId },
+    });
+    if (!address) throw new NotFoundException('Endereço não encontrado');
+
+    if (!cart || cart.items.length === 0) throw new BadRequestException('Carrinho vazio');
+
+    for (const item of cart.items) {
+      if (item.qty < 1) throw new BadRequestException('Quantidade inválida');
+      if (!item.product.active) throw new BadRequestException(`Produto "${item.product.name}" indisponível`);
+    }
+
+    const subtotal = cart.items.reduce((s, i) => s + Number(i.product.price) * i.qty, 0);
+    let discount = new Decimal(0);
+    let couponId: string | undefined;
+
+    if (dto.couponCode) {
+      const coupon = await this.prisma.coupon.findUnique({ where: { code: dto.couponCode.toUpperCase() } });
+      if (!coupon || !coupon.active) throw new BadRequestException('Cupom inválido');
+      if (coupon.startsAt && coupon.startsAt > new Date()) throw new BadRequestException('Cupom ainda não válido');
+      if (coupon.endsAt && coupon.endsAt < new Date()) throw new BadRequestException('Cupom expirado');
+      if (coupon.minSubtotal && subtotal < Number(coupon.minSubtotal)) {
+        throw new BadRequestException('Subtotal abaixo do mínimo do cupom');
+      }
+      if (coupon.type === 'percent') discount = new Decimal(subtotal * (Number(coupon.value) / 100));
+      else discount = new Decimal(Number(coupon.value));
+      if (Number(discount) > subtotal) discount = new Decimal(subtotal);
+      couponId = coupon.id;
+    }
+
+    const quote = await this.shipping.quote({
+      cep: address.cep,
+      subtotal,
+      items: cart.items.map((i) => ({ qty: i.qty, weightKg: i.product.weightKg ? Number(i.product.weightKg) : undefined })),
+    });
+    const freight = quote.price;
+    const total = Math.max(0, subtotal - Number(discount) + freight);
+    const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    try {
+      const order = await this.prisma.$transaction(async (tx) => {
+        if (idempotencyKey) {
+          const raced = await tx.order.findFirst({
+            where: { userId, idempotencyKey },
+            include: { items: true, payments: true },
+          });
+          if (raced) return raced;
+        }
+
+        const created = await tx.order.create({
+          data: {
+            publicId: this.publicId(),
+            userId,
+            status: 'awaiting_payment',
+            subtotal: new Decimal(subtotal),
+            discount,
+            freight: new Decimal(freight),
+            total: new Decimal(total),
+            couponId,
+            idempotencyKey: idempotencyKey || null,
+            reservationExpiresAt,
+            freightSnap: quote as object,
+            addressSnap: {
+              label: address.label,
+              cep: address.cep,
+              street: address.street,
+              number: address.number,
+              complement: address.complement,
+              district: address.district,
+              city: address.city,
+              uf: address.uf,
+            },
+            items: {
+              create: cart.items.map((i) => ({
+                productId: i.productId,
+                name: i.product.name,
+                qty: i.qty,
+                unitPrice: i.product.price,
+              })),
+            },
+          },
+          include: { items: true, payments: true },
+        });
+
+        for (const item of cart.items) {
+          await this.inventory.reserve(tx, item.productId, item.qty);
+        }
+        if (couponId) await this.inventory.reserveCoupon(tx, couponId);
+        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+        return created;
+      });
+
+      if (scoped) {
+        await this.prisma.idempotencyRecord.update({
+          where: { key: scoped },
+          data: { status: 'completed', requestHash: incomingHash, response: order as object },
+        }).catch(() => undefined);
+      }
+
+      await this.audit.log('order.created', {
+        actorId: userId,
+        entity: 'Order',
+        entityId: order.id,
+        meta: { publicId: order.publicId, total },
+      });
+      return order;
+    } catch (e) {
+      if (this.isUniqueViolation(e) && idempotencyKey) {
+        const existing = await this.prisma.order.findFirst({
+          where: { userId, idempotencyKey },
+          include: { items: true, payments: true },
+        });
+        if (existing) return existing;
+      }
+      throw e;
+    }
+  }
+
+  async list(userId: string) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      include: { items: true, payments: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getByPublicId(userId: string, publicId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { publicId, userId },
+      include: { items: true, payments: true },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    return order;
+  }
+
+  /** Somente quem ganha awaiting_payment → cancelled libera reserva. */
+  async cancel(userId: string, publicId: string) {
+    const found = await this.prisma.order.findFirst({ where: { publicId, userId } });
+    if (!found) throw new NotFoundException('Pedido não encontrado');
+    const won = await this.transitionFromAwaiting(found.id, 'cancelled');
+    if (!won) {
+      const current = await this.prisma.order.findUnique({
+        where: { id: found.id },
+        include: { items: true, payments: true },
+      });
+      if (current?.status === 'cancelled') return current;
+      throw new BadRequestException('Pedido não pode ser cancelado neste estado');
+    }
+    await this.audit.log('order.cancelled', { actorId: userId, entity: 'Order', entityId: found.id });
+    return this.prisma.order.findUnique({ where: { id: found.id }, include: { items: true, payments: true } });
+  }
+
+  async markPaid(orderId: string) {
+    const won = await this.transitionFromAwaiting(orderId, 'paid');
+    if (!won) {
+      const current = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { items: true, payments: true },
+      });
+      if (current?.status === 'paid') return current;
+      throw new BadRequestException({ message: 'Transição inválida (já cancelado ou pago)', code: 'INVALID_TRANSITION' });
+    }
+    await this.audit.log('order.paid', { entity: 'Order', entityId: orderId });
+    return this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true, payments: true } });
+  }
+
+  async expireReservations() {
+    const expired = await this.prisma.order.findMany({
+      where: { status: 'awaiting_payment', reservationExpiresAt: { lt: new Date() } },
+      select: { id: true },
+    });
+    let count = 0;
+    const remoteCancelIds: string[] = [];
+    for (const o of expired) {
+      const won = await this.transitionFromAwaiting(o.id, 'cancelled');
+      if (won) {
+        count += 1;
+        // Marca Payment pending → expired no mesmo caminho de domínio (#7); I/O remoto depois.
+        const pendings = await this.prisma.payment.findMany({
+          where: { orderId: o.id, status: 'pending' },
+          select: { id: true, externalId: true },
+        });
+        for (const p of pendings) {
+          const rows = await this.prisma.$executeRaw`
+            UPDATE "Payment"
+            SET "status" = 'expired'::"PaymentStatus"
+            WHERE "id" = ${p.id}
+              AND "status" = 'pending'::"PaymentStatus"
+          `;
+          if (rows > 0) {
+            if (p.externalId) remoteCancelIds.push(p.externalId);
+            await this.audit.log('payment.expired', {
+              entity: 'Payment',
+              entityId: p.id,
+              meta: { orderId: o.id, via: 'reservation_expiry' },
+            });
+          }
+        }
+      }
+    }
+    // cancelIntent remoto best-effort FORA de qualquer lock (#7/#12)
+    for (const ext of remoteCancelIds) {
+      try {
+        await this.paymentsProvider.cancelIntent(ext);
+      } catch (e) {
+        this.log.warn(`cancelIntent best-effort falhou para ${ext}`);
+      }
+    }
+    return { expired: count };
+  }
+
+  /**
+   * UPDATE condicional: só o processo que altera awaiting_payment libera estoque/cupom.
+   */
+  async transitionFromAwaiting(orderId: string, to: 'paid' | 'cancelled'): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$executeRaw`
+        UPDATE "Order"
+        SET "status" = ${to}::"OrderStatus",
+            "reservationExpiresAt" = NULL
+        WHERE "id" = ${orderId}
+          AND "status" = 'awaiting_payment'::"OrderStatus"
+      `;
+      if (rows === 0) return false;
+
+      const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
+      if (!order) return false;
+
+      if (to === 'cancelled') {
+        for (const item of order.items) {
+          await this.inventory.release(tx, item.productId, item.qty);
+        }
+        if (order.couponId) await this.inventory.releaseCoupon(tx, order.couponId);
+      } else {
+        for (const item of order.items) {
+          await this.inventory.commitSale(tx, item.productId, item.qty);
+        }
+        if (order.couponId) await this.inventory.consumeCoupon(tx, order.couponId);
+      }
+      return true;
+    });
+  }
+}

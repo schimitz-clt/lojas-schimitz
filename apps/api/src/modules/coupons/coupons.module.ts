@@ -1,0 +1,11 @@
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { CouponsController } from './coupons.controller';
+import { CouponsService } from './coupons.service';
+
+@Module({
+  imports: [JwtModule.register({})],
+  controllers: [CouponsController],
+  providers: [CouponsService],
+})
+export class CouponsModule {}

@@ -1,0 +1,12 @@
+{
+  "name": "lojas-schimitz",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plataforma Lojas Schimitz — SCH-001 Fundação",
+  "devDependencies": {
+    "prisma": "^6.19.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
+}
