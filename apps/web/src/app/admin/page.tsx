@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, brl, currentUser } from '@/lib/api';
+import { api, apiUpload, brl, currentUser } from '@/lib/api';
 import { nextFulfillmentStatus, orderStatusLabel } from '@/lib/order-status';
 
 type AdminOrder = {
@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [msg, setMsg] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
 
@@ -125,6 +126,34 @@ export default function AdminPage() {
     setEditingId(null);
     setForm(emptyForm());
     setMsg('');
+  }
+
+
+  async function uploadPhoto(file: File | null) {
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setErr('Use uma imagem JPG, PNG ou WebP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErr('A foto deve ter no máximo 5 MB.');
+      return;
+    }
+    setUploading(true);
+    setErr('');
+    setMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
+      setForm((f) => ({ ...f, imageUrl: data.url }));
+      setMsg('Foto enviada. Salve o produto para publicar.');
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao enviar foto');
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function saveProduct(e: React.FormEvent) {
@@ -298,18 +327,50 @@ export default function AdminPage() {
                 ))}
               </select>
             </label>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Foto do produto</div>
+              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <label className="btn ghost" style={{ cursor: uploading ? 'wait' : 'pointer', margin: 0 }}>
+                  {uploading ? 'Enviando...' : 'Enviar foto'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploading || saving}
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      e.target.value = '';
+                      void uploadPhoto(f);
+                    }}
+                  />
+                </label>
+                {form.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.imageUrl}
+                    alt="Prévia"
+                    style={{
+                      width: 64,
+                      height: 64,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      background: '#111',
+                    }}
+                  />
+                ) : null}
+              </div>
+              <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
+                JPG, PNG ou WebP · até 5 MB. Você também pode colar um link abaixo.
+              </p>
+            </div>
             <label>
-              URL da imagem
+              URL da imagem (opcional)
               <input
                 value={form.imageUrl}
                 onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="https://..."
+                placeholder="https://... ou envie uma foto acima"
               />
             </label>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-              Por enquanto cole o link de uma imagem (ex.: do Google Drive público ou CDN). Upload
-              direto de arquivo ainda não está disponível.
-            </p>
             <label>
               Selo / destaque (opcional)
               <input

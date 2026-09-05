@@ -7,6 +7,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/package.json
+COPY apps/api/package-lock.json* ./apps/api/
 COPY prisma ./prisma
 RUN npm install
 WORKDIR /app/apps/api
@@ -42,5 +43,8 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh
 WORKDIR /app/apps/api
+# Persistência: monte volume Railway em /data/uploads e defina UPLOADS_DIR=/data/uploads
+RUN mkdir -p /data/uploads
+ENV UPLOADS_DIR=/data/uploads
 EXPOSE 3001
 ENTRYPOINT ["./docker-entrypoint.sh"]

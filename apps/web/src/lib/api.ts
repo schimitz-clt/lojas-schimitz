@@ -34,6 +34,26 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return json.data;
 }
 
+
+/** Multipart upload (não define Content-Type — o browser define o boundary). */
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const guest = typeof window !== 'undefined' ? localStorage.getItem('sch_guest') : '';
+  if (guest) headers['x-guest-token'] = guest;
+
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    cache: 'no-store',
+  });
+  const json = (await res.json()) as ApiOk<T> | ApiFail;
+  if (!json.ok) throw new Error(json.error.message || 'Erro no upload');
+  return json.data;
+}
+
 export function saveSession(data: { accessToken: string; refreshToken: string; user: unknown }) {
   localStorage.setItem('sch_access', data.accessToken);
   localStorage.setItem('sch_refresh', data.refreshToken);

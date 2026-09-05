@@ -63,7 +63,7 @@ export class AdminCreateProductDto {
   @IsBoolean()
   active?: boolean;
 
-  /** URL pública da imagem (upload R2 ainda não disponível). */
+  /** URL pública da imagem (upload local /uploads ou URL externa). */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUrl({ require_protocol: true })

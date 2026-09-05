@@ -6,3 +6,7 @@ dist/
 .next/
 coverage/
 apps/web/.env.local
+# pasta de arquivos enviados (não o módulo Nest apps/api/src/modules/uploads)
+/uploads/
+apps/api/uploads/
+/data/uploads/

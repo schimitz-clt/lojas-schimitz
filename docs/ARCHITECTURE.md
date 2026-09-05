@@ -11,7 +11,7 @@ A vitrine Netlify atual continua publicada. Este monorepo é a fundação da pla
 1. Clientes: Web Next.js, Admin, Android
 2. API NestJS (`/api/v1`)
 3. PostgreSQL + Redis
-4. Object storage (R2) — módulo futuro
+4. Object storage (R2) — módulo futuro; interim: upload admin em disco (`UPLOADS_DIR`, volume Railway) servido em `/api/v1/uploads`
 5. Provedores (MP, Melhor Envio, WhatsApp) — módulos futuros; neste módulo só interfaces/tabelas
 
 ## Papéis
