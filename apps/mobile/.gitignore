@@ -1,0 +1,20 @@
+# Build
+/.gradle/
+/build/
+/app/build/
+/captures/
+/.idea/
+*.iml
+.DS_Store
+local.properties
+
+# Keystores / signing (NUNCA commitar senhas ou keystores de release)
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+*.key
+
+# Capacitor leftovers (se alguém experimentar)
+/node_modules/
+/.capacitor/

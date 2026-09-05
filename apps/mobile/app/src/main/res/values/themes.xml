@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LojasSchimitz" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/schimitz_gold</item>
+        <item name="colorPrimaryVariant">@color/schimitz_gold_dark</item>
+        <item name="colorOnPrimary">@color/schimitz_black</item>
+        <item name="colorSecondary">@color/schimitz_gold</item>
+        <item name="android:statusBarColor">@color/schimitz_black</item>
+        <item name="android:navigationBarColor">@color/schimitz_black</item>
+        <item name="android:windowBackground">@color/schimitz_black</item>
+        <item name="android:colorBackground">@color/schimitz_black</item>
+    </style>
+
+    <style name="Theme.LojasSchimitz.Splash" parent="Theme.LojasSchimitz">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

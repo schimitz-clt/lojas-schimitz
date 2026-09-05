@@ -1,0 +1,3 @@
+# Copie para local.properties (não versionado) e ajuste o SDK local.
+sdk.dir=/Users/SEU_USUARIO/Library/Android/sdk
+# Windows: sdk.dir=C:\\Users\\SEU_USUARIO\\AppData\\Local\\Android\\Sdk
