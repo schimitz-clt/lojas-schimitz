@@ -7,6 +7,7 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -330,4 +331,18 @@ export class AdminUpdateShippingCepRuleDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
+}
+
+
+/** Query GET /admin/reports/sales?from=&to= (YYYY-MM-DD, America/Sao_Paulo) */
+export class AdminSalesReportQueryDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'from deve ser YYYY-MM-DD' })
+  from?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'to deve ser YYYY-MM-DD' })
+  to?: string;
 }

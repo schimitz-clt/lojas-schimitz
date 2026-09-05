@@ -27,6 +27,7 @@ import { ok } from '../../common/http';
 import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
+import { AdminSalesReportService } from './admin-sales-report.service';
 import {
   AdminCreateCouponDto,
   AdminCreateProductDto,
@@ -36,6 +37,7 @@ import {
   AdminUpdateCouponDto,
   AdminUpdateProductDto,
   AdminUpdateShippingCepRuleDto,
+  AdminSalesReportQueryDto,
   AdminUpdateShippingSettingsDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
@@ -57,7 +59,13 @@ export class AdminController {
     private readonly uploads: UploadsService,
     private readonly coupons: CouponsService,
     private readonly shipping: ShippingService,
+    private readonly salesReports: AdminSalesReportService,
   ) {}
+
+  @Get('reports/sales')
+  async getSalesReport(@Query() query: AdminSalesReportQueryDto) {
+    return ok(await this.salesReports.salesReport(query));
+  }
 
   @Get('orders')
   async ordersList(@Query() query: AdminOrdersQueryDto) {

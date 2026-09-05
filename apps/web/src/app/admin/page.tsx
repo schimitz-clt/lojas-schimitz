@@ -103,6 +103,31 @@ type ShippingCepRule = {
 
 type ShippingConfig = { settings: ShippingSettings; rules: ShippingCepRule[] };
 
+type SalesReport = {
+  from: string;
+  to: string;
+  timezone: string;
+  summary: { orderCount: number; revenue: number; averageTicket: number };
+  byStatus: Record<string, number>;
+  topProducts: { productId: string; name: string; qty: number; revenue: number }[];
+};
+
+function saoPauloYmd(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+function addDaysYmd(ymd: string, delta: number) {
+  const d = new Date(`${ymd}T12:00:00-03:00`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return saoPauloYmd(d);
+}
+
+
 type ShippingSettingsForm = {
   freeAbove: string;
   defaultFee: string;
@@ -190,6 +215,10 @@ export default function AdminPage() {
   const [cepRuleForm, setCepRuleForm] = useState<CepRuleForm>(emptyCepRuleForm());
   const [savingShipping, setSavingShipping] = useState(false);
   const [savingCepRule, setSavingCepRule] = useState(false);
+  const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
+  const [salesFrom, setSalesFrom] = useState(() => addDaysYmd(saoPauloYmd(), -29));
+  const [salesTo, setSalesTo] = useState(() => saoPauloYmd());
+  const [salesBusy, setSalesBusy] = useState(false);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -224,9 +253,32 @@ export default function AdminPage() {
       .catch((e) => setErr(e.message));
   }, [orderStatusFilter]);
 
+
+  const loadSalesReport = useCallback(async (from = salesFrom, to = salesTo) => {
+    const u = currentUser();
+    if (!u || u.role !== 'admin') return;
+    setSalesBusy(true);
+    try {
+      const q = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const data = await api<SalesReport>(`/admin/reports/sales?${q}`);
+      setSalesReport(data);
+      setSalesFrom(data.from);
+      setSalesTo(data.to);
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao carregar relatório de vendas');
+    } finally {
+      setSalesBusy(false);
+    }
+  }, [salesFrom, salesTo]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    void loadSalesReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const editingLabel = useMemo(
     () => (editingId ? 'Editar produto' : 'Cadastrar produto'),
@@ -553,6 +605,131 @@ export default function AdminPage() {
       </p>
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
+
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Relatório de vendas</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Pedidos pagos no período (pago, separando, saiu para entrega, entregue). Horário de Brasília.
+          </p>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {[
+              { label: 'Hoje', from: saoPauloYmd(), to: saoPauloYmd() },
+              { label: '7 dias', from: addDaysYmd(saoPauloYmd(), -6), to: saoPauloYmd() },
+              { label: '30 dias', from: addDaysYmd(saoPauloYmd(), -29), to: saoPauloYmd() },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className={
+                  salesFrom === preset.from && salesTo === preset.to ? 'btn' : 'btn ghost'
+                }
+                disabled={salesBusy}
+                onClick={() => {
+                  setSalesFrom(preset.from);
+                  setSalesTo(preset.to);
+                  void loadSalesReport(preset.from, preset.to);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <form
+            className="row"
+            style={{ flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void loadSalesReport(salesFrom, salesTo);
+            }}
+          >
+            <label style={{ margin: 0 }}>
+              De
+              <input
+                type="date"
+                value={salesFrom}
+                onChange={(e) => setSalesFrom(e.target.value)}
+                required
+              />
+            </label>
+            <label style={{ margin: 0 }}>
+              Até
+              <input
+                type="date"
+                value={salesTo}
+                onChange={(e) => setSalesTo(e.target.value)}
+                required
+              />
+            </label>
+            <button className="btn" type="submit" disabled={salesBusy}>
+              {salesBusy ? 'Carregando...' : 'Atualizar'}
+            </button>
+          </form>
+          {salesReport ? (
+            <>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                  <div className="muted" style={{ fontSize: 13 }}>Pedidos pagos</div>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>{salesReport.summary.orderCount}</div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                  <div className="muted" style={{ fontSize: 13 }}>Receita</div>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>{brl(salesReport.summary.revenue)}</div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                  <div className="muted" style={{ fontSize: 13 }}>Ticket médio</div>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>{brl(salesReport.summary.averageTicket)}</div>
+                </div>
+              </div>
+              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por status</h3>
+                  {Object.keys(salesReport.byStatus).length ? (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {Object.entries(salesReport.byStatus)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([st, count]) => (
+                          <div key={st} className="row" style={{ fontSize: 14 }}>
+                            <span>{orderStatusLabel(st)}</span>
+                            <b>{count}</b>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nenhum pedido no período.</p>
+                  )}
+                </div>
+                <div style={{ flex: 1.4, minWidth: 220 }}>
+                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Mais vendidos</h3>
+                  {salesReport.topProducts.length ? (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {salesReport.topProducts.map((tp) => (
+                        <div key={tp.productId} className="row" style={{ fontSize: 14, flexWrap: 'wrap' }}>
+                          <span style={{ flex: 1, minWidth: 120 }}>{tp.name}</span>
+                          <span className="muted">{tp.qty} un.</span>
+                          <b>{brl(tp.revenue)}</b>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Sem vendas pagas no período.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : salesBusy ? (
+            <p className="muted">Carregando relatório…</p>
+          ) : null}
+        </div>
+      </section>
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">

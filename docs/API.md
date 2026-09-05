@@ -35,6 +35,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/POST/DELETE | `/favorites` | user |
 | GET/POST | `/products/:id/reviews` | público / user |
 | GET | `/admin/orders` `/admin/products` `/admin/categories` | admin |
+| GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
