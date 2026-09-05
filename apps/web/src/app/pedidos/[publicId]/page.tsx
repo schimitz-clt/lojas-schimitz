@@ -2,6 +2,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api, brl } from '@/lib/api';
+import {
+  FULFILLMENT_STEPS,
+  fulfillmentStepIndex,
+  orderStatusLabel,
+} from '@/lib/order-status';
 
 type Payment = {
   id: string;
@@ -24,11 +29,86 @@ type Order = {
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
 
+function FulfillmentTimeline({ status }: { status: string }) {
+  const current = fulfillmentStepIndex(status);
+  if (current < 0 && status !== 'paid') {
+    if (status === 'cancelled' || status === 'refunded') {
+      return (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="body">
+            <h3>Situação do pedido</h3>
+            <p>
+              <b>{orderStatusLabel(status)}</b>
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
+  const activeIdx = current < 0 ? 0 : current;
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="body">
+        <h3>Acompanhe a entrega</h3>
+        <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+          Entrega realizada pela Lojas Schimitz.
+        </p>
+        <ol style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}>
+          {FULFILLMENT_STEPS.map((step, idx) => {
+            const done = idx <= activeIdx;
+            const isCurrent = idx === activeIdx;
+            return (
+              <li
+                key={step}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                  marginBottom: 12,
+                  opacity: done ? 1 : 0.45,
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    flexShrink: 0,
+                    background: done ? 'var(--ok)' : 'var(--line)',
+                    color: '#111',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  {done ? '✓' : idx + 1}
+                </span>
+                <div>
+                  <div style={{ fontWeight: isCurrent ? 800 : 600 }}>{orderStatusLabel(step)}</div>
+                  {isCurrent ? (
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      Status atual
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 export default function PedidoPage() {
   const { publicId } = useParams<{ publicId: string }>();
   const [o, setO] = useState<Order | null>(null);
   const [err, setErr] = useState('');
   const [method, setMethod] = useState<'pix' | 'card'>('pix');
+  const [installments, setInstallments] = useState(1);
   const [paying, setPaying] = useState(false);
   const [intent, setIntent] = useState<{ payment: Payment } | null>(null);
   const [simulating, setSimulating] = useState(false);
@@ -54,14 +134,20 @@ export default function PedidoPage() {
     setPaying(true);
     setErr('');
     try {
-      const persistKey = `sch_idem_pay:${o.id}:${method}`;
+      const persistKey =
+        method === 'card'
+          ? `sch_idem_pay:${o.id}:${method}:${installments}`
+          : `sch_idem_pay:${o.id}:${method}`;
       let key = sessionStorage.getItem(persistKey);
       if (!key || key.length < 8) {
         key = crypto.randomUUID();
         sessionStorage.setItem(persistKey, key);
       }
       const body: Record<string, unknown> = { orderId: o.id, method };
-      if (method === 'card' && cardToken) body.cardToken = cardToken;
+      if (method === 'card') {
+        body.installments = installments;
+        if (cardToken) body.cardToken = cardToken;
+      }
       const data = await api<{ payment: Payment }>('/payments/intents', {
         method: 'POST',
         headers: { 'Idempotency-Key': key },
@@ -108,24 +194,36 @@ export default function PedidoPage() {
   if (!o) return <p className="muted">Carregando...</p>;
 
   const awaiting = o.status === 'awaiting_payment';
+  const showTimeline = ['paid', 'separating', 'shipped', 'delivered'].includes(o.status);
   const qr = intent?.payment?.payload?.qrCode;
 
   return (
     <div style={{ padding: '24px 0' }}>
       <h1>Pedido {o.publicId}</h1>
-      <p>Status: <b>{o.status}</b></p>
+      <p>
+        Status: <b>{orderStatusLabel(o.status)}</b>
+      </p>
       {o.items?.map((i) => (
-        <div key={i.id} className="row"><span>{i.qty}× {i.name}</span><span>{brl(i.unitPrice)}</span></div>
+        <div key={i.id} className="row">
+          <span>
+            {i.qty}× {i.name}
+          </span>
+          <span>{brl(i.unitPrice)}</span>
+        </div>
       ))}
-      <p>Total {brl(o.total)} (desconto {brl(o.discount)})</p>
+      <p>
+        Total {brl(o.total)} (desconto {brl(o.discount)})
+      </p>
 
       {err ? <div className="alert">{err}</div> : null}
+
+      {showTimeline ? <FulfillmentTimeline status={o.status} /> : null}
 
       {awaiting && !intent ? (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="body">
-            <h3>Pagamento (SCH-003)</h3>
-            <p className="muted">Escolha o método (MVP: PIX ou cartão). Intent em rota separada.</p>
+            <h3>Pagamento</h3>
+            <p className="muted">Escolha o método: PIX ou cartão.</p>
             <label style={{ display: 'block', marginBottom: 8 }}>
               <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX
             </label>
@@ -134,6 +232,20 @@ export default function PedidoPage() {
             </label>
             {method === 'card' ? (
               <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 8 }}>
+                  Parcelas
+                  <select
+                    value={installments}
+                    onChange={(e) => setInstallments(Number(e.target.value))}
+                    style={{ display: 'block', width: '100%', marginTop: 6 }}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>
+                        {n === 1 ? '1x (à vista)' : `${n}x`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 {MP_PUBLIC_KEY ? (
                   <p className="muted" style={{ fontSize: 14 }}>
                     Public key configurada. Monte o Checkout Bricks no cliente e cole o token abaixo
@@ -154,7 +266,11 @@ export default function PedidoPage() {
               </div>
             ) : null}
             <button className="btn" disabled={paying} onClick={createIntent}>
-              {paying ? 'Gerando pagamento...' : 'Pagar agora'}
+              {paying
+                ? 'Gerando pagamento...'
+                : method === 'card'
+                  ? `Pagar no cartão (${installments}x)`
+                  : 'Pagar com PIX'}
             </button>
           </div>
         </div>
@@ -163,8 +279,10 @@ export default function PedidoPage() {
       {intent?.payment ? (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="body">
-            <h3>Intent {intent.payment.method.toUpperCase()}</h3>
-            <p>Status pagamento: <b>{intent.payment.status}</b></p>
+            <h3>Pagamento {intent.payment.method.toUpperCase()}</h3>
+            <p>
+              Status pagamento: <b>{intent.payment.status}</b>
+            </p>
             {qr ? (
               <div>
                 <p className="muted">PIX copia-e-cola:</p>
@@ -176,7 +294,11 @@ export default function PedidoPage() {
                 {simulating ? 'Confirmando...' : 'Simular aprovação (dev / provider null)'}
               </button>
             ) : null}
-            {o.status === 'paid' ? <p style={{ color: 'green' }}>Pedido pago. Estoque confirmado (commitSale).</p> : null}
+            {o.status === 'paid' ? (
+              <p className="ok" style={{ marginTop: 12 }}>
+                Pedido pago. Estamos preparando a separação.
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}

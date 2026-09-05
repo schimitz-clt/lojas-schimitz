@@ -10,6 +10,7 @@ import { ShippingProvider } from '../shipping/shipping.provider';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
+import { canTransition } from '../../common/order-status';
 
 @Injectable()
 export class OrdersService {
@@ -366,4 +367,40 @@ export class OrdersService {
       return true;
     });
   }
+
+  /**
+   * Admin: avança fulfillment (paid→separating→shipped→delivered).
+   * Sem side-effects de estoque; UPDATE condicional anti-corrida.
+   */
+  async adminUpdateFulfillmentStatus(adminId: string, orderId: string, to: 'separating' | 'shipped' | 'delivered') {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (!canTransition(order.status, to)) {
+      throw new BadRequestException({
+        message: `Transição inválida: ${order.status} → ${to}`,
+        code: 'INVALID_TRANSITION',
+      });
+    }
+    const from = order.status;
+    const rows = await this.prisma.$executeRaw`
+      UPDATE "Order"
+      SET "status" = ${to}::"OrderStatus"
+      WHERE "id" = ${orderId}
+        AND "status" = ${from}::"OrderStatus"
+    `;
+    if (rows === 0) {
+      throw new ConflictException('Pedido alterado por outro processo; recarregue');
+    }
+    await this.audit.log('order.fulfillment_updated', {
+      actorId: adminId,
+      entity: 'Order',
+      entityId: orderId,
+      meta: { from, to },
+    });
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, payments: true },
+    });
+  }
+
 }

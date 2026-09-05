@@ -26,3 +26,5 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/POST/DELETE | `/favorites` | user |
 | GET/POST | `/products/:id/reviews` | público / user |
 | GET | `/admin/orders` `/admin/products` | admin |
+| PATCH | `/admin/orders/:id/status` body `{ "status": "separating"|"shipped"|"delivered" }` | admin |
+| POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
