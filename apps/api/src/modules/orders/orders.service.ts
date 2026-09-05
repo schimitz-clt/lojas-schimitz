@@ -11,6 +11,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
 import { canTransition } from '../../common/order-status';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class OrdersService {
@@ -22,6 +23,7 @@ export class OrdersService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject('ShippingProvider') private readonly shipping: ShippingProvider,
     @Inject('PaymentProvider') private readonly paymentsProvider: PaymentProvider,
+    @Inject(MailService) private readonly mail: MailService,
   ) {}
 
   private publicId() {
@@ -397,10 +399,45 @@ export class OrdersService {
       entityId: orderId,
       meta: { from, to },
     });
-    return this.prisma.order.findUnique({
+    const updated = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, payments: true },
+      include: { items: true, payments: true, user: { select: { email: true, name: true } } },
     });
+    if (updated && (to === 'shipped' || to === 'delivered')) {
+      await this.notifyFulfillmentEmail(updated, to);
+    }
+    return updated;
+  }
+
+  /** Best-effort: e-mails de fulfillment. Nunca lança. */
+  private async notifyFulfillmentEmail(
+    order: {
+      id: string;
+      publicId: string;
+      total: unknown;
+      user?: { email: string; name: string } | null;
+    },
+    status: 'shipped' | 'delivered',
+  ) {
+    try {
+      const to = order.user?.email;
+      if (!to) {
+        this.log.warn(`Fulfillment ${status} sem e-mail: ${order.id}`);
+        return;
+      }
+      const ctx = {
+        publicId: order.publicId,
+        total: Number(order.total),
+        customerName: order.user?.name,
+      };
+      if (status === 'shipped') {
+        await this.mail.notifyOrderShipped(to, ctx);
+      } else {
+        await this.mail.notifyOrderDelivered(to, ctx);
+      }
+    } catch (e: any) {
+      this.log.error(`notifyFulfillmentEmail falhou: ${e?.message || e}`);
+    }
   }
 
 }

@@ -16,6 +16,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ReviewsModule,
     CouponsModule,
     PaymentsModule,
+    MailModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

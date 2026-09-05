@@ -21,6 +21,7 @@ import {
   VerifiedWebhookEvent,
 } from './payment.provider';
 import { CreatePaymentIntentDto } from './dto';
+import { MailService } from '../mail/mail.service';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -34,6 +35,7 @@ export class PaymentsService {
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(InventoryService) private readonly inventory: InventoryService,
     @Inject('PaymentProvider') private readonly provider: PaymentProvider,
+    @Inject(MailService) private readonly mail: MailService,
   ) {}
 
   private scopedIntentKey(userId: string, key: string) {
@@ -553,6 +555,7 @@ export class PaymentsService {
           entityId: paymentId,
           meta: { orderId: payment.orderId, transitioned: true },
         });
+        await this.notifyCustomerPaid(payment.orderId);
         return { applied: true, reason: 'approved' };
       }
 
@@ -743,4 +746,26 @@ export class PaymentsService {
       }
     }
   }
+  /** Best-effort: e-mail "Pedido pago" ao cliente. Nunca lança. */
+  private async notifyCustomerPaid(orderId: string) {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { email: true, name: true } } },
+      });
+      const to = order?.user?.email;
+      if (!to || !order) {
+        this.log.warn(`Pedido pago sem e-mail de cliente: ${orderId}`);
+        return;
+      }
+      await this.mail.notifyOrderPaid(to, {
+        publicId: order.publicId,
+        total: Number(order.total),
+        customerName: order.user?.name,
+      });
+    } catch (e: any) {
+      this.log.error(`notifyCustomerPaid falhou: ${e?.message || e}`);
+    }
+  }
+
 }

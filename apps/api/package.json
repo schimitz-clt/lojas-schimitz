@@ -9,7 +9,7 @@
     "prisma:generate": "prisma generate --schema=../../prisma/schema.prisma && rm -rf node_modules/.prisma && cp -a ../../node_modules/.prisma node_modules/.prisma",
     "prisma:migrate": "prisma migrate dev --schema=../../prisma/schema.prisma",
     "prisma:seed": "prisma db seed --schema=../../prisma/schema.prisma",
-    "test": "tsx src/common/order-status.spec.ts && tsx src/modules/inventory/inventory.math.spec.ts && tsx src/modules/orders/concurrency.spec.ts && tsx src/modules/orders/idempotency.spec.ts && tsx src/modules/auth/auth.jti.spec.ts && tsx src/modules/orders/reservations-expiry.spec.ts && tsx src/modules/payments/payment.translate.spec.ts && tsx src/modules/payments/payment.null.spec.ts && tsx src/modules/payments/payment.status-machine.spec.ts && tsx src/modules/payments/payment.integration.spec.ts"
+    "test": "tsx src/common/order-status.spec.ts && tsx src/modules/inventory/inventory.math.spec.ts && tsx src/modules/orders/concurrency.spec.ts && tsx src/modules/orders/idempotency.spec.ts && tsx src/modules/auth/auth.jti.spec.ts && tsx src/modules/orders/reservations-expiry.spec.ts && tsx src/modules/mail/mail.service.spec.ts && tsx src/modules/payments/payment.translate.spec.ts && tsx src/modules/payments/payment.null.spec.ts && tsx src/modules/payments/payment.status-machine.spec.ts && tsx src/modules/payments/payment.integration.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -24,6 +24,7 @@
     "class-validator": "^0.14.1",
     "helmet": "^8.0.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "uuid": "^11.0.5"
@@ -32,6 +33,7 @@
     "@types/express": "^5.0.0",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.13.1",
+    "@types/nodemailer": "^6.4.17",
     "prisma": "^6.3.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
