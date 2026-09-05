@@ -27,11 +27,14 @@ import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
 import {
+  AdminCreateCouponDto,
   AdminCreateProductDto,
   AdminOrdersQueryDto,
   AdminProductsQueryDto,
+  AdminUpdateCouponDto,
   AdminUpdateProductDto,
 } from './dto';
+import { CouponsService } from '../coupons/coupons.service';
 import {
   UPLOAD_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
@@ -47,6 +50,7 @@ export class AdminController {
     @Inject(OrdersService) private readonly orders: OrdersService,
     private readonly productsService: AdminProductsService,
     private readonly uploads: UploadsService,
+    private readonly coupons: CouponsService,
   ) {}
 
   @Get('orders')
@@ -95,6 +99,22 @@ export class AdminController {
       orderBy: { sort: 'asc' },
     });
     return ok(data);
+  }
+
+
+  @Get('coupons')
+  async couponsList() {
+    return ok(await this.coupons.listAdmin());
+  }
+
+  @Post('coupons')
+  async createCoupon(@Body() dto: AdminCreateCouponDto) {
+    return ok(await this.coupons.createAdmin(dto));
+  }
+
+  @Patch('coupons/:id')
+  async updateCoupon(@Param('id') id: string, @Body() dto: AdminUpdateCouponDto) {
+    return ok(await this.coupons.updateAdmin(id, dto));
   }
 
   /**

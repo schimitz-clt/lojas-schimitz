@@ -160,3 +160,90 @@ export class AdminProductsQueryDto {
   @Min(0)
   lowStock?: number;
 }
+
+/** Admin: criar cupom */
+export class AdminCreateCouponDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(40)
+  code!: string;
+
+  @IsString()
+  @IsIn(['percent', 'fixed'])
+  type!: 'percent' | 'fixed';
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  value!: number;
+
+  @IsOptional()
+  @Transform(optionalMoney)
+  @ValidateIf((_, v) => v != null)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  minSubtotal?: number | null;
+
+  @IsOptional()
+  @IsString()
+  startsAt?: string | null;
+
+  @IsOptional()
+  @IsString()
+  endsAt?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maxUses?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}
+
+export class AdminUpdateCouponDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(40)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['percent', 'fixed'])
+  type?: 'percent' | 'fixed';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  value?: number;
+
+  @IsOptional()
+  @Transform(optionalMoney)
+  @ValidateIf((_, v) => v != null)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  minSubtotal?: number | null;
+
+  @IsOptional()
+  @IsString()
+  startsAt?: string | null;
+
+  @IsOptional()
+  @IsString()
+  endsAt?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @ValidateIf((_, v) => v != null)
+  @IsInt()
+  @Min(1)
+  maxUses?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}

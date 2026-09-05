@@ -25,6 +25,7 @@ export function requireIdempotencyKey(raw?: string): string {
 export function canonicalOrderHash(input: {
   addressId: string;
   couponCode?: string | null;
+  cashbackAmount?: number | null;
   items: HashItem[];
 }) {
   const items = [...input.items]
@@ -35,6 +36,7 @@ export function canonicalOrderHash(input: {
       JSON.stringify({
         addressId: input.addressId,
         couponCode: input.couponCode || null,
+        cashbackAmount: Number(input.cashbackAmount || 0),
         items,
       }),
     )

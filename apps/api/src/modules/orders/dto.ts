@@ -1,4 +1,5 @@
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateOrderDto {
   @IsUUID()
@@ -8,6 +9,13 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(40)
   couponCode?: string;
+
+  /** Valor de SCHIMITZ+ (cashback) a resgatar neste pedido (parcial OK). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cashbackAmount?: number;
 }
 
 /** Admin: avanço manual de fulfillment (sem carrier). */

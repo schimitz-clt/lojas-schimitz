@@ -15,6 +15,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MailModule } from './modules/mail/mail.module';
 
@@ -37,6 +38,7 @@ import { MailModule } from './modules/mail/mail.module';
     FavoritesModule,
     ReviewsModule,
     CouponsModule,
+    LoyaltyModule,
     PaymentsModule,
     MailModule,
   ],

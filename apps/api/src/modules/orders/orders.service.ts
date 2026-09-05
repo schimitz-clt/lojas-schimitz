@@ -12,6 +12,8 @@ import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
 import { canTransition } from '../../common/order-status';
 import { MailService } from '../mail/mail.service';
+import { CouponsService } from '../coupons/coupons.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 @Injectable()
 export class OrdersService {
@@ -24,6 +26,8 @@ export class OrdersService {
     @Inject('ShippingProvider') private readonly shipping: ShippingProvider,
     @Inject('PaymentProvider') private readonly paymentsProvider: PaymentProvider,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(CouponsService) private readonly coupons: CouponsService,
+    @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
   ) {}
 
   private publicId() {
@@ -38,6 +42,7 @@ export class OrdersService {
     return canonicalOrderHash({
       addressId: dto.addressId,
       couponCode: dto.couponCode,
+      cashbackAmount: dto.cashbackAmount ?? 0,
       items,
     });
   }
@@ -142,19 +147,27 @@ export class OrdersService {
     const subtotal = cart.items.reduce((s, i) => s + Number(i.product.price) * i.qty, 0);
     let discount = new Decimal(0);
     let couponId: string | undefined;
+    let cashbackUsed = new Decimal(0);
 
     if (dto.couponCode) {
-      const coupon = await this.prisma.coupon.findUnique({ where: { code: dto.couponCode.toUpperCase() } });
-      if (!coupon || !coupon.active) throw new BadRequestException('Cupom inválido');
-      if (coupon.startsAt && coupon.startsAt > new Date()) throw new BadRequestException('Cupom ainda não válido');
-      if (coupon.endsAt && coupon.endsAt < new Date()) throw new BadRequestException('Cupom expirado');
-      if (coupon.minSubtotal && subtotal < Number(coupon.minSubtotal)) {
-        throw new BadRequestException('Subtotal abaixo do mínimo do cupom');
+      const validated = await this.coupons.validate(dto.couponCode, subtotal);
+      discount = new Decimal(validated.discount);
+      couponId = validated.id;
+    }
+
+    const requestedCashback = Number(dto.cashbackAmount || 0);
+    if (requestedCashback < 0) throw new BadRequestException('Valor de cashback inválido');
+    if (requestedCashback > 0) {
+      const { balance } = await this.loyalty.getBalance(userId);
+      if (requestedCashback > balance + 0.0001) {
+        throw new BadRequestException({
+          message: 'Saldo SCHIMITZ+ insuficiente',
+          code: 'CASHBACK_INSUFFICIENT',
+        });
       }
-      if (coupon.type === 'percent') discount = new Decimal(subtotal * (Number(coupon.value) / 100));
-      else discount = new Decimal(Number(coupon.value));
-      if (Number(discount) > subtotal) discount = new Decimal(subtotal);
-      couponId = coupon.id;
+      const maxApplicable = Math.max(0, subtotal - Number(discount));
+      cashbackUsed = new Decimal(Math.min(requestedCashback, maxApplicable));
+      cashbackUsed = new Decimal(cashbackUsed.toDecimalPlaces(2));
     }
 
     const quote = await this.shipping.quote({
@@ -163,7 +176,8 @@ export class OrdersService {
       items: cart.items.map((i) => ({ qty: i.qty, weightKg: i.product.weightKg ? Number(i.product.weightKg) : undefined })),
     });
     const freight = quote.price;
-    const total = Math.max(0, subtotal - Number(discount) + freight);
+    const totalDiscount = Number(discount) + Number(cashbackUsed);
+    const total = Math.max(0, subtotal - totalDiscount + freight);
     const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     try {
@@ -183,6 +197,7 @@ export class OrdersService {
             status: 'awaiting_payment',
             subtotal: new Decimal(subtotal),
             discount,
+            cashbackUsed,
             freight: new Decimal(freight),
             total: new Decimal(total),
             couponId,
@@ -215,6 +230,9 @@ export class OrdersService {
           await this.inventory.reserve(tx, item.productId, item.qty);
         }
         if (couponId) await this.inventory.reserveCoupon(tx, couponId);
+        if (Number(cashbackUsed) > 0) {
+          await this.loyalty.redeemInTx(tx, userId, created.id, Number(cashbackUsed));
+        }
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
         return created;
       });
@@ -290,6 +308,9 @@ export class OrdersService {
       throw new BadRequestException({ message: 'Transição inválida (já cancelado ou pago)', code: 'INVALID_TRANSITION' });
     }
     await this.audit.log('order.paid', { entity: 'Order', entityId: orderId });
+    await this.loyalty.creditEarnOnPaid(orderId).catch((e) => {
+      this.log.warn(`cashback earn falhou para ${orderId}: ${e?.message || e}`);
+    });
     return this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true, payments: true } });
   }
 
@@ -360,6 +381,9 @@ export class OrdersService {
           await this.inventory.release(tx, item.productId, item.qty);
         }
         if (order.couponId) await this.inventory.releaseCoupon(tx, order.couponId);
+        if (order.userId && Number(order.cashbackUsed) > 0) {
+          await this.loyalty.refundRedeemInTx(tx, order.userId, order.id, Number(order.cashbackUsed));
+        }
       } else {
         for (const item of order.items) {
           await this.inventory.commitSale(tx, item.productId, item.qty);

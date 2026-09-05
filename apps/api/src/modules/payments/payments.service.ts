@@ -22,6 +22,7 @@ import {
 } from './payment.provider';
 import { CreatePaymentIntentDto } from './dto';
 import { MailService } from '../mail/mail.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -36,6 +37,7 @@ export class PaymentsService {
     @Inject(InventoryService) private readonly inventory: InventoryService,
     @Inject('PaymentProvider') private readonly provider: PaymentProvider,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
   ) {}
 
   private scopedIntentKey(userId: string, key: string) {
@@ -554,6 +556,9 @@ export class PaymentsService {
           entity: 'Payment',
           entityId: paymentId,
           meta: { orderId: payment.orderId, transitioned: true },
+        });
+        await this.loyalty.creditEarnOnPaid(payment.orderId).catch((e: any) => {
+          this.log.warn(`cashback earn falhou para ${payment.orderId}: ${e?.message || e}`);
         });
         await this.notifyCustomerPaid(payment.orderId);
         return { applied: true, reason: 'approved' };

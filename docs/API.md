@@ -14,15 +14,18 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST | `/auth/refresh` | público |
 | POST | `/auth/logout` | user |
 | GET/PATCH | `/me` | user |
+| GET | `/me/loyalty` | user (SCHIMITZ+ saldo + extrato) |
 | GET/POST/PATCH/DELETE | `/me/addresses` | user |
 | GET | `/categories` | público |
 | GET | `/products` `?q=&category=` | público |
 | GET | `/products/:slug` | público |
 | GET/DELETE | `/cart` | user ou guest |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
-| POST/GET | `/orders` | user |
+| POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` | user |
 | GET | `/orders/:publicId` | user |
-| POST | `/coupons/validate` | user |
+| POST | `/coupons/validate` body `{ code, subtotal }` | user |
+| GET/POST | `/admin/coupons` | admin |
+| PATCH | `/admin/coupons/:id` | admin |
 | GET/POST/DELETE | `/favorites` | user |
 | GET/POST | `/products/:id/reviews` | público / user |
 | GET | `/admin/orders` `/admin/products` `/admin/categories` | admin |

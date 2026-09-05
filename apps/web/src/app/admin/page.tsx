@@ -58,6 +58,41 @@ const emptyForm = (): ProductForm => ({
   badge: '',
 });
 
+
+type AdminCoupon = {
+  id: string;
+  code: string;
+  type: string;
+  value: number;
+  minSubtotal: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  reservedCount: number;
+  active: boolean;
+};
+
+type CouponForm = {
+  code: string;
+  type: 'percent' | 'fixed';
+  value: string;
+  minSubtotal: string;
+  endsAt: string;
+  maxUses: string;
+  active: boolean;
+};
+
+const emptyCouponForm = (): CouponForm => ({
+  code: '',
+  type: 'percent',
+  value: '',
+  minSubtotal: '',
+  endsAt: '',
+  maxUses: '',
+  active: true,
+});
+
 const DEFAULT_LOW_STOCK = 5;
 
 const ORDER_STATUS_TABS: { key: string; label: string }[] = [
@@ -100,6 +135,9 @@ export default function AdminPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [lowStockThreshold, setLowStockThreshold] = useState(DEFAULT_LOW_STOCK);
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [couponForm, setCouponForm] = useState<CouponForm>(emptyCouponForm);
+  const [savingCoupon, setSavingCoupon] = useState(false);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -114,11 +152,13 @@ export default function AdminPage() {
       api<AdminProduct[]>('/admin/products'),
       api<AdminOrder[]>(ordersPath),
       api<Category[]>('/admin/categories'),
+      api<AdminCoupon[]>('/admin/coupons'),
     ])
-      .then(([p, o, c]) => {
+      .then(([p, o, c, couponsList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
+        setCoupons(couponsList);
         setErr('');
       })
       .catch((e) => setErr(e.message));
@@ -249,6 +289,74 @@ export default function AdminPage() {
       setErr(e.message || 'Falha ao salvar produto');
     } finally {
       setSaving(false);
+    }
+  }
+
+
+  async function saveCoupon(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingCoupon(true);
+    setErr('');
+    setMsg('');
+    const value = Number(String(couponForm.value).replace(',', '.'));
+    const minRaw = couponForm.minSubtotal.trim();
+    const minSubtotal = minRaw === '' ? null : Number(minRaw.replace(',', '.'));
+    const maxRaw = couponForm.maxUses.trim();
+    const maxUses = maxRaw === '' ? null : Number.parseInt(maxRaw, 10);
+    if (!couponForm.code.trim()) {
+      setErr('Informe o código do cupom.');
+      setSavingCoupon(false);
+      return;
+    }
+    if (Number.isNaN(value) || value <= 0) {
+      setErr('Informe um valor de desconto válido.');
+      setSavingCoupon(false);
+      return;
+    }
+    if (minSubtotal != null && (Number.isNaN(minSubtotal) || minSubtotal < 0)) {
+      setErr('Subtotal mínimo inválido.');
+      setSavingCoupon(false);
+      return;
+    }
+    if (maxUses != null && (Number.isNaN(maxUses) || maxUses < 1)) {
+      setErr('Limite de usos inválido.');
+      setSavingCoupon(false);
+      return;
+    }
+    try {
+      await api('/admin/coupons', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: couponForm.code.trim().toUpperCase(),
+          type: couponForm.type,
+          value,
+          minSubtotal,
+          maxUses,
+          endsAt: couponForm.endsAt.trim() ? `${couponForm.endsAt.trim()}T23:59:59` : null,
+          active: couponForm.active,
+        }),
+      });
+      setMsg('Cupom criado.');
+      setCouponForm(emptyCouponForm());
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao criar cupom');
+    } finally {
+      setSavingCoupon(false);
+    }
+  }
+
+  async function toggleCoupon(c: AdminCoupon) {
+    setErr('');
+    try {
+      await api(`/admin/coupons/${c.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !c.active }),
+      });
+      setMsg(c.active ? 'Cupom desativado.' : 'Cupom ativado.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao atualizar cupom');
     }
   }
 
@@ -429,7 +537,111 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: 28, borderColor: lowStockProducts.length ? 'var(--danger)' : undefined }}>
+      
+      <section className="card" style={{ marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Cupons</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout.
+          </p>
+          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveCoupon}>
+            <div className="row" style={{ alignItems: 'stretch' }}>
+              <label style={{ flex: 1 }}>
+                Código *
+                <input
+                  value={couponForm.code}
+                  onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
+                  placeholder="EX.: BEMVINDO10"
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Tipo *
+                <select
+                  value={couponForm.type}
+                  onChange={(e) => setCouponForm({ ...couponForm, type: e.target.value as 'percent' | 'fixed' })}
+                >
+                  <option value="percent">Percentual (%)</option>
+                  <option value="fixed">Valor fixo (R$)</option>
+                </select>
+              </label>
+            </div>
+            <div className="row" style={{ alignItems: 'stretch' }}>
+              <label style={{ flex: 1 }}>
+                {couponForm.type === 'percent' ? 'Percentual *' : 'Valor (R$) *'}
+                <input
+                  inputMode="decimal"
+                  value={couponForm.value}
+                  onChange={(e) => setCouponForm({ ...couponForm, value: e.target.value })}
+                  placeholder={couponForm.type === 'percent' ? '10' : '50,00'}
+                  required
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Subtotal mínimo (opcional)
+                <input
+                  inputMode="decimal"
+                  value={couponForm.minSubtotal}
+                  onChange={(e) => setCouponForm({ ...couponForm, minSubtotal: e.target.value })}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+            <div className="row" style={{ alignItems: 'stretch' }}>
+              <label style={{ flex: 1 }}>
+                Validade (opcional)
+                <input
+                  type="date"
+                  value={couponForm.endsAt}
+                  onChange={(e) => setCouponForm({ ...couponForm, endsAt: e.target.value })}
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                Limite de usos (opcional)
+                <input
+                  inputMode="numeric"
+                  value={couponForm.maxUses}
+                  onChange={(e) => setCouponForm({ ...couponForm, maxUses: e.target.value })}
+                  placeholder="Ilimitado"
+                />
+              </label>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+              <input
+                type="checkbox"
+                checked={couponForm.active}
+                onChange={(e) => setCouponForm({ ...couponForm, active: e.target.checked })}
+              />
+              Cupom ativo
+            </label>
+            <button className="btn" type="submit" disabled={savingCoupon}>
+              {savingCoupon ? 'Salvando...' : 'Criar cupom'}
+            </button>
+          </form>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {coupons.map((c) => (
+              <div key={c.id} className="row" style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <b>{c.code}</b>{' '}
+                  {!c.active ? <span className="badge">Inativo</span> : null}
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {c.type === 'percent' ? `${c.value}%` : brl(c.value)}
+                    {c.minSubtotal != null ? ` · mín. ${brl(c.minSubtotal)}` : ''}
+                    {c.endsAt ? ` · até ${new Date(c.endsAt).toLocaleDateString('pt-BR')}` : ''}
+                    {c.maxUses != null ? ` · ${c.usedCount}/${c.maxUses} usos` : ` · ${c.usedCount} usos`}
+                  </div>
+                </div>
+                <button type="button" className="btn ghost" onClick={() => toggleCoupon(c)}>
+                  {c.active ? 'Desativar' : 'Ativar'}
+                </button>
+              </div>
+            ))}
+            {!coupons.length ? <p className="muted">Nenhum cupom ainda.</p> : null}
+          </div>
+        </div>
+      </section>
+
+<section className="card" style={{ marginBottom: 28, borderColor: lowStockProducts.length ? 'var(--danger)' : undefined }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
             <h2 style={{ margin: 0, fontSize: 20 }}>

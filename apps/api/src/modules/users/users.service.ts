@@ -16,11 +16,12 @@ export class UsersService {
         phone: true,
         role: true,
         status: true,
+        cashbackBalance: true,
         createdAt: true,
       },
     });
     if (!user) throw new NotFoundException('Usuário não encontrado');
-    return user;
+    return { ...user, cashbackBalance: Number(user.cashbackBalance) };
   }
 
   async updateMe(userId: string, dto: UpdateMeDto) {
@@ -37,9 +38,10 @@ export class UsersService {
         phone: true,
         role: true,
         status: true,
+        cashbackBalance: true,
         createdAt: true,
       },
     });
-    return user;
+    return { ...user, cashbackBalance: Number(user.cashbackBalance) };
   }
 }

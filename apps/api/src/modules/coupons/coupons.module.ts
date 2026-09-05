@@ -7,5 +7,6 @@ import { CouponsService } from './coupons.service';
   imports: [JwtModule.register({})],
   controllers: [CouponsController],
   providers: [CouponsService],
+  exports: [CouponsService],
 })
 export class CouponsModule {}

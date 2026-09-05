@@ -1,13 +1,26 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, clearSession, currentUser } from '@/lib/api';
+import { api, brl, clearSession, currentUser } from '@/lib/api';
 
 type Address = { id: string; label: string; street: string; number: string; city: string; uf: string; cep: string; isDefault: boolean };
+type Loyalty = {
+  balance: number;
+  label: string;
+  rate: number;
+  recent: { id: string; kind: string; amount: number; note: string | null; createdAt: string }[];
+};
+
+const kindLabel: Record<string, string> = {
+  earn: 'Cashback ganho',
+  redeem: 'Usado no pedido',
+  refund: 'Estorno',
+};
 
 export default function ContaPage() {
   const [user, setUser] = useState(currentUser());
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
   const [form, setForm] = useState({ label: 'Casa', cep: '', street: '', number: '', district: '', city: '', uf: 'RS' });
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -20,6 +33,7 @@ export default function ContaPage() {
       return;
     }
     api<Address[]>('/me/addresses').then(setAddresses).catch((e) => setErr(e.message));
+    api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, []);
 
   async function addAddress(e: React.FormEvent) {
@@ -29,20 +43,6 @@ export default function ContaPage() {
       setMsg('Endereço salvo.');
       const list = await api<Address[]>('/me/addresses');
       setAddresses(list);
-    } catch (e: any) {
-      setErr(e.message);
-    }
-  }
-
-  async function checkout() {
-    const addr = addresses.find((a) => a.isDefault) || addresses[0];
-    if (!addr) {
-      setErr('Cadastre um endereço antes de finalizar.');
-      return;
-    }
-    try {
-      const order = await api<any>('/orders', { method: 'POST', body: JSON.stringify({ addressId: addr.id, couponCode: 'PIX5' }) });
-      window.location.href = `/pedidos/${order.publicId}`;
     } catch (e: any) {
       setErr(e.message);
     }
@@ -61,6 +61,41 @@ export default function ContaPage() {
         <Link href="/pedidos">Meus pedidos</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
         {user?.role === 'admin' ? <> · <Link href="/admin">Admin da loja</Link></> : null}
       </p>
+
+      <section className="card" style={{ marginBottom: 24, borderColor: '#f5c518' }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>SCHIMITZ+</h2>
+          {loyalty ? (
+            <>
+              <p style={{ fontSize: 28, margin: '8px 0' }}>
+                <b>{brl(loyalty.balance)}</b>
+              </p>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Cashback de {(loyalty.rate * 100).toFixed(0)}% em cada pedido pago. Use no checkout (parcial OK).
+              </p>
+              {loyalty.recent?.length ? (
+                <div style={{ marginTop: 12 }}>
+                  <h3 style={{ fontSize: 16, marginBottom: 8 }}>Extrato recente</h3>
+                  {loyalty.recent.slice(0, 8).map((r) => (
+                    <div key={r.id} className="row" style={{ fontSize: 14, marginBottom: 6 }}>
+                      <span className="muted">{kindLabel[r.kind] || r.kind}</span>
+                      <span style={{ color: r.kind === 'earn' || r.kind === 'refund' ? '#8f8' : undefined }}>
+                        {r.kind === 'redeem' ? '−' : '+'}
+                        {brl(r.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted" style={{ marginBottom: 0 }}>Ainda sem movimentos. Pague um pedido para começar a acumular.</p>
+              )}
+            </>
+          ) : (
+            <p className="muted">Carregando saldo...</p>
+          )}
+        </div>
+      </section>
+
       <h3>Endereços</h3>
       {addresses.map((a) => (
         <div key={a.id} className="card" style={{ marginBottom: 8 }}>
@@ -76,7 +111,9 @@ export default function ContaPage() {
         <input placeholder="UF" maxLength={2} value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value })} required />
         <button className="btn ghost" type="submit">Salvar endereço</button>
       </form>
-      <p><button className="btn" onClick={checkout}>Finalizar pedido com o endereço padrão</button></p>
+      <p style={{ marginTop: 16 }}>
+        <Link className="btn" href="/checkout">Ir ao checkout</Link>
+      </p>
     </div>
   );
 }

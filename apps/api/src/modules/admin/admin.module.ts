@@ -4,9 +4,10 @@ import { AdminController } from './admin.controller';
 import { AdminProductsService } from './admin-products.service';
 import { OrdersModule } from '../orders/orders.module';
 import { UploadsModule } from '../uploads/uploads.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
-  imports: [JwtModule.register({}), OrdersModule, UploadsModule],
+  imports: [JwtModule.register({}), OrdersModule, UploadsModule, CouponsModule],
   controllers: [AdminController],
   providers: [AdminProductsService],
 })
