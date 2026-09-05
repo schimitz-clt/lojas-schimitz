@@ -64,7 +64,7 @@ export default function CartPage() {
         <h3>Subtotal {brl(cart.subtotal)}</h3>
         <Link className="btn" href="/checkout">Finalizar pedido</Link>
       </div>
-      <p className="muted">Frete grátis acima de R$ 299. Pagamento real entra em módulo futuro.</p>
+      <p className="muted">Frete grátis acima de R$ 299. Após confirmar o pedido, você paga com PIX ou cartão (Mercado Pago).</p>
     </div>
   );
 }
