@@ -7,5 +7,6 @@ import { ReviewsService } from './reviews.service';
   imports: [JwtModule.register({})],
   controllers: [ReviewsController],
   providers: [ReviewsService],
+  exports: [ReviewsService],
 })
 export class ReviewsModule {}

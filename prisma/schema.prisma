@@ -291,10 +291,14 @@ model Review {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   rating    Int
   body      String   @default("")
+  /** published | hidden */
   status    String   @default("published")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([productId, userId])
+  @@index([productId, status])
+  @@index([status, createdAt])
 }
 
 model Favorite {

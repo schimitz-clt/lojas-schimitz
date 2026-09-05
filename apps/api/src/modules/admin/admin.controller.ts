@@ -42,6 +42,8 @@ import {
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { ReviewsService } from '../reviews/reviews.service';
+import { AdminUpdateReviewStatusDto } from '../reviews/dto';
 import {
   UPLOAD_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
@@ -60,6 +62,7 @@ export class AdminController {
     private readonly coupons: CouponsService,
     private readonly shipping: ShippingService,
     private readonly salesReports: AdminSalesReportService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   @Get('reports/sales')
@@ -155,6 +158,21 @@ export class AdminController {
   @Delete('shipping/rules/:id')
   async deleteShippingRule(@Param('id') id: string) {
     return ok(await this.shipping.deleteRule(id));
+  }
+
+  @Get('reviews')
+  async reviewsList() {
+    return ok(await this.reviews.adminList());
+  }
+
+  @Patch('reviews/:id')
+  async updateReviewStatus(@Param('id') id: string, @Body() dto: AdminUpdateReviewStatusDto) {
+    return ok(await this.reviews.adminSetStatus(id, dto.status));
+  }
+
+  @Delete('reviews/:id')
+  async deleteReview(@Param('id') id: string) {
+    return ok(await this.reviews.adminDelete(id));
   }
 
   /**

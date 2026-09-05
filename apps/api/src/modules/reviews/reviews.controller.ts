@@ -14,13 +14,20 @@ export class ReviewsController {
     return ok(await this.reviews.listByProduct(productId));
   }
 
+  @Get('products/:id/reviews/me')
+  @UseGuards(JwtAuthGuard)
+  async me(@CurrentUser('sub') userId: string, @Param('id') productId: string) {
+    return ok(await this.reviews.eligibility(userId, productId));
+  }
+
+  /** Cria ou atualiza (1 por usuário/produto). Exige compra paga+. */
   @Post('products/:id/reviews')
   @UseGuards(JwtAuthGuard)
-  async create(
+  async upsert(
     @CurrentUser('sub') userId: string,
     @Param('id') productId: string,
     @Body() dto: CreateReviewDto,
   ) {
-    return ok(await this.reviews.create(userId, productId, dto));
+    return ok(await this.reviews.upsert(userId, productId, dto));
   }
 }

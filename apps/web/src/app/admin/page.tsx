@@ -113,6 +113,19 @@ type SalesReport = {
   topProducts: { productId: string; name: string; qty: number; revenue: number }[];
 };
 
+
+type AdminReview = {
+  id: string;
+  rating: number;
+  body: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string;
+  user: { id: string; name: string; email: string };
+  product: { id: string; name: string; slug: string };
+};
+
+
 function saoPauloYmd(d = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -236,6 +249,8 @@ export default function AdminPage() {
   const [salesFrom, setSalesFrom] = useState(() => addDaysYmd(saoPauloYmd(), -29));
   const [salesTo, setSalesTo] = useState(() => saoPauloYmd());
   const [salesBusy, setSalesBusy] = useState(false);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -253,8 +268,9 @@ export default function AdminPage() {
       api<Category[]>('/admin/categories'),
       api<AdminCoupon[]>('/admin/coupons'),
       api<ShippingConfig>('/admin/shipping'),
+      api<AdminReview[]>('/admin/reviews'),
     ])
-      .then(([p, o, c, couponsList, shipping]) => {
+      .then(([p, o, c, couponsList, shipping, reviewsList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
@@ -266,6 +282,7 @@ export default function AdminPage() {
           defaultFee: String(shipping.settings.defaultFee).replace('.', ','),
           defaultDays: String(shipping.settings.defaultDays),
         });
+        setReviews(reviewsList);
         setErr('');
       })
       .catch((e) => setErr(e.message));
@@ -594,6 +611,41 @@ export default function AdminPage() {
       await load();
     } catch (e: any) {
       setErr(e.message || 'Falha ao remover zona');
+    }
+  }
+
+
+  async function setReviewStatus(review: AdminReview, status: 'published' | 'hidden') {
+    setReviewBusyId(review.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/reviews/${review.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setMsg(status === 'hidden' ? 'Avaliação ocultada.' : 'Avaliação publicada.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao moderar avaliação');
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
+
+  async function deleteReview(review: AdminReview) {
+    if (!confirm(`Excluir avaliação de ${review.user.name} em "${review.product.name}"?`)) return;
+    setReviewBusyId(review.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/reviews/${review.id}`, { method: 'DELETE' });
+      setMsg('Avaliação excluída.');
+      await load();
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao excluir avaliação');
+    } finally {
+      setReviewBusyId(null);
     }
   }
 
@@ -999,6 +1051,84 @@ export default function AdminPage() {
               </div>
             ))}
             {!coupons.length ? <p className="muted">Nenhum cupom ainda.</p> : null}
+          </div>
+        </div>
+      </section>
+
+
+
+      <section className="card" style={{ marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Avaliações</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Publicadas automaticamente. Você pode ocultar ou excluir se precisar.
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {reviews.map((r) => (
+              <div
+                key={r.id}
+                className="row"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div>
+                    <b>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</b>{' '}
+                    {r.status === 'hidden' ? <span className="badge">Oculta</span> : <span className="badge">Publicada</span>}
+                  </div>
+                  <div style={{ marginTop: 4 }}>
+                    <b>{r.user.name}</b>{' '}
+                    <span className="muted" style={{ fontSize: 13 }}>({r.user.email})</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    Produto:{' '}
+                    <Link href={`/produto/${r.product.slug}`}>{r.product.name}</Link>
+                    {' · '}
+                    {new Date(r.createdAt).toLocaleDateString('pt-BR')}
+                  </div>
+                  {r.body ? <p style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p> : (
+                    <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>Sem comentário</p>
+                  )}
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  {r.status === 'published' ? (
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={reviewBusyId === r.id}
+                      onClick={() => setReviewStatus(r, 'hidden')}
+                    >
+                      Ocultar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={reviewBusyId === r.id}
+                      onClick={() => setReviewStatus(r, 'published')}
+                    >
+                      Publicar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={reviewBusyId === r.id}
+                    onClick={() => deleteReview(r)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!reviews.length ? <p className="muted">Nenhuma avaliação ainda.</p> : null}
           </div>
         </div>
       </section>

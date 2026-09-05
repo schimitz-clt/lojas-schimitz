@@ -1,6 +1,8 @@
-import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateReviewDto {
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -8,6 +10,11 @@ export class CreateReviewDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(0)
+  @MaxLength(2000)
   body?: string;
+}
+
+export class AdminUpdateReviewStatusDto {
+  @IsIn(['published', 'hidden'])
+  status!: 'published' | 'hidden';
 }

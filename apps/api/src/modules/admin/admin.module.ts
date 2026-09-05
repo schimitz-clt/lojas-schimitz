@@ -7,9 +7,10 @@ import { OrdersModule } from '../orders/orders.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { ShippingModule } from '../shipping/shipping.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 
 @Module({
-  imports: [JwtModule.register({}), OrdersModule, UploadsModule, CouponsModule, ShippingModule],
+  imports: [JwtModule.register({}), OrdersModule, UploadsModule, CouponsModule, ShippingModule, ReviewsModule],
   controllers: [AdminController],
   providers: [AdminProductsService, AdminSalesReportService],
 })

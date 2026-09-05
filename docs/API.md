@@ -33,7 +33,12 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/POST | `/admin/coupons` | admin |
 | PATCH | `/admin/coupons/:id` | admin |
 | GET/POST/DELETE | `/favorites` | user |
-| GET/POST | `/products/:id/reviews` | público / user |
+| GET | `/products/:id/reviews` | público (só publicadas) |
+| GET | `/products/:id/reviews/me` | user (elegibilidade + minha avaliação) |
+| POST | `/products/:id/reviews` | user comprador (upsert 1–5 ★ + texto) |
+| GET | `/admin/reviews` | admin |
+| PATCH | `/admin/reviews/:id` body `{ status: "published"|"hidden" }` | admin |
+| DELETE | `/admin/reviews/:id` | admin |
 | GET | `/admin/orders` (inclui `user.phone`) `/admin/products` `/admin/categories` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
