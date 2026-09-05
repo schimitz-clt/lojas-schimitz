@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -131,4 +132,31 @@ export class AdminUpdateProductDto {
   @IsString()
   @MaxLength(80)
   badge?: string | null;
+}
+
+/** Query GET /admin/orders?status= */
+export class AdminOrdersQueryDto {
+  @IsOptional()
+  @IsString()
+  @IsIn([
+    'draft',
+    'awaiting_payment',
+    'paid',
+    'separating',
+    'shipped',
+    'delivered',
+    'cancelled',
+    'refunded',
+  ])
+  status?: string;
+}
+
+/** Query GET /admin/products?lowStock=5 */
+export class AdminProductsQueryDto {
+  /** Se informado, retorna só produtos com qtyOnHand <= este valor. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  lowStock?: number;
 }

@@ -18,10 +18,17 @@ const productInclude = {
 export class AdminProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
+  list(opts?: { lowStock?: number }) {
     return this.prisma.product.findMany({
+      where:
+        opts?.lowStock != null
+          ? { inventory: { qtyOnHand: { lte: opts.lowStock } } }
+          : undefined,
       include: productInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy:
+        opts?.lowStock != null
+          ? [{ inventory: { qtyOnHand: 'asc' } }, { name: 'asc' }]
+          : { createdAt: 'desc' },
     });
   }
 

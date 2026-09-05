@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -19,12 +20,18 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
 import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
-import { AdminCreateProductDto, AdminUpdateProductDto } from './dto';
+import {
+  AdminCreateProductDto,
+  AdminOrdersQueryDto,
+  AdminProductsQueryDto,
+  AdminUpdateProductDto,
+} from './dto';
 import {
   UPLOAD_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
@@ -43,11 +50,16 @@ export class AdminController {
   ) {}
 
   @Get('orders')
-  async ordersList() {
+  async ordersList(@Query() query: AdminOrdersQueryDto) {
     const data = await this.prisma.order.findMany({
+      where: query.status ? { status: query.status as OrderStatus } : undefined,
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { items: true, payments: true },
+      include: {
+        items: true,
+        payments: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
     });
     return ok(data);
   }
@@ -62,8 +74,8 @@ export class AdminController {
   }
 
   @Get('products')
-  async products() {
-    return ok(await this.productsService.list());
+  async products(@Query() query: AdminProductsQueryDto) {
+    return ok(await this.productsService.list({ lowStock: query.lowStock }));
   }
 
   @Post('products')

@@ -10,6 +10,8 @@ type AdminOrder = {
   status: string;
   total: number;
   items?: { name: string; qty: number }[];
+  user?: { id: string; name: string; email: string } | null;
+  addressSnap?: { city?: string; uf?: string; label?: string } | null;
 };
 
 type Category = { id: string; name: string; slug: string };
@@ -56,10 +58,33 @@ const emptyForm = (): ProductForm => ({
   badge: '',
 });
 
+const DEFAULT_LOW_STOCK = 5;
+
+const ORDER_STATUS_TABS: { key: string; label: string }[] = [
+  { key: '', label: 'Todos' },
+  { key: 'awaiting_payment', label: 'Aguardando pagamento' },
+  { key: 'paid', label: 'Pago' },
+  { key: 'separating', label: 'Separando' },
+  { key: 'shipped', label: 'Saiu para entrega' },
+  { key: 'delivered', label: 'Entregue' },
+  { key: 'cancelled', label: 'Cancelado' },
+];
+
 function availableStock(p: AdminProduct) {
   const onHand = p.inventory?.qtyOnHand ?? 0;
   const reserved = p.inventory?.qtyReserved ?? 0;
   return Math.max(0, onHand - reserved);
+}
+
+function customerHint(o: AdminOrder) {
+  if (o.user?.name) return o.user.name;
+  if (o.user?.email) return o.user.email;
+  const city = o.addressSnap?.city;
+  const uf = o.addressSnap?.uf;
+  if (city && uf) return `${city}/${uf}`;
+  if (city) return city;
+  if (o.addressSnap?.label) return o.addressSnap.label;
+  return 'Cliente';
 }
 
 export default function AdminPage() {
@@ -73,6 +98,8 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  const [lowStockThreshold, setLowStockThreshold] = useState(DEFAULT_LOW_STOCK);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -80,9 +107,12 @@ export default function AdminPage() {
       setErr('Acesso restrito a admin. Entre com a conta administrativa.');
       return Promise.resolve();
     }
+    const ordersPath = orderStatusFilter
+      ? `/admin/orders?status=${encodeURIComponent(orderStatusFilter)}`
+      : '/admin/orders';
     return Promise.all([
       api<AdminProduct[]>('/admin/products'),
-      api<AdminOrder[]>('/admin/orders'),
+      api<AdminOrder[]>(ordersPath),
       api<Category[]>('/admin/categories'),
     ])
       .then(([p, o, c]) => {
@@ -92,7 +122,7 @@ export default function AdminPage() {
         setErr('');
       })
       .catch((e) => setErr(e.message));
-  }, []);
+  }, [orderStatusFilter]);
 
   useEffect(() => {
     load();
@@ -102,6 +132,12 @@ export default function AdminPage() {
     () => (editingId ? 'Editar produto' : 'Cadastrar produto'),
     [editingId],
   );
+
+  const lowStockProducts = useMemo(() => {
+    return products
+      .filter((p) => (p.inventory?.qtyOnHand ?? 0) <= lowStockThreshold)
+      .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
+  }, [products, lowStockThreshold]);
 
   function startEdit(p: AdminProduct) {
     setEditingId(p.id);
@@ -127,7 +163,6 @@ export default function AdminPage() {
     setForm(emptyForm());
     setMsg('');
   }
-
 
   async function uploadPhoto(file: File | null) {
     if (!file) return;
@@ -260,7 +295,7 @@ export default function AdminPage() {
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Ex.: Smart TV 55&quot; 4K"
+                placeholder='Ex.: Smart TV 55" 4K'
                 required
               />
             </label>
@@ -394,12 +429,82 @@ export default function AdminPage() {
         </div>
       </section>
 
+      <section className="card" style={{ marginBottom: 28, borderColor: lowStockProducts.length ? 'var(--danger)' : undefined }}>
+        <div className="body">
+          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>
+              Estoque baixo{' '}
+              <span className="badge" style={{ marginBottom: 0, background: lowStockProducts.length ? '#3a1515' : undefined, color: lowStockProducts.length ? '#ffb4b4' : undefined }}>
+                {lowStockProducts.length}
+              </span>
+            </h2>
+            <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, color: 'var(--text)' }}>
+              Limite ≤
+              <input
+                type="number"
+                min={0}
+                value={lowStockThreshold}
+                onChange={(e) => {
+                  const n = Number.parseInt(e.target.value, 10);
+                  setLowStockThreshold(Number.isNaN(n) || n < 0 ? DEFAULT_LOW_STOCK : n);
+                }}
+                style={{ width: 72 }}
+              />
+            </label>
+          </div>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Produtos com estoque em mãos igual ou abaixo do limite. Clique em Editar para repor.
+          </p>
+          {lowStockProducts.length ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {lowStockProducts.map((p) => (
+                <div
+                  key={p.id}
+                  className="row"
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: '#2a1515',
+                    border: '1px solid #5a2a2a',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <b>{p.name}</b>
+                    <div className="muted" style={{ fontSize: 13, color: '#ffb4b4' }}>
+                      Estoque: {p.inventory?.qtyOnHand ?? 0}
+                      {(p.inventory?.qtyReserved ?? 0) > 0
+                        ? ` · ${availableStock(p)} disponível`
+                        : null}
+                      {!p.active ? ' · Inativo' : ''}
+                    </div>
+                  </div>
+                  <button type="button" className="btn ghost" onClick={() => startEdit(p)}>
+                    Editar
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Nenhum produto abaixo do limite. Bom trabalho!
+            </p>
+          )}
+        </div>
+      </section>
+
       <h3>Produtos ({products.length})</h3>
       <div style={{ display: 'grid', gap: 10, marginBottom: 28 }}>
         {products.map((p) => {
           const avail = availableStock(p);
+          const onHand = p.inventory?.qtyOnHand ?? 0;
+          const isLow = onHand <= lowStockThreshold;
           return (
-            <div key={p.id} className="card">
+            <div
+              key={p.id}
+              className="card"
+              style={isLow ? { borderColor: '#5a2a2a', boxShadow: 'inset 3px 0 0 #ff6b6b' } : undefined}
+            >
               <div className="body row" style={{ alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                   {p.images?.[0]?.url ? (
@@ -430,13 +535,18 @@ export default function AdminPage() {
                     <div>
                       <b>{p.name}</b>{' '}
                       {!p.active ? <span className="badge">Inativo</span> : null}
+                      {isLow ? (
+                        <span className="badge" style={{ background: '#3a1515', color: '#ffb4b4' }}>
+                          Estoque baixo
+                        </span>
+                      ) : null}
                     </div>
                     <div className="muted" style={{ fontSize: 13 }}>
                       {p.sku} · {brl(p.price)}
                       {p.category ? ` · ${p.category.name}` : ''}
                     </div>
-                    <div className="muted" style={{ fontSize: 13 }}>
-                      Estoque: {p.inventory?.qtyOnHand ?? 0}
+                    <div className="muted" style={{ fontSize: 13, color: isLow ? '#ffb4b4' : undefined }}>
+                      Estoque: {onHand}
                       {(p.inventory?.qtyReserved ?? 0) > 0
                         ? ` (${avail} disponível, ${p.inventory?.qtyReserved} reservado)`
                         : null}
@@ -462,20 +572,51 @@ export default function AdminPage() {
 
       <h3>Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
-        Entrega própria: avance Separando → Saiu para entrega → Entregue (sem Melhor Envio).
+        Entrega própria: avance Separando → Saiu para entrega → Entregue (sem Melhor Envio). Use as abas para filtrar por status.
       </p>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        {ORDER_STATUS_TABS.map((tab) => {
+          const active = orderStatusFilter === tab.key;
+          const count = orderStatusFilter === '' || orderStatusFilter === tab.key
+            ? (tab.key === '' ? orders.length : orders.filter((o) => o.status === tab.key).length)
+            : null;
+          return (
+            <button
+              key={tab.key || 'all'}
+              type="button"
+              className={active ? 'btn' : 'btn ghost'}
+              onClick={() => setOrderStatusFilter(tab.key)}
+              style={{
+                padding: '8px 12px',
+                fontSize: 13,
+                opacity: active ? 1 : 0.9,
+              }}
+            >
+              {tab.label}
+              {active && count != null ? ` (${count})` : ''}
+            </button>
+          );
+        })}
+      </div>
       {orders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
         return (
           <div key={o.id} className="card" style={{ marginBottom: 10 }}>
-            <div className="body row">
-              <div>
+            <div className="body row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
                 <b>{o.publicId}</b>
                 <div className="muted">
                   {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
                 </div>
                 <div className="muted" style={{ fontSize: 13 }}>
-                  {brl(o.total)}
+                  {brl(o.total)} · {customerHint(o)}
                   {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
                 </div>
               </div>
@@ -495,6 +636,13 @@ export default function AdminPage() {
           </div>
         );
       })}
+      {!orders.length ? (
+        <p className="muted">
+          {orderStatusFilter
+            ? `Nenhum pedido com status “${orderStatusLabel(orderStatusFilter)}”.`
+            : 'Nenhum pedido ainda.'}
+        </p>
+      ) : null}
     </div>
   );
 }
