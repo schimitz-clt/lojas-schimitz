@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -345,4 +346,93 @@ export class AdminSalesReportQueryDto {
   @IsString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'to deve ser YYYY-MM-DD' })
   to?: string;
+}
+
+/** Admin: SEO / identidade da loja */
+export class AdminUpdateStoreSettingsDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  siteTitle!: string;
+
+  @IsString()
+  @MinLength(10)
+  @MaxLength(320)
+  siteDescription!: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsUrl({ require_protocol: true })
+  @MaxLength(2000)
+  ogImageUrl?: string | null;
+}
+
+/** Admin: criar banner da home */
+export class AdminCreateBannerDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  alt?: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  imageUrl!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  linkUrl?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}
+
+export class AdminUpdateBannerDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  alt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  linkUrl?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}
+
+export class AdminReorderBannersDto {
+  @IsArray()
+  @IsString({ each: true })
+  orderedIds!: string[];
 }

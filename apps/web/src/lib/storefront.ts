@@ -1,0 +1,78 @@
+/** Tipos e fetch server-side para SEO / banners (storefront). */
+
+export type StoreSettings = {
+  id: string;
+  siteTitle: string;
+  siteDescription: string;
+  ogImageUrl: string | null;
+  updatedAt?: string;
+};
+
+export type HomeBanner = {
+  id: string;
+  title: string;
+  alt: string;
+  imageUrl: string;
+  linkUrl: string | null;
+  sortOrder: number;
+  active: boolean;
+};
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+const DEFAULT_SETTINGS: StoreSettings = {
+  id: 'default',
+  siteTitle: 'Lojas Schimitz',
+  siteDescription:
+    'Tudo o que você precisa. No padrão das grandes. Eletro, celulares e casa em Porto Alegre.',
+  ogImageUrl: null,
+};
+
+export function siteOrigin() {
+  return (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+}
+
+export async function fetchStoreSettings(): Promise<StoreSettings> {
+  try {
+    const res = await fetch(`${API}/store/settings`, { next: { revalidate: 60 } });
+    if (!res.ok) return DEFAULT_SETTINGS;
+    const json = (await res.json()) as { ok?: boolean; data?: StoreSettings };
+    if (!json.ok || !json.data) return DEFAULT_SETTINGS;
+    return json.data;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export async function fetchProductMeta(slug: string): Promise<{
+  name: string;
+  description: string;
+  image?: string;
+} | null> {
+  try {
+    const res = await fetch(`${API}/products/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      ok?: boolean;
+      data?: {
+        name: string;
+        description?: string;
+        images?: { url: string }[];
+      };
+    };
+    if (!json.ok || !json.data) return null;
+    const d = json.data;
+    const desc = (d.description || '').trim() || `${d.name} na Lojas Schimitz`;
+    return {
+      name: d.name,
+      description: desc.slice(0, 320),
+      image: d.images?.[0]?.url,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export { DEFAULT_SETTINGS };

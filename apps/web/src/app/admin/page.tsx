@@ -114,6 +114,40 @@ type SalesReport = {
 };
 
 
+
+type StoreSeoSettings = {
+  id: string;
+  siteTitle: string;
+  siteDescription: string;
+  ogImageUrl: string | null;
+};
+
+type AdminBanner = {
+  id: string;
+  title: string;
+  alt: string;
+  imageUrl: string;
+  linkUrl: string | null;
+  sortOrder: number;
+  active: boolean;
+};
+
+type BannerForm = {
+  title: string;
+  alt: string;
+  imageUrl: string;
+  linkUrl: string;
+  active: boolean;
+};
+
+const emptyBannerForm = (): BannerForm => ({
+  title: '',
+  alt: '',
+  imageUrl: '',
+  linkUrl: '',
+  active: true,
+});
+
 type AdminReview = {
   id: string;
   rating: number;
@@ -252,6 +286,14 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const [seoForm, setSeoForm] = useState({ siteTitle: 'Lojas Schimitz', siteDescription: '', ogImageUrl: '' });
+  const [savingSeo, setSavingSeo] = useState(false);
+  const [banners, setBanners] = useState<AdminBanner[]>([]);
+  const [bannerForm, setBannerForm] = useState<BannerForm>(emptyBannerForm());
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [savingBanner, setSavingBanner] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerBusyId, setBannerBusyId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -269,8 +311,10 @@ export default function AdminPage() {
       api<AdminCoupon[]>('/admin/coupons'),
       api<ShippingConfig>('/admin/shipping'),
       api<AdminReview[]>('/admin/reviews'),
+      api<StoreSeoSettings>('/admin/store/settings'),
+      api<AdminBanner[]>('/admin/banners'),
     ])
-      .then(([p, o, c, couponsList, shipping, reviewsList]) => {
+      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
@@ -283,6 +327,12 @@ export default function AdminPage() {
           defaultDays: String(shipping.settings.defaultDays),
         });
         setReviews(reviewsList);
+        setSeoForm({
+          siteTitle: seo.siteTitle || 'Lojas Schimitz',
+          siteDescription: seo.siteDescription || '',
+          ogImageUrl: seo.ogImageUrl || '',
+        });
+        setBanners(bannersList);
         setErr('');
       })
       .catch((e) => setErr(e.message));
@@ -667,6 +717,161 @@ export default function AdminPage() {
     }
   }
 
+
+  async function saveSeo(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingSeo(true);
+    setMsg('');
+    setErr('');
+    try {
+      const data = await api<StoreSeoSettings>('/admin/store/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          siteTitle: seoForm.siteTitle.trim(),
+          siteDescription: seoForm.siteDescription.trim(),
+          ogImageUrl: seoForm.ogImageUrl.trim() || null,
+        }),
+      });
+      setSeoForm({
+        siteTitle: data.siteTitle,
+        siteDescription: data.siteDescription,
+        ogImageUrl: data.ogImageUrl || '',
+      });
+      setMsg('SEO da loja salvo.');
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao salvar SEO');
+    } finally {
+      setSavingSeo(false);
+    }
+  }
+
+  async function uploadBannerPhoto(file: File | null) {
+    if (!file) return;
+    setUploadingBanner(true);
+    setErr('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
+      setBannerForm((f) => ({ ...f, imageUrl: data.url }));
+      setMsg('Foto do banner enviada.');
+    } catch (err: any) {
+      setErr(err.message || 'Falha no upload do banner');
+    } finally {
+      setUploadingBanner(false);
+    }
+  }
+
+  function startEditBanner(b: AdminBanner) {
+    setEditingBannerId(b.id);
+    setBannerForm({
+      title: b.title || '',
+      alt: b.alt || '',
+      imageUrl: b.imageUrl || '',
+      linkUrl: b.linkUrl || '',
+      active: b.active,
+    });
+    setMsg('');
+    setErr('');
+  }
+
+  function resetBannerForm() {
+    setEditingBannerId(null);
+    setBannerForm(emptyBannerForm());
+  }
+
+  async function saveBanner(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bannerForm.imageUrl.trim()) {
+      setErr('Envie ou informe a imagem do banner');
+      return;
+    }
+    setSavingBanner(true);
+    setMsg('');
+    setErr('');
+    try {
+      const body = {
+        title: bannerForm.title.trim(),
+        alt: bannerForm.alt.trim() || bannerForm.title.trim(),
+        imageUrl: bannerForm.imageUrl.trim(),
+        linkUrl: bannerForm.linkUrl.trim() || null,
+        active: bannerForm.active,
+      };
+      if (editingBannerId) {
+        await api(`/admin/banners/${editingBannerId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+        setMsg('Banner atualizado.');
+      } else {
+        await api('/admin/banners', { method: 'POST', body: JSON.stringify(body) });
+        setMsg('Banner criado.');
+      }
+      resetBannerForm();
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao salvar banner');
+    } finally {
+      setSavingBanner(false);
+    }
+  }
+
+  async function toggleBannerActive(b: AdminBanner) {
+    setBannerBusyId(b.id);
+    setErr('');
+    try {
+      await api(`/admin/banners/${b.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !b.active }),
+      });
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao alterar banner');
+    } finally {
+      setBannerBusyId(null);
+    }
+  }
+
+  async function deleteBanner(b: AdminBanner) {
+    if (!confirm(`Excluir o banner "${b.title || b.id}"?`)) return;
+    setBannerBusyId(b.id);
+    setErr('');
+    try {
+      await api(`/admin/banners/${b.id}`, { method: 'DELETE' });
+      setMsg('Banner excluído.');
+      if (editingBannerId === b.id) resetBannerForm();
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao excluir banner');
+    } finally {
+      setBannerBusyId(null);
+    }
+  }
+
+  async function moveBanner(b: AdminBanner, dir: -1 | 1) {
+    const sorted = [...banners].sort((a, c) => a.sortOrder - c.sortOrder);
+    const i = sorted.findIndex((x) => x.id === b.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= sorted.length) return;
+    const next = [...sorted];
+    const tmp = next[i];
+    next[i] = next[j];
+    next[j] = tmp;
+    setBannerBusyId(b.id);
+    setErr('');
+    try {
+      const list = await api<AdminBanner[]>('/admin/banners/reorder', {
+        method: 'PATCH',
+        body: JSON.stringify({ orderedIds: next.map((x) => x.id) }),
+      });
+      setBanners(list);
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao reordenar');
+    } finally {
+      setBannerBusyId(null);
+    }
+  }
+
   return (
     <div style={{ padding: '24px 0' }}>
       <h1>Admin Schimitz</h1>
@@ -676,6 +881,220 @@ export default function AdminPage() {
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
 
+
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>SEO da loja</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Título e descrição usados nas abas do navegador e no compartilhamento (Open Graph).
+          </p>
+          <form className="form" style={{ maxWidth: 560 }} onSubmit={saveSeo}>
+            <label>
+              Título do site *
+              <input
+                value={seoForm.siteTitle}
+                onChange={(e) => setSeoForm({ ...seoForm, siteTitle: e.target.value })}
+                maxLength={120}
+                required
+              />
+            </label>
+            <label>
+              Descrição (meta) *
+              <textarea
+                value={seoForm.siteDescription}
+                onChange={(e) => setSeoForm({ ...seoForm, siteDescription: e.target.value })}
+                maxLength={320}
+                required
+              />
+            </label>
+            <label>
+              Imagem Open Graph (URL opcional)
+              <input
+                value={seoForm.ogImageUrl}
+                onChange={(e) => setSeoForm({ ...seoForm, ogImageUrl: e.target.value })}
+                placeholder="https://... (ou use upload de banner e cole a URL)"
+              />
+            </label>
+            <button className="btn" type="submit" disabled={savingSeo}>
+              {savingSeo ? 'Salvando...' : 'Salvar SEO'}
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 28 }}>
+        <div className="body">
+          <div className="row" style={{ marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>
+              {editingBannerId ? 'Editar banner' : 'Banners da home'}
+            </h2>
+            {editingBannerId ? (
+              <button type="button" className="btn ghost" onClick={resetBannerForm}>
+                Cancelar edição
+              </button>
+            ) : null}
+          </div>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Imagem + link opcional. Só banners ativos aparecem na vitrine (carrossel).
+          </p>
+          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveBanner}>
+            <label>
+              Título (opcional)
+              <input
+                value={bannerForm.title}
+                onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                placeholder="Ex.: Semana do eletro"
+              />
+            </label>
+            <label>
+              Texto alternativo (acessibilidade)
+              <input
+                value={bannerForm.alt}
+                onChange={(e) => setBannerForm({ ...bannerForm, alt: e.target.value })}
+                placeholder="Descreva a imagem"
+              />
+            </label>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Imagem do banner</div>
+              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <label className="btn ghost" style={{ cursor: uploadingBanner ? 'wait' : 'pointer', margin: 0 }}>
+                  {uploadingBanner ? 'Enviando...' : 'Enviar imagem'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingBanner || savingBanner}
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      e.target.value = '';
+                      void uploadBannerPhoto(f);
+                    }}
+                  />
+                </label>
+                {bannerForm.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={bannerForm.imageUrl}
+                    alt="Prévia banner"
+                    style={{
+                      width: 120,
+                      height: 48,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      background: '#111',
+                    }}
+                  />
+                ) : null}
+              </div>
+            </div>
+            <label>
+              URL da imagem *
+              <input
+                value={bannerForm.imageUrl}
+                onChange={(e) => setBannerForm({ ...bannerForm, imageUrl: e.target.value })}
+                placeholder="https://... ou envie acima"
+                required
+              />
+            </label>
+            <label>
+              Link ao clicar (opcional)
+              <input
+                value={bannerForm.linkUrl}
+                onChange={(e) => setBannerForm({ ...bannerForm, linkUrl: e.target.value })}
+                placeholder="/departamento/ofertas ou https://..."
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+              <input
+                type="checkbox"
+                checked={bannerForm.active}
+                onChange={(e) => setBannerForm({ ...bannerForm, active: e.target.checked })}
+              />
+              Banner ativo (aparece na home)
+            </label>
+            <button className="btn" type="submit" disabled={savingBanner}>
+              {savingBanner ? 'Salvando...' : editingBannerId ? 'Salvar banner' : 'Criar banner'}
+            </button>
+          </form>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            {banners.map((b, i) => (
+              <div
+                key={b.id}
+                className="row"
+                style={{
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  padding: 10,
+                  borderRadius: 10,
+                  border: '1px solid var(--line)',
+                  background: 'var(--bg)',
+                  opacity: b.active ? 1 : 0.65,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={b.imageUrl}
+                  alt={b.alt || b.title || 'Banner'}
+                  style={{ width: 96, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                />
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <div style={{ fontWeight: 600 }}>{b.title || '(sem título)'}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {b.active ? 'Ativo' : 'Inativo'} · ordem {i + 1}
+                    {b.linkUrl ? ` · ${b.linkUrl}` : ''}
+                  </div>
+                </div>
+                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={bannerBusyId === b.id || i === 0}
+                    onClick={() => void moveBanner(b, -1)}
+                    title="Subir"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={bannerBusyId === b.id || i === banners.length - 1}
+                    onClick={() => void moveBanner(b, 1)}
+                    title="Descer"
+                  >
+                    ↓
+                  </button>
+                  <button type="button" className="btn ghost" onClick={() => startEditBanner(b)}>
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={bannerBusyId === b.id}
+                    onClick={() => void toggleBannerActive(b)}
+                  >
+                    {b.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={bannerBusyId === b.id}
+                    onClick={() => void deleteBanner(b)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!banners.length ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Nenhum banner ainda. Crie o primeiro acima.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">

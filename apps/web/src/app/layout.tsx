@@ -1,18 +1,33 @@
+import type { Metadata } from 'next';
 import './globals.css';
 import { Header } from '@/components/Header';
 import { ChatWidget } from '@/components/ChatWidget';
+import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
-export const metadata = {
-  title: { default: 'Lojas Schimitz', template: '%s | Lojas Schimitz' },
-  description: 'Tudo o que você precisa. No padrão das grandes. Eletro, celulares e casa em Porto Alegre.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
-  openGraph: {
-    title: 'Lojas Schimitz',
-    description: 'Tudo o que você precisa. No padrão das grandes.',
-    locale: 'pt_BR',
-    type: 'website',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await fetchStoreSettings();
+  const base = siteOrigin();
+  return {
+    title: { default: s.siteTitle, template: `%s | ${s.siteTitle}` },
+    description: s.siteDescription,
+    metadataBase: new URL(base),
+    openGraph: {
+      title: s.siteTitle,
+      description: s.siteDescription,
+      locale: 'pt_BR',
+      type: 'website',
+      url: base,
+      siteName: s.siteTitle,
+      ...(s.ogImageUrl ? { images: [{ url: s.ogImageUrl }] } : {}),
+    },
+    twitter: {
+      card: s.ogImageUrl ? 'summary_large_image' : 'summary',
+      title: s.siteTitle,
+      description: s.siteDescription,
+      ...(s.ogImageUrl ? { images: [s.ogImageUrl] } : {}),
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -385,3 +385,27 @@ model ShippingCepRule {
   @@index([cepPrefix])
   @@index([active])
 }
+
+/** SEO e identidade da loja (singleton). */
+model StoreSettings {
+  id              String   @id @default("default")
+  siteTitle       String   @default("Lojas Schimitz")
+  siteDescription String   @default("Tudo o que você precisa. No padrão das grandes. Eletro, celulares e casa em Porto Alegre.")
+  ogImageUrl      String?
+  updatedAt       DateTime @updatedAt
+}
+
+/** Banners da home (carrossel / faixa). */
+model HomeBanner {
+  id        String   @id @default(uuid())
+  title     String   @default("")
+  alt       String   @default("")
+  imageUrl  String
+  linkUrl   String?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}

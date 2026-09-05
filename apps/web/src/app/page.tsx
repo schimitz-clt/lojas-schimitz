@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api, waLink } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
+import { HomeBanners } from '@/components/HomeBanners';
 import { Suspense } from 'react';
 
 function HomeInner() {
@@ -19,8 +20,9 @@ function HomeInner() {
 
   return (
     <>
+      <HomeBanners />
       <section className="hero">
-        <div className="badge">Vitrine V1 · API própria</div>
+        <div className="badge">Vitrine · Lojas Schimitz</div>
         <h1>Tudo o que você precisa. No padrão das grandes.</h1>
         <p>Busca, CEP, 12x, PIX, favoritos, sacola e WhatsApp. Atendimento humano no (51) 99625-3766.</p>
         <div className="actions">

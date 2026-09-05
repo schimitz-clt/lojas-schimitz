@@ -39,6 +39,10 @@ import {
   AdminUpdateShippingCepRuleDto,
   AdminSalesReportQueryDto,
   AdminUpdateShippingSettingsDto,
+  AdminUpdateStoreSettingsDto,
+  AdminCreateBannerDto,
+  AdminUpdateBannerDto,
+  AdminReorderBannersDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -49,6 +53,7 @@ import {
   UPLOAD_MAX_BYTES,
   UploadsService,
 } from '../uploads/uploads.service';
+import { StorefrontService } from '../storefront/storefront.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -63,6 +68,7 @@ export class AdminController {
     private readonly shipping: ShippingService,
     private readonly salesReports: AdminSalesReportService,
     private readonly reviews: ReviewsService,
+    private readonly storefront: StorefrontService,
   ) {}
 
   @Get('reports/sales')
@@ -173,6 +179,41 @@ export class AdminController {
   @Delete('reviews/:id')
   async deleteReview(@Param('id') id: string) {
     return ok(await this.reviews.adminDelete(id));
+  }
+
+  @Get('store/settings')
+  async storeSettings() {
+    return ok(await this.storefront.getAdminSettings());
+  }
+
+  @Patch('store/settings')
+  async updateStoreSettings(@Body() dto: AdminUpdateStoreSettingsDto) {
+    return ok(await this.storefront.updateSettings(dto));
+  }
+
+  @Get('banners')
+  async bannersList() {
+    return ok(await this.storefront.listAdminBanners());
+  }
+
+  @Post('banners')
+  async createBanner(@Body() dto: AdminCreateBannerDto) {
+    return ok(await this.storefront.createBanner(dto));
+  }
+
+  @Patch('banners/reorder')
+  async reorderBanners(@Body() dto: AdminReorderBannersDto) {
+    return ok(await this.storefront.reorderBanners(dto.orderedIds));
+  }
+
+  @Patch('banners/:id')
+  async updateBanner(@Param('id') id: string, @Body() dto: AdminUpdateBannerDto) {
+    return ok(await this.storefront.updateBanner(id, dto));
+  }
+
+  @Delete('banners/:id')
+  async deleteBanner(@Param('id') id: string) {
+    return ok(await this.storefront.deleteBanner(id));
   }
 
   /**

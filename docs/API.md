@@ -46,4 +46,10 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
 | PATCH | `/admin/orders/:id/status` body `{ "status": "separating"|"shipped"|"delivered" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
+| GET | `/store/settings` | público (SEO) |
+| GET | `/store/banners` | público (banners ativos) |
+| GET/PATCH | `/admin/store/settings` body `{ siteTitle, siteDescription, ogImageUrl? }` | admin |
+| GET/POST | `/admin/banners` | admin |
+| PATCH | `/admin/banners/reorder` body `{ orderedIds: string[] }` | admin |
+| PATCH/DELETE | `/admin/banners/:id` | admin |
 | POST | `/chat` body `{ message, conversationId? }` → reply + handoff WhatsApp + produtos reais | público (20/min) |

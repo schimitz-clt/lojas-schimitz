@@ -8,9 +8,18 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { ShippingModule } from '../shipping/shipping.module';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { StorefrontModule } from '../storefront/storefront.module';
 
 @Module({
-  imports: [JwtModule.register({}), OrdersModule, UploadsModule, CouponsModule, ShippingModule, ReviewsModule],
+  imports: [
+    JwtModule.register({}),
+    OrdersModule,
+    UploadsModule,
+    CouponsModule,
+    ShippingModule,
+    ReviewsModule,
+    StorefrontModule,
+  ],
   controllers: [AdminController],
   providers: [AdminProductsService, AdminSalesReportService],
 })

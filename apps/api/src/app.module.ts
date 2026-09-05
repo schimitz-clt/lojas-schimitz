@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { StorefrontModule } from './modules/storefront/storefront.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ChatModule } from './modules/chat/chat.module';
     MailModule,
     ShippingModule,
     ChatModule,
+    StorefrontModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
