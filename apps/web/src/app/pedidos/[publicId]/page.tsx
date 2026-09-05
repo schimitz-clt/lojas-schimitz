@@ -29,6 +29,14 @@ type Order = {
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
 
+function pixQrImageSrc(qrCodeBase64?: string | null): string | null {
+  if (!qrCodeBase64) return null;
+  const trimmed = qrCodeBase64.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('data:')) return trimmed;
+  return `data:image/png;base64,${trimmed}`;
+}
+
 function FulfillmentTimeline({ status }: { status: string }) {
   const current = fulfillmentStepIndex(status);
   if (current < 0 && status !== 'paid') {
@@ -113,6 +121,8 @@ export default function PedidoPage() {
   const [intent, setIntent] = useState<{ payment: Payment } | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [cardToken, setCardToken] = useState('');
+  const [generatedQr, setGeneratedQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const reload = useCallback(() => {
     return api<Order>(`/orders/${publicId}`).then((order) => {
@@ -128,6 +138,32 @@ export default function PedidoPage() {
   useEffect(() => {
     reload().catch((e) => setErr(e.message));
   }, [reload]);
+
+  const qr = intent?.payment?.payload?.qrCode || null;
+  const qrFromMp = pixQrImageSrc(intent?.payment?.payload?.qrCodeBase64);
+  const qrImgSrc = qrFromMp || generatedQr;
+
+  useEffect(() => {
+    let cancelled = false;
+    setGeneratedQr(null);
+    if (qrFromMp || !qr) return;
+    (async () => {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const dataUrl = await QRCode.toDataURL(qr, {
+          width: 280,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+        });
+        if (!cancelled) setGeneratedQr(dataUrl);
+      } catch {
+        if (!cancelled) setGeneratedQr(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [qr, qrFromMp]);
 
   async function createIntent() {
     if (!o) return;
@@ -190,12 +226,24 @@ export default function PedidoPage() {
     }
   }
 
+  async function copyPixCode() {
+    if (!qr) return;
+    try {
+      await navigator.clipboard.writeText(qr);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setErr('Não foi possível copiar. Selecione o código e copie manualmente.');
+    }
+  }
+
   if (err && !o) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!o) return <p className="muted">Carregando...</p>;
 
   const awaiting = o.status === 'awaiting_payment';
   const showTimeline = ['paid', 'separating', 'shipped', 'delivered'].includes(o.status);
-  const qr = intent?.payment?.payload?.qrCode;
+  const isPixPending =
+    intent?.payment?.method === 'pix' && intent.payment.status === 'pending';
 
   return (
     <div style={{ padding: '24px 0' }}>
@@ -283,10 +331,49 @@ export default function PedidoPage() {
             <p>
               Status pagamento: <b>{intent.payment.status}</b>
             </p>
-            {qr ? (
-              <div>
-                <p className="muted">PIX copia-e-cola:</p>
-                <textarea readOnly value={qr} rows={3} style={{ width: '100%' }} />
+            {isPixPending || (intent.payment.method === 'pix' && (qr || qrImgSrc)) ? (
+              <div style={{ marginTop: 8 }}>
+                {qrImgSrc ? (
+                  <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                    <img
+                      src={qrImgSrc}
+                      alt="QR Code PIX"
+                      width={280}
+                      height={280}
+                      style={{
+                        maxWidth: '100%',
+                        height: 'auto',
+                        background: '#fff',
+                        border: '1px solid var(--line)',
+                        borderRadius: 8,
+                        padding: 8,
+                      }}
+                    />
+                    <p className="muted" style={{ fontSize: 14, marginTop: 8, marginBottom: 0 }}>
+                      Escaneie o QR Code no app do seu banco
+                    </p>
+                  </div>
+                ) : qr ? (
+                  <p className="muted" style={{ fontSize: 14 }}>
+                    Gerando QR Code...
+                  </p>
+                ) : null}
+                {qr ? (
+                  <div>
+                    <p className="muted" style={{ marginBottom: 6 }}>
+                      PIX copia-e-cola:
+                    </p>
+                    <textarea readOnly value={qr} rows={3} style={{ width: '100%' }} />
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ marginTop: 8 }}
+                      onClick={copyPixCode}
+                    >
+                      {copied ? 'Código copiado!' : 'Copiar código PIX'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {awaiting && intent.payment.status === 'pending' ? (
