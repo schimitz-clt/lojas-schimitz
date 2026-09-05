@@ -24,7 +24,7 @@ function HomeInner() {
       <section className="hero">
         <div className="badge">Vitrine · Lojas Schimitz</div>
         <h1>Tudo o que você precisa. No padrão das grandes.</h1>
-        <p>Busca, CEP, 12x, PIX, favoritos, sacola e WhatsApp. Atendimento humano no (51) 99625-3766.</p>
+        <p>Busca, CEP, 12x, PIX, favoritos, sacola e chat. Atendimento no chat do site ou no WhatsApp (51) 99625-3766.</p>
         <div className="actions">
           <a className="btn" href="#ofertas">Conferir ofertas</a>
           <a className="btn ghost" href={waLink()} target="_blank" rel="noreferrer">Falar no WhatsApp</a>

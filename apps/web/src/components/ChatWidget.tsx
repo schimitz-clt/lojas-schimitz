@@ -11,7 +11,7 @@ const MSGS = 'sch_chat_msgs';
 const WELCOME: UiMsg = {
   id: 'welcome',
   role: 'assistant',
-  text: 'Olá! Sou o assistente da Lojas Schimitz. Posso falar de frete, PIX, parcelamento, cupons, SCHIMITZ+ e produtos do catálogo. Se quiser uma pessoa, te passo para o WhatsApp.',
+  text: 'Olá! Sou o assistente da Lojas Schimitz. Posso falar de frete, PIX, parcelamento, cupons, SCHIMITZ+ e produtos do catálogo. Atendimento também no WhatsApp (51) 99625-3766 — ou continue por aqui no chat.',
 };
 
 function loadMsgs(): UiMsg[] {
@@ -138,7 +138,7 @@ export function ChatWidget() {
             </button>
           </form>
           <a className="chatw-human" href={waLink('Olá, vim pelo chat da Lojas Schimitz.')} target="_blank" rel="noreferrer">
-            Falar com humano no WhatsApp
+            Falar no WhatsApp
           </a>
         </section>
       ) : null}

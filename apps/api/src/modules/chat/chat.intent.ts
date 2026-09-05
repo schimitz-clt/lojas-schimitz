@@ -89,7 +89,7 @@ export function faqReply(message: string): string | null {
   if (ret) bits.push('Troca em até 7 dias, conforme as regras da loja.');
 
   if (!bits.length) return null;
-  bits.push('Se preferir, falo com um atendente no WhatsApp (51) 99625-3766.');
+  bits.push('Se preferir, continue no chat da loja ou fale no WhatsApp (51) 99625-3766.');
   return bits.join(' ');
 }
 
@@ -98,7 +98,7 @@ export function noLlmFallbackReply(opts: { faq: string | null; hasProducts: bool
   if (opts.hasProducts) {
     return 'Encontrei estes itens no catálogo atual. Os preços são os da loja — não invento produto que não esteja listado. Quer que eu detalhe algum, ou prefere falar no WhatsApp (51) 99625-3766?';
   }
-  return 'No momento o assistente automático está limitado. Posso confirmar políticas da loja (PIX 5% off, 12x no Mercado Pago, frete grátis em Porto Alegre, SCHIMITZ+) ou te passar para um atendente no WhatsApp (51) 99625-3766.';
+  return 'No momento o assistente automático está limitado. Posso confirmar políticas da loja (PIX 5% off, 12x no Mercado Pago, frete grátis em Porto Alegre, SCHIMITZ+) ou te passar para o WhatsApp (51) 99625-3766 — o chat da loja continua disponível.';
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

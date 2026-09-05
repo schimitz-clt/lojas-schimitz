@@ -36,9 +36,9 @@ export function storeFactsBlock() {
     `Acompanhamento do pedido (entrega própria): ${DELIVERY_FLOW}.`,
     `Cupons no checkout + cashback ${CASHBACK_LABEL} (cerca de ${CASHBACK_RATE_PCT}% em compras pagas).`,
     `Troca em ${RETURN_DAYS} dias, conforme regras da loja.`,
-    `Atendimento humano no WhatsApp: (51) 99625-3766 — https://wa.me/${wa}`,
+    `Atendimento no chat do site ou no WhatsApp: (51) 99625-3766 — https://wa.me/${wa}`,
   ].join('\n');
 }
 
 export const HANDOFF_MESSAGE =
-  'Vou te passar para um atendente humano no WhatsApp. Clique no link e continue por lá — a equipe da Lojas Schimitz te responde.';
+  'Vou te passar para o WhatsApp da loja. Clique no link e continue por lá — a equipe da Lojas Schimitz te responde.';
