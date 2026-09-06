@@ -6,7 +6,7 @@ Nao usa Cloud API da Meta. Sem marketplace e sem app Android.
 - POST /api/v1/chat com message e conversationId opcional
 - Resposta reply, conversationId, handoff, whatsappUrl, products, llm
 - Nunca inventa produto
-- Humano / reclamacao / disputa vai para wa.me 5551996253766
+- Humano / reclamacao / disputa / whatsapp / zap / wa vai para wa.me 5551996253766 (handoff mesmo sem LLM)
 - Sem chave LLM: FAQ + WhatsApp
 - Rate limit 20 por minuto no endpoint
 - Memoria 30 min, sem migration Prisma

@@ -16,6 +16,11 @@ assert.equal(needsHandoff('reclamação do pedido'), true);
 assert.equal(needsHandoff('disputa de pagamento'), true);
 assert.equal(needsHandoff('cobraram errado no cartão'), true);
 assert.equal(needsHandoff('preciso de um humano'), true);
+assert.equal(needsHandoff('whatsapp'), true);
+assert.equal(needsHandoff('quero whatsapp'), true);
+assert.equal(needsHandoff('me passa o zap'), true);
+assert.equal(needsHandoff('quero o link do whats'), true);
+assert.equal(needsHandoff('WA'), true);
 assert.equal(needsHandoff('tem frete gratis?'), false);
 assert.equal(needsHandoff('quanto fica no pix?'), false);
 

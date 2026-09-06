@@ -8,6 +8,13 @@ const HANDOFF_RE = new RegExp(
     '\\b(n[aã]o reconhe[cç]o|cobraram errado|pagamento (errado|indevido|duplicado)|golpe|fraude)\\b',
     'quero falar com (um )?human',
     'preciso de (um )?human',
+    // WhatsApp / WA — handoff mesmo sem LLM (429 / sem chave)
+    '\\b(whats\\s*app|whatsapp|wpp|zap)\\b',
+    '(^|\\s)wa(\\s|$|[,.!?;:])',
+    'quero (o )?whats',
+    'passar (no|pro|para o|pelo) (whats|zap|wpp)',
+    'chama(r)? (no|pelo) (whats|zap|wpp)',
+    'link do whats',
   ].join('|'),
   'i',
 );
