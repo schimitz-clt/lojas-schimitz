@@ -20,6 +20,8 @@ type Notif = {
 class MemoryNotifications {
   private items: Notif[] = [];
 
+  private seq = 0;
+
   create(input: {
     userId: string;
     type: string;
@@ -28,6 +30,7 @@ class MemoryNotifications {
     linkUrl?: string | null;
     orderId?: string | null;
   }) {
+    this.seq += 1;
     const n: Notif = {
       id: randomUUID(),
       userId: input.userId,
@@ -37,7 +40,8 @@ class MemoryNotifications {
       linkUrl: input.linkUrl ?? null,
       orderId: input.orderId ?? null,
       readAt: null,
-      createdAt: new Date(),
+      // Monotonic timestamps so ordering asserts are stable even in the same ms.
+      createdAt: new Date(Date.now() + this.seq),
     };
     this.items.push(n);
     return n;
