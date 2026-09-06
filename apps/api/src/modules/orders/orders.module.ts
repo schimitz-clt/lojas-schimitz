@@ -5,9 +5,10 @@ import { OrdersService } from './orders.service';
 import { ReservationsExpiryService } from './reservations-expiry.service';
 import { CouponsModule } from '../coupons/coupons.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [JwtModule.register({}), CouponsModule, LoyaltyModule],
+  imports: [JwtModule.register({}), CouponsModule, LoyaltyModule, NotificationsModule],
   controllers: [OrdersController],
   providers: [OrdersService, ReservationsExpiryService],
   exports: [OrdersService],

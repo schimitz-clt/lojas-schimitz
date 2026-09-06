@@ -23,6 +23,8 @@ import {
 import { CreatePaymentIntentDto } from './dto';
 import { MailService } from '../mail/mail.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -38,6 +40,7 @@ export class PaymentsService {
     @Inject('PaymentProvider') private readonly provider: PaymentProvider,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   private scopedIntentKey(userId: string, key: string) {
@@ -644,7 +647,7 @@ export class PaymentsService {
         code: 'PAYMENT_NOT_APPROVED',
       });
     }
-    if (!['paid', 'separating'].includes(payment.order.status)) {
+    if (!isRefundAllowed(payment.order.status)) {
       throw new BadRequestException({
         message: 'Pedido não permite estorno neste estado',
         code: 'ORDER_REFUND_NOT_ALLOWED',
@@ -690,26 +693,31 @@ export class PaymentsService {
       if (rows === 0) return;
 
       const order = payment.order;
-      if (order.status === 'paid') {
-        const oRows = await tx.$executeRaw`
-          UPDATE "Order"
-          SET "status" = 'refunded'::"OrderStatus"
-          WHERE "id" = ${order.id}
-            AND "status" = 'paid'::"OrderStatus"
-        `;
-        if (oRows > 0) {
-          for (const item of order.items) {
-            await this.inventory.restock(tx, item.productId, item.qty);
-          }
+      const fromStatus = order.status;
+      if (!isRefundAllowed(fromStatus)) return;
+
+      const oRows = await tx.$executeRaw`
+        UPDATE "Order"
+        SET "status" = 'refunded'::"OrderStatus"
+        WHERE "id" = ${order.id}
+          AND "status" = ${fromStatus}::"OrderStatus"
+      `;
+      if (oRows === 0) return;
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus,
+          toStatus: 'refunded',
+          actorId: actorId || null,
+          note: 'payment_refunded',
+        },
+      });
+
+      if (shouldRestockOnRefund(fromStatus)) {
+        for (const item of order.items) {
+          await this.inventory.restock(tx, item.productId, item.qty);
         }
-      } else if (order.status === 'separating') {
-        await tx.$executeRaw`
-          UPDATE "Order"
-          SET "status" = 'refunded'::"OrderStatus"
-          WHERE "id" = ${order.id}
-            AND "status" = 'separating'::"OrderStatus"
-        `;
-        // sem restock automático (#10)
       }
     });
 
@@ -751,15 +759,29 @@ export class PaymentsService {
       }
     }
   }
-  /** Best-effort: e-mail "Pedido pago" ao cliente. Nunca lança. */
+  /** Best-effort: e-mail + notificação in-app "Pedido pago". Nunca lança. */
   private async notifyCustomerPaid(orderId: string) {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
         include: { user: { select: { email: true, name: true } } },
       });
-      const to = order?.user?.email;
-      if (!to || !order) {
+      if (!order) {
+        this.log.warn(`Pedido pago não encontrado: ${orderId}`);
+        return;
+      }
+      if (order.userId) {
+        await this.notifications.createSafe({
+          userId: order.userId,
+          type: 'order_paid',
+          title: 'Pedido pago',
+          body: `Recebemos o pagamento do pedido ${order.publicId}.`,
+          linkUrl: `/pedidos/${order.publicId}`,
+          orderId: order.id,
+        });
+      }
+      const to = order.user?.email;
+      if (!to) {
         this.log.warn(`Pedido pago sem e-mail de cliente: ${orderId}`);
         return;
       }

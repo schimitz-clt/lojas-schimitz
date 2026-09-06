@@ -7,7 +7,21 @@ export class InventoryService {
     return Math.max(0, qtyOnHand - qtyReserved);
   }
 
+  /**
+   * Reserva atômica (CAS): qtyReserved += qty se disponível >= qty.
+   * Usado no create do pedido (awaiting_payment). Pagamento confirma via commitSale.
+   */
   async reserve(tx: Prisma.TransactionClient, productId: string, qty: number) {
+    if (qty < 1) {
+      throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
+    }
+    const inv = await tx.inventory.findUnique({ where: { productId } });
+    if (!inv) {
+      throw new BadRequestException({
+        message: 'Produto sem inventário configurado',
+        code: 'INVENTORY_MISSING',
+      });
+    }
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyReserved" = "qtyReserved" + ${qty}
@@ -22,6 +36,7 @@ export class InventoryService {
     }
   }
 
+  /** Libera reserva (cancelamento / expiração de unpaid). */
   async release(tx: Prisma.TransactionClient, productId: string, qty: number) {
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
@@ -32,6 +47,7 @@ export class InventoryService {
     return rows;
   }
 
+  /** Confirma venda: baixa on-hand e reserva (pagamento aprovado). */
   async commitSale(tx: Prisma.TransactionClient, productId: string, qty: number) {
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
@@ -84,7 +100,7 @@ export class InventoryService {
     `;
   }
 
-  /** SCH-003 aditivo — reposição após estorno de Order=paid. NÃO altera o predicado CAS. */
+  /** Reposição após estorno de Order ainda no depósito. NÃO altera o predicado CAS. */
   async restock(tx: Prisma.TransactionClient, productId: string, qty: number) {
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"

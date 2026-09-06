@@ -10,10 +10,20 @@ import { ShippingProvider } from '../shipping/shipping.provider';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
-import { canTransition } from '../../common/order-status';
+import {
+  canTransition,
+  orderStatusLabel,
+  type FulfillmentStatus,
+} from '../../common/order-status';
 import { MailService } from '../mail/mail.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+type AdminFulfillmentTarget =
+  | FulfillmentStatus
+  | 'separating'
+  | 'shipped';
 
 @Injectable()
 export class OrdersService {
@@ -28,6 +38,7 @@ export class OrdersService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(CouponsService) private readonly coupons: CouponsService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   private publicId() {
@@ -51,6 +62,23 @@ export class OrdersService {
     return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
   }
 
+  private async recordStatusHistory(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    toStatus: string,
+    opts?: { fromStatus?: string | null; actorId?: string | null; note?: string | null },
+  ) {
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        fromStatus: opts?.fromStatus ?? null,
+        toStatus,
+        actorId: opts?.actorId ?? null,
+        note: opts?.note ?? null,
+      },
+    });
+  }
+
   async create(userId: string, dto: CreateOrderDto, idempotencyKeyRaw?: string) {
     const idempotencyKey = requireIdempotencyKey(idempotencyKeyRaw);
     const scoped = this.scopedKey(userId, idempotencyKey);
@@ -58,7 +86,7 @@ export class OrdersService {
     const loadExistingOrder = () =>
       this.prisma.order.findFirst({
         where: { userId, idempotencyKey },
-        include: { items: true, payments: true },
+        include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
       });
 
     const existingOrder = await loadExistingOrder();
@@ -146,6 +174,21 @@ export class OrdersService {
     for (const item of cart.items) {
       if (item.qty < 1) throw new BadRequestException('Quantidade inválida');
       if (!item.product.active) throw new BadRequestException(`Produto "${item.product.name}" indisponível`);
+      // Preflight: bloqueia oversell antes da tx (CAS na tx ainda é a fonte da verdade).
+      const inv = item.product.inventory;
+      if (!inv) {
+        throw new BadRequestException({
+          message: `Produto "${item.product.name}" sem inventário configurado`,
+          code: 'INVENTORY_MISSING',
+        });
+      }
+      const available = this.inventory.available(inv.qtyOnHand, inv.qtyReserved);
+      if (available < item.qty) {
+        throw new BadRequestException({
+          message: `Estoque insuficiente para "${item.product.name}"`,
+          code: 'INSUFFICIENT_STOCK',
+        });
+      }
     }
 
     const subtotal = cart.items.reduce((s, i) => s + Number(i.product.price) * i.qty, 0);
@@ -189,7 +232,7 @@ export class OrdersService {
         if (idempotencyKey) {
           const raced = await tx.order.findFirst({
             where: { userId, idempotencyKey },
-            include: { items: true, payments: true },
+            include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
           });
           if (raced) return raced;
         }
@@ -228,7 +271,7 @@ export class OrdersService {
               })),
             },
           },
-          include: { items: true, payments: true },
+          include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
         });
 
         for (const item of cart.items) {
@@ -238,8 +281,16 @@ export class OrdersService {
         if (Number(cashbackUsed) > 0) {
           await this.loyalty.redeemInTx(tx, userId, created.id, Number(cashbackUsed));
         }
+        await this.recordStatusHistory(tx, created.id, 'awaiting_payment', {
+          fromStatus: 'draft',
+          actorId: userId,
+          note: 'order_created',
+        });
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-        return created;
+        return tx.order.findUniqueOrThrow({
+          where: { id: created.id },
+          include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
+        });
       });
 
       if (scoped) {
@@ -260,7 +311,7 @@ export class OrdersService {
       if (this.isUniqueViolation(e) && idempotencyKey) {
         const existing = await this.prisma.order.findFirst({
           where: { userId, idempotencyKey },
-          include: { items: true, payments: true },
+          include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
         });
         if (existing) return existing;
       }
@@ -279,7 +330,11 @@ export class OrdersService {
   async getByPublicId(userId: string, publicId: string) {
     const order = await this.prisma.order.findFirst({
       where: { publicId, userId },
-      include: { items: true, payments: true },
+      include: {
+        items: true,
+        payments: true,
+        statusHistory: { orderBy: { createdAt: 'asc' } },
+      },
     });
     if (!order) throw new NotFoundException('Pedido não encontrado');
     return order;
@@ -293,13 +348,17 @@ export class OrdersService {
     if (!won) {
       const current = await this.prisma.order.findUnique({
         where: { id: found.id },
-        include: { items: true, payments: true },
+        include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
       });
       if (current?.status === 'cancelled') return current;
       throw new BadRequestException('Pedido não pode ser cancelado neste estado');
     }
     await this.audit.log('order.cancelled', { actorId: userId, entity: 'Order', entityId: found.id });
-    return this.prisma.order.findUnique({ where: { id: found.id }, include: { items: true, payments: true } });
+    await this.notifyCustomerInApp(found.userId, found.id, found.publicId, 'cancelled');
+    return this.prisma.order.findUnique({
+      where: { id: found.id },
+      include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
+    });
   }
 
   async markPaid(orderId: string) {
@@ -307,7 +366,7 @@ export class OrdersService {
     if (!won) {
       const current = await this.prisma.order.findUnique({
         where: { id: orderId },
-        include: { items: true, payments: true },
+        include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
       });
       if (current?.status === 'paid') return current;
       throw new BadRequestException({ message: 'Transição inválida (já cancelado ou pago)', code: 'INVALID_TRANSITION' });
@@ -316,13 +375,27 @@ export class OrdersService {
     await this.loyalty.creditEarnOnPaid(orderId).catch((e) => {
       this.log.warn(`cashback earn falhou para ${orderId}: ${e?.message || e}`);
     });
-    return this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true, payments: true } });
+    const paid = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } }, user: { select: { email: true, name: true } } },
+    });
+    if (paid) {
+      await this.notifyCustomerInApp(paid.userId, paid.id, paid.publicId, 'paid');
+      if (paid.user?.email) {
+        await this.mail.notifyOrderPaid(paid.user.email, {
+          publicId: paid.publicId,
+          total: Number(paid.total),
+          customerName: paid.user.name,
+        }).catch(() => undefined);
+      }
+    }
+    return paid;
   }
 
   async expireReservations() {
     const expired = await this.prisma.order.findMany({
       where: { status: 'awaiting_payment', reservationExpiresAt: { lt: new Date() } },
-      select: { id: true },
+      select: { id: true, userId: true, publicId: true },
     });
     let count = 0;
     const remoteCancelIds: string[] = [];
@@ -330,7 +403,7 @@ export class OrdersService {
       const won = await this.transitionFromAwaiting(o.id, 'cancelled');
       if (won) {
         count += 1;
-        // Marca Payment pending → expired no mesmo caminho de domínio (#7); I/O remoto depois.
+        await this.notifyCustomerInApp(o.userId, o.id, o.publicId, 'cancelled', 'Reserva expirada — pedido cancelado');
         const pendings = await this.prisma.payment.findMany({
           where: { orderId: o.id, status: 'pending' },
           select: { id: true, externalId: true },
@@ -353,7 +426,6 @@ export class OrdersService {
         }
       }
     }
-    // cancelIntent remoto best-effort FORA de qualquer lock (#7/#12)
     for (const ext of remoteCancelIds) {
       try {
         await this.paymentsProvider.cancelIntent(ext);
@@ -366,6 +438,7 @@ export class OrdersService {
 
   /**
    * UPDATE condicional: só o processo que altera awaiting_payment libera estoque/cupom.
+   * paid → commitSale (decrementa on-hand); cancelled → release (libera reserva).
    */
   async transitionFromAwaiting(orderId: string, to: 'paid' | 'cancelled'): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
@@ -380,6 +453,11 @@ export class OrdersService {
 
       const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
       if (!order) return false;
+
+      await this.recordStatusHistory(tx, orderId, to, {
+        fromStatus: 'awaiting_payment',
+        note: to === 'paid' ? 'payment_confirmed' : 'cancelled_or_expired',
+      });
 
       if (to === 'cancelled') {
         for (const item of order.items) {
@@ -400,10 +478,10 @@ export class OrdersService {
   }
 
   /**
-   * Admin: avança fulfillment (paid→separating→shipped→delivered).
+   * Admin: avança fulfillment (paid→organizing→packing→ready_for_pickup→in_transit→delivered).
    * Sem side-effects de estoque; UPDATE condicional anti-corrida.
    */
-  async adminUpdateFulfillmentStatus(adminId: string, orderId: string, to: 'separating' | 'shipped' | 'delivered') {
+  async adminUpdateFulfillmentStatus(adminId: string, orderId: string, to: AdminFulfillmentTarget) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Pedido não encontrado');
     if (!canTransition(order.status, to)) {
@@ -413,12 +491,21 @@ export class OrdersService {
       });
     }
     const from = order.status;
-    const rows = await this.prisma.$executeRaw`
-      UPDATE "Order"
-      SET "status" = ${to}::"OrderStatus"
-      WHERE "id" = ${orderId}
-        AND "status" = ${from}::"OrderStatus"
-    `;
+    const rows = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.$executeRaw`
+        UPDATE "Order"
+        SET "status" = ${to}::"OrderStatus"
+        WHERE "id" = ${orderId}
+          AND "status" = ${from}::"OrderStatus"
+      `;
+      if (updated === 0) return 0;
+      await this.recordStatusHistory(tx, orderId, to, {
+        fromStatus: from,
+        actorId: adminId,
+        note: 'admin_fulfillment',
+      });
+      return updated;
+    });
     if (rows === 0) {
       throw new ConflictException('Pedido alterado por outro processo; recarregue');
     }
@@ -430,12 +517,50 @@ export class OrdersService {
     });
     const updated = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, payments: true, user: { select: { email: true, name: true } } },
+      include: {
+        items: true,
+        payments: true,
+        statusHistory: { orderBy: { createdAt: 'asc' } },
+        user: { select: { email: true, name: true } },
+      },
     });
-    if (updated && (to === 'shipped' || to === 'delivered')) {
+    if (updated) {
+      await this.notifyCustomerInApp(updated.userId, updated.id, updated.publicId, to);
       await this.notifyFulfillmentEmail(updated, to);
     }
     return updated;
+  }
+
+  private async notifyCustomerInApp(
+    userId: string | null | undefined,
+    orderId: string,
+    publicId: string,
+    status: string,
+    overrideBody?: string,
+  ) {
+    if (!userId) return;
+    const label = orderStatusLabel(status);
+    const title =
+      status === 'paid'
+        ? 'Pedido pago'
+        : status === 'cancelled'
+          ? 'Pedido cancelado'
+          : `Pedido: ${label}`;
+    const body =
+      overrideBody ||
+      (status === 'paid'
+        ? `Recebemos o pagamento do pedido ${publicId}.`
+        : status === 'cancelled'
+          ? `O pedido ${publicId} foi cancelado.`
+          : `Seu pedido ${publicId} agora está: ${label}.`);
+    await this.notifications.createSafe({
+      userId,
+      type: status === 'paid' ? 'order_paid' : status === 'cancelled' ? 'order_cancelled' : 'order_status',
+      title,
+      body,
+      linkUrl: `/pedidos/${publicId}`,
+      orderId,
+    });
   }
 
   /** Best-effort: e-mails de fulfillment. Nunca lança. */
@@ -446,7 +571,7 @@ export class OrdersService {
       total: unknown;
       user?: { email: string; name: string } | null;
     },
-    status: 'shipped' | 'delivered',
+    status: string,
   ) {
     try {
       const to = order.user?.email;
@@ -458,15 +583,19 @@ export class OrdersService {
         publicId: order.publicId,
         total: Number(order.total),
         customerName: order.user?.name,
+        statusLabel: orderStatusLabel(status),
       };
-      if (status === 'shipped') {
+      if (status === 'ready_for_pickup') {
+        await this.mail.notifyOrderReadyForPickup(to, ctx);
+      } else if (status === 'in_transit' || status === 'shipped') {
         await this.mail.notifyOrderShipped(to, ctx);
-      } else {
+      } else if (status === 'delivered') {
         await this.mail.notifyOrderDelivered(to, ctx);
+      } else if (status === 'packing' || status === 'organizing') {
+        await this.mail.notifyOrderStatus(to, ctx);
       }
     } catch (e: any) {
       this.log.error(`notifyFulfillmentEmail falhou: ${e?.message || e}`);
     }
   }
-
 }

@@ -2,6 +2,7 @@ export type OrderMailContext = {
   customerName?: string | null;
   publicId: string;
   total: number;
+  statusLabel?: string;
 };
 
 function formatBRL(value: number) {
@@ -21,7 +22,7 @@ function wrapHtml(title: string, bodyHtml: string) {
   <div style="max-width: 560px; margin: 0 auto; padding: 24px;">
     <h1 style="font-size: 20px; margin: 0 0 16px;">${title}</h1>
     ${bodyHtml}
-    <p style="margin-top: 24px; font-size: 13px; color: #555;">Lojas Schimitz</p>
+    <p style="margin-top: 24px; font-size: 13px; color: #555;">Lojas Schimitz · WhatsApp (51) 99625-3766</p>
   </div>
 </body>
 </html>`;
@@ -36,6 +37,7 @@ Recebemos o pagamento do seu pedido ${ctx.publicId}.
 
 Total: ${total}
 
+Já vamos organizar e preparar a entrega.
 Obrigado por comprar na Lojas Schimitz.
 `;
   const html = wrapHtml(
@@ -43,7 +45,30 @@ Obrigado por comprar na Lojas Schimitz.
     `<p>${greeting(ctx.customerName)}</p>
      <p>Recebemos o pagamento do seu pedido <strong>${ctx.publicId}</strong>.</p>
      <p>Total: <strong>${total}</strong></p>
+     <p>Já vamos organizar e preparar a entrega.</p>
      <p>Obrigado por comprar na Lojas Schimitz.</p>`,
+  );
+  return { subject, text, html };
+}
+
+export function orderReadyForPickupEmail(ctx: OrderMailContext) {
+  const total = formatBRL(ctx.total);
+  const subject = `Pronto para coleta — ${ctx.publicId}`;
+  const text = `${greeting(ctx.customerName)}
+
+Seu pedido ${ctx.publicId} está pronto para coleta / saída para entrega.
+
+Total: ${total}
+
+Em breve ele estará a caminho.
+Lojas Schimitz
+`;
+  const html = wrapHtml(
+    'Pronto para coleta',
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>Seu pedido <strong>${ctx.publicId}</strong> está <strong>pronto para coleta</strong>.</p>
+     <p>Total: <strong>${total}</strong></p>
+     <p>Em breve ele estará a caminho.</p>`,
   );
   return { subject, text, html };
 }
@@ -53,7 +78,7 @@ export function orderShippedEmail(ctx: OrderMailContext) {
   const subject = `Saiu para entrega — ${ctx.publicId}`;
   const text = `${greeting(ctx.customerName)}
 
-Seu pedido ${ctx.publicId} saiu para entrega.
+Seu pedido ${ctx.publicId} saiu para entrega (em trânsito).
 
 Total: ${total}
 
@@ -63,7 +88,7 @@ Lojas Schimitz
   const html = wrapHtml(
     'Saiu para entrega',
     `<p>${greeting(ctx.customerName)}</p>
-     <p>Seu pedido <strong>${ctx.publicId}</strong> <strong>saiu para entrega</strong>.</p>
+     <p>Seu pedido <strong>${ctx.publicId}</strong> <strong>saiu para entrega</strong> (em trânsito).</p>
      <p>Total: <strong>${total}</strong></p>
      <p>Em breve ele chegará até você.</p>`,
   );
@@ -87,6 +112,27 @@ Obrigado por comprar na Lojas Schimitz.
      <p>Seu pedido <strong>${ctx.publicId}</strong> foi marcado como <strong>entregue</strong>.</p>
      <p>Total: <strong>${total}</strong></p>
      <p>Obrigado por comprar na Lojas Schimitz.</p>`,
+  );
+  return { subject, text, html };
+}
+
+export function orderStatusEmail(ctx: OrderMailContext) {
+  const total = formatBRL(ctx.total);
+  const label = ctx.statusLabel || 'atualizado';
+  const subject = `Pedido ${label} — ${ctx.publicId}`;
+  const text = `${greeting(ctx.customerName)}
+
+Seu pedido ${ctx.publicId} foi atualizado: ${label}.
+
+Total: ${total}
+
+Lojas Schimitz
+`;
+  const html = wrapHtml(
+    `Pedido ${label}`,
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>Seu pedido <strong>${ctx.publicId}</strong> foi atualizado: <strong>${label}</strong>.</p>
+     <p>Total: <strong>${total}</strong></p>`,
   );
   return { subject, text, html };
 }

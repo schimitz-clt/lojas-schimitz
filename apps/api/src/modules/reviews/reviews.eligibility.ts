@@ -3,9 +3,13 @@ import { OrderStatus } from '@prisma/client';
 /** Pedidos que comprovam compra e liberam avaliação. */
 export const REVIEW_ELIGIBLE_STATUSES: OrderStatus[] = [
   OrderStatus.paid,
+  OrderStatus.organizing,
+  OrderStatus.packing,
+  OrderStatus.ready_for_pickup,
+  OrderStatus.in_transit,
+  OrderStatus.delivered,
   OrderStatus.separating,
   OrderStatus.shipped,
-  OrderStatus.delivered,
 ];
 
 export function isReviewEligibleStatus(status: string): boolean {

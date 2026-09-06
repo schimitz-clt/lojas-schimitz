@@ -3,7 +3,9 @@ import nodemailer, { Transporter } from 'nodemailer';
 import {
   orderDeliveredEmail,
   orderPaidEmail,
+  orderReadyForPickupEmail,
   orderShippedEmail,
+  orderStatusEmail,
   OrderMailContext,
 } from './mail.templates';
 
@@ -65,7 +67,6 @@ export class MailService {
       this.log.log(`E-mail enviado: ${subject} → ${to}`);
       return { sent: true as const };
     } catch (e: any) {
-      // Nunca propaga — pagamentos/fulfillment não devem falhar por e-mail
       this.log.error(`Falha ao enviar e-mail (${subject} → ${to}): ${e?.message || e}`);
       return { sent: false, reason: 'send_failed' as const };
     }
@@ -76,6 +77,11 @@ export class MailService {
     return this.send(to, subject, text, html);
   }
 
+  async notifyOrderReadyForPickup(to: string, ctx: OrderMailContext) {
+    const { subject, text, html } = orderReadyForPickupEmail(ctx);
+    return this.send(to, subject, text, html);
+  }
+
   async notifyOrderShipped(to: string, ctx: OrderMailContext) {
     const { subject, text, html } = orderShippedEmail(ctx);
     return this.send(to, subject, text, html);
@@ -83,6 +89,11 @@ export class MailService {
 
   async notifyOrderDelivered(to: string, ctx: OrderMailContext) {
     const { subject, text, html } = orderDeliveredEmail(ctx);
+    return this.send(to, subject, text, html);
+  }
+
+  async notifyOrderStatus(to: string, ctx: OrderMailContext) {
+    const { subject, text, html } = orderStatusEmail(ctx);
     return this.send(to, subject, text, html);
   }
 }

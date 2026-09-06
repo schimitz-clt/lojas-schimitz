@@ -1,9 +1,13 @@
 /** Statuses that count as paid revenue (pós-pagamento, ainda não cancelado/reembolsado). */
 export const PAID_REVENUE_STATUSES = [
   'paid',
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
   'separating',
   'shipped',
-  'delivered',
 ] as const;
 
 export type PaidRevenueStatus = (typeof PAID_REVENUE_STATUSES)[number];

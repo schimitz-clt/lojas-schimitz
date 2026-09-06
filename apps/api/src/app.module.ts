@@ -21,6 +21,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
     ShippingModule,
     ChatModule,
     StorefrontModule,
+    NotificationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

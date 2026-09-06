@@ -20,11 +20,15 @@ export const ORDER_STATUS_LABEL_PT: Record<string, string> = {
   draft: 'Rascunho',
   awaiting_payment: 'Aguardando pagamento',
   paid: 'Pago',
-  separating: 'Separando',
-  shipped: 'Saiu para entrega',
+  organizing: 'Organizando',
+  packing: 'Em embalagem',
+  ready_for_pickup: 'Pronto para coleta',
+  in_transit: 'Em trânsito',
   delivered: 'Entregue',
   cancelled: 'Cancelado',
   refunded: 'Reembolsado',
+  separating: 'Separando',
+  shipped: 'Saiu para entrega',
 };
 
 export function statusLabelPt(status: string) {

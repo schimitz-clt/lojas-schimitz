@@ -18,9 +18,9 @@ export class CreateOrderDto {
   cashbackAmount?: number;
 }
 
-/** Admin: avanço manual de fulfillment (sem carrier). */
+/** Admin: avanço manual de fulfillment (entrega própria). */
 export class AdminUpdateOrderStatusDto {
   @IsString()
-  @IsIn(['separating', 'shipped', 'delivered'])
-  status!: 'separating' | 'shipped' | 'delivered';
+  @IsIn(['organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'])
+  status!: 'organizing' | 'packing' | 'ready_for_pickup' | 'in_transit' | 'delivered' | 'separating' | 'shipped';
 }
