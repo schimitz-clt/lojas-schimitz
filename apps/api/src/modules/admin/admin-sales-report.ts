@@ -103,3 +103,89 @@ export function computeSalesSummary(paidTotals: number[]) {
   const averageTicket = orderCount ? moneyRound(revenue / orderCount) : 0;
   return { orderCount, revenue, averageTicket };
 }
+
+export type ByDayAgg = {
+  date: string;
+  orderCount: number;
+  revenue: number;
+};
+
+/** Agrupa pedidos pagos por dia (YYYY-MM-DD em America/Sao_Paulo). */
+export function aggregateByDay(
+  orders: { createdAt: Date | string; total: number }[],
+): ByDayAgg[] {
+  const map = new Map<string, ByDayAgg>();
+  for (const o of orders) {
+    const d = typeof o.createdAt === 'string' ? new Date(o.createdAt) : o.createdAt;
+    const date = saoPauloYmd(d);
+    const prev = map.get(date);
+    if (prev) {
+      prev.orderCount += 1;
+      prev.revenue = moneyRound(prev.revenue + o.total);
+    } else {
+      map.set(date, { date, orderCount: 1, revenue: moneyRound(o.total) });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export type BySellerAgg = {
+  sellerId: string | null;
+  sellerName: string;
+  orderCount: number;
+  itemQty: number;
+  revenue: number;
+};
+
+/**
+ * Agrupa itens de pedidos pagos por vendedor (marketplace).
+ * Itens sem sellerId entram como "Loja própria".
+ * orderCount = pedidos distintos com pelo menos um item do vendedor.
+ */
+export function aggregateBySeller(
+  items: {
+    orderId: string;
+    sellerId: string | null | undefined;
+    sellerName?: string | null;
+    qty: number;
+    unitPrice: number;
+  }[],
+): BySellerAgg[] {
+  type Acc = BySellerAgg & { orderIds: Set<string> };
+  const map = new Map<string, Acc>();
+  for (const it of items) {
+    const key = it.sellerId || '__store__';
+    const name = it.sellerId
+      ? (it.sellerName?.trim() || 'Vendedor')
+      : 'Loja própria';
+    let acc = map.get(key);
+    if (!acc) {
+      acc = {
+        sellerId: it.sellerId || null,
+        sellerName: name,
+        orderCount: 0,
+        itemQty: 0,
+        revenue: 0,
+        orderIds: new Set(),
+      };
+      map.set(key, acc);
+    } else if (it.sellerId && it.sellerName?.trim()) {
+      acc.sellerName = it.sellerName.trim();
+    }
+    acc.orderIds.add(it.orderId);
+    acc.itemQty += it.qty;
+    acc.revenue = moneyRound(acc.revenue + it.qty * it.unitPrice);
+  }
+  return [...map.values()]
+    .map(({ orderIds, ...rest }) => ({
+      ...rest,
+      orderCount: orderIds.size,
+    }))
+    .sort(
+      (a, b) =>
+        b.revenue - a.revenue ||
+        b.itemQty - a.itemQty ||
+        a.sellerName.localeCompare(b.sellerName, 'pt-BR'),
+    );
+}
+

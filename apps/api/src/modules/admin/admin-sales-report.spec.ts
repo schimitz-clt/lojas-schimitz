@@ -1,4 +1,6 @@
 import {
+  aggregateByDay,
+  aggregateBySeller,
   aggregateTopProducts,
   computeSalesSummary,
   moneyRound,
@@ -47,5 +49,28 @@ assert(threw, 'invalid date format');
 
 assert(saoPauloYmd(new Date('2026-09-05T02:30:00.000Z')) === '2026-09-04', 'ymd before midnight BRT');
 assert(saoPauloYmd(new Date('2026-09-05T03:00:00.000Z')) === '2026-09-05', 'ymd at midnight BRT');
+
+const byDay = aggregateByDay([
+  { createdAt: new Date('2026-09-01T15:00:00.000Z'), total: 100 },
+  { createdAt: new Date('2026-09-01T20:00:00.000Z'), total: 50 },
+  { createdAt: new Date('2026-09-02T12:00:00.000Z'), total: 30 },
+]);
+assert(byDay.length === 2, 'byDay length');
+assert(byDay[0].date === '2026-09-01' && byDay[0].orderCount === 2 && byDay[0].revenue === 150, 'day1');
+assert(byDay[1].date === '2026-09-02' && byDay[1].orderCount === 1 && byDay[1].revenue === 30, 'day2');
+
+const bySeller = aggregateBySeller([
+  { orderId: 'o1', sellerId: 's1', sellerName: 'Parceiro A', qty: 2, unitPrice: 50 },
+  { orderId: 'o1', sellerId: null, sellerName: null, qty: 1, unitPrice: 20 },
+  { orderId: 'o2', sellerId: 's1', sellerName: 'Parceiro A', qty: 1, unitPrice: 10 },
+  { orderId: 'o3', sellerId: null, qty: 3, unitPrice: 5 },
+]);
+assert(bySeller[0].sellerId === 's1' && bySeller[0].revenue === 110 && bySeller[0].orderCount === 2, 'seller top');
+assert(bySeller[0].itemQty === 3, 'seller qty');
+const store = bySeller.find((x) => x.sellerId === null);
+assert(
+  !!store && store.sellerName === 'Loja própria' && store.revenue === 35 && store.orderCount === 2,
+  'store bucket',
+);
 
 console.log('admin-sales-report.spec.ts OK');

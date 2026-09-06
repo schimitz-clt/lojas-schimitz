@@ -3,6 +3,8 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import {
   PAID_REVENUE_STATUSES,
+  aggregateByDay,
+  aggregateBySeller,
   aggregateTopProducts,
   computeSalesSummary,
   parseSalesDateRange,
@@ -29,7 +31,7 @@ export class AdminSalesReportService {
     const [paidOrders, statusGroups, paidItems] = await Promise.all([
       this.prisma.order.findMany({
         where: { ...createdInRange, status: { in: paidStatuses } },
-        select: { id: true, total: true },
+        select: { id: true, total: true, createdAt: true },
       }),
       this.prisma.order.groupBy({
         by: ['status'],
@@ -41,10 +43,13 @@ export class AdminSalesReportService {
           order: { ...createdInRange, status: { in: paidStatuses } },
         },
         select: {
+          orderId: true,
           productId: true,
           name: true,
           qty: true,
           unitPrice: true,
+          sellerId: true,
+          seller: { select: { id: true, name: true } },
         },
       }),
     ]);
@@ -55,6 +60,23 @@ export class AdminSalesReportService {
     for (const g of statusGroups) {
       byStatus[g.status] = g._count._all;
     }
+
+    const byDay = aggregateByDay(
+      paidOrders.map((o) => ({
+        createdAt: o.createdAt,
+        total: Number(o.total),
+      })),
+    );
+
+    const bySeller = aggregateBySeller(
+      paidItems.map((it) => ({
+        orderId: it.orderId,
+        sellerId: it.sellerId,
+        sellerName: it.seller?.name ?? null,
+        qty: it.qty,
+        unitPrice: Number(it.unitPrice),
+      })),
+    );
 
     const topProducts = aggregateTopProducts(
       paidItems.map((it) => ({
@@ -72,6 +94,8 @@ export class AdminSalesReportService {
       timezone: 'America/Sao_Paulo',
       summary,
       byStatus,
+      byDay,
+      bySeller,
       topProducts,
     };
   }

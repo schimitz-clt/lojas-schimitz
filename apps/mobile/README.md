@@ -21,6 +21,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Status bar / splash escuros com destaque dourado (`#1A1A1A` / `#D4AF37`).
 - Ícones placeholder (quadrado dourado) — troque antes de publicar.
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
+- Página offline/erro (`assets/offline.html`) se não houver rede ou a carga principal falhar.
 
 ## Pré-requisitos (no seu computador)
 
@@ -100,16 +101,24 @@ android {
 }
 ```
 
-### 3. Gerar o AAB
+### 3. Gerar o AAB assinado (Play)
+
+Com `keystore.properties` no lugar:
 
 ```bash
 cd apps/mobile
 ./gradlew :app:bundleRelease
 ```
 
-Artefato: `app/build/outputs/bundle/release/app-release.aab`
+Artefato (envie este arquivo na Play Console):
 
-Também dá para **Build > Generate Signed Bundle / APK** no Android Studio.
+`apps/mobile/app/build/outputs/bundle/release/app-release.aab`
+
+Sem keystore o Gradle ainda gera o bundle, mas **não** assinado para upload — configure o passo 2.
+
+Alternativa GUI: Android Studio → **Build → Generate Signed Bundle / APK** → Android App Bundle → release.
+
+> A publicação na Play Console (e a verificação da conta Google) fica com você — este repo só entrega o projeto e o AAB local.
 
 ## Quem publica?
 
@@ -155,6 +164,10 @@ Exemplo (troque o fingerprint):
 ```
 
 O manifesto já declara `intent-filter` com `android:autoVerify="true"` para o host.
+
+Stub no site (Next `public`): `apps/web/public/.well-known/assetlinks.json`  
+→ servido em `https://lojasschimitz.com.br/.well-known/assetlinks.json`  
+Detalhes: `docs/ANDROID-TWA-ASSETLINKS.md`.
 
 ## Estrutura
 

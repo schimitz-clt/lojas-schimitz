@@ -40,7 +40,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | PATCH | `/admin/reviews/:id` body `{ status: "published"|"hidden" }` | admin |
 | DELETE | `/admin/reviews/:id` | admin |
 | GET | `/admin/orders` (inclui `user.phone`) `/admin/products` `/admin/categories` | admin |
-| GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, topProducts | admin |
+| GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, byDay, bySeller, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |

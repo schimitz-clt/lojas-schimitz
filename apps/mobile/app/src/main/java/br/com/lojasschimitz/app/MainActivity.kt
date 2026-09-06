@@ -2,14 +2,19 @@ package br.com.lojasschimitz.app
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -25,6 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val HOME_URL = "https://lojasschimitz.com.br"
+        private const val OFFLINE_ASSET = "file:///android_asset/offline.html"
         private val ALLOWED_HOSTS = setOf(
             "lojasschimitz.com.br",
             "www.lojasschimitz.com.br",
@@ -44,6 +50,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var progressBar: ProgressBar
+    private var showingOffline = false
+    private var lastRequestedUrl: String = HOME_URL
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +66,7 @@ class MainActivity : AppCompatActivity() {
 
         swipeRefresh.setColorSchemeColors(Color.parseColor("#D4AF37"))
         swipeRefresh.setProgressBackgroundColorSchemeColor(Color.parseColor("#1A1A1A"))
-        swipeRefresh.setOnRefreshListener { webView.reload() }
+        swipeRefresh.setOnRefreshListener { retryLoad() }
 
         configureWebView()
 
@@ -66,6 +74,11 @@ class MainActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (showingOffline) {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        return
+                    }
                     if (webView.canGoBack()) {
                         webView.goBack()
                     } else {
@@ -77,8 +90,9 @@ class MainActivity : AppCompatActivity() {
         )
 
         val startUrl = intent?.data?.toString()?.takeIf { isAllowedUrl(it) } ?: HOME_URL
+        lastRequestedUrl = startUrl
         if (savedInstanceState == null) {
-            webView.loadUrl(startUrl)
+            loadStartOrOffline(startUrl)
         } else {
             webView.restoreState(savedInstanceState)
         }
@@ -87,7 +101,10 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.data?.toString()?.takeIf { isAllowedUrl(it) }?.let { webView.loadUrl(it) }
+        intent.data?.toString()?.takeIf { isAllowedUrl(it) }?.let {
+            lastRequestedUrl = it
+            loadStartOrOffline(it)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -125,7 +142,18 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             loadWithOverviewMode = true
             userAgentString = "$userAgentString LojasSchimitzApp/1.0"
+            allowFileAccess = true
         }
+
+        webView.addJavascriptInterface(
+            object {
+                @JavascriptInterface
+                fun retry() {
+                    runOnUiThread { retryLoad() }
+                }
+            },
+            "LojasSchimitz",
+        )
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -151,13 +179,69 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 progressBar.visibility = View.VISIBLE
+                if (url != null && !url.startsWith("file:///android_asset/")) {
+                    showingOffline = false
+                    lastRequestedUrl = url
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
             }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?,
+            ) {
+                // Only main-frame failures show the offline page (ignore favicon/XHR).
+                if (request?.isForMainFrame == true) {
+                    showOfflinePage()
+                }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?,
+            ) {
+                if (!failingUrl.isNullOrBlank() && !failingUrl.startsWith("file:///")) {
+                    showOfflinePage()
+                }
+            }
         }
+    }
+
+    private fun loadStartOrOffline(url: String) {
+        if (!hasNetwork()) {
+            showOfflinePage()
+            return
+        }
+        showingOffline = false
+        webView.loadUrl(url)
+    }
+
+    private fun retryLoad() {
+        val target = lastRequestedUrl.takeIf { isAllowedUrl(it) } ?: HOME_URL
+        loadStartOrOffline(target)
+    }
+
+    private fun showOfflinePage() {
+        showingOffline = true
+        swipeRefresh.isRefreshing = false
+        progressBar.visibility = View.GONE
+        webView.loadUrl(OFFLINE_ASSET)
+    }
+
+    private fun hasNetwork(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return true
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun handleNavigation(uri: Uri): Boolean {

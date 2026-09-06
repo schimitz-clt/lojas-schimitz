@@ -126,6 +126,14 @@ type SalesReport = {
   timezone: string;
   summary: { orderCount: number; revenue: number; averageTicket: number };
   byStatus: Record<string, number>;
+  byDay?: { date: string; orderCount: number; revenue: number }[];
+  bySeller?: {
+    sellerId: string | null;
+    sellerName: string;
+    orderCount: number;
+    itemQty: number;
+    revenue: number;
+  }[];
   topProducts: { productId: string; name: string; qty: number; revenue: number }[];
 };
 
@@ -1591,6 +1599,55 @@ export default function AdminPage() {
                   )}
                 </div>
               </div>
+              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
+                <div style={{ flex: 1.2, minWidth: 220 }}>
+                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por dia</h3>
+                  {(salesReport.byDay?.length ?? 0) ? (
+                    <div style={{ display: 'grid', gap: 6, maxHeight: 260, overflow: 'auto' }}>
+                      {salesReport.byDay!.map((d) => (
+                        <div key={d.date} className="row" style={{ fontSize: 14, flexWrap: 'wrap' }}>
+                          <span style={{ flex: 1, minWidth: 100 }}>
+                            {new Date(`${d.date}T12:00:00-03:00`).toLocaleDateString('pt-BR')}
+                          </span>
+                          <span className="muted">{d.orderCount} ped.</span>
+                          <b>{brl(d.revenue)}</b>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Sem vendas pagas no período.</p>
+                  )}
+                </div>
+                <div style={{ flex: 1.2, minWidth: 220 }}>
+                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por vendedor</h3>
+                  {(salesReport.bySeller?.length ?? 0) ? (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {salesReport.bySeller!.map((s) => (
+                        <div
+                          key={s.sellerId ?? 'loja'}
+                          className="row"
+                          style={{ fontSize: 14, flexWrap: 'wrap' }}
+                        >
+                          <span style={{ flex: 1, minWidth: 120 }}>
+                            {s.sellerName}
+                            {!s.sellerId ? (
+                              <span className="badge" style={{ marginLeft: 6 }}>
+                                própria
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="muted">{s.itemQty} un. · {s.orderCount} ped.</span>
+                          <b>{brl(s.revenue)}</b>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                      Sem itens de vendas pagas (marketplace) no período.
+                    </p>
+                  )}
+                </div>
+              </div>
             </>
           ) : salesBusy ? (
             <p className="muted">Carregando relatório…</p>
@@ -1765,10 +1822,32 @@ export default function AdminPage() {
       
       <section className="card" style={{ marginBottom: 28 }}>
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Cupons</h2>
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Cupons de desconto</h2>
           <p className="muted" style={{ marginTop: 0 }}>
-            Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout.
+            Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout. Use cupons ativos
+            para campanhas (ex.: BEMVINDO10) mesmo sem banner na home.
           </p>
+          <div
+            className="row"
+            style={{
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 14,
+            }}
+          >
+            <span className="badge">
+              {coupons.filter((c) => c.active).length} ativo(s)
+            </span>
+            <span className="badge">
+              {coupons.filter((c) => !c.active).length} inativo(s)
+            </span>
+            <span className="badge">
+              {coupons.reduce((s, c) => s + (c.usedCount || 0), 0)} uso(s) total
+            </span>
+            <span className="badge">
+              {coupons.reduce((s, c) => s + (c.reservedCount || 0), 0)} reservado(s)
+            </span>
+          </div>
           <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveCoupon}>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
@@ -1844,24 +1923,37 @@ export default function AdminPage() {
             </button>
           </form>
           <div style={{ display: 'grid', gap: 8 }}>
-            {coupons.map((c) => (
-              <div key={c.id} className="row" style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <b>{c.code}</b>{' '}
-                  {!c.active ? <span className="badge">Inativo</span> : null}
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {c.type === 'percent' ? `${c.value}%` : brl(c.value)}
-                    {c.minSubtotal != null ? ` · mín. ${brl(c.minSubtotal)}` : ''}
-                    {c.endsAt ? ` · até ${new Date(c.endsAt).toLocaleDateString('pt-BR')}` : ''}
-                    {c.maxUses != null ? ` · ${c.usedCount}/${c.maxUses} usos` : ` · ${c.usedCount} usos`}
+            {coupons.map((c) => {
+              const expired = c.endsAt ? new Date(c.endsAt).getTime() < Date.now() : false;
+              const exhausted = c.maxUses != null && c.usedCount >= c.maxUses;
+              return (
+              <div key={c.id} className="row" style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--bg)', border: c.active ? '1px solid var(--gold, #D4AF37)' : '1px solid var(--line)', flexWrap: 'wrap', opacity: c.active ? 1 : 0.75 }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                    <b style={{ fontSize: 16, letterSpacing: 0.4 }}>{c.code}</b>
+                    <span className="badge">{c.type === 'percent' ? `${c.value}%` : brl(c.value)}</span>
+                    {c.active ? <span className="badge">Ativo</span> : <span className="badge">Inativo</span>}
+                    {expired ? <span className="badge">Expirado</span> : null}
+                    {exhausted ? <span className="badge">Esgotado</span> : null}
+                  </div>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                    {c.minSubtotal != null ? `Mín. ${brl(c.minSubtotal)} · ` : ''}
+                    {c.endsAt ? `válido até ${new Date(c.endsAt).toLocaleDateString('pt-BR')} · ` : 'sem validade · '}
+                    usos {c.usedCount}{c.maxUses != null ? `/${c.maxUses}` : ''}
+                    {c.reservedCount ? ` · ${c.reservedCount} em pedidos abertos` : ''}
                   </div>
                 </div>
                 <button type="button" className="btn ghost" onClick={() => toggleCoupon(c)}>
                   {c.active ? 'Desativar' : 'Ativar'}
                 </button>
               </div>
-            ))}
-            {!coupons.length ? <p className="muted">Nenhum cupom ainda.</p> : null}
+              );
+            })}
+            {!coupons.length ? (
+              <p className="muted" style={{ margin: 0 }}>
+                Nenhum cupom ainda. Crie o primeiro acima — ele aparece no checkout mesmo sem banner.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
