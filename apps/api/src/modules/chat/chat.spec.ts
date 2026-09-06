@@ -30,6 +30,14 @@ const faqShip = faqReply('como funciona o frete?');
 assert.ok(faqShip && /porto alegre/i.test(faqShip));
 const faqCash = faqReply('o que é schimitz+?');
 assert.ok(faqCash && /1%|cashback/i.test(faqCash));
+const faqCard = faqReply('parcelamento');
+assert.ok(faqCard && /12x/i.test(faqCard), 'parcelamento FAQ');
+const faqRet = faqReply('quero trocar um produto');
+assert.ok(faqRet && /7 dias/i.test(faqRet), 'troca FAQ');
+const faqHi = faqReply('olá');
+assert.ok(faqHi && /PIX|frete|12x/i.test(faqHi), 'greeting FAQ');
+const faqHours = faqReply('qual o horario de funcionamento?');
+assert.ok(faqHours && /suporte|WhatsApp/i.test(faqHours), 'hours FAQ points to support');
 assert.equal(faqReply('asdf qwerty zxcv'), null);
 
 assert.ok(looksLikeProductQuery('voces tem iphone 15?'));
@@ -53,6 +61,8 @@ assert.equal(parseLlmJson('texto solto sem json')?.reply, 'texto solto sem json'
 const fallbackNoKey = noLlmFallbackReply({ faq: null, hasProducts: false });
 assert.ok(/WhatsApp/i.test(fallbackNoKey));
 assert.ok(/Porto Alegre|PIX|12x|SCHIMITZ/i.test(fallbackNoKey));
+assert.ok(/\/suporte/i.test(fallbackNoKey), 'fallback points to /suporte');
+assert.ok(!/limitado/i.test(fallbackNoKey), 'no dead-end limitado copy');
 
 const catalog = formatCatalogForPrompt([]);
 assert.ok(catalog.includes('nenhum produto'));
