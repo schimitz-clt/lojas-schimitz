@@ -11,8 +11,18 @@ export type Product = {
   ratingAvg?: number | string;
   ratingCount?: number;
   images?: { url: string }[];
+  /** Flat primary image (same as cart / public API). */
+  image?: string | null;
+  imageUrl?: string | null;
   seller?: { id: string; name: string; slug: string } | null;
 };
+
+function resolveImageUrl(p: Product): string {
+  const nested = p.images?.[0]?.url?.trim() || '';
+  if (nested) return nested;
+  const flat = (p.image || p.imageUrl || '').trim();
+  return flat;
+}
 
 function ProductImage({ src, alt }: { src?: string; alt: string }) {
   if (!src) {
@@ -33,7 +43,7 @@ function ProductImage({ src, alt }: { src?: string; alt: string }) {
 }
 
 export function ProductCard({ p }: { p: Product }) {
-  const img = p.images?.[0]?.url?.trim() || '';
+  const img = resolveImageUrl(p);
   const count = p.ratingCount ?? 0;
   const avg = Number(p.ratingAvg ?? 0);
   return (

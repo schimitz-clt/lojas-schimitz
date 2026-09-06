@@ -15,6 +15,10 @@ type Detail = {
   ratingAvg?: string | number;
   ratingCount?: number;
   images?: { url: string }[];
+  /** Flat fields from public product serializer (same source as cart). */
+  stock?: number | null;
+  image?: string | null;
+  imageUrl?: string | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
 };
@@ -180,7 +184,24 @@ export default function ProductPage() {
 
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!p) return <p className="muted">Carregando...</p>;
-  const stock = p.inventory ? p.inventory.qtyOnHand - p.inventory.qtyReserved : 0;
+  const stockFromInv =
+    p.inventory != null
+      ? p.inventory.qtyOnHand - p.inventory.qtyReserved
+      : null;
+  const stock =
+    typeof p.stock === 'number'
+      ? p.stock
+      : p.stock === null
+        ? null
+        : stockFromInv;
+  const stockLabel =
+    stock == null
+      ? 'Sob consulta'
+      : stock <= 0
+        ? 'Indisponível no momento'
+        : `Estoque: ${stock}`;
+  const primaryImg =
+    (p.images?.[0]?.url?.trim() || p.image?.trim() || p.imageUrl?.trim() || '');
   const avg = Number(p.ratingAvg ?? 0);
   const count = p.ratingCount ?? 0;
   const loggedIn = Boolean(currentUser());
@@ -189,9 +210,9 @@ export default function ProductPage() {
     <div style={{ padding: '24px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 1fr', gap: 24 }}>
         <div className="card" style={{ aspectRatio: '1', background: '#111', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-          {p.images?.[0]?.url?.trim() ? (
+          {primaryImg ? (
             <img
-              src={p.images[0].url}
+              src={primaryImg}
               alt={p.name}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
@@ -201,7 +222,7 @@ export default function ProductPage() {
               }}
             />
           ) : null}
-          <span data-img-fallback className="muted" style={{ display: p.images?.[0]?.url?.trim() ? 'none' : 'grid', placeItems: 'center', padding: 24 }}>
+          <span data-img-fallback className="muted" style={{ display: primaryImg ? 'none' : 'grid', placeItems: 'center', padding: 24 }}>
             Sem foto
           </span>
         </div>
@@ -226,7 +247,7 @@ export default function ProductPage() {
             <span className="price">{brl(p.price)}</span>
             {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
           </p>
-          <p className="muted">Estoque: {stock} · 12x sem juros · 5% off no PIX</p>
+          <p className="muted">{stockLabel} · 12x sem juros · 5% off no PIX</p>
           {msg ? <p className="ok">{msg}</p> : null}
           {err ? <p className="alert">{err}</p> : null}
           <div className="actions">

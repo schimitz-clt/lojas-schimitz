@@ -1,6 +1,7 @@
 import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
+import { serializePublicProduct, serializePublicProducts } from './product.serialize';
 
 @Controller()
 export class CatalogController {
@@ -50,7 +51,12 @@ export class CatalogController {
       }),
       this.prisma.product.count({ where }),
     ]);
-    return ok({ items: data, total, page: Math.max(1, Number(page) || 1), pageSize: take });
+    return ok({
+      items: serializePublicProducts(data),
+      total,
+      page: Math.max(1, Number(page) || 1),
+      pageSize: take,
+    });
   }
 
   @Get('products/:slug')
@@ -58,13 +64,13 @@ export class CatalogController {
     const data = await this.prisma.product.findUnique({
       where: { slug },
       include: {
-          images: { orderBy: { position: 'asc' } },
-          inventory: true,
-          category: true,
-          seller: { select: { id: true, name: true, slug: true } },
-        },
+        images: { orderBy: { position: 'asc' } },
+        inventory: true,
+        category: true,
+        seller: { select: { id: true, name: true, slug: true } },
+      },
     });
     if (!data || !data.active) throw new NotFoundException('Produto não encontrado');
-    return ok(data);
+    return ok(serializePublicProduct(data));
   }
 }

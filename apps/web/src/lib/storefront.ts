@@ -60,15 +60,19 @@ export async function fetchProductMeta(slug: string): Promise<{
         name: string;
         description?: string;
         images?: { url: string }[];
+        image?: string | null;
+        imageUrl?: string | null;
       };
     };
     if (!json.ok || !json.data) return null;
     const d = json.data;
     const desc = (d.description || '').trim() || `${d.name} na Lojas Schimitz`;
+    const image =
+      d.images?.[0]?.url?.trim() || d.image?.trim() || d.imageUrl?.trim() || undefined;
     return {
       name: d.name,
       description: desc.slice(0, 320),
-      image: d.images?.[0]?.url,
+      image,
     };
   } catch {
     return null;

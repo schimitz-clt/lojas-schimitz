@@ -41,6 +41,7 @@ export function Header() {
           </div>
           <nav className="nav">
             <Link href="/produtos">Produtos</Link>
+            <Link href="/marketplace">Marketplace</Link>
             <Link href="/departamento/eletro">Eletro</Link>
             <Link href="/departamento/celulares">Celulares</Link>
             <Link href="/departamento/informatica">Informática</Link>
