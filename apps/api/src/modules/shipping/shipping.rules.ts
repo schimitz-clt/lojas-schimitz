@@ -50,6 +50,31 @@ export function pickCepRule(cepDigits: string, rules: ShippingRuleMatch[]): Ship
   return matches[0];
 }
 
+/** Formata BRL no estilo pt-BR (R$ 29,90). */
+export function formatShippingBrl(value: number): string {
+  const n = Math.round(Number(value) * 100) / 100;
+  const fixed = n.toFixed(2).replace('.', ',');
+  return `R$ ${fixed}`;
+}
+
+/**
+ * Rótulo amigável quando a regra não traz `label` (ex.: taxa padrão fora de POA).
+ * Regras com label explícito (ex.: "Porto Alegre — frete grátis") têm precedência.
+ */
+export function resolveShippingLabel(opts: {
+  ruleLabel?: string | null;
+  price: number;
+  modality: string;
+  freeAbove: number;
+}): string {
+  const fromRule = (opts.ruleLabel || '').trim();
+  if (fromRule) return fromRule;
+  if (opts.price <= 0 || opts.modality === 'gratis') {
+    return `Frete grátis (pedidos a partir de ${formatShippingBrl(opts.freeAbove)})`;
+  }
+  return `Entrega própria — ${formatShippingBrl(opts.price)}`;
+}
+
 export function computeShippingQuote(input: {
   cep: string;
   subtotal: number;
@@ -66,13 +91,19 @@ export function computeShippingQuote(input: {
     price = 0;
     modality = 'gratis';
   }
+  const rounded = Math.round(price * 100) / 100;
   return {
-    price: Math.round(price * 100) / 100,
+    price: rounded,
     days,
     carrier: 'propria',
     modality,
     matchedPrefix: rule ? normalizeCep(rule.cepPrefix) : null,
-    label: rule?.label ?? null,
+    label: resolveShippingLabel({
+      ruleLabel: rule?.label,
+      price: rounded,
+      modality,
+      freeAbove,
+    }),
     freeAbove,
   };
 }
