@@ -237,8 +237,10 @@ const ORDER_STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'Todos' },
   { key: 'awaiting_payment', label: 'Aguardando pagamento' },
   { key: 'paid', label: 'Pago' },
-  { key: 'separating', label: 'Separando' },
-  { key: 'shipped', label: 'Saiu para entrega' },
+  { key: 'organizing', label: 'Organizando' },
+  { key: 'packing', label: 'Em embalagem' },
+  { key: 'ready_for_pickup', label: 'Pronto para coleta' },
+  { key: 'in_transit', label: 'Em trânsito' },
   { key: 'delivered', label: 'Entregue' },
   { key: 'cancelled', label: 'Cancelado' },
 ];
@@ -2064,7 +2066,7 @@ export default function AdminPage() {
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
         const waShipped = orderWa(o, 'shipped');
-        const paidLike = o.status === 'paid' || o.status === 'separating';
+        const paidLike = o.status === 'paid' || o.status === 'organizing' || o.status === 'separating';
         const open = openOrderId === o.id;
         const phone = customerPhone(o);
         return (
@@ -2120,7 +2122,7 @@ export default function AdminPage() {
                 <a className="btn wa" href={wa.url} target="_blank" rel="noreferrer">
                   Avisar no WhatsApp
                 </a>
-                {o.status === 'shipped' ? (
+                {o.status === 'in_transit' || o.status === 'shipped' ? (
                   <a className="btn wa" href={waShipped.url} target="_blank" rel="noreferrer">
                     Pedido saiu — abrir WhatsApp
                   </a>

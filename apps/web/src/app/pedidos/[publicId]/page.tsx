@@ -17,6 +17,14 @@ type Payment = {
   payload?: { qrCode?: string; qrCodeBase64?: string | null; note?: string } | null;
 };
 
+type StatusHistory = {
+  id: string;
+  fromStatus?: string | null;
+  toStatus: string;
+  createdAt: string;
+  note?: string | null;
+};
+
 type Order = {
   id: string;
   publicId: string;
@@ -25,6 +33,7 @@ type Order = {
   discount: number;
   items: { id: string; qty: number; name: string; unitPrice: number }[];
   payments?: Payment[];
+  statusHistory?: StatusHistory[];
 };
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
@@ -37,7 +46,33 @@ function pixQrImageSrc(qrCodeBase64?: string | null): string | null {
   return `data:image/png;base64,${trimmed}`;
 }
 
-function FulfillmentTimeline({ status }: { status: string }) {
+function formatTs(iso?: string) {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+function historyTimeForStep(history: StatusHistory[] | undefined, step: string): string | null {
+  if (!history?.length) return null;
+  const aliases: Record<string, string[]> = {
+    organizing: ['organizing', 'separating'],
+    in_transit: ['in_transit', 'shipped'],
+  };
+  const match = [...history].reverse().find((h) => {
+    const targets = aliases[step] || [step];
+    return targets.includes(h.toStatus);
+  });
+  return match ? formatTs(match.createdAt) : null;
+}
+
+function FulfillmentTimeline({ status, history }: { status: string; history?: StatusHistory[] }) {
   const current = fulfillmentStepIndex(status);
   if (current < 0 && status !== 'paid') {
     if (status === 'cancelled' || status === 'refunded') {
@@ -48,6 +83,15 @@ function FulfillmentTimeline({ status }: { status: string }) {
             <p>
               <b>{orderStatusLabel(status)}</b>
             </p>
+            {history?.length ? (
+              <ol style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}>
+                {history.map((h) => (
+                  <li key={h.id} className="muted" style={{ fontSize: 13, marginBottom: 6 }}>
+                    {formatTs(h.createdAt)} — {orderStatusLabel(h.toStatus)}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
           </div>
         </div>
       );
@@ -58,7 +102,7 @@ function FulfillmentTimeline({ status }: { status: string }) {
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <div className="body">
-        <h3>Acompanhe a entrega</h3>
+        <h3>Rastreamento da entrega</h3>
         <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
           Entrega realizada pela Lojas Schimitz.
         </p>
@@ -66,6 +110,7 @@ function FulfillmentTimeline({ status }: { status: string }) {
           {FULFILLMENT_STEPS.map((step, idx) => {
             const done = idx <= activeIdx;
             const isCurrent = idx === activeIdx;
+            const when = historyTimeForStep(history, step);
             return (
               <li
                 key={step}
@@ -98,7 +143,11 @@ function FulfillmentTimeline({ status }: { status: string }) {
                   <div style={{ fontWeight: isCurrent ? 800 : 600 }}>{orderStatusLabel(step)}</div>
                   {isCurrent ? (
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Status atual
+                      Status atual{when ? ` · ${when}` : ''}
+                    </div>
+                  ) : when ? (
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      {when}
                     </div>
                   ) : null}
                 </div>
@@ -241,7 +290,7 @@ export default function PedidoPage() {
   if (!o) return <p className="muted">Carregando...</p>;
 
   const awaiting = o.status === 'awaiting_payment';
-  const showTimeline = ['paid', 'separating', 'shipped', 'delivered'].includes(o.status);
+  const showTimeline = ['paid', 'organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'].includes(o.status);
   const isPixPending =
     intent?.payment?.method === 'pix' && intent.payment.status === 'pending';
 
@@ -265,7 +314,7 @@ export default function PedidoPage() {
 
       {err ? <div className="alert">{err}</div> : null}
 
-      {showTimeline ? <FulfillmentTimeline status={o.status} /> : null}
+      {showTimeline ? <FulfillmentTimeline status={o.status} history={o.statusHistory} /> : null}
 
       {awaiting && !intent ? (
         <div className="card" style={{ marginTop: 16 }}>
@@ -383,7 +432,7 @@ export default function PedidoPage() {
             ) : null}
             {o.status === 'paid' ? (
               <p className="ok" style={{ marginTop: 12 }}>
-                Pedido pago. Estamos preparando a separação.
+                Pedido pago. Estamos organizando seu pedido.
               </p>
             ) : null}
           </div>

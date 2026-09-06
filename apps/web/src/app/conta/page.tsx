@@ -61,7 +61,7 @@ export default function ContaPage() {
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
       <p>
-        <Link href="/pedidos">Meus pedidos</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
+        <Link href="/pedidos">Meus pedidos</Link> · <Link href="/notificacoes">Notificações</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
         {user?.role === 'admin' ? <> · <Link href="/admin">Admin da loja</Link></> : null}
       </p>
 

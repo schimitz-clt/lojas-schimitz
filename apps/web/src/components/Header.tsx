@@ -1,13 +1,21 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { currentUser, userAccountLabel, waLink } from '@/lib/api';
+import { api, currentUser, userAccountLabel, waLink } from '@/lib/api';
 
 export function Header() {
   const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
   const [q, setQ] = useState('');
+  const [unread, setUnread] = useState(0);
 
-  useEffect(() => setUser(currentUser()), []);
+  useEffect(() => {
+    const u = currentUser();
+    setUser(u);
+    if (!u) return;
+    api<{ unreadCount: number }>('/notifications?limit=1')
+      .then((d) => setUnread(d.unreadCount || 0))
+      .catch(() => setUnread(0));
+  }, []);
 
   return (
     <>
@@ -20,6 +28,11 @@ export function Header() {
               <input placeholder="Buscar TVs, celulares, notebooks..." value={q} onChange={(e) => setQ(e.target.value)} />
             </form>
             <div className="actions">
+              {user ? (
+                <Link className="btn ghost" href="/notificacoes" title="Notificações">
+                  🔔{unread > 0 ? ` ${unread}` : ''}
+                </Link>
+              ) : null}
               <Link className="btn ghost" href="/favoritos">Favoritos</Link>
               <Link className="btn ghost" href="/carrinho">Sacola</Link>
               <Link className="btn ghost" href={user ? '/conta' : '/entrar'}>{user ? userAccountLabel(user) : 'Entrar'}</Link>
@@ -43,7 +56,7 @@ export function Header() {
         <Link href="/">Início</Link>
         <Link href="/departamento/ofertas">Depart.</Link>
         <Link href="/carrinho">Carrinho</Link>
-        <Link href="/favoritos">Favoritos</Link>
+        <Link href={user ? '/notificacoes' : '/entrar'}>Avisos{unread > 0 ? ` (${unread})` : ''}</Link>
         <Link href={user ? '/conta' : '/entrar'}>Conta</Link>
       </nav>
     </>
