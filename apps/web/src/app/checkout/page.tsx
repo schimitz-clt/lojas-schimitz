@@ -1,9 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, brl, currentUser } from '@/lib/api';
+import {
+  CheckoutAddressSection,
+  type CheckoutAddress,
+} from '@/components/CheckoutAddressSection';
 
-type Address = { id: string; label: string; street: string; number: string; city: string; uf: string; cep: string };
 type Cart = { items: { id: string; name: string; qty: number; price: number; lineTotal: number }[]; subtotal: number };
 type CouponPreview = { code: string; discount: number; finalSubtotal: number };
 type Loyalty = { balance: number; label: string; rate: number };
@@ -20,8 +24,9 @@ type FreightQuote = {
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<Cart | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
   const [coupon, setCoupon] = useState('');
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
   const [couponErr, setCouponErr] = useState('');
@@ -40,10 +45,13 @@ export default function CheckoutPage() {
       return;
     }
     api<Cart>('/cart').then(setCart).catch((e) => setErr(e.message));
-    api<Address[]>('/me/addresses').then((list) => {
-      setAddresses(list);
-      if (list[0]) setAddressId(list[0].id);
-    }).catch(() => {});
+    api<CheckoutAddress[]>('/me/addresses')
+      .then((list) => {
+        setAddresses(list);
+        if (list[0]) setAddressId(list[0].id);
+      })
+      .catch(() => {})
+      .finally(() => setAddressesLoaded(true));
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, [router]);
 
@@ -106,7 +114,9 @@ export default function CheckoutPage() {
 
   async function submit() {
     if (!addressId) {
-      setErr('Cadastre um endereço na conta antes de finalizar.');
+      setErr('Salve um endereço de entrega acima para continuar.');
+      const el = document.querySelector('.checkout-address');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
     setLoading(true);
@@ -148,19 +158,30 @@ export default function CheckoutPage() {
   }
 
   if (!cart) return <p className="muted">Carregando checkout...</p>;
-  if (cart.items.length === 0) return <p className="muted">Sacola vazia. Volte ao catálogo.</p>;
+  if (cart.items.length === 0) {
+    return (
+      <div style={{ padding: '24px 0' }}>
+        <p className="muted">Sacola vazia. Volte ao catálogo.</p>
+        <Link className="btn" href="/produtos">Continuar comprando</Link>
+      </div>
+    );
+  }
 
   const couponDiscount = couponPreview?.discount ?? 0;
   const cashbackNum = Math.max(0, Number(String(cashbackAmount).replace(',', '.')) || 0);
   const cashbackApplied = Math.min(cashbackNum, Math.max(0, cart.subtotal - couponDiscount));
   const freightPrice = freight?.price ?? 0;
   const estimated = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
+  const canConfirm = Boolean(addressId) && !loading;
 
   return (
-    <div style={{ padding: '24px 0' }}>
-      <h1>Checkout</h1>
+    <div className="checkout-page" style={{ padding: '24px 0' }}>
+      <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+        <Link href="/carrinho">Sacola</Link> · Checkout
+      </p>
+      <h1 style={{ marginTop: 8 }}>Checkout</h1>
       <p className="muted">
-        O total definitivo é confirmado no servidor. Abaixo você já vê a estimativa de frete da entrega própria.
+        Cadastre ou escolha o endereço aqui, veja o frete e confirme. O total definitivo é validado no servidor.
       </p>
       {err ? <div className="alert">{err}</div> : null}
       {cart.items.map((i) => (
@@ -171,12 +192,25 @@ export default function CheckoutPage() {
       <p>Subtotal estimado {brl(cart.subtotal)}</p>
       {couponPreview ? <p className="ok">Cupom {couponPreview.code}: −{brl(couponPreview.discount)}</p> : null}
       {cashbackApplied > 0 ? <p>SCHIMITZ+: −{brl(cashbackApplied)}</p> : null}
-      <label>Endereço</label>
-      <select value={addressId} onChange={(e) => setAddressId(e.target.value)}>
-        {addresses.map((a) => (
-          <option key={a.id} value={a.id}>{a.label} — {a.street}, {a.number} — {a.city}/{a.uf} · CEP {a.cep}</option>
-        ))}
-      </select>
+
+      {addressesLoaded ? (
+        <CheckoutAddressSection
+          addresses={addresses}
+          addressId={addressId}
+          onAddressesChange={(list, selectedId) => {
+            setAddresses(list);
+            setAddressId(selectedId);
+            setErr('');
+          }}
+          onAddressIdChange={(id) => {
+            setAddressId(id);
+            setErr('');
+          }}
+        />
+      ) : (
+        <p className="muted">Carregando endereços…</p>
+      )}
+
       <div className="card" style={{ marginTop: 12, marginBottom: 8 }}>
         <div className="body">
           <b>Frete (entrega própria)</b>
@@ -200,7 +234,11 @@ export default function CheckoutPage() {
               </p>
             </>
           ) : null}
-          {!addressId ? <p className="muted" style={{ marginBottom: 0 }}>Selecione um endereço para ver o frete.</p> : null}
+          {!addressId ? (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Salve ou selecione um endereço acima para ver o frete.
+            </p>
+          ) : null}
         </div>
       </div>
       <p><b>Estimativa total: {brl(estimated)}</b></p>
@@ -241,9 +279,19 @@ export default function CheckoutPage() {
           SCHIMITZ+: ao pagar, você ganha {(loyalty.rate * 100).toFixed(0)}% de cashback no saldo.
         </p>
       ) : null}
-      <button className="btn" disabled={loading} onClick={submit} style={{ marginTop: 16 }}>
+      <button
+        className="btn checkout-confirm-btn"
+        disabled={!canConfirm}
+        onClick={submit}
+        style={{ marginTop: 16, width: '100%', maxWidth: 420 }}
+      >
         {loading ? 'Criando pedido...' : 'Confirmar e ir ao pagamento'}
       </button>
+      {!addressId && addressesLoaded ? (
+        <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          O botão libera depois que você salvar um endereço nesta página.
+        </p>
+      ) : null}
     </div>
   );
 }

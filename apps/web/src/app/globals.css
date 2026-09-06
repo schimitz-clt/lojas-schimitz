@@ -574,3 +574,31 @@ textarea { resize: vertical; min-height: 72px; }
   .search { min-width: 0; flex: 1 1 100%; order: 3; }
   .header-row { align-items: stretch; }
 }
+
+/* Checkout inline address (mobile-first) */
+.checkout-address .checkout-address-form {
+  max-width: 100%;
+}
+.checkout-address-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.checkout-address select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+}
+.checkout-confirm-btn {
+  min-height: 48px;
+  font-size: 16px;
+}
+@media (max-width: 520px) {
+  .checkout-address-grid {
+    grid-template-columns: 1fr;
+  }
+  .checkout-address-grid input[aria-label="UF"],
+  .checkout-address-grid input[placeholder="UF"] {
+    max-width: 120px;
+  }
+}
