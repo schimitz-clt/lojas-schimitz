@@ -114,6 +114,9 @@ export default function ProductPage() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [galleryIdx, setGalleryIdx] = useState(0);
+  const [addedToBag, setAddedToBag] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [showBagToast, setShowBagToast] = useState(false);
 
   const loadReviews = useCallback(async (productId: string) => {
     const list = await api<Review[]>(`/products/${productId}/reviews`);
@@ -139,8 +142,18 @@ export default function ProductPage() {
   }, []);
 
   useEffect(() => {
+    if (!showBagToast) return;
+    const t = window.setTimeout(() => setShowBagToast(false), 6000);
+    return () => window.clearTimeout(t);
+  }, [showBagToast]);
+
+  useEffect(() => {
     getGuestToken();
     setGalleryIdx(0);
+    setAddedToBag(false);
+    setShowBagToast(false);
+    setMsg('');
+    setErr('');
     api<Detail>(`/products/${slug}`)
       .then(async (product) => {
         setP(product);
@@ -150,13 +163,23 @@ export default function ProductPage() {
   }, [slug, loadReviews, loadEligibility]);
 
   async function add() {
-    if (!p) return;
+    if (!p || adding) return;
+    setAdding(true);
     try {
       await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId: p.id, qty: 1 }) });
+      setAddedToBag(true);
+      setShowBagToast(true);
       setMsg('Adicionado à sacola.');
       setErr('');
+      try {
+        window.dispatchEvent(new Event('sch-cart-updated'));
+      } catch {
+        /* ignore */
+      }
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -316,13 +339,48 @@ export default function ProductPage() {
             {stockLabel}
           </p>
 
-          {msg ? <p className="ok">{msg}</p> : null}
+          {msg && !addedToBag ? <p className="ok">{msg}</p> : null}
           {err ? <p className="alert">{err}</p> : null}
 
+          {addedToBag ? (
+            <div className="pdp-added-banner ok" role="status">
+              <div>
+                <strong>Adicionado à sacola</strong>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 13, color: 'inherit', opacity: 0.9 }}>
+                  Pronto! Revise os itens ou finalize a compra.
+                </p>
+              </div>
+              <Link className="btn" href="/carrinho" style={{ whiteSpace: 'nowrap' }}>
+                Ver sacola
+              </Link>
+            </div>
+          ) : null}
+
           <div className="actions pdp-actions">
-            <button className="btn" onClick={add} disabled={outOfStock}>
-              {outOfStock ? 'Indisponível' : 'Adicionar à sacola'}
-            </button>
+            {addedToBag && !outOfStock ? (
+              <>
+                <Link className="btn" href="/carrinho">
+                  Ir para a sacola
+                </Link>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => {
+                    setShowBagToast(false);
+                    setMsg('');
+                  }}
+                >
+                  Continuar comprando
+                </button>
+                <button className="btn ghost" type="button" onClick={add} disabled={adding}>
+                  {adding ? 'Adicionando...' : 'Adicionar mais'}
+                </button>
+              </>
+            ) : (
+              <button className="btn" onClick={add} disabled={outOfStock || adding}>
+                {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
+              </button>
+            )}
             <button className="btn ghost" onClick={fav}>
               Favoritar
             </button>
@@ -450,10 +508,33 @@ export default function ProductPage() {
           <div className="price">{brl(pix)}</div>
           <div className="muted" style={{ fontSize: 11 }}>no PIX · {brl(price)}</div>
         </div>
-        <button className="btn" onClick={add} disabled={outOfStock}>
-          {outOfStock ? 'Indisponível' : 'Adicionar à sacola'}
-        </button>
+        {addedToBag && !outOfStock ? (
+          <Link className="btn" href="/carrinho">
+            Ir para a sacola
+          </Link>
+        ) : (
+          <button className="btn" onClick={add} disabled={outOfStock || adding}>
+            {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
+          </button>
+        )}
       </div>
+
+      {showBagToast ? (
+        <div className="pdp-cart-toast" role="status" aria-live="polite">
+          <span>Adicionado à sacola</span>
+          <Link className="btn" href="/carrinho" onClick={() => setShowBagToast(false)}>
+            Ver sacola
+          </Link>
+          <button
+            type="button"
+            className="pdp-cart-toast-x"
+            aria-label="Fechar"
+            onClick={() => setShowBagToast(false)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

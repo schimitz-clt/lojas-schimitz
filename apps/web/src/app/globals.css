@@ -421,6 +421,91 @@ textarea { resize: vertical; min-height: 72px; }
 .skel-btn { height: 40px; border-radius: 12px; width: 100%; }
 .skel-pdp-img { aspect-ratio: 1; width: 100%; height: auto; border-radius: 14px; }
 
+
+/* PDP post-add banner + toast */
+.pdp-added-banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.pdp-added-banner .btn { min-height: 40px; }
+.pdp-actions { flex-wrap: wrap; }
+.pdp-actions .btn { min-height: 44px; }
+.pdp-cart-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #10261b;
+  color: #b9f5d4;
+  border: 1px solid #1f5a3a;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.4);
+  font-weight: 600;
+}
+.pdp-cart-toast .btn {
+  margin-left: auto;
+  min-height: 40px;
+  white-space: nowrap;
+}
+.pdp-cart-toast-x {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+@media (min-width: 721px) {
+  .pdp-cart-toast {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: min(420px, calc(100vw - 48px));
+  }
+}
+
+/* Cart checkout prominence */
+.cart-checkout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  text-align: center;
+}
+.cart-sticky-checkout {
+  display: none;
+}
+.cart-page { padding-bottom: 24px; }
+@media (max-width: 720px) {
+  .cart-page { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .cart-sticky-checkout {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    z-index: 25;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(23, 26, 33, 0.96);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+  .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }
+}
+
 /* Sticky ATC (mobile PDP) */
 .pdp-sticky-atc {
   display: none;
