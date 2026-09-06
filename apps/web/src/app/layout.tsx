@@ -40,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p><b>Sobre a Lojas Schimitz</b> — eletro, celulares, informática, eletrodomésticos e casa em Porto Alegre. Atendimento no chat do site ou no WhatsApp (51) 99625-3766.</p>
             <p>Frete grátis em Porto Alegre · Troca em 7 dias · PIX 5% off · 12x sem juros*</p>
             <p>Loja própria · assistente no site · WhatsApp (51) 99625-3766</p>
+            <p><a href="/produtos">Produtos</a> · <a href="/suporte">Suporte</a> · <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">WhatsApp</a></p>
           </div>
         </footer>
         <ChatWidget />

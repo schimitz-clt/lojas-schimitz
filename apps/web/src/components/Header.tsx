@@ -27,6 +27,7 @@ export function Header() {
             </div>
           </div>
           <nav className="nav">
+            <Link href="/produtos">Produtos</Link>
             <Link href="/departamento/eletro">Eletro</Link>
             <Link href="/departamento/celulares">Celulares</Link>
             <Link href="/departamento/informatica">Informática</Link>
@@ -34,6 +35,7 @@ export function Header() {
             <Link href="/departamento/casa">Casa</Link>
             <Link href="/departamento/esporte">Esporte</Link>
             <Link href="/departamento/ofertas">Ofertas</Link>
+            <Link href="/suporte">Suporte</Link>
           </nav>
         </div>
       </header>
