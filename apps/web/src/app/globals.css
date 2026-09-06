@@ -78,6 +78,65 @@ textarea { resize: vertical; min-height: 72px; }
   .chatw-panel { height: min(460px, calc(100vh - 180px)); }
 }
 
+/* Home promo strip (empty banners) */
+.home-promo {
+  margin: 18px 0 8px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(245, 197, 24, 0.16), transparent 55%),
+    linear-gradient(135deg, #1b1404 0%, #171a21 48%, #111 100%);
+  overflow: hidden;
+}
+.home-promo-inner { padding: 22px 22px 18px; }
+.home-promo-kicker {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.home-promo-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.home-promo-sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 52ch;
+}
+.home-promo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.home-promo-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+.home-promo-chips li {
+  background: #3a2d08;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 197, 24, 0.25);
+}
+@media (max-width: 720px) {
+  .home-promo-title { font-size: 18px; }
+  .home-promo-inner { padding: 18px 16px 14px; }
+}
+
 /* Home banners */
 .home-banners { margin: 18px 0 8px; position: relative; }
 .home-banner-slide {

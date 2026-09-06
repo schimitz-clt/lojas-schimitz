@@ -24,15 +24,28 @@ function ProdutosInner() {
   return (
     <div style={{ padding: '22px 0' }}>
       <h1>Produtos</h1>
-      <p className="muted" style={{ marginBottom: 18 }}>
+      <p className="muted" style={{ marginBottom: 14 }}>
         Catálogo Lojas Schimitz
-        {q ? <> · buscando “{q}”</> : null}.{' '}
-        <Link href="/">Voltar ao início</Link>
+        {q ? <> · buscando “{q}”</> : null}.
+      </p>
+      <p style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 14 }}>
+        <Link href="/">Início</Link>
+        <span className="muted">·</span>
+        <Link href="/departamento/ofertas">Ofertas</Link>
+        <span className="muted">·</span>
+        <Link href="/departamento/eletro">Eletro</Link>
+        <span className="muted">·</span>
+        <Link href="/departamento/celulares">Celulares</Link>
+        <span className="muted">·</span>
+        <Link href="/suporte">Suporte</Link>
       </p>
       {err ? <div className="alert">{err}</div> : null}
       {loading ? <p className="muted">Carregando produtos…</p> : null}
       {!loading && !err && products.length === 0 ? (
-        <p className="muted">Nenhum produto encontrado. Tente outra busca ou explore os departamentos.</p>
+        <p className="muted">
+          Nenhum produto encontrado. Tente outra busca ou explore os{' '}
+          <Link href="/departamento/ofertas">departamentos</Link>.
+        </p>
       ) : null}
       <div className="grid">
         {products.map((p) => (

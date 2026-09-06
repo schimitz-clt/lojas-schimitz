@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 
@@ -8,6 +9,38 @@ function isUsableBanner(b: HomeBanner | null | undefined): b is HomeBanner {
   if (!b || typeof b !== 'object') return false;
   const url = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
   return Boolean(url);
+}
+
+/** Faixa promocional estática (só texto/CSS) quando a API não tem banners. */
+function StaticPromoStrip() {
+  return (
+    <section className="home-promo" aria-label="Destaques da loja">
+      <div className="home-promo-inner">
+        <p className="home-promo-kicker">Lojas Schimitz · Porto Alegre</p>
+        <h2 className="home-promo-title">Frete grátis em POA · PIX 5% off · até 12x</h2>
+        <p className="home-promo-sub">
+          Entrega própria, troca em 7 dias e atendimento no chat ou WhatsApp.
+        </p>
+        <div className="home-promo-actions">
+          <Link className="btn" href="/produtos">
+            Ver produtos
+          </Link>
+          <Link className="btn ghost" href="/departamento/ofertas">
+            Ofertas
+          </Link>
+          <Link className="btn ghost" href="/suporte">
+            Suporte
+          </Link>
+        </div>
+        <ul className="home-promo-chips" aria-label="Benefícios">
+          <li>Frete grátis POA</li>
+          <li>PIX 5%</li>
+          <li>12x Mercado Pago</li>
+          <li>Troca 7 dias</li>
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 export function HomeBanners() {
@@ -41,12 +74,14 @@ export function HomeBanners() {
     setImgFailed(false);
   }, [idx, banners]);
 
-  // Loading or empty: render nothing — hero below fills the page (no empty box / broken layout).
-  if (!banners || banners.length === 0) return null;
+  // Loading: evita flash da faixa estática antes da API responder.
+  if (banners === null) return null;
+
+  // Sem banners (ou imagem quebrada): faixa promocional de texto.
+  if (banners.length === 0) return <StaticPromoStrip />;
 
   const current = banners[Math.min(idx, banners.length - 1)];
-  // Hide carousel on bad payload or broken image — avoid empty black box.
-  if (!current || imgFailed) return null;
+  if (!current || imgFailed) return <StaticPromoStrip />;
 
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
