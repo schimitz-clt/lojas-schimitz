@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { brl } from '@/lib/api';
+import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
 
 export type Product = {
   id: string;
@@ -14,6 +15,8 @@ export type Product = {
   /** Flat primary image (same as cart / public API). */
   image?: string | null;
   imageUrl?: string | null;
+  stock?: number | null;
+  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
 };
 
@@ -24,11 +27,19 @@ function resolveImageUrl(p: Product): string {
   return flat;
 }
 
+function resolveStock(p: Product): number | null {
+  if (typeof p.stock === 'number') return p.stock;
+  if (p.stock === null) return null;
+  if (p.inventory) return p.inventory.qtyOnHand - p.inventory.qtyReserved;
+  return null;
+}
+
 function ProductImage({ src, alt }: { src?: string; alt: string }) {
   if (!src) {
     return <span className="muted">Sem foto</span>;
   }
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
@@ -46,38 +57,57 @@ export function ProductCard({ p }: { p: Product }) {
   const img = resolveImageUrl(p);
   const count = p.ratingCount ?? 0;
   const avg = Number(p.ratingAvg ?? 0);
+  const stock = resolveStock(p);
+  const sb = stockBadge(stock);
+  const price = Number(p.price);
+  const pix = pixPrice(price);
+
   return (
-    <Link href={`/produto/${p.slug}`} className="card">
-      <div style={{ aspectRatio: '1', background: '#111', display: 'grid', placeItems: 'center', position: 'relative' }}>
-        {img ? <ProductImage src={img} alt={p.name} /> : null}
-        <span
-          data-img-fallback
-          className="muted"
-          style={{ display: img ? 'none' : 'grid', placeItems: 'center', position: img ? 'absolute' : undefined, inset: 0 }}
-        >
-          Sem foto
-        </span>
-      </div>
-      <div className="body">
-        {p.badge ? <div className="badge">{p.badge}</div> : null}
-        <div>{p.name}</div>
-        {p.seller?.name ? (
-          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-            Vendido por {p.seller.name}
-          </div>
-        ) : null}
-        <div>
-          <span className="price">{brl(p.price)}</span>
-          {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
+    <article className="pcard">
+      <Link href={`/produto/${p.slug}`} className="pcard-link">
+        <div className="pcard-media">
+          {img ? <ProductImage src={img} alt={p.name} /> : null}
+          <span
+            data-img-fallback
+            className="muted pcard-fallback"
+            style={{ display: img ? 'none' : 'grid' }}
+          >
+            Sem foto
+          </span>
+          {p.badge ? <span className="pcard-badge">{p.badge}</span> : null}
+          {sb ? (
+            <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span>
+          ) : null}
         </div>
-        {count > 0 ? (
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            ★ {avg.toFixed(1).replace('.', ',')} · {count} avaliação{count === 1 ? '' : 'ões'}
+        <div className="pcard-body">
+          <h3 className="pcard-title">{p.name}</h3>
+          {p.seller?.name ? (
+            <p className="pcard-seller muted">Vendido por {p.seller.name}</p>
+          ) : null}
+          {count > 0 ? (
+            <p className="pcard-rating muted">
+              ★ {avg.toFixed(1).replace('.', ',')} · {count} avaliação{count === 1 ? '' : 'ões'}
+            </p>
+          ) : null}
+          <div className="pcard-price-row">
+            <span className="price">{brl(price)}</span>
+            {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
           </div>
-        ) : (
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>12x sem juros · 5% off no PIX</div>
-        )}
+          <p className="pcard-pix">
+            <strong>{brl(pix)}</strong> no PIX <span className="muted">(5% off)</span>
+          </p>
+          <p className="pcard-install muted">{installmentLine(price)}</p>
+        </div>
+      </Link>
+      <div className="pcard-cta">
+        <Link
+          className={`btn pcard-btn${sb?.tone === 'out' ? ' ghost' : ''}`}
+          href={`/produto/${p.slug}`}
+          aria-disabled={sb?.tone === 'out'}
+        >
+          {sb?.tone === 'out' ? 'Ver detalhes' : 'Comprar'}
+        </Link>
       </div>
-    </Link>
+    </article>
   );
 }

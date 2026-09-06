@@ -2,6 +2,13 @@ import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common
 import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
 import { serializePublicProduct, serializePublicProducts } from './product.serialize';
+import {
+  buildProductOrderBy,
+  buildProductWhere,
+  parsePage,
+  parsePageSize,
+  parseSort,
+} from './catalog.query';
 
 @Controller()
 export class CatalogController {
@@ -20,23 +27,19 @@ export class CatalogController {
   async products(
     @Query('q') q?: string,
     @Query('category') category?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('sort') sort?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '24',
   ) {
-    const take = Math.min(60, Math.max(1, Number(pageSize) || 24));
-    const skip = (Math.max(1, Number(page) || 1) - 1) * take;
-    const where = {
-      active: true,
-      ...(category ? { category: { slug: category } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: 'insensitive' as const } },
-              { sku: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
-    };
+    const take = parsePageSize(pageSize);
+    const pageNum = parsePage(page);
+    const skip = (pageNum - 1) * take;
+    const sortKey = parseSort(sort);
+    const where = buildProductWhere({ q, category, minPrice, maxPrice });
+    const orderBy = buildProductOrderBy(sortKey);
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
@@ -46,6 +49,7 @@ export class CatalogController {
           category: true,
           seller: { select: { id: true, name: true, slug: true } },
         },
+        orderBy,
         skip,
         take,
       }),
@@ -54,8 +58,9 @@ export class CatalogController {
     return ok({
       items: serializePublicProducts(data),
       total,
-      page: Math.max(1, Number(page) || 1),
+      page: pageNum,
       pageSize: take,
+      sort: sortKey,
     });
   }
 

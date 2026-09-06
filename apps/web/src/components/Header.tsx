@@ -24,8 +24,24 @@ export function Header() {
         <div className="wrap">
           <div className="header-row">
             <Link href="/" className="logo">LOJAS <span>SCHIMITZ</span></Link>
-            <form className="search" action="/" onSubmit={(e) => { e.preventDefault(); window.location.href = `/?q=${encodeURIComponent(q)}`; }}>
-              <input placeholder="Buscar TVs, celulares, notebooks..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <form
+              className="search"
+              action="/produtos"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const term = q.trim();
+                window.location.href = term
+                  ? `/produtos?q=${encodeURIComponent(term)}`
+                  : '/produtos';
+              }}
+            >
+              <input
+                name="q"
+                placeholder="Buscar TVs, celulares, notebooks..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                aria-label="Buscar produtos"
+              />
             </form>
             <div className="actions">
               {user ? (
