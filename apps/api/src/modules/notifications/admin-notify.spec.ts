@@ -11,6 +11,9 @@ import {
   buildAdminFulfillmentNotification,
   buildStoreOwnerPaidWhatsApp,
   resolveAdminUrl,
+  isPlaceholderStoreEmail,
+  extractEmailAddress,
+  resolveStoreNotifyEmailsFromEnv,
 } from './notifications.service';
 import { adminOrderPaidEmail } from '../mail/mail.templates';
 
@@ -142,12 +145,59 @@ function fanOutAdmins(
   assert.ok(svcSrc.includes('notifyStoreOfPaidOrder'));
   assert.ok(svcSrc.includes('notifyAdminOrderPaid'), 'deve tentar enviar e-mail admin');
   assert.ok(svcSrc.includes('buildStoreOwnerPaidWhatsApp'));
+  assert.ok(svcSrc.includes('resolvePaidSaleEmailRecipients'), 'união DB+env');
+  assert.ok(svcSrc.includes('resolveStoreNotifyEmailsFromEnv'));
+  assert.ok(svcSrc.includes('ensureEnvAdminsPromoted'), 'bootstrap promove ADMIN_EMAIL');
+  assert.ok(svcSrc.includes('isPlaceholderStoreEmail'));
   // Comentário de intenção: sem exclude no caminho de pagamento
   assert.ok(
     /Sem excludeUserIds|NÃO excluir o comprador|mesmo se comprador for admin/i.test(svcSrc),
     'docs/comentário: não excluir comprador-admin',
   );
   console.log('admin-notify: wiring payments/orders + mail — PASSOU');
+}
+
+{
+  assert.equal(isPlaceholderStoreEmail('admin@lojas-schimitz.test'), true);
+  assert.equal(isPlaceholderStoreEmail('x@foo.test'), true);
+  assert.equal(isPlaceholderStoreEmail('schimitzclaiton@gmail.com'), false);
+  assert.equal(extractEmailAddress('Lojas <schimitzclaiton@gmail.com>'), 'schimitzclaiton@gmail.com');
+  assert.equal(extractEmailAddress('admin@lojas-schimitz.test'), null);
+  assert.equal(extractEmailAddress(''), null);
+
+  const emails = resolveStoreNotifyEmailsFromEnv({
+    STORE_NOTIFY_EMAIL: 'schimitzclaiton@gmail.com, outro@exemplo.com',
+    ADMIN_EMAIL: 'admin@lojas-schimitz.test', // deve ser ignorado
+    MAIL_FROM: 'Lojas Schimitz <loja@exemplo.com>',
+  } as NodeJS.ProcessEnv);
+  assert.deepEqual(emails, ['schimitzclaiton@gmail.com', 'outro@exemplo.com', 'loja@exemplo.com']);
+
+  const onlyAdmin = resolveStoreNotifyEmailsFromEnv({
+    ADMIN_EMAIL: 'schimitzclaiton@gmail.com',
+  } as NodeJS.ProcessEnv);
+  assert.deepEqual(onlyAdmin, ['schimitzclaiton@gmail.com']);
+
+  // União simulada: DB seed admin + env real → só o real (placeholder filtrado)
+  function unionRecipients(dbEmails: string[], envEmails: string[]) {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [...dbEmails, ...envEmails]) {
+      const e = (raw || '').trim().toLowerCase();
+      if (!e || isPlaceholderStoreEmail(e) || seen.has(e)) continue;
+      seen.add(e);
+      out.push(e);
+    }
+    return out;
+  }
+  assert.deepEqual(
+    unionRecipients(['admin@lojas-schimitz.test'], ['schimitzclaiton@gmail.com']),
+    ['schimitzclaiton@gmail.com'],
+  );
+  assert.deepEqual(
+    unionRecipients(['admin@lojas-schimitz.test', 'outro@admin.com'], ['schimitzclaiton@gmail.com']),
+    ['outro@admin.com', 'schimitzclaiton@gmail.com'],
+  );
+  console.log('admin-notify: env recipients + skip placeholder — PASSOU');
 }
 
 console.log('admin-notify tests ok');

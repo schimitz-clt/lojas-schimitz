@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { MailService } from '../mail/mail.service';
 import {
@@ -60,6 +60,48 @@ export function resolveAdminUrl(): string {
   return '/admin';
 }
 
+
+/** Placeholder / seed-only addresses — never use as sale notify targets. */
+export function isPlaceholderStoreEmail(email: string): boolean {
+  const e = (email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return true;
+  return e.endsWith('@lojas-schimitz.test') || e.endsWith('.test');
+}
+
+/** Extrai endereço de MAIL_FROM ("Name <a@b.com>" ou "a@b.com"). */
+export function extractEmailAddress(raw: string | undefined | null): string | null {
+  const s = (raw || '').trim();
+  if (!s) return null;
+  const angle = s.match(/<([^>]+)>/);
+  const cand = (angle ? angle[1] : s).trim().toLowerCase();
+  if (!cand.includes('@') || isPlaceholderStoreEmail(cand)) return null;
+  return cand;
+}
+
+/**
+ * Destinatários extras de venda paga (env), além dos admins no banco.
+ * Ordem: STORE_NOTIFY_EMAIL, ADMIN_EMAIL, e-mail de MAIL_FROM.
+ * Dedup + ignora @lojas-schimitz.test / *.test.
+ */
+export function resolveStoreNotifyEmailsFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw?: string | null) => {
+    const e = extractEmailAddress(raw);
+    if (!e || seen.has(e)) return;
+    seen.add(e);
+    out.push(e);
+  };
+  // STORE_NOTIFY_EMAIL pode ser CSV
+  const store = (env.STORE_NOTIFY_EMAIL || '').trim();
+  if (store) {
+    for (const part of store.split(/[,;]+/)) push(part);
+  }
+  push(env.ADMIN_EMAIL);
+  push(env.MAIL_FROM);
+  return out;
+}
+
 /**
  * Mensagem + wa.me para o número da loja (aviso interno de venda paga).
  * Não envia WhatsApp — só deep link click-to-chat.
@@ -82,13 +124,53 @@ export function buildStoreOwnerPaidWhatsApp(opts: {
 }
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit {
   private readonly log = new Logger(NotificationsService.name);
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MailService) private readonly mail: MailService,
   ) {}
+
+  /**
+   * Bootstrap idempotente: se ADMIN_EMAIL (ou STORE_NOTIFY_EMAIL) existir no banco,
+   * garante role=admin + status=active para receber in-app "Novo pagamento".
+   * Não cria usuário novo (sem senha segura).
+   */
+  async onModuleInit() {
+    await this.ensureEnvAdminsPromoted();
+  }
+
+  async ensureEnvAdminsPromoted(): Promise<number> {
+    const emails = resolveStoreNotifyEmailsFromEnv();
+    let promoted = 0;
+    for (const email of emails) {
+      try {
+        const user = await this.prisma.user.findUnique({ where: { email } });
+        if (!user) {
+          this.log.warn(
+            `ensureEnvAdminsPromoted: ${email} não cadastrado — cadastre/login na loja ou crie via POST /admin/admins`,
+          );
+          continue;
+        }
+        if (user.role === 'admin' && user.status === 'active') continue;
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'admin', status: 'active' },
+        });
+        promoted += 1;
+        this.log.log(
+          `ensureEnvAdminsPromoted: ${email} promovido (era role=${user.role} status=${user.status})`,
+        );
+      } catch (e: any) {
+        this.log.error(`ensureEnvAdminsPromoted falhou para ${email}: ${e?.message || e}`);
+      }
+    }
+    if (promoted) {
+      this.log.log(`ensureEnvAdminsPromoted: ${promoted} usuário(s) promovido(s) a admin ativo`);
+    }
+    return promoted;
+  }
 
   async create(input: CreateNotificationInput) {
     return this.prisma.notification.create({
@@ -107,7 +189,10 @@ export class NotificationsService {
   async createSafe(input: CreateNotificationInput) {
     try {
       return await this.create(input);
-    } catch {
+    } catch (e: any) {
+      this.log.warn(
+        `createSafe falhou (${input.type} → user ${input.userId}): ${e?.message || e}`,
+      );
       return null;
     }
   }
@@ -195,13 +280,19 @@ export class NotificationsService {
 
     let emailsAttempted = 0;
     try {
-      const admins = await this.listActiveAdmins();
-      for (const admin of admins) {
+      const recipients = await this.resolvePaidSaleEmailRecipients();
+      for (const to of recipients) {
         emailsAttempted += 1;
-        await this.mail.notifyAdminOrderPaid(admin.email, mailCtx);
+        await this.mail.notifyAdminOrderPaid(to, mailCtx);
       }
-      if (admins.length === 0) {
-        this.log.warn(`notifyStoreOfPaidOrder: nenhum admin ativo com e-mail (${opts.publicId})`);
+      if (recipients.length === 0) {
+        this.log.warn(
+          `notifyStoreOfPaidOrder: nenhum destinatário de e-mail (DB admin + ADMIN_EMAIL/STORE_NOTIFY_EMAIL/MAIL_FROM) (${opts.publicId})`,
+        );
+      } else {
+        this.log.log(
+          `notifyStoreOfPaidOrder destinatários e-mail (${opts.publicId}): ${recipients.join(', ')}`,
+        );
       }
     } catch (e: any) {
       this.log.error(`notifyStoreOfPaidOrder e-mail falhou: ${e?.message || e}`);
@@ -211,6 +302,29 @@ export class NotificationsService {
       `notifyStoreOfPaidOrder ${opts.publicId}: inApp=${inAppCreated} emails=${emailsAttempted} wa.me=${whatsapp.url.slice(0, 48)}…`,
     );
     return { inAppCreated, emailsAttempted };
+  }
+
+  /**
+   * União: admins ativos no DB (exceto placeholder *.test) + e-mails de env.
+   * Garante que ADMIN_EMAIL/STORE_NOTIFY_EMAIL recebam mesmo se o seed admin for o único no banco.
+   */
+  async resolvePaidSaleEmailRecipients(): Promise<string[]> {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const push = (raw?: string | null) => {
+      const e = (raw || '').trim().toLowerCase();
+      if (!e || isPlaceholderStoreEmail(e) || seen.has(e)) return;
+      seen.add(e);
+      out.push(e);
+    };
+    try {
+      const admins = await this.listActiveAdmins();
+      for (const a of admins) push(a.email);
+    } catch (e: any) {
+      this.log.warn(`resolvePaidSaleEmailRecipients DB: ${e?.message || e}`);
+    }
+    for (const e of resolveStoreNotifyEmailsFromEnv()) push(e);
+    return out;
   }
 
   async listForUser(userId: string, opts?: { limit?: number; unreadOnly?: boolean }) {

@@ -42,15 +42,23 @@ export class MailService {
 
     const port = Number(portRaw || '587');
     const secure = port === 465;
+    const resolvedPort = Number.isFinite(port) ? port : 587;
 
     this.from = from;
     this.transporter = nodemailer.createTransport({
       host,
-      port: Number.isFinite(port) ? port : 587,
+      port: resolvedPort,
       secure,
+      // Railway → Gmail: timeouts claros; 465=SSL, 587=STARTTLS
+      requireTLS: !secure && resolvedPort === 587,
+      connectionTimeout: 20_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 30_000,
       auth: user && pass ? { user, pass } : undefined,
     });
-    this.log.log(`SMTP configurado (${host}:${port}) — e-mails ativos`);
+    this.log.log(
+      `SMTP configurado (${host}:${resolvedPort}, secure=${secure}, requireTLS=${!secure && resolvedPort === 587}) — e-mails ativos`,
+    );
   }
 
   private async send(to: string, subject: string, text: string, html: string) {
@@ -69,7 +77,14 @@ export class MailService {
       this.log.log(`E-mail enviado: ${subject} → ${to}`);
       return { sent: true as const };
     } catch (e: any) {
-      this.log.error(`Falha ao enviar e-mail (${subject} → ${to}): ${e?.message || e}`);
+      const code = e?.code || e?.responseCode || '';
+      const hint =
+        /timeout|ETIMEDOUT|ECONNECTION|ESOCKET/i.test(String(e?.message || '') + String(code))
+          ? ' (dica: tente SMTP_PORT=465 com SSL, ou provedor tipo Resend; confira firewall Railway→SMTP)'
+          : '';
+      this.log.error(
+        `Falha ao enviar e-mail (${subject} → ${to}): ${e?.message || e}${code ? ` [${code}]` : ''}${hint}`,
+      );
       return { sent: false, reason: 'send_failed' as const };
     }
   }

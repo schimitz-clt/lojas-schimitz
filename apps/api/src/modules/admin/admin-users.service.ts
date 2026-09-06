@@ -55,9 +55,25 @@ export class AdminUsersService {
       if (exists.role === 'admin') {
         throw new ConflictException('Já existe um administrador com este e-mail');
       }
-      throw new ConflictException(
-        'Este e-mail já está cadastrado como cliente. Use outro e-mail para o admin.',
-      );
+      // Promove cliente/seller existente a admin ativo (mantém senha atual).
+      const passwordHash = await argon2.hash(dto.password);
+      const user = await this.prisma.user.update({
+        where: { id: exists.id },
+        data: {
+          role: 'admin',
+          status: 'active',
+          name: dto.name.trim() || exists.name,
+          passwordHash,
+        },
+        select: ADMIN_SELECT,
+      });
+      await this.audit.log('admin.user.promote', {
+        actorId,
+        entity: 'User',
+        entityId: user.id,
+        meta: { email: user.email, name: user.name, fromRole: exists.role },
+      });
+      return user;
     }
 
     const passwordHash = await argon2.hash(dto.password);
