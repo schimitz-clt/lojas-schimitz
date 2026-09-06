@@ -23,7 +23,10 @@ import {
 import { CreatePaymentIntentDto } from './dto';
 import { MailService } from '../mail/mail.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import {
+  NotificationsService,
+  buildAdminOrderPaidNotification,
+} from '../notifications/notifications.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
 
 const MVP_METHODS = new Set(['pix', 'card']);
@@ -759,7 +762,7 @@ export class PaymentsService {
       }
     }
   }
-  /** Best-effort: e-mail + notificação in-app "Pedido pago". Nunca lança. */
+  /** Best-effort: e-mail + notificação in-app "Pedido pago" (cliente + admins). Nunca lança. */
   private async notifyCustomerPaid(orderId: string) {
     try {
       const order = await this.prisma.order.findUnique({
@@ -780,6 +783,16 @@ export class PaymentsService {
           orderId: order.id,
         });
       }
+      const adminPayload = buildAdminOrderPaidNotification({
+        publicId: order.publicId,
+        total: Number(order.total),
+        orderId: order.id,
+      });
+      await this.notifications.notifyActiveAdmins({
+        ...adminPayload,
+        // Cliente já notificado acima; se for admin, evita duplicata com copy de cliente.
+        excludeUserIds: order.userId ? [order.userId] : [],
+      });
       const to = order.user?.email;
       if (!to) {
         this.log.warn(`Pedido pago sem e-mail de cliente: ${orderId}`);

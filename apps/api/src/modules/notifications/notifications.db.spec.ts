@@ -1,5 +1,5 @@
 /**
- * Integração Postgres — Notification create/list/mark-read.
+ * Integração Postgres — Notification create/list/mark-read + fan-out admin.
  * Requer DATABASE_URL + migration SCH-007 aplicada.
  * Se a tabela ainda não existir, SKIP (não falha o CI local pré-migrate).
  */
@@ -29,12 +29,15 @@ async function main() {
     return;
   }
 
-  const email = `notif-${randomUUID().slice(0, 8)}@test.local`;
-  const user = await prisma.user.create({
-    data: { email, passwordHash: 'x', name: 'Notif Test', role: 'customer' },
-  });
+  const createdUserIds: string[] = [];
 
   try {
+    const email = `notif-${randomUUID().slice(0, 8)}@test.local`;
+    const user = await prisma.user.create({
+      data: { email, passwordHash: 'x', name: 'Notif Test', role: 'customer' },
+    });
+    createdUserIds.push(user.id);
+
     const n1 = await prisma.notification.create({
       data: {
         userId: user.id,
@@ -74,10 +77,58 @@ async function main() {
     const unread3 = await prisma.notification.count({ where: { userId: user.id, readAt: null } });
     assert.equal(unread3, 0);
 
+    // Fan-out: admins ativos recebem order_paid; blocked não.
+    const adminActive = await prisma.user.create({
+      data: {
+        email: `admin-a-${randomUUID().slice(0, 8)}@test.local`,
+        passwordHash: 'x',
+        name: 'Admin Active',
+        role: 'admin',
+        status: 'active',
+      },
+    });
+    createdUserIds.push(adminActive.id);
+    const adminBlocked = await prisma.user.create({
+      data: {
+        email: `admin-b-${randomUUID().slice(0, 8)}@test.local`,
+        passwordHash: 'x',
+        name: 'Admin Blocked',
+        role: 'admin',
+        status: 'blocked',
+      },
+    });
+    createdUserIds.push(adminBlocked.id);
+
+    const admins = await prisma.user.findMany({
+      where: { role: 'admin', status: 'active', id: { in: [adminActive.id, adminBlocked.id] } },
+      select: { id: true },
+    });
+    assert.equal(admins.length, 1);
+    assert.equal(admins[0].id, adminActive.id);
+    for (const a of admins) {
+      await prisma.notification.create({
+        data: {
+          userId: a.id,
+          type: 'order_paid',
+          title: 'Novo pagamento',
+          body: 'Pedido SCH-DBTEST pago (R$ 10,00)',
+          linkUrl: '/admin',
+        },
+      });
+    }
+    const forActive = await prisma.notification.findMany({ where: { userId: adminActive.id } });
+    const forBlocked = await prisma.notification.findMany({ where: { userId: adminBlocked.id } });
+    assert.equal(forActive.length, 1);
+    assert.equal(forActive[0].title, 'Novo pagamento');
+    assert.equal(forActive[0].linkUrl, '/admin');
+    assert.equal(forBlocked.length, 0);
+
     console.log('notifications.db postgres tests ok');
   } finally {
-    await prisma.notification.deleteMany({ where: { userId: user.id } });
-    await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+    for (const id of createdUserIds) {
+      await prisma.notification.deleteMany({ where: { userId: id } });
+      await prisma.user.delete({ where: { id } }).catch(() => undefined);
+    }
     await prisma.$disconnect();
   }
 }

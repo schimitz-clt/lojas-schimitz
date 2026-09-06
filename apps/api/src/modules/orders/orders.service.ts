@@ -18,7 +18,11 @@ import {
 import { MailService } from '../mail/mail.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import {
+  NotificationsService,
+  buildAdminOrderPaidNotification,
+  buildAdminFulfillmentNotification,
+} from '../notifications/notifications.service';
 
 type AdminFulfillmentTarget =
   | FulfillmentStatus
@@ -381,6 +385,15 @@ export class OrdersService {
     });
     if (paid) {
       await this.notifyCustomerInApp(paid.userId, paid.id, paid.publicId, 'paid');
+      const adminPayload = buildAdminOrderPaidNotification({
+        publicId: paid.publicId,
+        total: Number(paid.total),
+        orderId: paid.id,
+      });
+      await this.notifications.notifyActiveAdmins({
+        ...adminPayload,
+        excludeUserIds: paid.userId ? [paid.userId] : [],
+      });
       if (paid.user?.email) {
         await this.mail.notifyOrderPaid(paid.user.email, {
           publicId: paid.publicId,
@@ -527,6 +540,16 @@ export class OrdersService {
     if (updated) {
       await this.notifyCustomerInApp(updated.userId, updated.id, updated.publicId, to);
       await this.notifyFulfillmentEmail(updated, to);
+      // Outros admins ativos (não o ator) — best-effort.
+      const adminPayload = buildAdminFulfillmentNotification({
+        publicId: updated.publicId,
+        statusLabel: orderStatusLabel(to),
+        orderId: updated.id,
+      });
+      await this.notifications.notifyActiveAdmins({
+        ...adminPayload,
+        excludeUserIds: [adminId],
+      });
     }
     return updated;
   }
