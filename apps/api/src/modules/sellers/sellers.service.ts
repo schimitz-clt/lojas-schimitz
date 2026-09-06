@@ -120,6 +120,61 @@ export class SellersService {
     return def.id;
   }
 
+
+  /**
+   * Link owner user (by id or email). Sets User.role=seller when not admin.
+   * Clears owner when ownerUserId/email is null/empty.
+   */
+  async setOwner(
+    sellerId: string,
+    opts: { ownerUserId?: string | null; ownerEmail?: string | null; commissionPercent?: number | null },
+  ) {
+    const seller = await this.prisma.seller.findUnique({ where: { id: sellerId } });
+    if (!seller) throw new NotFoundException('Vendedor não encontrado');
+
+    const data: Prisma.SellerUpdateInput = {};
+    const touchOwner = opts.ownerUserId !== undefined || opts.ownerEmail !== undefined;
+
+    if (touchOwner) {
+      let ownerUserId: string | null = null;
+      const email = opts.ownerEmail?.trim().toLowerCase();
+      if (opts.ownerUserId) {
+        const owner = await this.prisma.user.findUnique({ where: { id: opts.ownerUserId } });
+        if (!owner) throw new BadRequestException('Usuário dono inválido');
+        ownerUserId = owner.id;
+        if (owner.role === 'customer') {
+          await this.prisma.user.update({ where: { id: owner.id }, data: { role: 'seller' } });
+        }
+      } else if (email) {
+        const owner = await this.prisma.user.findUnique({ where: { email } });
+        if (!owner) throw new BadRequestException('E-mail não encontrado');
+        ownerUserId = owner.id;
+        if (owner.role === 'customer') {
+          await this.prisma.user.update({ where: { id: owner.id }, data: { role: 'seller' } });
+        }
+      }
+      data.owner = ownerUserId ? { connect: { id: ownerUserId } } : { disconnect: true };
+    }
+
+    if (opts.commissionPercent !== undefined) {
+      data.commissionPercent =
+        opts.commissionPercent == null ? null : new Prisma.Decimal(opts.commissionPercent);
+    }
+
+    if (!Object.keys(data).length) {
+      throw new BadRequestException('Nada para atualizar');
+    }
+
+    return this.prisma.seller.update({
+      where: { id: sellerId },
+      data,
+      include: {
+        owner: { select: { id: true, name: true, email: true, role: true } },
+        _count: { select: { products: true } },
+      },
+    });
+  }
+
   toPublic(s: { id: string; name: string; slug: string }) {
     return publicSellerShape(s);
   }

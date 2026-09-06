@@ -166,6 +166,48 @@ async function main() {
     }
   }
 
+
+  // --- Catalog hygiene (idempotent, production-safe) ---
+  // Roblox / zero stock → at least 50
+  const roblox = await prisma.product.findFirst({
+    where: { OR: [{ slug: 'roblox' }, { name: { equals: 'Roblox', mode: 'insensitive' } }] },
+    include: { inventory: true },
+  });
+  if (roblox) {
+    const onHand = roblox.inventory?.qtyOnHand ?? 0;
+    if (onHand <= 0) {
+      await prisma.inventory.upsert({
+        where: { productId: roblox.id },
+        update: { qtyOnHand: 50 },
+        create: { productId: roblox.id, qtyOnHand: 50, qtyReserved: 0 },
+      });
+      console.log('Seed: Roblox stock set to 50');
+    }
+  }
+
+  // Active products missing images → placehold.co
+  const missingImg = await prisma.$queryRaw<{ id: string; name: string }[]>`
+    SELECT p.id, p.name FROM "Product" p
+    WHERE p.active = true
+      AND NOT EXISTS (
+        SELECT 1 FROM "ProductImage" pi
+        WHERE pi."productId" = p.id AND pi.url IS NOT NULL AND btrim(pi.url) <> ''
+      )
+  `;
+  for (const row of missingImg) {
+    await prisma.productImage.create({
+      data: {
+        productId: row.id,
+        url: `https://placehold.co/800x800/1a1a1a/f5c518?text=${encodeURIComponent(row.name)}`,
+        alt: row.name,
+        position: 0,
+      },
+    });
+  }
+  if (missingImg.length) {
+    console.log(`Seed: added placeholders for ${missingImg.length} product(s)`);
+  }
+
   await prisma.coupon.upsert({
     where: { code: 'PIX5' },
     update: { active: true, type: 'percent', value: 5 },

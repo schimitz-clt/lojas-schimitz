@@ -3,9 +3,12 @@
  */
 import assert from 'assert';
 import {
+  FULFILLMENT_JOURNEY_COPY,
   FULFILLMENT_STATUSES,
+  FULFILLMENT_TIMELINE_LABEL_PT,
   ORDER_TRANSITIONS,
   canTransition,
+  fulfillmentTimelineLabel,
   nextFulfillmentStatus,
   orderStatusLabel,
 } from './order-status';
@@ -89,3 +92,17 @@ function stepIndex(status: string): number {
 }
 
 console.log('order-timeline tests ok');
+
+// Jornada Compra → … → Entrega
+{
+  assert.equal(fulfillmentTimelineLabel('paid'), 'Compra');
+  assert.equal(fulfillmentTimelineLabel('delivered'), 'Entrega');
+  assert.equal(fulfillmentTimelineLabel('packing'), 'Embalagem');
+  assert.equal(fulfillmentTimelineLabel('ready_for_pickup'), 'Pronto para envio');
+  assert.ok(FULFILLMENT_JOURNEY_COPY.startsWith('Compra'));
+  assert.ok(FULFILLMENT_JOURNEY_COPY.endsWith('Entrega'));
+  for (const s of ['paid', ...FULFILLMENT_STATUSES]) {
+    assert.ok(FULFILLMENT_TIMELINE_LABEL_PT[s], `timeline label ${s}`);
+  }
+  console.log('timeline: jornada Compra→Entrega — PASSOU');
+}

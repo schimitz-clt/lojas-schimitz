@@ -58,3 +58,10 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST | `/admin/admins` body `{ email, name, password }` (argon2) | admin |
 | PATCH | `/admin/admins/:id/status` body `{ status: "active"|"blocked" }` — não desativa a si mesmo / último admin ativo; ao desativar revoga refresh tokens | admin |
 | POST | `/chat` body `{ message, conversationId? }` → reply + handoff WhatsApp + produtos reais | público (20/min) |
+
+| GET | `/seller/me` | seller owner (JWT) |
+| GET | `/seller/products` | seller owner |
+| PATCH | `/seller/products/:id` body `{ price?, stock? }` | seller owner (own products only) |
+| GET | `/seller/orders` | seller owner (read-only) |
+| PATCH | `/admin/sellers/:id` body `{ ownerUserId?, ownerEmail?, commissionPercent? }` | admin |
+| GET | `/admin/commissions` `?status=pending` | admin (read-only stub) |

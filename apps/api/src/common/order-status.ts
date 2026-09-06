@@ -41,6 +41,26 @@ export const ORDER_STATUS_LABEL_PT: Record<string, string> = {
   shipped: 'Saiu para entrega',
 };
 
+
+/** Rótulos da jornada do cliente: Compra → … → Entrega (timeline da vitrine). */
+export const FULFILLMENT_TIMELINE_LABEL_PT: Record<string, string> = {
+  paid: 'Compra',
+  organizing: 'Organizando',
+  packing: 'Embalagem',
+  ready_for_pickup: 'Pronto para envio',
+  in_transit: 'Em trânsito',
+  delivered: 'Entrega',
+  separating: 'Organizando',
+  shipped: 'Em trânsito',
+};
+
+export const FULFILLMENT_JOURNEY_COPY =
+  'Compra → Organizando → Embalagem → Pronto para envio → Em trânsito → Entrega';
+
+export function fulfillmentTimelineLabel(status: string) {
+  return FULFILLMENT_TIMELINE_LABEL_PT[status] || orderStatusLabel(status);
+}
+
 export function canTransition(from: string, to: string) {
   return (ORDER_TRANSITIONS[from] || []).includes(to);
 }

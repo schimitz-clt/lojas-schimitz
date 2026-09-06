@@ -63,6 +63,7 @@ export default function ContaPage() {
       <p>
         <Link href="/pedidos">Meus pedidos</Link> · <Link href="/notificacoes">Notificações</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
         {user?.role === 'admin' ? <> · <Link href="/admin">Admin da loja</Link></> : null}
+        {user?.role === 'seller' || user?.role === 'admin' ? <> · <Link href="/vendedor">Portal do vendedor</Link></> : null}
       </p>
 
       <section className="card" style={{ marginBottom: 24, borderColor: '#f5c518' }}>

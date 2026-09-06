@@ -27,6 +27,7 @@ import {
   NotificationsService,
   buildAdminOrderPaidNotification,
 } from '../notifications/notifications.service';
+import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
 
 const MVP_METHODS = new Set(['pix', 'card']);
@@ -44,6 +45,7 @@ export class PaymentsService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(CommissionsService) private readonly commissions: CommissionsService,
   ) {}
 
   private scopedIntentKey(userId: string, key: string) {
@@ -565,6 +567,9 @@ export class PaymentsService {
         });
         await this.loyalty.creditEarnOnPaid(payment.orderId).catch((e: any) => {
           this.log.warn(`cashback earn falhou para ${payment.orderId}: ${e?.message || e}`);
+        });
+        await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
+          this.log.warn(`commission stub falhou para ${payment.orderId}: ${e?.message || e}`);
         });
         await this.notifyCustomerPaid(payment.orderId);
         return { applied: true, reason: 'approved' };

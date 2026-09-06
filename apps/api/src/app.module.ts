@@ -22,6 +22,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SellersModule } from './modules/sellers/sellers.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ChatModule,
     StorefrontModule,
     NotificationsModule,
+    SellersModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

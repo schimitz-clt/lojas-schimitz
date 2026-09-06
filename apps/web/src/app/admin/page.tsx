@@ -27,6 +27,17 @@ type AdminSeller = {
   owner?: { id: string; name: string; email: string } | null;
 };
 
+type AdminCommission = {
+  id: string;
+  amount: number;
+  percent: number;
+  status: string;
+  createdAt: string;
+  seller: { id: string; name: string; slug: string };
+  order: { id: string; publicId: string; status: string };
+  orderItem: { id: string; name: string; qty: number; unitPrice: number };
+};
+
 type Category = { id: string; name: string; slug: string };
 
 type AdminProduct = {
@@ -348,6 +359,9 @@ export default function AdminPage() {
   const [savingAdmin, setSavingAdmin] = useState(false);
   const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
   const [sellers, setSellers] = useState<AdminSeller[]>([]);
+  const [commissions, setCommissions] = useState<AdminCommission[]>([]);
+  const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
+  const [ownerBusyId, setOwnerBusyId] = useState<string | null>(null);
   const [sellerForm, setSellerForm] = useState({ name: '', slug: '', status: 'pending' as 'pending' | 'active' | 'suspended' });
   const [savingSeller, setSavingSeller] = useState(false);
   const [sellerBusyId, setSellerBusyId] = useState<string | null>(null);
@@ -372,8 +386,9 @@ export default function AdminPage() {
       api<AdminBanner[]>('/admin/banners'),
       api<AdminUser[]>('/admin/admins'),
       api<AdminSeller[]>('/admin/sellers'),
+      api<AdminCommission[]>('/admin/commissions').catch(() => [] as AdminCommission[]),
     ])
-      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList, sellersList]) => {
+      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList, sellersList, commissionsList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
@@ -394,6 +409,7 @@ export default function AdminPage() {
         setBanners(bannersList);
         setAdmins(adminsList);
         setSellers(sellersList);
+        setCommissions(commissionsList || []);
         setErr('');
       })
       .catch((e) => {
@@ -850,6 +866,29 @@ export default function AdminPage() {
   }
 
 
+
+  async function setSellerOwner(seller: AdminSeller) {
+    const email = (ownerDraft[seller.id] ?? seller.owner?.email ?? '').trim();
+    setOwnerBusyId(seller.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/sellers/${seller.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ownerEmail: email || null,
+        }),
+      });
+      setMsg(email ? `Dono vinculado: ${email}` : 'Dono removido');
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao vincular dono');
+    } finally {
+      setOwnerBusyId(null);
+    }
+  }
+
+
   async function saveSeo(e: React.FormEvent) {
     e.preventDefault();
     setSavingSeo(true);
@@ -1219,6 +1258,89 @@ export default function AdminPage() {
             {sellers.map((s) => (
               <div
                 key={s.id}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  display: 'grid',
+                  gap: 8,
+                }}
+              >
+                <div className="row" style={{ flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <b>{s.name}</b>{' '}
+                    <span className="badge">{s.status}</span>
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      /{s.slug}
+                      {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
+                      {s.owner?.email ? ` · dono ${s.owner.email}` : ' · sem dono'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {s.status !== 'active' ? (
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={sellerBusyId === s.id}
+                        onClick={() => void setSellerStatus(s, 'active')}
+                      >
+                        Ativar
+                      </button>
+                    ) : null}
+                    {s.status !== 'suspended' ? (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={sellerBusyId === s.id}
+                        onClick={() => void setSellerStatus(s, 'suspended')}
+                      >
+                        Suspender
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                  <label style={{ margin: 0, flex: 1, minWidth: 200 }}>
+                    E-mail do dono (portal /vendedor)
+                    <input
+                      type="email"
+                      value={ownerDraft[s.id] ?? s.owner?.email ?? ''}
+                      onChange={(e) => setOwnerDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                      placeholder="vendedor@email.com"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={ownerBusyId === s.id}
+                    onClick={() => void setSellerOwner(s)}
+                  >
+                    {ownerBusyId === s.id ? '...' : 'Vincular dono'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!sellers.length ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Nenhum vendedor ainda (rode a migration SCH-008).
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Comissões pendentes (stub)</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Registradas no pagamento aprovado. Sem payout real — ver docs/MARKETPLACE.md.
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {commissions.map((c) => (
+              <div
+                key={c.id}
                 className="row"
                 style={{
                   padding: '10px 12px',
@@ -1226,43 +1348,23 @@ export default function AdminPage() {
                   background: 'var(--bg)',
                   border: '1px solid var(--line)',
                   flexWrap: 'wrap',
+                  fontSize: 14,
                 }}
               >
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <b>{s.name}</b>{' '}
-                  <span className="badge">{s.status}</span>
+                  <b>{c.seller.name}</b>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    /{s.slug}
-                    {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
+                    {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {s.status !== 'active' ? (
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={sellerBusyId === s.id}
-                      onClick={() => void setSellerStatus(s, 'active')}
-                    >
-                      Ativar
-                    </button>
-                  ) : null}
-                  {s.status !== 'suspended' ? (
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      disabled={sellerBusyId === s.id}
-                      onClick={() => void setSellerStatus(s, 'suspended')}
-                    >
-                      Suspender
-                    </button>
-                  ) : null}
-                </div>
+                <span className="badge">{c.status}</span>
+                <b>{brl(c.amount)}</b>
+                <span className="muted">{c.percent}%</span>
               </div>
             ))}
-            {!sellers.length ? (
+            {!commissions.length ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhum vendedor ainda (rode a migration SCH-008).
+                Nenhuma comissão pendente.
               </p>
             ) : null}
           </div>
@@ -2314,7 +2416,7 @@ export default function AdminPage() {
 
       <h3>Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
-        Entrega própria: Pago → Organizando → Embalagem → Pronto para coleta → Em trânsito → Entregue.
+        Entrega própria: Compra → Organizando → Embalagem → Pronto para envio → Em trânsito → Entrega.
         Ao marcar Em trânsito, informe o código de rastreio (opcional). WhatsApp é wa.me — não envia sozinho.
       </p>
       <div

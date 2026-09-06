@@ -506,3 +506,22 @@ export class AdminUpdateSellerStatusDto {
   @IsIn(['pending', 'active', 'suspended'])
   status!: 'pending' | 'active' | 'suspended';
 }
+
+/** Admin: vincular dono (user id ou e-mail) + opcional commissionPercent */
+export class AdminUpdateSellerOwnerDto {
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string | null;
+
+  @IsOptional()
+  @IsEmail()
+  ownerEmail?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @ValidateIf((_, v) => v != null)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  commissionPercent?: number | null;
+}
+

@@ -11,6 +11,7 @@ import { ShippingModule } from '../shipping/shipping.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { StorefrontModule } from '../storefront/storefront.module';
 import { SellersModule } from '../sellers/sellers.module';
+import { CommissionsModule } from '../commissions/commissions.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SellersModule } from '../sellers/sellers.module';
     ReviewsModule,
     StorefrontModule,
     SellersModule,
+    CommissionsModule,
   ],
   controllers: [AdminController],
   providers: [AdminProductsService, AdminSalesReportService, AdminUsersService],

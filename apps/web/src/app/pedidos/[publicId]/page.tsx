@@ -4,7 +4,9 @@ import { useParams } from 'next/navigation';
 import { api, brl } from '@/lib/api';
 import {
   FULFILLMENT_STEPS,
+  FULFILLMENT_JOURNEY_COPY,
   fulfillmentStepIndex,
+  fulfillmentTimelineLabel,
   orderStatusLabel,
 } from '@/lib/order-status';
 
@@ -116,6 +118,8 @@ function FulfillmentTimeline({
       <div className="body">
         <h3>Rastreamento da entrega</h3>
         <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+          {FULFILLMENT_JOURNEY_COPY}
+          <br />
           Entrega realizada pela Lojas Schimitz
           {carrier && carrier !== 'propria' ? ` · ${carrier}` : ''}.
         </p>
@@ -175,7 +179,7 @@ function FulfillmentTimeline({
                   {done ? '✓' : idx + 1}
                 </span>
                 <div>
-                  <div style={{ fontWeight: isCurrent ? 800 : 600 }}>{orderStatusLabel(step)}</div>
+                  <div style={{ fontWeight: isCurrent ? 800 : 600 }}>{fulfillmentTimelineLabel(step)}</div>
                   {isCurrent ? (
                     <div className="muted" style={{ fontSize: 13 }}>
                       Status atual{when ? ` · ${when}` : ''}

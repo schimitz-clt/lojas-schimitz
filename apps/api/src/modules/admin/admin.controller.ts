@@ -48,6 +48,7 @@ import {
   AdminUpdateAdminStatusDto,
   AdminCreateSellerDto,
   AdminUpdateSellerStatusDto,
+  AdminUpdateSellerOwnerDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -60,6 +61,7 @@ import {
 } from '../uploads/uploads.service';
 import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
+import { CommissionsService } from '../commissions/commissions.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,6 +79,7 @@ export class AdminController {
     private readonly storefront: StorefrontService,
     private readonly adminUsers: AdminUsersService,
     private readonly sellers: SellersService,
+    private readonly commissions: CommissionsService,
   ) {}
 
 
@@ -146,6 +149,26 @@ export class AdminController {
   @Patch('sellers/:id/status')
   async updateSellerStatus(@Param('id') id: string, @Body() dto: AdminUpdateSellerStatusDto) {
     return ok(await this.sellers.setStatus(id, dto.status));
+  }
+
+  @Patch('sellers/:id')
+  async updateSellerOwner(@Param('id') id: string, @Body() dto: AdminUpdateSellerOwnerDto) {
+    return ok(
+      await this.sellers.setOwner(id, {
+        ownerUserId: dto.ownerUserId,
+        ownerEmail: dto.ownerEmail,
+        commissionPercent: dto.commissionPercent,
+      }),
+    );
+  }
+
+  @Get('commissions')
+  async listCommissions(@Query('status') status?: string) {
+    // v1: pending only (read-only stub)
+    if (status && status !== 'pending') {
+      throw new BadRequestException('Somente status=pending nesta versão');
+    }
+    return ok(await this.commissions.listPending());
   }
 
   @Get('products')
