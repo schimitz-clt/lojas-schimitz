@@ -493,26 +493,33 @@ model Notification {
 
 enum CommissionStatus {
   pending
+  approved
   paid
   cancelled
 }
 
-/** Marketplace commission stub — recorded on paid orders; no real payout. */
+/** Marketplace commission ledger — recorded on paid orders; payouts are manual PIX (Repasse v1). */
 model CommissionLedger {
-  id          String           @id @default(uuid())
-  sellerId    String
-  seller      Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  orderId     String
-  order       Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItemId String           @unique
-  orderItem   OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  sellerId        String
+  seller          Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orderId         String
+  order           Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId     String           @unique
+  orderItem       OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   /** itemTotal * commissionPercent / 100 */
-  amount      Decimal          @db.Decimal(12, 2)
+  amount          Decimal          @db.Decimal(12, 2)
   /** Snapshot of Seller.commissionPercent (or default) at record time. */
-  percent     Decimal          @db.Decimal(5, 2)
-  status      CommissionStatus @default(pending)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  percent         Decimal          @db.Decimal(5, 2)
+  status          CommissionStatus @default(pending)
+  /** PIX end-to-end id or manual transfer reference when status=paid. */
+  payoutReference String?          @db.VarChar(120)
+  /** Optional admin note when approving / marking paid. */
+  payoutNote      String?          @db.VarChar(500)
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([sellerId, status])
   @@index([orderId])

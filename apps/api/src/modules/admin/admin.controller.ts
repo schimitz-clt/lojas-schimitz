@@ -49,6 +49,8 @@ import {
   AdminCreateSellerDto,
   AdminUpdateSellerStatusDto,
   AdminUpdateSellerOwnerDto,
+  AdminApproveCommissionDto,
+  AdminMarkCommissionPaidDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -163,12 +165,56 @@ export class AdminController {
   }
 
   @Get('commissions')
-  async listCommissions(@Query('status') status?: string) {
-    // v1: pending only (read-only stub)
-    if (status && status !== 'pending') {
-      throw new BadRequestException('Somente status=pending nesta versão');
+  async listCommissions(
+    @Query('status') status?: string,
+    @Query('sellerId') sellerId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const lim = limit != null && limit !== '' ? Number(limit) : undefined;
+    return ok(
+      await this.commissions.list({
+        status: status || 'pending',
+        sellerId: sellerId || undefined,
+        limit: Number.isFinite(lim) ? lim : undefined,
+      }),
+    );
+  }
+
+  @Get('commissions/export')
+  async exportCommissions(
+    @Query('sellerId') sellerId?: string,
+    @Query('status') status?: string,
+  ) {
+    if (!sellerId) {
+      throw new BadRequestException('sellerId é obrigatório');
     }
-    return ok(await this.commissions.listPending());
+    return ok(
+      await this.commissions.exportCsv({
+        sellerId,
+        status: status || 'pending',
+      }),
+    );
+  }
+
+  @Patch('commissions/:id/approve')
+  async approveCommission(
+    @Param('id') id: string,
+    @Body() dto: AdminApproveCommissionDto,
+  ) {
+    return ok(await this.commissions.approve(id, dto?.note));
+  }
+
+  @Patch('commissions/:id/paid')
+  async markCommissionPaid(
+    @Param('id') id: string,
+    @Body() dto: AdminMarkCommissionPaidDto,
+  ) {
+    return ok(
+      await this.commissions.markPaid(id, {
+        payoutReference: dto?.payoutReference,
+        note: dto?.note,
+      }),
+    );
   }
 
   @Get('products')

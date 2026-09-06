@@ -36,11 +36,29 @@ type SellerOrder = {
   items: { id: string; name: string; qty: number; unitPrice: number }[];
 };
 
+type SellerCommissionItem = {
+  id: string;
+  amount: number;
+  percent: number;
+  status: string;
+  createdAt: string;
+  payoutReference?: string | null;
+  paidAt?: string | null;
+  order?: { publicId: string; status: string };
+  orderItem?: { name: string; qty: number; unitPrice: number };
+};
+
+type SellerCommissionsPayload = {
+  items: SellerCommissionItem[];
+  totals: { pending: number; approved: number; paid: number; cancelled: number; all: number };
+};
+
 export default function VendedorPage() {
   const [user, setUser] = useState(currentUser());
   const [me, setMe] = useState<SellerMe | null>(null);
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [commissions, setCommissions] = useState<SellerCommissionsPayload | null>(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -49,14 +67,16 @@ export default function VendedorPage() {
   const load = useCallback(async () => {
     setErr('');
     try {
-      const [seller, prods, ords] = await Promise.all([
+      const [seller, prods, ords, coms] = await Promise.all([
         api<SellerMe>('/seller/me'),
         api<SellerProduct[]>('/seller/products'),
         api<SellerOrder[]>('/seller/orders'),
+        api<SellerCommissionsPayload>('/seller/commissions'),
       ]);
       setMe(seller);
       setProducts(prods);
       setOrders(ords);
+      setCommissions(coms);
       const next: Record<string, { price: string; stock: string }> = {};
       for (const p of prods) {
         next[p.id] = { price: String(p.price), stock: String(p.stock) };
@@ -218,6 +238,55 @@ export default function VendedorPage() {
                 {!products.length ? (
                   <p className="muted" style={{ margin: 0 }}>
                     Nenhum produto atribuído a você ainda.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="card" style={{ marginBottom: 20 }}>
+            <div className="body">
+              <h2 style={{ marginTop: 0, fontSize: 18 }}>Comissões / Repasse (somente leitura)</h2>
+              <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+                Valores do ledger. O pagamento (PIX) é feito manualmente pela loja — sem split
+                automático do Mercado Pago.
+              </p>
+              {commissions ? (
+                <div className="row" style={{ flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+                  <span className="badge">Pendentes {brl(commissions.totals.pending)}</span>
+                  <span className="badge">Aprovadas {brl(commissions.totals.approved)}</span>
+                  <span className="badge">Pagas {brl(commissions.totals.paid)}</span>
+                </div>
+              ) : null}
+              <div style={{ display: 'grid', gap: 8 }}>
+                {(commissions?.items || []).map((c) => (
+                  <div
+                    key={c.id}
+                    className="row"
+                    style={{
+                      padding: 12,
+                      borderRadius: 10,
+                      border: '1px solid var(--line)',
+                      background: 'var(--bg)',
+                      flexWrap: 'wrap',
+                      fontSize: 14,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <b>{c.order?.publicId || '—'}</b>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {c.orderItem ? `${c.orderItem.qty}× ${c.orderItem.name}` : ''}
+                        {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
+                      </div>
+                    </div>
+                    <span className="badge">{c.status}</span>
+                    <b>{brl(c.amount)}</b>
+                    <span className="muted">{c.percent}%</span>
+                  </div>
+                ))}
+                {!commissions?.items?.length ? (
+                  <p className="muted" style={{ margin: 0 }}>
+                    Nenhuma comissão registrada ainda.
                   </p>
                 ) : null}
               </div>

@@ -7,10 +7,14 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { assertSellerCanUpdateProduct } from './seller-portal.authz';
+import { CommissionsService } from '../commissions/commissions.service';
 
 @Injectable()
 export class SellerPortalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commissions: CommissionsService,
+  ) {}
 
   /** Resolve active seller owned by this user (ownerUserId). */
   async requireOwnedSeller(userId: string) {
@@ -195,5 +199,11 @@ export class SellerPortalService {
     }
 
     return [...map.values()];
+  }
+
+  /** Own commissions only (pending/approved/paid) + read-only totals. */
+  async listCommissions(userId: string) {
+    const seller = await this.requireOwnedSeller(userId);
+    return this.commissions.listForSeller(seller.id);
   }
 }

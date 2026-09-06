@@ -63,5 +63,9 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/seller/products` | seller owner |
 | PATCH | `/seller/products/:id` body `{ price?, stock? }` | seller owner (own products only) |
 | GET | `/seller/orders` | seller owner (read-only) |
+| GET | `/seller/commissions` | seller owner (own ledger + totals, read-only) |
 | PATCH | `/admin/sellers/:id` body `{ ownerUserId?, ownerEmail?, commissionPercent? }` | admin |
-| GET | `/admin/commissions` `?status=pending` | admin (read-only stub) |
+| GET | `/admin/commissions` `?status=pending|approved|paid|all&sellerId=` | admin |
+| PATCH | `/admin/commissions/:id/approve` body `{ note? }` | admin (pending → approved) |
+| PATCH | `/admin/commissions/:id/paid` body `{ payoutReference?, note? }` | admin (pending/approved → paid; PIX ref manual) |
+| GET | `/admin/commissions/export` `?sellerId=&status=` → `{ csv, filename, count }` | admin |

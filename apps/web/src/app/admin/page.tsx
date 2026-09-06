@@ -33,6 +33,10 @@ type AdminCommission = {
   percent: number;
   status: string;
   createdAt: string;
+  payoutReference?: string | null;
+  payoutNote?: string | null;
+  approvedAt?: string | null;
+  paidAt?: string | null;
   seller: { id: string; name: string; slug: string };
   order: { id: string; publicId: string; status: string };
   orderItem: { id: string; name: string; qty: number; unitPrice: number };
@@ -360,6 +364,10 @@ export default function AdminPage() {
   const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
   const [sellers, setSellers] = useState<AdminSeller[]>([]);
   const [commissions, setCommissions] = useState<AdminCommission[]>([]);
+  const [commissionStatusFilter, setCommissionStatusFilter] = useState<'pending' | 'approved' | 'paid' | 'all'>('pending');
+  const [commissionSellerFilter, setCommissionSellerFilter] = useState('');
+  const [commissionBusyId, setCommissionBusyId] = useState<string | null>(null);
+  const [payoutDraft, setPayoutDraft] = useState<Record<string, string>>({});
   const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
   const [ownerBusyId, setOwnerBusyId] = useState<string | null>(null);
   const [sellerForm, setSellerForm] = useState({ name: '', slug: '', status: 'pending' as 'pending' | 'active' | 'suspended' });
@@ -386,7 +394,7 @@ export default function AdminPage() {
       api<AdminBanner[]>('/admin/banners'),
       api<AdminUser[]>('/admin/admins'),
       api<AdminSeller[]>('/admin/sellers'),
-      api<AdminCommission[]>('/admin/commissions').catch(() => [] as AdminCommission[]),
+      api<AdminCommission[]>(`/admin/commissions?status=${encodeURIComponent(commissionStatusFilter)}${commissionSellerFilter ? `&sellerId=${encodeURIComponent(commissionSellerFilter)}` : ''}`).catch(() => [] as AdminCommission[]),
     ])
       .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList, sellersList, commissionsList]) => {
         setProducts(p);
@@ -420,7 +428,7 @@ export default function AdminPage() {
         }
         setErr(e.message);
       });
-  }, [orderStatusFilter]);
+  }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
 
 
   const loadSalesReport = useCallback(async (from = salesFrom, to = salesTo) => {
@@ -888,6 +896,77 @@ export default function AdminPage() {
     }
   }
 
+  async function approveCommission(c: AdminCommission) {
+    setCommissionBusyId(c.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/commissions/${c.id}/approve`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      });
+      setMsg(`Comissão aprovada: ${c.seller.name} · ${brl(c.amount)}`);
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao aprovar comissão');
+    } finally {
+      setCommissionBusyId(null);
+    }
+  }
+
+  async function markCommissionPaid(c: AdminCommission) {
+    const payoutReference = (payoutDraft[c.id] || '').trim();
+    setCommissionBusyId(c.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/commissions/${c.id}/paid`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          payoutReference: payoutReference || undefined,
+        }),
+      });
+      setMsg(
+        payoutReference
+          ? `Comissão marcada paga (${payoutReference})`
+          : `Comissão marcada paga: ${c.seller.name}`,
+      );
+      setPayoutDraft((d) => {
+        const next = { ...d };
+        delete next[c.id];
+        return next;
+      });
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao marcar comissão como paga');
+    } finally {
+      setCommissionBusyId(null);
+    }
+  }
+
+  async function exportCommissionsCsv() {
+    if (!commissionSellerFilter) {
+      setErr('Selecione um vendedor para exportar o CSV.');
+      return;
+    }
+    setErr('');
+    setMsg('');
+    try {
+      const data = await api<{ csv: string; filename: string; count: number }>(
+        `/admin/commissions/export?sellerId=${encodeURIComponent(commissionSellerFilter)}&status=${encodeURIComponent(commissionStatusFilter === 'all' ? 'all' : commissionStatusFilter)}`,
+      );
+      const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'commissions.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      setMsg(`CSV exportado (${data.count} linha(s)).`);
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao exportar CSV');
+    }
+  }
 
   async function saveSeo(e: React.FormEvent) {
     e.preventDefault();
@@ -1213,8 +1292,8 @@ export default function AdminPage() {
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Vendedores (Marketplace v1)</h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Fundação multi-seller. Checkout único continua igual. Comissão % é stub — payouts em v2
-            (ver docs/MARKETPLACE.md). Produtos existentes ficam na Lojas Schimitz.
+            Fundação multi-seller. Checkout único continua igual. Repasse v1: ledger + PIX manual
+            (sem split MP) — ver docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
           </p>
           <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveSeller}>
             <label>
@@ -1333,38 +1412,113 @@ export default function AdminPage() {
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Comissões pendentes (stub)</h2>
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Comissões / Repasse (v1)</h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Registradas no pagamento aprovado. Sem payout real — ver docs/MARKETPLACE.md.
+            Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> (use a
+            referência E2E ao marcar pago). Sem split Mercado Pago — ver docs/MARKETPLACE.md.
           </p>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 10, marginBottom: 14, alignItems: 'flex-end' }}>
+            <label style={{ margin: 0, minWidth: 140 }}>
+              Status
+              <select
+                value={commissionStatusFilter}
+                onChange={(e) =>
+                  setCommissionStatusFilter(e.target.value as 'pending' | 'approved' | 'paid' | 'all')
+                }
+              >
+                <option value="pending">pending</option>
+                <option value="approved">approved</option>
+                <option value="paid">paid</option>
+                <option value="all">all</option>
+              </select>
+            </label>
+            <label style={{ margin: 0, minWidth: 200, flex: 1 }}>
+              Vendedor
+              <select
+                value={commissionSellerFilter}
+                onChange={(e) => setCommissionSellerFilter(e.target.value)}
+              >
+                <option value="">Todos</option>
+                {sellers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={!commissionSellerFilter}
+              onClick={() => void exportCommissionsCsv()}
+              title={!commissionSellerFilter ? 'Selecione um vendedor' : 'Exportar CSV'}
+            >
+              Exportar CSV
+            </button>
+          </div>
           <div style={{ display: 'grid', gap: 8 }}>
             {commissions.map((c) => (
               <div
                 key={c.id}
-                className="row"
                 style={{
                   padding: '10px 12px',
                   borderRadius: 10,
                   background: 'var(--bg)',
                   border: '1px solid var(--line)',
-                  flexWrap: 'wrap',
+                  display: 'grid',
+                  gap: 8,
                   fontSize: 14,
                 }}
               >
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <b>{c.seller.name}</b>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
+                <div className="row" style={{ flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <b>{c.seller.name}</b>
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
+                      {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
+                    </div>
                   </div>
+                  <span className="badge">{c.status}</span>
+                  <b>{brl(c.amount)}</b>
+                  <span className="muted">{c.percent}%</span>
                 </div>
-                <span className="badge">{c.status}</span>
-                <b>{brl(c.amount)}</b>
-                <span className="muted">{c.percent}%</span>
+                {c.status === 'pending' || c.status === 'approved' ? (
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                    <label style={{ margin: 0, flex: 1, minWidth: 180 }}>
+                      Ref. PIX / nota
+                      <input
+                        value={payoutDraft[c.id] ?? ''}
+                        onChange={(e) =>
+                          setPayoutDraft((d) => ({ ...d, [c.id]: e.target.value }))
+                        }
+                        placeholder="E2E id ou observação"
+                      />
+                    </label>
+                    {c.status === 'pending' ? (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={commissionBusyId === c.id}
+                        onClick={() => void approveCommission(c)}
+                      >
+                        {commissionBusyId === c.id ? '...' : 'Aprovar'}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={commissionBusyId === c.id}
+                      onClick={() => void markCommissionPaid(c)}
+                    >
+                      {commissionBusyId === c.id ? '...' : 'Marcar pago'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ))}
             {!commissions.length ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhuma comissão pendente.
+                Nenhuma comissão neste filtro.
               </p>
             ) : null}
           </div>

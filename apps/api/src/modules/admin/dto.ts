@@ -525,3 +525,24 @@ export class AdminUpdateSellerOwnerDto {
   commissionPercent?: number | null;
 }
 
+/** Admin: optional note when approving a commission (pending → approved). */
+export class AdminApproveCommissionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+/** Admin: mark commission paid (pending|approved → paid) with optional PIX reference. */
+export class AdminMarkCommissionPaidDto {
+  /** PIX end-to-end id or manual transfer reference. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  payoutReference?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}

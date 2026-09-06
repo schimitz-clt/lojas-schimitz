@@ -19,16 +19,33 @@ Multi-seller **foundation** without breaking single-store checkout:
   - `GET /seller/products`
   - `PATCH /seller/products/:id` body `{ price?, stock? }` — **only own products**
   - `GET /seller/orders` — own order items grouped by order (read-only)
-- Authz: seller cannot edit another seller’s products (`FORBIDDEN_OTHER_SELLER`).
+  - `GET /seller/commissions` — own ledger rows + totals (read-only)
+- Authz: seller cannot edit another seller’s products (`FORBIDDEN_OTHER_SELLER`); seller only sees own commissions (`FORBIDDEN_OTHER_SELLER_COMMISSION`).
 
-## Commission stub v1 (shipped)
+## Commission ledger + Repasse v1 (shipped)
 
 - On order → `paid`, create `CommissionLedger` rows per order item with `sellerId`:
   - `amount = itemTotal * commissionPercent / 100` (default **10%** if seller has no percent)
   - `status = pending`
   - Idempotent on `orderItemId` (unique)
-- **No** real payout / Mercado Pago split transfer.
-- Admin read-only: `GET /admin/commissions` (pending).
+- **Status transitions (manual):**
+  - `pending` → `approved` (admin aprovar)
+  - `pending` → `paid` (atalho “marcar pago” em um passo)
+  - `approved` → `paid`
+- When marking **paid**, admin may store `payoutReference` (PIX end-to-end id / manual note) and optional `payoutNote`.
+- Admin:
+  - `GET /admin/commissions?status=&sellerId=` (default `status=pending`)
+  - `PATCH /admin/commissions/:id/approve`
+  - `PATCH /admin/commissions/:id/paid` body `{ payoutReference?, note? }`
+  - `GET /admin/commissions/export?sellerId=&status=` → CSV (seller required)
+- Admin UI (página `/admin`): filtros por status/vendedor, ações Aprovar / Marcar pago, export CSV.
+- Seller UI (`/vendedor`): totais pending/approved/paid + lista read-only.
+
+### Important — money movement is still manual
+
+> **There is NO automatic Mercado Pago money split / OAuth marketplace / transfer API in this version.**  
+> The ledger only tracks what should be remitted. Ops must pay sellers by **manual PIX** (or bank transfer) and then mark the row `paid` with the PIX E2E id (or another reference) in `payoutReference`.  
+> Until MP Marketplace is built, treating the ledger as the source of truth for “who is owed what” is intentional and safe.
 
 ## Catalog hygiene (SCH-009)
 
@@ -44,13 +61,13 @@ Idempotent migration + seed:
 |---|---|---|
 | **OpenAI billing** | Blocked externally | Chat falls back to FAQ/catalog rules when `OPENAI_API_KEY` / billing unavailable. Not fixed by marketplace code. |
 | **Play Store / Android TWA** | Ops + assets | Listing, signing, Digital Asset Links — not payment/marketplace. |
-| **Real MP split payouts** | Not built | Commission ledger is stub only; Mercado Pago Marketplace / split / transfer to sellers is future work. |
+| **Real MP split payouts** | Not built | Commission ledger + manual PIX Repasse v1 only; Mercado Pago Marketplace / OAuth / split / transfer to sellers is future work. |
 | **Per-seller shipping** | Planned | Multi-parcel / seller CEP rules not in v1. |
 | **Dispute allocation** | Planned | Chargeback by seller not implemented. |
 
 ## v2 (planned)
 
-- Commission status transitions + payout batch / ledger export
-- Seller payout / split with Mercado Pago (or manual transfer from pending ledger)
+- Mercado Pago Marketplace OAuth + automatic split / seller transfers (replacing manual PIX)
+- Payout batches / reconciliation reports beyond CSV
 - Per-seller shipping rules and multi-parcel checkout
 - Dispute / chargeback allocation by seller

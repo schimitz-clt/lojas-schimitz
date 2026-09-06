@@ -50,4 +50,9 @@ export class SellerPortalController {
   async orders(@CurrentUser('sub') userId: string) {
     return ok(await this.portal.listOrders(userId));
   }
+
+  @Get('commissions')
+  async commissions(@CurrentUser('sub') userId: string) {
+    return ok(await this.portal.listCommissions(userId));
+  }
 }
