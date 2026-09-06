@@ -42,9 +42,11 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/admin/orders` (inclui `user.phone`) `/admin/products` `/admin/categories` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
-| POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
+| POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
-| PATCH | `/admin/orders/:id/status` body `{ "status": "separating"|"shipped"|"delivered" }` | admin |
+| PATCH | `/admin/orders/:id/status` body `{ status, trackingCode?, carrier? }` (fulfillment) | admin |
+| GET/POST | `/admin/sellers` | admin |
+| PATCH | `/admin/sellers/:id/status` body `{ status: "pending"|"active"|"suspended" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
 | GET | `/store/settings` | público (SEO) |
 | GET | `/store/banners` | público (banners ativos) |

@@ -31,7 +31,9 @@ type Order = {
   status: string;
   total: number;
   discount: number;
-  items: { id: string; qty: number; name: string; unitPrice: number }[];
+  trackingCode?: string | null;
+  carrier?: string | null;
+  items: { id: string; qty: number; name: string; unitPrice: number; sellerId?: string | null }[];
   payments?: Payment[];
   statusHistory?: StatusHistory[];
 };
@@ -72,7 +74,17 @@ function historyTimeForStep(history: StatusHistory[] | undefined, step: string):
   return match ? formatTs(match.createdAt) : null;
 }
 
-function FulfillmentTimeline({ status, history }: { status: string; history?: StatusHistory[] }) {
+function FulfillmentTimeline({
+  status,
+  history,
+  trackingCode,
+  carrier,
+}: {
+  status: string;
+  history?: StatusHistory[];
+  trackingCode?: string | null;
+  carrier?: string | null;
+}) {
   const current = fulfillmentStepIndex(status);
   if (current < 0 && status !== 'paid') {
     if (status === 'cancelled' || status === 'refunded') {
@@ -104,8 +116,31 @@ function FulfillmentTimeline({ status, history }: { status: string; history?: St
       <div className="body">
         <h3>Rastreamento da entrega</h3>
         <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
-          Entrega realizada pela Lojas Schimitz.
+          Entrega realizada pela Lojas Schimitz
+          {carrier && carrier !== 'propria' ? ` · ${carrier}` : ''}.
         </p>
+        {trackingCode ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--gold)',
+              background: 'rgba(245, 197, 24, 0.08)',
+            }}
+          >
+            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+              Código de rastreio
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 0.5, wordBreak: 'break-all' }}>
+              {trackingCode}
+            </div>
+          </div>
+        ) : status === 'in_transit' || status === 'shipped' ? (
+          <p className="muted" style={{ fontSize: 14 }}>
+            Código de rastreio será informado em breve.
+          </p>
+        ) : null}
         <ol style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}>
           {FULFILLMENT_STEPS.map((step, idx) => {
             const done = idx <= activeIdx;
@@ -314,7 +349,14 @@ export default function PedidoPage() {
 
       {err ? <div className="alert">{err}</div> : null}
 
-      {showTimeline ? <FulfillmentTimeline status={o.status} history={o.statusHistory} /> : null}
+      {showTimeline ? (
+        <FulfillmentTimeline
+          status={o.status}
+          history={o.statusHistory}
+          trackingCode={o.trackingCode}
+          carrier={o.carrier}
+        />
+      ) : null}
 
       {awaiting && !intent ? (
         <div className="card" style={{ marginTop: 16 }}>

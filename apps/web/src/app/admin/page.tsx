@@ -10,9 +10,21 @@ type AdminOrder = {
   publicId: string;
   status: string;
   total: number;
+  trackingCode?: string | null;
+  carrier?: string | null;
   items?: { name: string; qty: number }[];
   user?: { id: string; name: string; email: string; phone?: string | null } | null;
   addressSnap?: { city?: string; uf?: string; label?: string; phone?: string | null } | null;
+};
+
+type AdminSeller = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  commissionPercent?: number | string | null;
+  _count?: { products: number };
+  owner?: { id: string; name: string; email: string } | null;
 };
 
 type Category = { id: string; name: string; slug: string };
@@ -31,6 +43,8 @@ type AdminProduct = {
   category?: Category | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   images?: { url: string }[];
+  sellerId?: string | null;
+  seller?: { id: string; name: string; slug: string; status?: string } | null;
 };
 
 type ProductForm = {
@@ -41,6 +55,7 @@ type ProductForm = {
   sku: string;
   stock: string;
   categoryId: string;
+  sellerId: string;
   active: boolean;
   imageUrl: string;
   badge: string;
@@ -54,6 +69,7 @@ const emptyForm = (): ProductForm => ({
   sku: '',
   stock: '0',
   categoryId: '',
+  sellerId: '',
   active: true,
   imageUrl: '',
   badge: '',
@@ -323,6 +339,10 @@ export default function AdminPage() {
   const [adminForm, setAdminForm] = useState<AdminUserForm>(emptyAdminUserForm());
   const [savingAdmin, setSavingAdmin] = useState(false);
   const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
+  const [sellers, setSellers] = useState<AdminSeller[]>([]);
+  const [sellerForm, setSellerForm] = useState({ name: '', slug: '', status: 'pending' as 'pending' | 'active' | 'suspended' });
+  const [savingSeller, setSavingSeller] = useState(false);
+  const [sellerBusyId, setSellerBusyId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -343,8 +363,9 @@ export default function AdminPage() {
       api<StoreSeoSettings>('/admin/store/settings'),
       api<AdminBanner[]>('/admin/banners'),
       api<AdminUser[]>('/admin/admins'),
+      api<AdminSeller[]>('/admin/sellers'),
     ])
-      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList]) => {
+      .then(([p, o, c, couponsList, shipping, reviewsList, seo, bannersList, adminsList, sellersList]) => {
         setProducts(p);
         setOrders(o);
         setCategories(c);
@@ -364,6 +385,7 @@ export default function AdminPage() {
         });
         setBanners(bannersList);
         setAdmins(adminsList);
+        setSellers(sellersList);
         setErr('');
       })
       .catch((e) => {
@@ -431,6 +453,7 @@ export default function AdminPage() {
       sku: p.sku,
       stock: String(p.inventory?.qtyOnHand ?? 0),
       categoryId: p.categoryId || p.category?.id || '',
+      sellerId: p.sellerId || p.seller?.id || '',
       active: !!p.active,
       imageUrl: p.images?.[0]?.url || '',
       badge: p.badge || '',
@@ -503,6 +526,7 @@ export default function AdminPage() {
       stock,
       active: form.active,
       categoryId: form.categoryId || null,
+      sellerId: form.sellerId || null,
       badge: form.badge.trim() || null,
       compareAtPrice,
       imageUrl: form.imageUrl.trim() || null,
@@ -745,18 +769,75 @@ export default function AdminPage() {
   async function advance(order: AdminOrder) {
     const next = nextFulfillmentStatus(order.status);
     if (!next) return;
+    const body: Record<string, unknown> = { status: next };
+    if (next === 'in_transit') {
+      const code = window.prompt(
+        'Código de rastreio (opcional — aparece para o cliente):',
+        order.trackingCode || '',
+      );
+      if (code === null) return; // cancelou
+      const trimmed = code.trim();
+      if (trimmed) body.trackingCode = trimmed;
+      body.carrier = order.carrier || 'propria';
+    }
     setBusyId(order.id);
     setErr('');
     try {
       await api(`/admin/orders/${order.id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify(body),
       });
       await load();
     } catch (e: any) {
       setErr(e.message || 'Falha ao atualizar status');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function saveSeller(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sellerForm.name.trim()) {
+      setErr('Informe o nome do vendedor');
+      return;
+    }
+    setSavingSeller(true);
+    setMsg('');
+    setErr('');
+    try {
+      await api('/admin/sellers', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: sellerForm.name.trim(),
+          slug: sellerForm.slug.trim() || undefined,
+          status: sellerForm.status,
+        }),
+      });
+      setSellerForm({ name: '', slug: '', status: 'pending' });
+      setMsg('Vendedor criado.');
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao criar vendedor');
+    } finally {
+      setSavingSeller(false);
+    }
+  }
+
+  async function setSellerStatus(seller: AdminSeller, status: 'active' | 'suspended' | 'pending') {
+    setSellerBusyId(seller.id);
+    setErr('');
+    setMsg('');
+    try {
+      await api(`/admin/sellers/${seller.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setMsg(`Vendedor ${seller.name}: ${status}`);
+      await load();
+    } catch (err: any) {
+      setErr(err.message || 'Falha ao atualizar status do vendedor');
+    } finally {
+      setSellerBusyId(null);
     }
   }
 
@@ -1074,6 +1155,106 @@ export default function AdminPage() {
             {!admins.length ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
                 Nenhum administrador listado.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Vendedores (Marketplace v1)</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Fundação multi-seller. Checkout único continua igual. Comissão % é stub — payouts em v2
+            (ver docs/MARKETPLACE.md). Produtos existentes ficam na Lojas Schimitz.
+          </p>
+          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveSeller}>
+            <label>
+              Nome *
+              <input
+                value={sellerForm.name}
+                onChange={(e) => setSellerForm({ ...sellerForm, name: e.target.value })}
+                placeholder="Ex.: Parceiro Centro"
+                required
+              />
+            </label>
+            <label>
+              Slug (opcional)
+              <input
+                value={sellerForm.slug}
+                onChange={(e) => setSellerForm({ ...sellerForm, slug: e.target.value })}
+                placeholder="parceiro-centro"
+              />
+            </label>
+            <label>
+              Status inicial
+              <select
+                value={sellerForm.status}
+                onChange={(e) =>
+                  setSellerForm({
+                    ...sellerForm,
+                    status: e.target.value as 'pending' | 'active' | 'suspended',
+                  })
+                }
+              >
+                <option value="pending">pending</option>
+                <option value="active">active</option>
+                <option value="suspended">suspended</option>
+              </select>
+            </label>
+            <button className="btn" type="submit" disabled={savingSeller}>
+              {savingSeller ? 'Salvando...' : 'Criar vendedor'}
+            </button>
+          </form>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {sellers.map((s) => (
+              <div
+                key={s.id}
+                className="row"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <b>{s.name}</b>{' '}
+                  <span className="badge">{s.status}</span>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    /{s.slug}
+                    {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {s.status !== 'active' ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={sellerBusyId === s.id}
+                      onClick={() => void setSellerStatus(s, 'active')}
+                    >
+                      Ativar
+                    </button>
+                  ) : null}
+                  {s.status !== 'suspended' ? (
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={sellerBusyId === s.id}
+                      onClick={() => void setSellerStatus(s, 'suspended')}
+                    >
+                      Suspender
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {!sellers.length ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Nenhum vendedor ainda (rode a migration SCH-008).
               </p>
             ) : null}
           </div>
@@ -1496,6 +1677,20 @@ export default function AdminPage() {
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Vendedor (marketplace)
+              <select
+                value={form.sellerId}
+                onChange={(e) => setForm({ ...form, sellerId: e.target.value })}
+              >
+                <option value="">Lojas Schimitz (padrão)</option>
+                {sellers.map((s) => (
+                  <option key={s.id} value={s.id} disabled={s.status === 'suspended'}>
+                    {s.name} ({s.status})
                   </option>
                 ))}
               </select>
@@ -2027,8 +2222,8 @@ export default function AdminPage() {
 
       <h3>Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
-        Entrega própria: avance Separando → Saiu para entrega → Entregue (sem Melhor Envio). Use as abas para filtrar por status.
-        WhatsApp é clique-para-conversar (wa.me) — não envia sozinho.
+        Entrega própria: Pago → Organizando → Embalagem → Pronto para coleta → Em trânsito → Entregue.
+        Ao marcar Em trânsito, informe o código de rastreio (opcional). WhatsApp é wa.me — não envia sozinho.
       </p>
       <div
         style={{
@@ -2147,6 +2342,11 @@ export default function AdminPage() {
                         {o.addressSnap.city}/{o.addressSnap.uf}
                       </div>
                     ) : null}
+                    <div>
+                      <b style={{ color: 'var(--text)' }}>Rastreio:</b>{' '}
+                      {o.trackingCode || '—'}
+                      {o.carrier ? ` · ${o.carrier}` : ''}
+                    </div>
                   </div>
                 </div>
               ) : null}

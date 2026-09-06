@@ -22,6 +22,8 @@ Loja Next.js no ar. Chat IA Phase 1 no site (FAQ + catalogo + WhatsApp).
 | Frete real | TODO SCH-004 |
 | Admin profissional | TODO SCH-005 |
 | Chat IA (widget + POST /chat) | Phase 1 |
+| Marketplace v1 (Seller + Vendido por) | SCH-008 |
+| Rastreio (trackingCode no admin/cliente) | SCH-008 |
 
 ## Subir no computador
 
@@ -54,4 +56,4 @@ Documentação: `docs/SCH-002.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `
 WhatsApp do admin: botões `wa.me` (pago/enviado) — sem Cloud API. Número da loja: `NEXT_PUBLIC_WHATSAPP`.
 Banners/SEO: admin em `/admin` (SEO + banners); ver `docs/SEO-BANNERS.md`.
 Multi-admin: em `/admin` (seção Administradores) — criar/listar/desativar outros admins (`GET/POST /admin/admins`, `PATCH /admin/admins/:id/status`).
-Chat IA: widget em http://localhost:3000 e POST /api/v1/chat. Env opcional OPENAI_API_KEY, CHAT_API_BASE, CHAT_MODEL. Sem chave = FAQ + WhatsApp. Ver docs/CHAT.md.
+Marketplace: `docs/MARKETPLACE.md`. Chat IA: widget em http://localhost:3000 e POST /api/v1/chat. Env opcional OPENAI_API_KEY, CHAT_API_BASE, CHAT_MODEL. Sem chave = FAQ + WhatsApp. Ver docs/CHAT.md.

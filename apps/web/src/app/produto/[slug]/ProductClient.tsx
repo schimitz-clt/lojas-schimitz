@@ -16,6 +16,7 @@ type Detail = {
   ratingCount?: number;
   images?: { url: string }[];
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  seller?: { id: string; name: string; slug: string } | null;
 };
 
 type Review = {
@@ -187,12 +188,31 @@ export default function ProductPage() {
   return (
     <div style={{ padding: '24px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 1fr', gap: 24 }}>
-        <div className="card">
-          <img src={p.images?.[0]?.url} alt={p.name} />
+        <div className="card" style={{ aspectRatio: '1', background: '#111', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+          {p.images?.[0]?.url?.trim() ? (
+            <img
+              src={p.images[0].url}
+              alt={p.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fb = e.currentTarget.parentElement?.querySelector('[data-img-fallback]');
+                if (fb instanceof HTMLElement) fb.style.display = 'grid';
+              }}
+            />
+          ) : null}
+          <span data-img-fallback className="muted" style={{ display: p.images?.[0]?.url?.trim() ? 'none' : 'grid', placeItems: 'center', padding: 24 }}>
+            Sem foto
+          </span>
         </div>
         <div>
           {p.badge ? <div className="badge">{p.badge}</div> : null}
           <h1>{p.name}</h1>
+          {p.seller?.name ? (
+            <p className="muted" style={{ marginTop: -8 }}>
+              Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>
+            </p>
+          ) : null}
           <p className="muted">{p.description}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <Stars value={Math.round(avg)} />
