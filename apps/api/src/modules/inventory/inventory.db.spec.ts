@@ -43,6 +43,17 @@ async function main() {
     return;
   }
 
+  const seller = await prisma.seller.upsert({
+    where: { slug: 'lojas-schimitz' },
+    update: {},
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Lojas Schimitz',
+      slug: 'lojas-schimitz',
+      status: 'active',
+    },
+  });
+
   const sku = `TMP-INV-${randomUUID().slice(0, 8)}`;
   const slug = sku.toLowerCase();
   const product = await prisma.product.create({
@@ -53,6 +64,7 @@ async function main() {
       description: 'temp',
       price: 1,
       active: false,
+      sellerId: seller.id,
       inventory: { create: { qtyOnHand: 1, qtyReserved: 0 } },
     },
   });

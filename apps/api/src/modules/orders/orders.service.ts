@@ -98,7 +98,7 @@ export class OrdersService {
 
     const cart = await this.prisma.cart.findFirst({
       where: { userId },
-      include: { items: { include: { product: { include: { inventory: true } } } } },
+      include: { items: { include: { product: { include: { inventory: true } } } } }, // sellerId on product
     });
     const cartItems = cart?.items ?? [];
 
@@ -272,6 +272,7 @@ export class OrdersService {
                 name: i.product.name,
                 qty: i.qty,
                 unitPrice: i.product.price,
+                sellerId: i.product.sellerId || null,
               })),
             },
           },
@@ -494,7 +495,12 @@ export class OrdersService {
    * Admin: avança fulfillment (paid→organizing→packing→ready_for_pickup→in_transit→delivered).
    * Sem side-effects de estoque; UPDATE condicional anti-corrida.
    */
-  async adminUpdateFulfillmentStatus(adminId: string, orderId: string, to: AdminFulfillmentTarget) {
+  async adminUpdateFulfillmentStatus(
+    adminId: string,
+    orderId: string,
+    to: AdminFulfillmentTarget,
+    opts?: { trackingCode?: string | null; carrier?: string | null },
+  ) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Pedido não encontrado');
     if (!canTransition(order.status, to)) {
@@ -504,20 +510,38 @@ export class OrdersService {
       });
     }
     const from = order.status;
+    const trackingCode =
+      opts?.trackingCode !== undefined && opts?.trackingCode !== null
+        ? String(opts.trackingCode).trim() || null
+        : undefined;
+    const carrier =
+      opts?.carrier !== undefined && opts?.carrier !== null
+        ? String(opts.carrier).trim() || null
+        : undefined;
     const rows = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.$executeRaw`
-        UPDATE "Order"
-        SET "status" = ${to}::"OrderStatus"
-        WHERE "id" = ${orderId}
-          AND "status" = ${from}::"OrderStatus"
-      `;
-      if (updated === 0) return 0;
+      const data: { status: typeof to; trackingCode?: string | null; carrier?: string | null } = {
+        status: to as never,
+      };
+      if (trackingCode !== undefined) data.trackingCode = trackingCode;
+      if (carrier !== undefined) data.carrier = carrier;
+      // When moving to transit without explicit carrier, keep existing or mark propria.
+      if ((to === 'in_transit' || to === 'shipped') && carrier === undefined && !order.carrier) {
+        data.carrier = 'propria';
+      }
+      const updated = await tx.order.updateMany({
+        where: { id: orderId, status: from },
+        data,
+      });
+      if (updated.count === 0) return 0;
       await this.recordStatusHistory(tx, orderId, to, {
         fromStatus: from,
         actorId: adminId,
-        note: 'admin_fulfillment',
+        note:
+          trackingCode
+            ? `admin_fulfillment;tracking=${trackingCode}`
+            : 'admin_fulfillment',
       });
-      return updated;
+      return updated.count;
     });
     if (rows === 0) {
       throw new ConflictException('Pedido alterado por outro processo; recarregue');

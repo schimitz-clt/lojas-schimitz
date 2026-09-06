@@ -46,6 +46,8 @@ import {
   AdminReorderBannersDto,
   AdminCreateAdminDto,
   AdminUpdateAdminStatusDto,
+  AdminCreateSellerDto,
+  AdminUpdateSellerStatusDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -57,6 +59,7 @@ import {
   UploadsService,
 } from '../uploads/uploads.service';
 import { StorefrontService } from '../storefront/storefront.service';
+import { SellersService } from '../sellers/sellers.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -73,6 +76,7 @@ export class AdminController {
     private readonly reviews: ReviewsService,
     private readonly storefront: StorefrontService,
     private readonly adminUsers: AdminUsersService,
+    private readonly sellers: SellersService,
   ) {}
 
 
@@ -121,7 +125,27 @@ export class AdminController {
     @Param('id') id: string,
     @Body() dto: AdminUpdateOrderStatusDto,
   ) {
-    return ok(await this.orders.adminUpdateFulfillmentStatus(adminId, id, dto.status));
+    return ok(
+      await this.orders.adminUpdateFulfillmentStatus(adminId, id, dto.status, {
+        trackingCode: dto.trackingCode,
+        carrier: dto.carrier,
+      }),
+    );
+  }
+
+  @Get('sellers')
+  async listSellers() {
+    return ok(await this.sellers.list());
+  }
+
+  @Post('sellers')
+  async createSeller(@Body() dto: AdminCreateSellerDto) {
+    return ok(await this.sellers.create(dto));
+  }
+
+  @Patch('sellers/:id/status')
+  async updateSellerStatus(@Param('id') id: string, @Body() dto: AdminUpdateSellerStatusDto) {
+    return ok(await this.sellers.setStatus(id, dto.status));
   }
 
   @Get('products')

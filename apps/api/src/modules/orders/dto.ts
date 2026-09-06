@@ -23,4 +23,16 @@ export class AdminUpdateOrderStatusDto {
   @IsString()
   @IsIn(['organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'])
   status!: 'organizing' | 'packing' | 'ready_for_pickup' | 'in_transit' | 'delivered' | 'separating' | 'shipped';
+
+  /** Código de rastreio — recomendado ao marcar in_transit/shipped. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  trackingCode?: string | null;
+
+  /** Transportadora / etiqueta (ex.: propria, correios). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  carrier?: string | null;
 }

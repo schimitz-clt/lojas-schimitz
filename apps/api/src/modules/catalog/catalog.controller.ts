@@ -39,7 +39,12 @@ export class CatalogController {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: { images: { orderBy: { position: 'asc' } }, inventory: true, category: true },
+        include: {
+          images: { orderBy: { position: 'asc' } },
+          inventory: true,
+          category: true,
+          seller: { select: { id: true, name: true, slug: true } },
+        },
         skip,
         take,
       }),
@@ -52,7 +57,12 @@ export class CatalogController {
   async product(@Param('slug') slug: string) {
     const data = await this.prisma.product.findUnique({
       where: { slug },
-      include: { images: { orderBy: { position: 'asc' } }, inventory: true, category: true },
+      include: {
+          images: { orderBy: { position: 'asc' } },
+          inventory: true,
+          category: true,
+          seller: { select: { id: true, name: true, slug: true } },
+        },
     });
     if (!data || !data.active) throw new NotFoundException('Produto não encontrado');
     return ok(data);

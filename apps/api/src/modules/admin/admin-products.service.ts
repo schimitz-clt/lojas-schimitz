@@ -7,16 +7,21 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { AdminCreateProductDto, AdminUpdateProductDto } from './dto';
+import { SellersService } from '../sellers/sellers.service';
 
 const productInclude = {
   inventory: true,
   images: { orderBy: { position: 'asc' as const } },
   category: true,
+  seller: { select: { id: true, name: true, slug: true, status: true } },
 } satisfies Prisma.ProductInclude;
 
 @Injectable()
 export class AdminProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sellers: SellersService,
+  ) {}
 
   list(opts?: { lowStock?: number }) {
     return this.prisma.product.findMany({
@@ -43,6 +48,7 @@ export class AdminProductsService {
       const cat = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
       if (!cat) throw new BadRequestException('Categoria inválida');
     }
+    const sellerId = await this.sellers.resolveActiveSellerId(dto.sellerId);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -52,6 +58,7 @@ export class AdminProductsService {
             name,
             slug,
             description: dto.description?.trim() ?? '',
+            sellerId,
             categoryId: dto.categoryId || null,
             price: new Prisma.Decimal(dto.price),
             compareAtPrice:
@@ -116,6 +123,10 @@ export class AdminProductsService {
     }
     if (dto.active !== undefined) data.active = dto.active;
     if (dto.badge !== undefined) data.badge = dto.badge?.trim() || null;
+    if (dto.sellerId !== undefined) {
+      const sid = await this.sellers.resolveActiveSellerId(dto.sellerId);
+      data.seller = { connect: { id: sid } };
+    }
 
     try {
       return await this.prisma.$transaction(async (tx) => {

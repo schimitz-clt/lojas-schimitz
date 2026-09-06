@@ -10,6 +10,7 @@ import { CouponsModule } from '../coupons/coupons.module';
 import { ShippingModule } from '../shipping/shipping.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { StorefrontModule } from '../storefront/storefront.module';
+import { SellersModule } from '../sellers/sellers.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { StorefrontModule } from '../storefront/storefront.module';
     ShippingModule,
     ReviewsModule,
     StorefrontModule,
+    SellersModule,
   ],
   controllers: [AdminController],
   providers: [AdminProductsService, AdminSalesReportService, AdminUsersService],

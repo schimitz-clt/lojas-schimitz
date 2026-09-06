@@ -64,6 +64,10 @@ export class AdminCreateProductDto {
   categoryId?: string | null;
 
   @IsOptional()
+  @IsUUID()
+  sellerId?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   active?: boolean;
 
@@ -120,6 +124,10 @@ export class AdminUpdateProductDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  sellerId?: string | null;
 
   @IsOptional()
   @IsBoolean()
@@ -462,4 +470,39 @@ export class AdminCreateAdminDto {
 export class AdminUpdateAdminStatusDto {
   @IsIn(['active', 'blocked'])
   status!: 'active' | 'blocked';
+}
+
+/** Admin: criar vendedor (marketplace v1) */
+export class AdminCreateSellerDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  slug?: string;
+
+  @IsOptional()
+  @IsIn(['pending', 'active', 'suspended'])
+  status?: 'pending' | 'active' | 'suspended';
+
+  @IsOptional()
+  @IsUUID()
+  ownerUserId?: string | null;
+
+  /** Stub marketplace v2 — não usado no checkout. */
+  @IsOptional()
+  @Type(() => Number)
+  @ValidateIf((_, v) => v != null)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  commissionPercent?: number | null;
+}
+
+export class AdminUpdateSellerStatusDto {
+  @IsIn(['pending', 'active', 'suspended'])
+  status!: 'pending' | 'active' | 'suspended';
 }
