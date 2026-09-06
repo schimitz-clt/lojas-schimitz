@@ -29,6 +29,17 @@ async function main() {
     { slug: 'ofertas', name: 'Ofertas', sort: 7 },
   ];
 
+  const defaultSeller = await prisma.seller.upsert({
+    where: { slug: 'lojas-schimitz' },
+    update: { name: 'Lojas Schimitz', status: 'active' },
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Lojas Schimitz',
+      slug: 'lojas-schimitz',
+      status: 'active',
+    },
+  });
+
   const catIds: Record<string, string> = {};
   for (const c of categories) {
     const row = await prisma.category.upsert({
@@ -116,6 +127,7 @@ async function main() {
         slug: p.slug,
         description: p.description,
         categoryId: catIds[p.category],
+        sellerId: defaultSeller.id,
         price: p.price,
         compareAtPrice: p.compareAtPrice,
         badge: p.badge,
@@ -127,6 +139,7 @@ async function main() {
         slug: p.slug,
         description: p.description,
         categoryId: catIds[p.category],
+        sellerId: defaultSeller.id,
         price: p.price,
         compareAtPrice: p.compareAtPrice,
         badge: p.badge,
