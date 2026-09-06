@@ -38,13 +38,20 @@ Variáveis:
 R2/S3 permanece plano futuro (ARCHITECTURE.md); este caminho não exige credenciais de cloud.
 
 
-## E-mail ao cliente (SMTP)
+## E-mail (SMTP) — cliente e loja
 
-Notificações: **Pedido pago** (webhook/aprovação) e **Saiu para entrega**
+Notificações ao **cliente**: **Pedido pago** (webhook/aprovação) e **Saiu para entrega**
 (admin muda status para `shipped`). Opcional: **Pedido entregue** (`delivered`).
 
+Notificações à **loja** (todos os admins ativos, e-mail do cadastro — ex. `schimitzclaiton@gmail.com`):
+**Nova venda paga** no confirmamento de pagamento, **sempre** — inclusive se o comprador
+também for admin. O e-mail inclui link `/admin` e deep link `wa.me` (click-to-chat;
+**não** envia WhatsApp sozinho — ver `docs/WHATSAPP.md`). In-app 🔔 **Novo pagamento**
+em `/notificacoes` para cada admin ativo.
+
 Se `SMTP_HOST` ou `MAIL_FROM` não estiverem definidos, a API **não envia** e-mail
-(apenas log) e **não falha** o pagamento/fulfillment.
+(apenas log) e **não falha** o pagamento/fulfillment — a notificação in-app da loja
+ainda é criada.
 
 Variáveis no serviço da API (Railway → Variables):
 

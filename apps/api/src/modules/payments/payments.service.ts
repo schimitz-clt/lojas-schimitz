@@ -23,10 +23,7 @@ import {
 import { CreatePaymentIntentDto } from './dto';
 import { MailService } from '../mail/mail.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
-import {
-  NotificationsService,
-  buildAdminOrderPaidNotification,
-} from '../notifications/notifications.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
 
@@ -767,7 +764,7 @@ export class PaymentsService {
       }
     }
   }
-  /** Best-effort: e-mail + notificação in-app "Pedido pago" (cliente + admins). Nunca lança. */
+  /** Best-effort: e-mail + notificação in-app "Pedido pago" (cliente + loja). Nunca lança. */
   private async notifyCustomerPaid(orderId: string) {
     try {
       const order = await this.prisma.order.findUnique({
@@ -788,15 +785,13 @@ export class PaymentsService {
           orderId: order.id,
         });
       }
-      const adminPayload = buildAdminOrderPaidNotification({
+      // Loja: in-app + e-mail para TODOS os admins ativos (mesmo se comprador for admin).
+      await this.notifications.notifyStoreOfPaidOrder({
         publicId: order.publicId,
         total: Number(order.total),
         orderId: order.id,
-      });
-      await this.notifications.notifyActiveAdmins({
-        ...adminPayload,
-        // Cliente já notificado acima; se for admin, evita duplicata com copy de cliente.
-        excludeUserIds: order.userId ? [order.userId] : [],
+        customerEmail: order.user?.email,
+        customerName: order.user?.name,
       });
       const to = order.user?.email;
       if (!to) {

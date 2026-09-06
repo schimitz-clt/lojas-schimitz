@@ -7,8 +7,10 @@
 Não há envio automático. Não há token da WhatsApp Cloud API (Meta),
 Twilio ou Business API. Nenhum segredo extra é necessário.
 
-O e-mail transacional (SMTP) já cobre o cliente em **pago** e **enviado**,
-quando `SMTP_HOST` + `MAIL_FROM` estão configurados. Ver `docs/DEPLOY.md`.
+O e-mail transacional (SMTP) cobre o cliente em **pago** e **enviado**, e a
+**loja** em **Nova venda paga** (admins ativos), quando `SMTP_HOST` + `MAIL_FROM`
+estão configurados. O e-mail da loja inclui um link `wa.me` com rascunho pronto —
+ainda é click-to-chat, **não** envio automático. Ver `docs/DEPLOY.md`.
 
 ## Número da loja
 

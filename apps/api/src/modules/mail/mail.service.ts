@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 import {
+  adminOrderPaidEmail,
+  AdminOrderPaidMailContext,
   orderDeliveredEmail,
   orderPaidEmail,
   orderReadyForPickupEmail,
@@ -94,6 +96,11 @@ export class MailService {
 
   async notifyOrderStatus(to: string, ctx: OrderMailContext) {
     const { subject, text, html } = orderStatusEmail(ctx);
+    return this.send(to, subject, text, html);
+  }
+
+  async notifyAdminOrderPaid(to: string, ctx: AdminOrderPaidMailContext) {
+    const { subject, text, html } = adminOrderPaidEmail(ctx);
     return this.send(to, subject, text, html);
   }
 }

@@ -1,6 +1,12 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { formatBRL } from '../../common/whatsapp';
+import { MailService } from '../mail/mail.service';
+import {
+  envStoreWhatsApp,
+  formatBRL,
+  orderWhatsAppMessage,
+  waMeUrl,
+} from '../../common/whatsapp';
 
 export type CreateNotificationInput = {
   userId: string;
@@ -41,9 +47,48 @@ export function buildAdminFulfillmentNotification(opts: {
   } as const;
 }
 
+/** URL canônica /admin para e-mails (best-effort). */
+export function resolveAdminUrl(): string {
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+  if (site) return `${site}/admin`;
+  const cors = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)[0]
+    ?.replace(/\/$/, '');
+  if (cors) return `${cors}/admin`;
+  return '/admin';
+}
+
+/**
+ * Mensagem + wa.me para o número da loja (aviso interno de venda paga).
+ * Não envia WhatsApp — só deep link click-to-chat.
+ */
+export function buildStoreOwnerPaidWhatsApp(opts: {
+  publicId: string;
+  total: number | string;
+  customerName?: string | null;
+}) {
+  const digits = envStoreWhatsApp();
+  const text = orderWhatsAppMessage({
+    publicId: opts.publicId,
+    total: opts.total,
+    status: 'paid',
+    customerName: opts.customerName,
+    kind: 'paid',
+    toCustomer: false,
+  });
+  return { digits, text, url: waMeUrl(digits, text) };
+}
+
 @Injectable()
 export class NotificationsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  private readonly log = new Logger(NotificationsService.name);
+
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(MailService) private readonly mail: MailService,
+  ) {}
 
   async create(input: CreateNotificationInput) {
     return this.prisma.notification.create({
@@ -69,7 +114,8 @@ export class NotificationsService {
 
   /**
    * Fan-out best-effort para todos os admins ativos.
-   * excludeUserIds: p.ex. o ator da mudança (não notificar a si mesmo).
+   * excludeUserIds: p.ex. o ator da mudança de fulfillment (não notificar a si mesmo).
+   * Em pagamento confirmado NÃO excluir o comprador — mesmo se for admin.
    */
   async notifyActiveAdmins(
     input: Omit<CreateNotificationInput, 'userId'> & { excludeUserIds?: string[] },
@@ -97,6 +143,74 @@ export class NotificationsService {
     } catch {
       return 0;
     }
+  }
+
+  /** Admins ativos com e-mail (para fan-out de venda paga). */
+  async listActiveAdmins(): Promise<{ id: string; email: string; name: string | null }[]> {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { role: 'admin', status: 'active' },
+        select: { id: true, email: true, name: true },
+      });
+      return admins.filter((a) => Boolean(a.email?.trim()));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Loja sempre avisada em venda paga: in-app para TODOS os admins ativos
+   * (incluindo comprador-admin) + e-mail SMTP best-effort + link wa.me no corpo.
+   * Sem SMTP: só log; in-app ainda é criada. Não envia WhatsApp Cloud.
+   */
+  async notifyStoreOfPaidOrder(opts: {
+    publicId: string;
+    total: number;
+    orderId: string;
+    customerEmail?: string | null;
+    customerName?: string | null;
+  }): Promise<{ inAppCreated: number; emailsAttempted: number }> {
+    const adminPayload = buildAdminOrderPaidNotification({
+      publicId: opts.publicId,
+      total: opts.total,
+      orderId: opts.orderId,
+    });
+    // Sem excludeUserIds — comprador admin também recebe "Novo pagamento".
+    const inAppCreated = await this.notifyActiveAdmins({ ...adminPayload });
+
+    const whatsapp = buildStoreOwnerPaidWhatsApp({
+      publicId: opts.publicId,
+      total: opts.total,
+      customerName: opts.customerName,
+    });
+    const adminUrl = resolveAdminUrl();
+    const mailCtx = {
+      publicId: opts.publicId,
+      total: opts.total,
+      customerEmail: opts.customerEmail,
+      customerName: opts.customerName,
+      adminUrl,
+      whatsappUrl: whatsapp.url,
+    };
+
+    let emailsAttempted = 0;
+    try {
+      const admins = await this.listActiveAdmins();
+      for (const admin of admins) {
+        emailsAttempted += 1;
+        await this.mail.notifyAdminOrderPaid(admin.email, mailCtx);
+      }
+      if (admins.length === 0) {
+        this.log.warn(`notifyStoreOfPaidOrder: nenhum admin ativo com e-mail (${opts.publicId})`);
+      }
+    } catch (e: any) {
+      this.log.error(`notifyStoreOfPaidOrder e-mail falhou: ${e?.message || e}`);
+    }
+
+    this.log.log(
+      `notifyStoreOfPaidOrder ${opts.publicId}: inApp=${inAppCreated} emails=${emailsAttempted} wa.me=${whatsapp.url.slice(0, 48)}…`,
+    );
+    return { inAppCreated, emailsAttempted };
   }
 
   async listForUser(userId: string, opts?: { limit?: number; unreadOnly?: boolean }) {

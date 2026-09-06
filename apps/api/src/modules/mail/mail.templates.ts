@@ -136,3 +136,49 @@ Lojas Schimitz
   );
   return { subject, text, html };
 }
+
+export type AdminOrderPaidMailContext = {
+  publicId: string;
+  total: number;
+  customerEmail?: string | null;
+  customerName?: string | null;
+  adminUrl?: string | null;
+  /** Deep link wa.me (click-to-chat) — não é envio automático. */
+  whatsappUrl?: string | null;
+};
+
+/** E-mail para admins da loja: nova venda paga. */
+export function adminOrderPaidEmail(ctx: AdminOrderPaidMailContext) {
+  const total = formatBRL(ctx.total);
+  const subject = `Nova venda paga — ${ctx.publicId} — ${total}`;
+  const customerName = (ctx.customerName || '').trim() || '—';
+  const customerEmail = (ctx.customerEmail || '').trim() || '—';
+  const adminUrl = (ctx.adminUrl || '/admin').trim() || '/admin';
+  const whatsappUrl = (ctx.whatsappUrl || '').trim();
+  const waTextBlock = whatsappUrl
+    ? `\nAbrir WhatsApp (rascunho pronto): ${whatsappUrl}\n`
+    : '';
+  const waHtmlBlock = whatsappUrl
+    ? `<p><a href="${whatsappUrl}">Abrir WhatsApp com aviso da venda</a> (click-to-chat — não envia sozinho)</p>`
+    : '';
+  const text = `Nova venda paga na Lojas Schimitz.
+
+Pedido: ${ctx.publicId}
+Total: ${total}
+Cliente: ${customerName}
+E-mail: ${customerEmail}
+
+Abrir admin: ${adminUrl}
+${waTextBlock}`;
+  const html = wrapHtml(
+    'Nova venda paga',
+    `<p>Nova venda paga na Lojas Schimitz.</p>
+     <p>Pedido: <strong>${ctx.publicId}</strong></p>
+     <p>Total: <strong>${total}</strong></p>
+     <p>Cliente: <strong>${customerName}</strong></p>
+     <p>E-mail: <strong>${customerEmail}</strong></p>
+     <p><a href="${adminUrl}">Abrir painel admin</a></p>
+     ${waHtmlBlock}`,
+  );
+  return { subject, text, html };
+}

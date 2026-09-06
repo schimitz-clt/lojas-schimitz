@@ -20,7 +20,6 @@ import { CouponsService } from '../coupons/coupons.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
   NotificationsService,
-  buildAdminOrderPaidNotification,
   buildAdminFulfillmentNotification,
 } from '../notifications/notifications.service';
 
@@ -386,14 +385,13 @@ export class OrdersService {
     });
     if (paid) {
       await this.notifyCustomerInApp(paid.userId, paid.id, paid.publicId, 'paid');
-      const adminPayload = buildAdminOrderPaidNotification({
+      // Loja: in-app + e-mail para TODOS os admins ativos (mesmo se comprador for admin).
+      await this.notifications.notifyStoreOfPaidOrder({
         publicId: paid.publicId,
         total: Number(paid.total),
         orderId: paid.id,
-      });
-      await this.notifications.notifyActiveAdmins({
-        ...adminPayload,
-        excludeUserIds: paid.userId ? [paid.userId] : [],
+        customerEmail: paid.user?.email,
+        customerName: paid.user?.name,
       });
       if (paid.user?.email) {
         await this.mail.notifyOrderPaid(paid.user.email, {
