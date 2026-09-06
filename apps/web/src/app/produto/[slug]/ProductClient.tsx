@@ -10,6 +10,7 @@ import {
   pixPrice,
   stockBadge,
 } from '@/lib/pricing';
+import { PdpSkeleton } from '@/components/Skeleton';
 
 type Detail = {
   id: string;
@@ -202,7 +203,7 @@ export default function ProductPage() {
   }, [p]);
 
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
-  if (!p) return <p className="muted">Carregando...</p>;
+  if (!p) return <PdpSkeleton />;
 
   const stockFromInv =
     p.inventory != null ? p.inventory.qtyOnHand - p.inventory.qtyReserved : null;
@@ -235,6 +236,9 @@ export default function ProductPage() {
               <img
                 src={primaryImg}
                 alt={p.name}
+                width={800}
+                height={800}
+                decoding="async"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fb = e.currentTarget.parentElement?.querySelector('[data-img-fallback]');
@@ -440,6 +444,16 @@ export default function ProductPage() {
           </div>
         </div>
       </section>
+
+      <div className="pdp-sticky-atc" aria-label="Comprar">
+        <div style={{ minWidth: 0 }}>
+          <div className="price">{brl(pix)}</div>
+          <div className="muted" style={{ fontSize: 11 }}>no PIX · {brl(price)}</div>
+        </div>
+        <button className="btn" onClick={add} disabled={outOfStock}>
+          {outOfStock ? 'Indisponível' : 'Adicionar à sacola'}
+        </button>
+      </div>
     </div>
   );
 }

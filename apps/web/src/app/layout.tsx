@@ -37,10 +37,54 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="wrap">{children}</main>
         <footer className="footer">
           <div className="wrap">
-            <p><b>Sobre a Lojas Schimitz</b> — eletro, celulares, informática, eletrodomésticos e casa em Porto Alegre. Atendimento no chat do site ou no WhatsApp (51) 99625-3766.</p>
-            <p>Frete grátis em Porto Alegre · Troca em 7 dias · PIX 5% off · 12x sem juros*</p>
-            <p>Loja própria · assistente no site · WhatsApp (51) 99625-3766</p>
-            <p><a href="/produtos">Produtos</a> · <a href="/marketplace">Marketplace</a> · <a href="/suporte">Suporte</a> · <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">WhatsApp</a></p>
+            <div className="footer-grid">
+              <div className="footer-col">
+                <h3>Lojas Schimitz</h3>
+                <p className="muted" style={{ margin: 0, lineHeight: 1.45 }}>
+                  Eletro, celulares, informática, eletrodomésticos e casa em Porto Alegre. Atendimento no
+                  chat do site ou no WhatsApp (51) 99625-3766.
+                </p>
+              </div>
+              <div className="footer-col">
+                <h3>Loja</h3>
+                <ul>
+                  <li><a href="/produtos">Produtos</a></li>
+                  <li><a href="/marketplace">Marketplace</a></li>
+                  <li><a href="/departamento/ofertas">Ofertas</a></li>
+                  <li><a href="/favoritos">Favoritos</a></li>
+                </ul>
+              </div>
+              <div className="footer-col">
+                <h3>Ajuda</h3>
+                <ul>
+                  <li><a href="/suporte">Suporte</a></li>
+                  <li><a href="/pedidos">Meus pedidos</a></li>
+                  <li><a href="/conta">Minha conta</a></li>
+                  <li>
+                    <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">
+                      WhatsApp
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div className="footer-col">
+                <h3>Benefícios</h3>
+                <ul>
+                  <li>Frete grátis em Porto Alegre</li>
+                  <li>Troca em 7 dias</li>
+                  <li>PIX 5% off</li>
+                  <li>12x sem juros*</li>
+                </ul>
+              </div>
+            </div>
+            <p className="footer-copy muted">
+              © {new Date().getFullYear()} Lojas Schimitz ·{' '}
+              <a href="/produtos">Produtos</a> · <a href="/marketplace">Marketplace</a> ·{' '}
+              <a href="/suporte">Suporte</a> ·{' '}
+              <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">
+                WhatsApp
+              </a>
+            </p>
           </div>
         </footer>
         <ChatWidget />

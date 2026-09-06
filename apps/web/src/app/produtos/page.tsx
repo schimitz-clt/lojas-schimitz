@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
+import { ProductGridSkeleton } from '@/components/Skeleton';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number; page?: number; pageSize?: number; sort?: string };
@@ -99,17 +100,19 @@ function ProdutosInner() {
   }
 
   function clearFilters() {
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    const qs = params.toString();
-    router.push(qs ? `/produtos?${qs}` : '/produtos');
+    router.push('/produtos');
+  }
+
+  function clearSearchKeepFilters() {
+    pushFilters({ q: '' });
   }
 
   const hasExtraFilters = Boolean(category || minPrice || maxPrice || (sort && sort !== 'relevance'));
+  const hasAnyFilter = Boolean(q || hasExtraFilters);
 
   return (
     <div style={{ padding: '22px 0' }}>
-      <h1>Produtos</h1>
+      <h1 style={{ marginBottom: 6, fontSize: 26, letterSpacing: '-0.02em' }}>Produtos</h1>
       <p className="muted" style={{ marginBottom: 14 }}>
         Catálogo Lojas Schimitz
         {q ? <> · buscando “{q}”</> : null}
@@ -171,7 +174,7 @@ function ProdutosInner() {
             Filtrar
           </button>
         </form>
-        {hasExtraFilters ? (
+        {hasAnyFilter ? (
           <button className="btn ghost" type="button" onClick={clearFilters}>
             Limpar filtros
           </button>
@@ -193,7 +196,7 @@ function ProdutosInner() {
       </p>
 
       {err ? <div className="alert">{err}</div> : null}
-      {loading ? <p className="muted">Carregando produtos…</p> : null}
+      {loading ? <ProductGridSkeleton count={8} /> : null}
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty">
           <p style={{ margin: 0, fontWeight: 700 }}>
@@ -201,25 +204,42 @@ function ProdutosInner() {
               ? `Não encontramos resultados para “${q}”.`
               : 'Nenhum produto encontrado com esses filtros.'}
           </p>
-          <p className="muted" style={{ margin: '8px 0 0' }}>
+          <p className="muted" style={{ margin: '8px 0 12px' }}>
             Tente outro termo, remova filtros ou explore os{' '}
             <Link href="/departamento/ofertas">departamentos</Link> e o{' '}
             <Link href="/marketplace">marketplace</Link>.
           </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {hasAnyFilter ? (
+              <button className="btn" type="button" onClick={clearFilters}>
+                Limpar filtros
+              </button>
+            ) : null}
+            {q ? (
+              <button className="btn ghost" type="button" onClick={clearSearchKeepFilters}>
+                Só limpar busca
+              </button>
+            ) : null}
+            <Link className="btn ghost" href="/">
+              Voltar ao início
+            </Link>
+          </div>
         </div>
       ) : null}
-      <div className="grid">
-        {products.map((p) => (
-          <ProductCard key={p.id} p={p} />
-        ))}
-      </div>
+      {!loading ? (
+        <div className="grid">
+          {products.map((p, i) => (
+            <ProductCard key={p.id} p={p} priority={i < 4} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export default function ProdutosPage() {
   return (
-    <Suspense fallback={<p className="muted">Carregando…</p>}>
+    <Suspense fallback={<ProductGridSkeleton count={8} />}>
       <ProdutosInner />
     </Suspense>
   );

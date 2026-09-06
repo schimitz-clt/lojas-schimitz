@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { api, waLink } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
+import { TrustBadges } from '@/components/TrustBadges';
+import { ProductGridSkeleton } from '@/components/Skeleton';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -53,35 +55,45 @@ function HomeInner() {
           </p>
         </section>
       )}
+      {!q ? <TrustBadges /> : null}
       {err ? (
         <div className="alert">API offline ou sem dados: {err}. Suba a API e rode o seed.</div>
       ) : null}
-      <h2 id="ofertas">{q ? 'Produtos encontrados' : 'Ofertas do dia'}</h2>
-      {loading ? <p className="muted">Carregando produtos…</p> : null}
+      <h2 id="ofertas" style={{ fontSize: 20, margin: '8px 0 14px' }}>
+        {q ? 'Produtos encontrados' : 'Ofertas do dia'}
+      </h2>
+      {loading ? <ProductGridSkeleton count={8} /> : null}
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty">
           <p style={{ margin: 0, fontWeight: 700 }}>
             {q ? `Não encontramos resultados para “${q}”.` : 'Nenhuma oferta no momento.'}
           </p>
-          <p className="muted" style={{ margin: '8px 0 0' }}>
+          <p className="muted" style={{ margin: '8px 0 12px' }}>
             Tente outra busca ou confira o{' '}
             <Link href="/produtos">catálogo completo</Link> e os{' '}
             <Link href="/departamento/ofertas">departamentos</Link>.
           </p>
+          {q ? (
+            <Link className="btn ghost" href="/">
+              Limpar busca
+            </Link>
+          ) : null}
         </div>
       ) : null}
-      <div className="grid">
-        {products.map((p) => (
-          <ProductCard key={p.id} p={p} />
-        ))}
-      </div>
+      {!loading ? (
+        <div className="grid">
+          {products.map((p, i) => (
+            <ProductCard key={p.id} p={p} priority={i < 4} />
+          ))}
+        </div>
+      ) : null}
     </>
   );
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<p className="muted">Carregando...</p>}>
+    <Suspense fallback={<ProductGridSkeleton count={8} />}>
       <HomeInner />
     </Suspense>
   );

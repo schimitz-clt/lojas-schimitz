@@ -89,6 +89,9 @@ export function HomeBanners() {
       src={current.imageUrl}
       alt={current.alt || current.title || 'Banner'}
       className="home-banner-img"
+      width={1200}
+      height={457}
+      decoding="async"
       onError={() => setImgFailed(true)}
     />
   );

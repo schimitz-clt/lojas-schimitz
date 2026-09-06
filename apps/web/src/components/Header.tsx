@@ -45,14 +45,14 @@ export function Header() {
             </form>
             <div className="actions">
               {user ? (
-                <Link className="btn ghost" href="/notificacoes" title="Notificações">
+                <Link className="btn ghost hdr-hide-sm" href="/notificacoes" title="Notificações">
                   🔔{unread > 0 ? ` ${unread}` : ''}
                 </Link>
               ) : null}
-              <Link className="btn ghost" href="/favoritos">Favoritos</Link>
+              <Link className="btn ghost hdr-hide-sm" href="/favoritos">Favoritos</Link>
               <Link className="btn ghost" href="/carrinho">Sacola</Link>
               <Link className="btn ghost" href={user ? '/conta' : '/entrar'}>{user ? userAccountLabel(user) : 'Entrar'}</Link>
-              <a className="btn wa" href={waLink()} target="_blank" rel="noreferrer">WhatsApp</a>
+              <a className="btn wa hdr-hide-sm" href={waLink()} target="_blank" rel="noreferrer">WhatsApp</a>
             </div>
           </div>
           <nav className="nav">

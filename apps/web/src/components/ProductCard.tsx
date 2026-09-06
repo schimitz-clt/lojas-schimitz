@@ -34,7 +34,15 @@ function resolveStock(p: Product): number | null {
   return null;
 }
 
-function ProductImage({ src, alt }: { src?: string; alt: string }) {
+function ProductImage({
+  src,
+  alt,
+  priority,
+}: {
+  src?: string;
+  alt: string;
+  priority?: boolean;
+}) {
   if (!src) {
     return <span className="muted">Sem foto</span>;
   }
@@ -43,6 +51,10 @@ function ProductImage({ src, alt }: { src?: string; alt: string }) {
     <img
       src={src}
       alt={alt}
+      width={400}
+      height={400}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
       onError={(e) => {
         const el = e.currentTarget;
         el.style.display = 'none';
@@ -53,7 +65,7 @@ function ProductImage({ src, alt }: { src?: string; alt: string }) {
   );
 }
 
-export function ProductCard({ p }: { p: Product }) {
+export function ProductCard({ p, priority = false }: { p: Product; priority?: boolean }) {
   const img = resolveImageUrl(p);
   const count = p.ratingCount ?? 0;
   const avg = Number(p.ratingAvg ?? 0);
@@ -66,7 +78,7 @@ export function ProductCard({ p }: { p: Product }) {
     <article className="pcard">
       <Link href={`/produto/${p.slug}`} className="pcard-link">
         <div className="pcard-media">
-          {img ? <ProductImage src={img} alt={p.name} /> : null}
+          {img ? <ProductImage src={img} alt={p.name} priority={priority} /> : null}
           <span
             data-img-fallback
             className="muted pcard-fallback"
