@@ -49,25 +49,29 @@ também for admin. O e-mail inclui link `/admin` e deep link `wa.me` (click-to-c
 **não** envia WhatsApp sozinho — ver `docs/WHATSAPP.md`). In-app 🔔 **Novo pagamento**
 em `/notificacoes` para cada admin ativo.
 
-Se `SMTP_HOST` ou `MAIL_FROM` não estiverem definidos, a API **não envia** e-mail
-(apenas log) e **não falha** o pagamento/fulfillment — a notificação in-app da loja
+Se `MAIL_FROM` + (`RESEND_API_KEY` **ou** SMTP) não estiverem definidos, a API **não envia**
+e-mail (apenas log) e **não falha** o pagamento/fulfillment — a notificação in-app da loja
 ainda é criada.
+
+**Railway:** egress SMTP costuma falhar (`ETIMEDOUT` em Gmail / `smtp.resend.com:465`).
+Use **Resend HTTP API** (`POST https://api.resend.com/emails`) — não depende de porta 465/587.
 
 Variáveis no serviço da API (Railway → Variables):
 
 | Variável | Exemplo | Notas |
 |----------|---------|--------|
-| `SMTP_HOST` | `smtp.gmail.com` ou `smtp.resend.com` | Obrigatório para enviar |
-| `SMTP_PORT` | `587` (STARTTLS) ou `465` (SSL) | Padrão 587 |
-| `SMTP_USER` | conta / API user | Com `SMTP_PASS` se o provedor exigir auth |
-| `SMTP_PASS` | app password / API key | **Nunca** commit; só no Railway |
-| `MAIL_FROM` | `Lojas Schimitz <loja@seudominio.com>` | Remetente visível |
+| `RESEND_API_KEY` | `re_…` | Preferido no Railway; Bearer no HTTPS |
+| `MAIL_FROM` | `Lojas Schimitz <onboarding@resend.dev>` | Remetente; domínio verificado em prod |
+| `SMTP_HOST` | `smtp.gmail.com` / `smtp.resend.com` | Fallback SMTP se Resend HTTP não ativo |
+| `SMTP_PORT` | `587` ou `465` | Padrão 587 |
+| `SMTP_USER` | conta / `resend` | Com `SMTP_PASS` se o provedor exigir auth |
+| `SMTP_PASS` | app password / `re_…` | **Nunca** commit; dual-use: se começa com `re_` e host tem `resend`, vira Resend HTTP |
 
-Provedores comuns (escolha um; configure só as env):
+Provedores:
 
-- **Gmail**: `SMTP_HOST=smtp.gmail.com`, porta `587`, use [App Password](https://support.google.com/accounts/answer/185833) (conta com 2FA).
-- **Resend SMTP**: `SMTP_HOST=smtp.resend.com`, user `resend`, pass = API key; `MAIL_FROM` com domínio verificado.
-- Outro SMTP (SendGrid, Amazon SES, provedor do domínio): use host/porta/user/pass do painel.
+- **Resend HTTP (recomendado no Railway):** `RESEND_API_KEY` + `MAIL_FROM`. Ou só `SMTP_HOST=smtp.resend.com` + `SMTP_PASS=re_…` (mesma chave, path HTTPS).
+- **Gmail SMTP:** só se o ambiente permitir egress SMTP (local/VPS); no Railway tende a timeout.
+- Outro SMTP: host/porta/user/pass do painel (fallback nodemailer).
 
 Após setar as variáveis, faça redeploy do serviço da API.
 
@@ -92,12 +96,12 @@ Sem chave o widget continua: FAQ das politicas + link WhatsApp.
 Rate limit proprio 20/min. Ver docs/CHAT.md.
 
 
-## Verificação SMTP / notificações (OWNER)
+## Verificação e-mail / notificações (OWNER)
 
-Checklist manual (não automatizado nesta sessão):
+Checklist:
 
-1. Railway API: `SMTP_HOST`, `SMTP_PORT` (587 ou 465), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` reais.
-2. `POST /auth/forgot-password` com e-mail de teste → mensagem genérica na API; e-mail chega ou link no log se SMTP off.
+1. Railway API: `RESEND_API_KEY` (ou dual-use `SMTP_PASS=re_…` + host resend) + `MAIL_FROM`.
+2. `POST /auth/forgot-password` com e-mail de teste → mensagem genérica na API; log `E-mail enviado via Resend HTTP` (não `ETIMEDOUT`).
 3. Pedido pago (null simulate local ou PIX live autorizado) → e-mail cliente + aviso admin (`STORE_NOTIFY_EMAIL`).
 4. Sem `OPENAI_API_KEY` o chat usa FAQ; billing OpenAI é OWNER.
 5. Fotos de produto reais e Play Console / assetlinks: OWNER.

@@ -70,7 +70,7 @@ export function setupSwagger(app: INestApplication, apiPrefix: string) {
 
   // Sanidade: nunca listar env secrets no schema
   const raw = JSON.stringify(document);
-  for (const leak of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MERCADO_PAGO_ACCESS_TOKEN', 'SMTP_PASS']) {
+  for (const leak of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MERCADO_PAGO_ACCESS_TOKEN', 'SMTP_PASS', 'RESEND_API_KEY']) {
     if (raw.includes(leak)) {
       throw new Error(`Swagger document leaks env key name: ${leak}`);
     }
