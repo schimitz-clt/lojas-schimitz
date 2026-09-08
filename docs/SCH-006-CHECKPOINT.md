@@ -23,7 +23,7 @@ Cookie HttpOnly dual-mode (sem quebrar mobile/TWA) → tags OpenAPI → lease `S
 - `apps/api/src/modules/auth/refresh-cookie.ts`: set/clear/read; env `REFRESH_COOKIE_*`
 - Login/register/refresh: `Set-Cookie` HttpOnly + JSON ainda com `refreshToken`
 - Refresh: body **ou** cookie (body vence); `RefreshDto.refreshToken` opcional
-- Logout: limpa cookie + revoga
+- Logout: limpa cookie + revoga (access JWT opcional; `logoutFlexible` / cookie-only)
 - Web: `credentials: 'include'`; access em localStorage; refresh localStorage = fallback cross-origin
 - **Limite:** cross-site localhost sem HTTPS pode não enviar cookie; produção → `REFRESH_COOKIE_DOMAIN` ou proxy same-site
 
@@ -84,4 +84,4 @@ Cookie HttpOnly dual-mode (sem quebrar mobile/TWA) → tags OpenAPI → lease `S
 | Frete CEP 91 grátis (código + seed) | CONCLUÍDO |
 | Docs SECURITY/API/DEPLOY | CONCLUÍDO |
 
-SHA: `856e7a7`
+SHA feat: `856e7a7` · HEAD: `0204bb8`
