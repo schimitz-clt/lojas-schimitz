@@ -1,4 +1,4 @@
-/** Storefront pricing helpers (PIX 5% + parcelamento 1–12x). */
+/** Storefront display helpers (PIX 5% + parcelamento). Backend authority: apps/api/src/common/pricing.ts — see docs/PIX-DISCOUNT.md */
 
 export const PIX_DISCOUNT = 0.05;
 export const MAX_INSTALLMENTS = 12;

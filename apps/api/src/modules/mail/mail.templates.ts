@@ -182,3 +182,32 @@ ${waTextBlock}`;
   );
   return { subject, text, html };
 }
+
+
+export type PasswordResetMailContext = {
+  customerName?: string | null;
+  resetUrl: string;
+  expiresMinutes: number;
+};
+
+export function passwordResetEmail(ctx: PasswordResetMailContext) {
+  const minutes = Math.max(1, Math.floor(ctx.expiresMinutes || 60));
+  const subject = 'Redefinição de senha — Lojas Schimitz';
+  const text = `${greeting(ctx.customerName)}
+
+Recebemos um pedido para redefinir a senha da sua conta Lojas Schimitz.
+
+Abra o link abaixo em até ${minutes} minutos:
+${ctx.resetUrl}
+
+Se você não pediu isso, ignore este e-mail. Sua senha permanece a mesma.
+`;
+  const html = wrapHtml(
+    'Redefinição de senha',
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>Recebemos um pedido para redefinir a senha da sua conta Lojas Schimitz.</p>
+     <p><a href="${ctx.resetUrl}">Redefinir minha senha</a></p>
+     <p style="font-size:13px;color:#555;">O link expira em ${minutes} minutos. Se você não pediu isso, ignore este e-mail.</p>`,
+  );
+  return { subject, text, html };
+}

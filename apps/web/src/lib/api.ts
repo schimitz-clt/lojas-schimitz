@@ -23,7 +23,9 @@ function isAuthEndpoint(path: string) {
   return (
     path.startsWith('/auth/login') ||
     path.startsWith('/auth/register') ||
-    path.startsWith('/auth/refresh')
+    path.startsWith('/auth/refresh') ||
+    path.startsWith('/auth/forgot-password') ||
+    path.startsWith('/auth/reset-password')
   );
 }
 

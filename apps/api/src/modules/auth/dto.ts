@@ -31,3 +31,19 @@ export class RefreshDto {
   @IsString()
   refreshToken!: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(20)
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, { message: 'Senha deve ter letras e números' })
+  password!: string;
+}

@@ -16,3 +16,10 @@
 - Multi-admin: qualquer `role=admin` + `status=active` acessa o painel; desativar = `status=blocked` (não apaga). Não desativa a si mesmo nem o último admin ativo. Senhas com argon2 (igual ao login).
 - Logs com request-id; sem senha/token
 - HTTPS obrigatório em staging e production
+
+- Password reset: `POST /auth/forgot-password` + `POST /auth/reset-password`.
+  Token opaco (32 bytes hex) enviado por e-mail; no DB só SHA-256.
+  Expira em 1h; uso único; ao resetar, revoga todos os refresh tokens.
+  Resposta de forgot sempre genérica (sem enumerar e-mail).
+  Rate limit: Throttler + contador in-memory (IP/e-mail, janela 15 min).
+  Sem SMTP: token é persistido; em development o MailService registra o link no log da API (não na resposta HTTP).

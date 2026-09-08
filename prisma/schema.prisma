@@ -81,10 +81,11 @@ model User {
   orders          Order[]
   reviews         Review[]
   favorites       Favorite[]
-  refreshTokens   RefreshToken[]
-  cashbackLedger  CashbackLedger[]
-  notifications   Notification[]
-  sellersOwned    Seller[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  cashbackLedger       CashbackLedger[]
+  notifications        Notification[]
+  sellersOwned         Seller[]
 }
 
 model RefreshToken {
@@ -98,6 +99,21 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+/** One-time password reset; store SHA-256(hex) of raw token only — never the raw token. */
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  requestIp String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Address {

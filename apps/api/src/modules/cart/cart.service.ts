@@ -1,11 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { randomUUID } from 'crypto';
 import { AddCartItemDto, UpdateCartItemDto } from './dto';
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   private async resolveCart(userId?: string, guestToken?: string) {
     if (userId) {
@@ -155,5 +155,70 @@ export class CartService {
     const cart = await this.resolveCart(userId, guestToken);
     await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
     return this.getCart(userId, cart.guestToken ?? guestToken);
+  }
+
+  /**
+   * Merge guest cart into the authenticated user cart.
+   * Revalidates product active + available stock; caps qty; drops invalid lines.
+   * Deletes the guest cart afterwards. Idempotent if guest cart missing/empty.
+   */
+  async mergeGuestIntoUser(userId: string, guestToken?: string | null) {
+    const token = (guestToken || '').trim();
+    if (!userId || !token) {
+      return this.getCart(userId);
+    }
+
+    const guestCart = await this.prisma.cart.findFirst({
+      where: { guestToken: token },
+      include: {
+        items: {
+          include: { product: { include: { inventory: true } } },
+        },
+      },
+    });
+    if (!guestCart || guestCart.items.length === 0) {
+      if (guestCart) {
+        await this.prisma.cart.delete({ where: { id: guestCart.id } }).catch(() => undefined);
+      }
+      return this.getCart(userId);
+    }
+
+    // Never merge a cart that already belongs to another user
+    if (guestCart.userId && guestCart.userId !== userId) {
+      return this.getCart(userId);
+    }
+
+    const userCart = await this.resolveCart(userId);
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of guestCart.items) {
+        const product = item.product;
+        if (!product || !product.active) continue;
+        const available = product.inventory
+          ? product.inventory.qtyOnHand - product.inventory.qtyReserved
+          : 0;
+        if (available <= 0) continue;
+
+        const existing = await tx.cartItem.findUnique({
+          where: { cartId_productId: { cartId: userCart.id, productId: item.productId } },
+        });
+        const desired = (existing?.qty || 0) + item.qty;
+        const qty = Math.min(desired, available);
+        if (qty <= 0) continue;
+
+        if (existing) {
+          await tx.cartItem.update({ where: { id: existing.id }, data: { qty } });
+        } else {
+          await tx.cartItem.create({
+            data: { cartId: userCart.id, productId: item.productId, qty },
+          });
+        }
+      }
+
+      await tx.cartItem.deleteMany({ where: { cartId: guestCart.id } });
+      await tx.cart.delete({ where: { id: guestCart.id } });
+    });
+
+    return this.getCart(userId);
   }
 }

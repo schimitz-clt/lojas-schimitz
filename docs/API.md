@@ -13,6 +13,8 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` | público |
 | POST | `/auth/logout` | user |
+| POST | `/auth/forgot-password` body `{ email }` → mensagem genérica (anti-enumeração); token SHA-256 no DB; e-mail SMTP ou log local | público (throttle) |
+| POST | `/auth/reset-password` body `{ token, password }` → invalida refresh + tokens reset | público (throttle) |
 | GET/PATCH | `/me` | user |
 | GET | `/me/loyalty` | user (SCHIMITZ+ saldo + extrato) |
 | GET/POST/PATCH/DELETE | `/me/addresses` | user |

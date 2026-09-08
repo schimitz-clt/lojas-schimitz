@@ -26,6 +26,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
+import { pixChargeAmount, roundMoney } from '../../common/pricing';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -56,6 +57,36 @@ export class PaymentsService {
 
   private isUniqueViolation(e: unknown) {
     return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+  }
+
+  /**
+   * When PIX intent charged 95% of checkout total, fold the 5% into Order.discount/total
+   * so cashback/commission/notifications use the amount actually paid.
+   * Idempotent if totals already match payment amount.
+   */
+  private async applyPixDiscountOnApprove(orderId: string, paidAmount: number) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) return;
+    const currentTotal = roundMoney(Number(order.total));
+    const paid = roundMoney(paidAmount);
+    if (Math.abs(currentTotal - paid) <= 0.009) return;
+    if (paid > currentTotal + 0.009) {
+      this.log.warn(`PIX paid amount > order.total orderId=${orderId} paid=${paid} total=${currentTotal}`);
+      return;
+    }
+    const extra = roundMoney(currentTotal - paid);
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        discount: roundMoney(Number(order.discount) + extra),
+        total: paid,
+      },
+    });
+    await this.audit.log('order.pix_discount_applied', {
+      entity: 'Order',
+      entityId: orderId,
+      meta: { previousTotal: currentTotal, paid, pixDiscount: extra },
+    });
   }
 
   private serializePayment(p: any) {
@@ -182,13 +213,15 @@ export class PaymentsService {
         if (again?.status === 'pending') {
           return again;
         }
+        const chargeAmount =
+          dto.method === 'pix' ? pixChargeAmount(Number(order.total)) : roundMoney(Number(order.total));
         return tx.payment.create({
           data: {
             orderId: order.id,
             provider: this.provider.name === 'null' ? 'null' : 'mercadopago',
             method: dto.method,
             status: 'pending',
-            amount: order.total,
+            amount: chargeAmount,
           },
         });
       });
@@ -227,7 +260,7 @@ export class PaymentsService {
         orderId: order.id,
         publicId: order.publicId,
         method: dto.method,
-        amount: Number(order.total),
+        amount: Number(payment.amount),
         payerEmail: order.user?.email,
         cardToken: dto.cardToken,
         installments: dto.installments,
@@ -542,6 +575,11 @@ export class PaymentsService {
 
       if (payment.order.status !== 'awaiting_payment' && payment.order.status !== 'paid') {
         return { applied: false, reason: 'order_not_awaiting' };
+      }
+
+      // PIX 5%: persist discount on order before cashback/commission (payment.amount is authority)
+      if (payment.method === 'pix') {
+        await this.applyPixDiscountOnApprove(payment.orderId, Number(payment.amount));
       }
 
       // Marca payment approved + tenta paid via CAS (sem throw se perder a corrida)

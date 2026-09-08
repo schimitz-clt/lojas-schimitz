@@ -25,6 +25,8 @@ export default function EntrarPage() {
     try {
       const data = await api<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
       saveSession(data);
+      // Guest cart was merged server-side via x-guest-token; drop local guest id.
+      try { localStorage.removeItem('sch_guest'); } catch { /* ignore */ }
       window.location.href = safeNextPath();
     } catch (e: any) {
       setErr(e.message);
@@ -39,6 +41,7 @@ export default function EntrarPage() {
         <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
         <button className="btn" type="submit">Entrar</button>
+        <Link href="/esqueci-senha">Esqueci minha senha</Link>
         <Link href="/cadastro">Criar conta</Link>
       </form>
     </div>

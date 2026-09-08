@@ -5,6 +5,7 @@ import {
   orderPaidEmail,
   orderReadyForPickupEmail,
   orderShippedEmail,
+  passwordResetEmail,
 } from './mail.templates';
 
 const paid = orderPaidEmail({ publicId: 'SCH-1', total: 10, customerName: 'Ana' });
@@ -36,5 +37,14 @@ assert.ok(adminPaid.subject.includes('SCH-9'));
 assert.ok(adminPaid.text.includes('schimitzclaiton@gmail.com'));
 assert.ok(adminPaid.html.includes('wa.me/5551996253766'));
 assert.ok(adminPaid.html.includes('/admin'));
+
+const reset = passwordResetEmail({
+  customerName: 'Ana',
+  resetUrl: 'http://localhost:3000/redefinir-senha?token=abc',
+  expiresMinutes: 60,
+});
+assert.ok(reset.subject.includes('Redefinição'));
+assert.ok(reset.text.includes('redefinir-senha'));
+assert.ok(reset.html.includes('Ana'));
 
 console.log('mail.service tests ok');

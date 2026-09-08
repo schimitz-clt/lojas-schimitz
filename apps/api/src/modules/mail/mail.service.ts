@@ -9,6 +9,8 @@ import {
   orderShippedEmail,
   orderStatusEmail,
   OrderMailContext,
+  passwordResetEmail,
+  PasswordResetMailContext,
 } from './mail.templates';
 
 @Injectable()
@@ -117,5 +119,18 @@ export class MailService {
   async notifyAdminOrderPaid(to: string, ctx: AdminOrderPaidMailContext) {
     const { subject, text, html } = adminOrderPaidEmail(ctx);
     return this.send(to, subject, text, html);
+  }
+
+  async notifyPasswordReset(to: string, ctx: PasswordResetMailContext) {
+    const { subject, text, html } = passwordResetEmail(ctx);
+    const result = await this.send(to, subject, text, html);
+    // Local/dev: if SMTP is off, log the reset URL so ops can open it manually.
+    // Never put the raw token in API responses or checkpoints.
+    if (!result.sent && result.reason === 'smtp_not_configured') {
+      this.log.warn(
+        `SMTP off — password reset link (local only) for ${to}: ${ctx.resetUrl}`,
+      );
+    }
+    return result;
   }
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 import { api, saveSession } from '@/lib/api';
 
 export default function CadastroPage() {
@@ -15,6 +16,7 @@ export default function CadastroPage() {
     try {
       const data = await api<any>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone: phone.trim() || undefined }) });
       saveSession(data);
+      try { localStorage.removeItem('sch_guest'); } catch { /* ignore */ }
       window.location.href = '/conta';
     } catch (e: any) {
       setErr(e.message);
@@ -31,6 +33,7 @@ export default function CadastroPage() {
         <input type="tel" placeholder="WhatsApp (opcional, com DDD)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <input type="password" placeholder="Senha (mín. 8)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
         <button className="btn" type="submit">Cadastrar</button>
+        <Link href="/entrar">Já tenho conta</Link>
       </form>
     </div>
   );

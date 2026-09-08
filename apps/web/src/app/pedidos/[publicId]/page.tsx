@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { pixPrice } from '@/lib/pricing';
 import { api, brl } from '@/lib/api';
 import {
   FULFILLMENT_STEPS,
@@ -379,7 +380,7 @@ export default function PedidoPage() {
             <h3>Pagamento</h3>
             <p className="muted">Escolha o método: PIX ou cartão.</p>
             <label style={{ display: 'block', marginBottom: 8 }}>
-              <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX
+              <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX (5% off → {brl(pixPrice(o.total))})
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
               <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão
