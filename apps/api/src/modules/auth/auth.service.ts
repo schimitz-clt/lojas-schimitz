@@ -201,6 +201,44 @@ export class AuthService {
     return this.issue(user.id, user.email, user.role, user.name);
   }
 
+  async logoutFlexible(accessToken?: string, refreshToken?: string) {
+    if (accessToken) {
+      try {
+        const payload = await this.jwt.verifyAsync<{ sub: string }>(accessToken, {
+          secret: process.env.JWT_ACCESS_SECRET,
+        });
+        if (payload?.sub) {
+          return this.logout(payload.sub, refreshToken);
+        }
+      } catch {
+        // access expirado — cai no refresh
+      }
+    }
+    if (refreshToken) return this.logoutByRefresh(refreshToken);
+    return { loggedOut: true };
+  }
+
+  /** Revoga pelo refresh (cookie/body) sem exigir access JWT — sessão expirada ainda consegue sair. */
+  async logoutByRefresh(refreshToken: string) {
+    const token = (refreshToken || '').trim();
+    if (!token) return { loggedOut: true };
+    let payload: { sub?: string; jti?: string } | null = null;
+    try {
+      payload = await this.jwt.verifyAsync(token, { secret: process.env.JWT_REFRESH_SECRET });
+    } catch {
+      return { loggedOut: true };
+    }
+    if (!payload?.sub) return { loggedOut: true };
+    const matched = await this.findRefreshRow(payload.sub, token, payload.jti);
+    if (matched && !matched.revokedAt) {
+      await this.prisma.refreshToken.update({
+        where: { id: matched.id },
+        data: { revokedAt: new Date() },
+      });
+    }
+    return { loggedOut: true };
+  }
+
   async logout(userId: string, refreshToken?: string) {
     if (refreshToken) {
       let jti: string | undefined;

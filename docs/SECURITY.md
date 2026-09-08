@@ -41,7 +41,7 @@
   clientes legados, fallback cross-origin). Em paralelo, seta cookie HttpOnly `sch_refresh`
   (`Path=/`, `SameSite` configurável, `Secure` em prod/staging).
 - `POST /auth/refresh` aceita body **ou** cookie (body tem precedência).
-- `POST /auth/logout` limpa o cookie e revoga o refresh (JWT access ainda exigido no guard).
+- `POST /auth/logout` limpa o cookie e revoga o refresh; access JWT é opcional (se expirado, ainda revoga via cookie/body).
 - Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage;
   refresh em localStorage fica como fallback se o cookie cross-site não for enviado.
 - **Limite honesto:** em localhost web:3000 → api:3001 o cookie cross-site pode não colar

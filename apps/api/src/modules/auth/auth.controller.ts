@@ -1,10 +1,8 @@
-import { Body, Controller, Headers, Inject, Logger, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, Inject, Logger, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ok } from '../../common/http';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
 import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
@@ -101,16 +99,20 @@ export class AuthController {
 
   @Post('logout')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Logout / revogar refresh' })
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Logout / revogar refresh',
+    description:
+      'Bearer access opcional. Sem access válido, ainda revoga via cookie/body `refreshToken`.',
+  })
   async logout(
-    @CurrentUser('sub') userId: string,
     @Body() body: { refreshToken?: string },
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const refreshToken = resolveRefreshToken(req, body?.refreshToken);
-    const result = await this.auth.logout(userId, refreshToken);
+    const auth = String(req.headers.authorization || '');
+    const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    const result = await this.auth.logoutFlexible(bearer || undefined, refreshToken);
     clearRefreshCookie(res);
     return ok(result);
   }
