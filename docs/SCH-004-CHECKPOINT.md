@@ -78,4 +78,4 @@ DB: `postgresql://schimitz:***@127.0.0.1:5432/lojas_schimitz_auth` — **nunca R
 | Guest cart merge | CONCLUÍDO |
 | PIX 5% backend | CONCLUÍDO |
 
-SHA: (preencher no commit)
+SHA: `0004f23`
