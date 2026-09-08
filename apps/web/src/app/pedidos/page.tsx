@@ -12,16 +12,27 @@ export default function PedidosPage() {
   }, []);
   return (
     <div style={{ padding: '24px 0' }}>
-      <h1>Pedidos</h1>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>Meus pedidos</h1>
+        <Link className="btn ghost" href="/conta">Voltar à conta</Link>
+      </div>
+      <p className="muted" style={{ marginTop: 0 }}>Acompanhe pagamento, frete e status de cada compra.</p>
       {err ? <div className="alert">{err}</div> : null}
+      {!err && orders.length === 0 ? (
+        <div className="catalog-empty">
+          <p style={{ margin: 0, fontWeight: 700 }}>Você ainda não tem pedidos.</p>
+          <p className="muted" style={{ margin: '8px 0 12px' }}>Explore o catálogo e finalize na sacola.</p>
+          <Link className="btn" href="/produtos">Ver produtos</Link>
+        </div>
+      ) : null}
       {orders.map((o) => (
-        <Link key={o.id} href={`/pedidos/${o.publicId}`} className="card" style={{ display: 'block', marginBottom: 10 }}>
+        <Link key={o.id} href={`/pedidos/${o.publicId}`} className="card order-card" style={{ display: 'block', marginBottom: 10 }}>
           <div className="body row">
             <div>
               <b>{o.publicId}</b>
               <div className="muted">{orderStatusLabel(o.status)}</div>
             </div>
-            <div>{brl(o.total)}</div>
+            <div style={{ fontWeight: 800 }}>{brl(o.total)}</div>
           </div>
         </Link>
       ))}

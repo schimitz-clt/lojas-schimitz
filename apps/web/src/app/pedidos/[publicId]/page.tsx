@@ -132,7 +132,7 @@ function FulfillmentTimeline({
               marginTop: 12,
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid var(--gold)',
+              border: '1px solid var(--primary)',
               background: 'rgba(245, 197, 24, 0.08)',
             }}
           >

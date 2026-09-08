@@ -60,13 +60,16 @@ export default function ContaPage() {
       {user ? <p className="muted">{user.name?.trim() || user.email || 'Conta'} · {user.email} · {user.role}</p> : null}
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
-      <p>
-        <Link href="/pedidos">Meus pedidos</Link> · <Link href="/notificacoes">Notificações</Link> · <Link href="/favoritos">Favoritos</Link> · <Link href="/carrinho">Sacola</Link>
-        {user?.role === 'admin' ? <> · <Link href="/admin">Admin da loja</Link></> : null}
-        {user?.role === 'seller' || user?.role === 'admin' ? <> · <Link href="/vendedor">Portal do vendedor</Link></> : null}
-      </p>
+      <nav className="account-nav" aria-label="Atalhos da conta">
+        <Link href="/pedidos">Meus pedidos</Link>
+        <Link href="/notificacoes">Notificações</Link>
+        <Link href="/favoritos">Favoritos</Link>
+        <Link href="/carrinho">Sacola</Link>
+        {user?.role === 'admin' ? <Link href="/admin">Admin da loja</Link> : null}
+        {user?.role === 'seller' || user?.role === 'admin' ? <Link href="/vendedor">Portal do vendedor</Link> : null}
+      </nav>
 
-      <section className="card" style={{ marginBottom: 24, borderColor: '#f5c518' }}>
+      <section className="card loyalty-card" style={{ marginBottom: 24 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>SCHIMITZ+</h2>
           {loyalty ? (
@@ -83,7 +86,7 @@ export default function ContaPage() {
                   {loyalty.recent.slice(0, 8).map((r) => (
                     <div key={r.id} className="row" style={{ fontSize: 14, marginBottom: 6 }}>
                       <span className="muted">{kindLabel[r.kind] || r.kind}</span>
-                      <span style={{ color: r.kind === 'earn' || r.kind === 'refund' ? '#8f8' : undefined }}>
+                      <span style={{ color: r.kind === 'earn' || r.kind === 'refund' ? 'var(--ok)' : undefined }}>
                         {r.kind === 'redeem' ? '−' : '+'}
                         {brl(r.amount)}
                       </span>

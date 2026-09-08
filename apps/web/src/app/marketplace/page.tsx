@@ -49,7 +49,7 @@ export default function MarketplacePage() {
           </p>
           <p className="muted" style={{ lineHeight: 1.6 }}>
             É vendedor e já tem acesso? Entre no{' '}
-            <Link href="/vendedor" style={{ color: 'var(--gold)' }}>
+            <Link href="/vendedor" style={{ color: 'var(--primary-dark)' }}>
               portal do vendedor
             </Link>
             .
