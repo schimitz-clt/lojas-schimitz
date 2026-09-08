@@ -3,12 +3,21 @@ import {
   NullPaymentProvider,
   nullProviderReset,
   nullProviderSetStatus,
+  isProdLikeEnv,
 } from './payment.provider';
+
+process.env.APP_ENV = 'development';
+process.env.NODE_ENV = 'development';
+process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
+delete process.env.NULL_WEBHOOK_SECRET;
+delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 
 nullProviderReset();
 const p = new NullPaymentProvider();
 
 async function main() {
+  assert.equal(isProdLikeEnv(), false);
+
   const created = await p.createIntent({
     orderId: 'ord-1',
     publicId: 'SCH-TEST',
@@ -53,6 +62,16 @@ async function main() {
     assert.equal(e.status, 401);
   }
   assert.equal(threw, true);
+
+  // Sem ALLOW_NULL_PAYMENT_SIMULATE, body.status NÃO altera store
+  process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'false';
+  nullProviderSetStatus(created.externalId, 'pending', 99.9);
+  await p.verifyWebhook({
+    headers: { 'x-signature': 'null-test-secret', 'x-request-id': 'req-2' },
+    body: { id: 'evt-nosim', data: { id: created.externalId }, status: 'approved', amount: 99.9 },
+  });
+  const still = await p.fetchPayment(created.externalId);
+  assert.equal(still.status, 'pending', 'body.status ignored without ALLOW_NULL_PAYMENT_SIMULATE');
 
   console.log('payment.null provider tests ok');
 }

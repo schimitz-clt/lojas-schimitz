@@ -5,8 +5,8 @@ export class CreatePaymentIntentDto {
   orderId!: string;
 
   @IsString()
-  @IsIn(['pix', 'card', 'boleto', 'wallet'])
-  method!: 'pix' | 'card' | 'boleto' | 'wallet';
+  @IsIn(['pix', 'card'])
+  method!: 'pix' | 'card';
 
   /** Token do Checkout Bricks (somente card). */
   @IsOptional()

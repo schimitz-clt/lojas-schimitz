@@ -41,6 +41,8 @@ type Order = {
 };
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
+/** Dev-only: never enable in production builds. Requires matching ALLOW_NULL_PAYMENT_SIMULATE on API. */
+const ALLOW_PAYMENT_SIMULATE = process.env.NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE === 'true';
 
 function pixQrImageSrc(qrCodeBase64?: string | null): string | null {
   if (!qrCodeBase64) return null;
@@ -287,9 +289,18 @@ export default function PedidoPage() {
   }
 
   async function simulateApprove() {
+    if (!ALLOW_PAYMENT_SIMULATE) {
+      setErr('Simulação desabilitada. Pagamento só confirma via provedor/webhook autenticado.');
+      return;
+    }
     const ext = intent?.payment?.externalId;
     if (!ext) {
       setErr('Intent sem externalId — recarregue a página.');
+      return;
+    }
+    const simSecret = process.env.NEXT_PUBLIC_NULL_WEBHOOK_SECRET || '';
+    if (!simSecret || simSecret.length < 16) {
+      setErr('NEXT_PUBLIC_NULL_WEBHOOK_SECRET ausente/fraco — simulação bloqueada.');
       return;
     }
     setSimulating(true);
@@ -297,7 +308,7 @@ export default function PedidoPage() {
     try {
       await api('/webhooks/mercadopago', {
         method: 'POST',
-        headers: { 'x-signature': 'null-test-secret', 'x-request-id': crypto.randomUUID() },
+        headers: { 'x-signature': simSecret, 'x-request-id': crypto.randomUUID() },
         body: JSON.stringify({
           id: crypto.randomUUID(),
           type: 'payment',
@@ -471,7 +482,7 @@ export default function PedidoPage() {
                 ) : null}
               </div>
             ) : null}
-            {awaiting && intent.payment.status === 'pending' ? (
+            {ALLOW_PAYMENT_SIMULATE && awaiting && intent.payment.status === 'pending' ? (
               <button className="btn" style={{ marginTop: 12 }} disabled={simulating} onClick={simulateApprove}>
                 {simulating ? 'Confirmando...' : 'Simular aprovação (dev / provider null)'}
               </button>

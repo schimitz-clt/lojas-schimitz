@@ -159,8 +159,26 @@ export class NullPaymentProvider implements PaymentProvider {
     };
   }
 
+  private webhookSecret(): string {
+    const configured =
+      process.env.NULL_WEBHOOK_SECRET ||
+      process.env.MERCADO_PAGO_WEBHOOK_SECRET ||
+      process.env.MP_WEBHOOK_SECRET ||
+      '';
+    if (isProdLikeEnv()) {
+      assertStrongWebhookSecret(configured, 'NullPaymentProvider');
+      return configured;
+    }
+    // Dev/test only: fallback known secret for local harnesses. Never in prod/staging.
+    return configured || 'null-test-secret';
+  }
+
   async verifyWebhook(input: VerifyWebhookInput): Promise<VerifiedWebhookEvent> {
-    const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET || 'null-test-secret';
+    const secret = this.webhookSecret();
+    // Força secret forte só em prod/staging; em dev o fallback null-test-secret é intencional.
+    if (isProdLikeEnv()) {
+      assertStrongWebhookSecret(secret, 'NullPaymentProvider');
+    }
     const headers = normalizeHeaders(input.headers);
     const sig = headers['x-signature'] || headers['x-null-signature'] || '';
     // Assinatura obrigatória mesmo no provider null (#9).
@@ -182,8 +200,9 @@ export class NullPaymentProvider implements PaymentProvider {
       err.code = 'WEBHOOK_EVENT_UNPARSEABLE';
       throw err;
     }
-    // Permite simular status via body.status → atualiza store antes do fetch.
-    if (externalId && body.status) {
+    // Simular status via body.status SOMENTE com opt-in explícito e fora de prod (#simulateApprove).
+    // Verdade do pagamento continua vindo de fetchPayment no service — body ≠ verdade em MP real.
+    if (allowNullPaymentSimulate() && externalId && body.status) {
       const translated = this.translateStatus(String(body.status));
       if (translated !== 'unknown') {
         nullProviderSetStatus(externalId, translated, Number(body.amount) || undefined);
@@ -211,7 +230,19 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
   }
 
   private webhookSecret() {
-    return process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || '';
+    const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || '';
+    if (isProdLikeEnv()) {
+      assertStrongWebhookSecret(secret, 'MercadoPagoPaymentProvider');
+    } else if (secret) {
+      // Em dev também recusa secret denylist se configurado (evita deploy acidental fraco).
+      if (WEAK_WEBHOOK_SECRETS.has(secret.toLowerCase())) {
+        const err: any = new Error('Webhook secret inseguro (denylist)');
+        err.status = 401;
+        err.code = 'WEBHOOK_SECRET_INSECURE';
+        throw err;
+      }
+    }
+    return secret;
   }
 
   translateStatus(providerStatus: string): DomainPaymentStatus {
@@ -264,12 +295,24 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       payer: { email: input.payerEmail || 'cliente@lojas-schimitz.test' },
     };
 
+    // Webhook de produção (Railway). Sem isso o MP não notifica a loja.
+    const publicApi = (process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
+    const prefix = (process.env.API_PREFIX || 'api/v1').replace(/^\//, '');
+    if (publicApi) {
+      body.notification_url = `${publicApi}/${prefix}/webhooks/mercadopago`;
+    }
+
     if (input.method === 'pix') {
       body.payment_method_id = 'pix';
       if (input.expiresInSeconds && input.expiresInSeconds > 0) {
-        // date_of_expiration — não ultrapassar reserva local
+        // MP exige yyyy-MM-dd'T'HH:mm:ss.SSSZ com offset (ex: -03:00). ISO com Z puro → HTTP 400.
         const exp = new Date(Date.now() + input.expiresInSeconds * 1000);
-        body.date_of_expiration = exp.toISOString();
+        const pad = (n: number, l = 2) => String(n).padStart(l, '0');
+        // America/Sao_Paulo ≈ UTC-3 (sem DST desde 2019)
+        const sp = new Date(exp.getTime() - 3 * 60 * 60 * 1000);
+        body.date_of_expiration =
+          `${sp.getUTCFullYear()}-${pad(sp.getUTCMonth() + 1)}-${pad(sp.getUTCDate())}` +
+          `T${pad(sp.getUTCHours())}:${pad(sp.getUTCMinutes())}:${pad(sp.getUTCSeconds())}.000-03:00`;
       }
     } else {
       if (!input.cardToken) {
@@ -424,6 +467,43 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
   }
 }
 
+
+const WEAK_WEBHOOK_SECRETS = new Set([
+  '',
+  'null-test-secret',
+  'secret',
+  'test',
+  'changeme',
+  'change-me',
+  'webhook',
+  'webhook-secret',
+  'mp-webhook',
+]);
+
+export function isProdLikeEnv() {
+  const env = String(process.env.APP_ENV || process.env.NODE_ENV || '').toLowerCase();
+  return env === 'production' || env === 'prod' || env === 'staging';
+}
+
+/** Opt-in explícito para body.status no NullPaymentProvider (nunca em prod/staging). */
+export function allowNullPaymentSimulate() {
+  if (isProdLikeEnv()) return false;
+  return process.env.ALLOW_NULL_PAYMENT_SIMULATE === 'true';
+}
+
+export function assertStrongWebhookSecret(secret: string, context: string) {
+  const s = String(secret || '');
+  const weak = !s || s.length < 16 || WEAK_WEBHOOK_SECRETS.has(s.toLowerCase());
+  if (weak) {
+    const err: any = new Error(
+      `Webhook secret ausente/inseguro (${context}). Configure MERCADO_PAGO_WEBHOOK_SECRET com valor forte (≥16 chars).`,
+    );
+    err.status = 401;
+    err.code = 'WEBHOOK_SECRET_INSECURE';
+    throw err;
+  }
+}
+
 function normalizeHeaders(headers: Record<string, string | string[] | undefined>) {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers || {})) {
@@ -448,6 +528,12 @@ export function createPaymentProviderFromEnv(): PaymentProvider {
   const mode = (process.env.PAYMENTS_PROVIDER || 'null').toLowerCase();
   if (mode === 'mercadopago' || mode === 'mp') {
     return new MercadoPagoPaymentProvider();
+  }
+  if (isProdLikeEnv() && process.env.ALLOW_NULL_PROVIDER_IN_PROD !== 'true') {
+    // Não sobe provider null em prod/staging sem override explícito (evita simulateApprove público).
+    throw new Error(
+      'PAYMENTS_PROVIDER=null proibido em production/staging sem ALLOW_NULL_PROVIDER_IN_PROD=true. Configure mercadopago + secrets.',
+    );
   }
   return new NullPaymentProvider();
 }
