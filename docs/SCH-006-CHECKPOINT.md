@@ -84,4 +84,4 @@ Cookie HttpOnly dual-mode (sem quebrar mobile/TWA) → tags OpenAPI → lease `S
 | Frete CEP 91 grátis (código + seed) | CONCLUÍDO |
 | Docs SECURITY/API/DEPLOY | CONCLUÍDO |
 
-SHA: _(preenchido após push)_
+SHA: `856e7a7`
