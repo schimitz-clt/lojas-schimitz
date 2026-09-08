@@ -86,4 +86,4 @@ DB: `postgresql://schimitz:***@127.0.0.1:5432/lojas_schimitz_sch005` — **nunca
 | IDOR payments 404 | CONCLUÍDO |
 | Docs + testes locais | CONCLUÍDO |
 
-SHA: _(preenchido após push)_
+SHA: `601ee9a`
