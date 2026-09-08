@@ -21,6 +21,66 @@ const RESET_MAX_PER_EMAIL = 3;
 const RESET_MAX_PER_IP = 8;
 const RESET_WINDOW_MS = 15 * 60 * 1000;
 
+
+const PRODUCTION_SITE_FALLBACK = 'https://lojasschimitz.com.br';
+
+/**
+ * Canonical public web origin for password-reset (and similar) links.
+ * Prefers NEXT_PUBLIC_SITE_URL → PUBLIC_WEB_URL → first CORS_ORIGINS entry.
+ * In production, rejects empty / "null" / "undefined" / localhost → fallback.
+ */
+export function resolveSiteUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const candidates = [
+    env.NEXT_PUBLIC_SITE_URL,
+    env.PUBLIC_WEB_URL,
+    ...(env.CORS_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ];
+
+  const isProd = (env.NODE_ENV || '').toLowerCase() === 'production';
+
+  for (const raw of candidates) {
+    const cleaned = sanitizeSiteCandidate(raw);
+    if (!cleaned) continue;
+    if (isProd && isLocalOrInvalidHost(cleaned)) continue;
+    return cleaned;
+  }
+
+  if (isProd) return PRODUCTION_SITE_FALLBACK;
+  return 'http://localhost:3000';
+}
+
+function sanitizeSiteCandidate(raw: string | undefined | null): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim().replace(/\/$/, '');
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  if (lower === 'null' || lower === 'undefined') return null;
+  return s;
+}
+
+function isLocalOrInvalidHost(site: string): boolean {
+  const lower = site.toLowerCase();
+  if (lower.includes('localhost') || lower.includes('127.0.0.1') || lower.includes('[::1]')) {
+    return true;
+  }
+  // Bare scheme or scheme-only leftovers
+  if (lower === 'http:' || lower === 'https:' || lower === 'http://' || lower === 'https://') {
+    return true;
+  }
+  try {
+    const u = new URL(site.includes('://') ? site : `https://${site}`);
+    const host = (u.hostname || '').toLowerCase();
+    if (!host || host === 'null' || host === 'undefined') return true;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 @Injectable()
 export class AuthService {
   private readonly log = new Logger(AuthService.name);
@@ -113,10 +173,7 @@ export class AuthService {
       },
     });
 
-    const site = (process.env.NEXT_PUBLIC_SITE_URL || process.env.PUBLIC_WEB_URL || 'http://localhost:3000').replace(
-      /\/$/,
-      '',
-    );
+    const site = resolveSiteUrl();
     const resetUrl = `${site}/redefinir-senha?token=${encodeURIComponent(rawToken)}`;
 
     await this.mail.notifyPasswordReset(user.email, {
