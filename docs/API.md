@@ -71,3 +71,14 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | PATCH | `/admin/commissions/:id/approve` body `{ note? }` | admin (pending → approved) |
 | PATCH | `/admin/commissions/:id/paid` body `{ payoutReference?, note? }` | admin (pending/approved → paid; PIX ref manual) |
 | GET | `/admin/commissions/export` `?sellerId=&status=` → `{ csv, filename, count }` | admin |
+
+| GET | `/admin/customers` `?q=&take=&skip=` → `{ items, total, take, skip }` (CRM read-only) | admin |
+| GET | `/admin/customers/:id` → cliente + pedidos recentes (sem passwordHash) | admin |
+
+## OpenAPI / Swagger
+
+- UI: `GET /api/v1/docs` (quando habilitado)
+- Default: **ligado** em development/test; **desligado** em production/staging
+- Override: `SWAGGER_ENABLED=true|false`
+- Documenta auth, orders, payments, addresses, admin, webhooks, health
+- Não embute JWT/SMTP/MP secrets no schema

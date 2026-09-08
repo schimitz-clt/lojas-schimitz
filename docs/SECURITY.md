@@ -23,3 +23,12 @@
   Resposta de forgot sempre genérica (sem enumerar e-mail).
   Rate limit: Throttler + contador in-memory (IP/e-mail, janela 15 min).
   Sem SMTP: token é persistido; em development o MailService registra o link no log da API (não na resposta HTTP).
+
+
+## SCH-005
+
+- OpenAPI/Swagger: default OFF em production/staging; `SWAGGER_ENABLED` sobrescreve. Sem secrets no documento.
+- Pagamentos: `allowNullPaymentSimulate()` sempre false em prod/staging; null provider exige `ALLOW_NULL_PROVIDER_IN_PROD=true`.
+- IDOR: `createIntent` / `getPayment` de outro usuário → **404** (não 403) — evita enumeração.
+- Addresses/orders já filtrados por `userId`; mutações de endereço com Throttle.
+- Admin CRM clientes: somente leitura (`GET /admin/customers`); role=customer only.

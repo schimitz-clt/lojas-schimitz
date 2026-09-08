@@ -4,6 +4,7 @@ import { AdminController } from './admin.controller';
 import { AdminProductsService } from './admin-products.service';
 import { AdminSalesReportService } from './admin-sales-report.service';
 import { AdminUsersService } from './admin-users.service';
+import { AdminCustomersService } from './admin-customers.service';
 import { OrdersModule } from '../orders/orders.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { CouponsModule } from '../coupons/coupons.module';
@@ -26,6 +27,6 @@ import { CommissionsModule } from '../commissions/commissions.module';
     CommissionsModule,
   ],
   controllers: [AdminController],
-  providers: [AdminProductsService, AdminSalesReportService, AdminUsersService],
+  providers: [AdminProductsService, AdminSalesReportService, AdminUsersService, AdminCustomersService],
 })
 export class AdminModule {}

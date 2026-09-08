@@ -1,4 +1,5 @@
 import { Body, Controller, Headers, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ok } from '../../common/http';
@@ -16,6 +17,7 @@ function clientIp(req: Request): string {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   private readonly log = new Logger(AuthController.name);
@@ -35,6 +37,8 @@ export class AuthController {
   }
 
   @Post('register')
+  @ApiOperation({ summary: 'Registrar cliente' })
+  @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
   async register(
     @Body() dto: RegisterDto,
@@ -47,6 +51,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @ApiOperation({ summary: 'Login' })
+  @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
   async login(
     @Body() dto: LoginDto,
@@ -59,24 +65,29 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiOperation({ summary: 'Renovar access token' })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async refresh(@Body() dto: RefreshDto) {
     return ok(await this.auth.refresh(dto));
   }
 
   @Post('logout')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout / revogar refresh' })
   @UseGuards(JwtAuthGuard)
   async logout(@CurrentUser('sub') userId: string, @Body() body: { refreshToken?: string }) {
     return ok(await this.auth.logout(userId, body?.refreshToken));
   }
 
   @Post('forgot-password')
+  @ApiOperation({ summary: 'Solicitar reset de senha (resposta genérica)' })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
     return ok(await this.auth.forgotPassword(dto.email, clientIp(req)));
   }
 
   @Post('reset-password')
+  @ApiOperation({ summary: 'Redefinir senha com token' })
   @Throttle({ default: { limit: 8, ttl: 60000 } })
   async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return ok(await this.auth.resetPassword(dto.token, dto.password, clientIp(req)));

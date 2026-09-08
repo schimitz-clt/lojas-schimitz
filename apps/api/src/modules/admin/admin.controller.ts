@@ -14,6 +14,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Request } from 'express';
@@ -29,6 +30,7 @@ import { AdminUpdateOrderStatusDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
 import { AdminSalesReportService } from './admin-sales-report.service';
 import { AdminUsersService } from './admin-users.service';
+import { AdminCustomersService } from './admin-customers.service';
 import {
   AdminCreateCouponDto,
   AdminCreateProductDto,
@@ -51,6 +53,7 @@ import {
   AdminUpdateSellerOwnerDto,
   AdminApproveCommissionDto,
   AdminMarkCommissionPaidDto,
+  AdminCustomersQueryDto,
 } from './dto';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -65,6 +68,8 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 
+@ApiTags('admin')
+@ApiBearerAuth('access-token')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -82,6 +87,7 @@ export class AdminController {
     private readonly adminUsers: AdminUsersService,
     private readonly sellers: SellersService,
     private readonly commissions: CommissionsService,
+    private readonly adminCustomers: AdminCustomersService,
   ) {}
 
 
@@ -102,6 +108,18 @@ export class AdminController {
     @Body() dto: AdminUpdateAdminStatusDto,
   ) {
     return ok(await this.adminUsers.setStatus(actorId, id, dto.status));
+  }
+
+  @Get('customers')
+  @ApiOperation({ summary: 'Listar clientes (CRM read-only) com contagem/total pago' })
+  async listCustomers(@Query() query: AdminCustomersQueryDto) {
+    return ok(await this.adminCustomers.list(query));
+  }
+
+  @Get('customers/:id')
+  @ApiOperation({ summary: 'Detalhe do cliente + pedidos recentes (read-only)' })
+  async getCustomer(@Param('id') id: string) {
+    return ok(await this.adminCustomers.getById(id));
   }
 
   @Get('reports/sales')

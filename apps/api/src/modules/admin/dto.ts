@@ -546,3 +546,24 @@ export class AdminMarkCommissionPaidDto {
   @MaxLength(500)
   note?: string;
 }
+
+
+/** Query GET /admin/customers?q=&take=&skip= — CRM read-only */
+export class AdminCustomersQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  take?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  skip?: number;
+}

@@ -42,6 +42,34 @@ type AdminCommission = {
   orderItem: { id: string; name: string; qty: number; unitPrice: number };
 };
 
+type AdminCustomerListItem = {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  status: string;
+  createdAt: string;
+  ordersCount: number;
+  paidOrdersCount: number;
+  paidTotal: number;
+  lastPaidAt?: string | null;
+};
+
+type AdminCustomerDetail = AdminCustomerListItem & {
+  cashbackBalance: number;
+  addressesCount: number;
+  orders: {
+    id: string;
+    publicId: string;
+    status: string;
+    total: number;
+    discount: number;
+    freight: number;
+    createdAt: string;
+    items: { name: string; qty: number; unitPrice: number }[];
+  }[];
+};
+
 type Category = { id: string; name: string; slug: string };
 
 type AdminProduct = {
@@ -373,6 +401,12 @@ export default function AdminPage() {
   const [sellerForm, setSellerForm] = useState({ name: '', slug: '', status: 'pending' as 'pending' | 'active' | 'suspended' });
   const [savingSeller, setSavingSeller] = useState(false);
   const [sellerBusyId, setSellerBusyId] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<AdminCustomerListItem[]>([]);
+  const [customersTotal, setCustomersTotal] = useState(0);
+  const [customerQ, setCustomerQ] = useState('');
+  const [customerBusy, setCustomerBusy] = useState(false);
+  const [customerDetail, setCustomerDetail] = useState<AdminCustomerDetail | null>(null);
+  const [customerDetailBusy, setCustomerDetailBusy] = useState(false);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -430,6 +464,44 @@ export default function AdminPage() {
       });
   }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
 
+  const loadCustomers = useCallback(async (q = customerQ) => {
+    const u = currentUser();
+    if (!u || u.role !== 'admin') return;
+    setCustomerBusy(true);
+    try {
+      const qs = new URLSearchParams();
+      if (q.trim()) qs.set('q', q.trim());
+      qs.set('take', '50');
+      const data = await api<{ items: AdminCustomerListItem[]; total: number }>(
+        `/admin/customers?${qs.toString()}`,
+      );
+      setCustomers(data.items || []);
+      setCustomersTotal(data.total || 0);
+    } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
+      setErr(e.message || 'Falha ao carregar clientes');
+    } finally {
+      setCustomerBusy(false);
+    }
+  }, [customerQ]);
+
+  async function openCustomer(id: string) {
+    setCustomerDetailBusy(true);
+    setErr('');
+    try {
+      const data = await api<AdminCustomerDetail>(`/admin/customers/${id}`);
+      setCustomerDetail(data);
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao abrir cliente');
+    } finally {
+      setCustomerDetailBusy(false);
+    }
+  }
+
 
   const loadSalesReport = useCallback(async (from = salesFrom, to = salesTo) => {
     const u = currentUser();
@@ -461,6 +533,10 @@ export default function AdminPage() {
     void loadSalesReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    void loadCustomers();
+  }, [loadCustomers]);
 
   const editingLabel = useMemo(
     () => (editingId ? 'Editar produto' : 'Cadastrar produto'),
@@ -1287,6 +1363,144 @@ export default function AdminPage() {
         </div>
       </section>
 
+
+      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 20 }}>Clientes (CRM)</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Lista somente leitura: clientes com pedidos, total pago e histórico recente. Sem edição/exclusão.
+          </p>
+          <form
+            className="row"
+            style={{ gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-end' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void loadCustomers(customerQ);
+            }}
+          >
+            <label style={{ flex: 1, minWidth: 200 }}>
+              Buscar (nome, e-mail ou telefone)
+              <input
+                value={customerQ}
+                onChange={(e) => setCustomerQ(e.target.value)}
+                placeholder="Ex.: Maria ou 5199…"
+              />
+            </label>
+            <button className="btn" type="submit" disabled={customerBusy}>
+              {customerBusy ? 'Buscando…' : 'Buscar'}
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={customerBusy}
+              onClick={() => {
+                setCustomerQ('');
+                void loadCustomers('');
+              }}
+            >
+              Limpar
+            </button>
+          </form>
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            {customersTotal} cliente(s) · mostrando {customers.length}
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {customers.map((c) => (
+              <div
+                key={c.id}
+                className="row"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <b>{c.name}</b>{' '}
+                  {c.status !== 'active' ? <span className="badge">Bloqueado</span> : null}
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {c.email}
+                    {c.phone ? ` · ${c.phone}` : ''}
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {c.ordersCount} pedido(s) · pagos {c.paidOrdersCount} · {brl(c.paidTotal)}
+                    {c.lastPaidAt
+                      ? ` · último ${new Date(c.lastPaidAt).toLocaleDateString('pt-BR')}`
+                      : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={customerDetailBusy}
+                  onClick={() => void openCustomer(c.id)}
+                >
+                  Ver pedidos
+                </button>
+              </div>
+            ))}
+            {!customers.length ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Nenhum cliente encontrado.
+              </p>
+            ) : null}
+          </div>
+          {customerDetail ? (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 10,
+                border: '1px solid var(--line)',
+                background: 'var(--card, var(--bg))',
+              }}
+            >
+              <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: 16 }}>
+                  {customerDetail.name}{' '}
+                  <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+                    {customerDetail.email}
+                  </span>
+                </h3>
+                <button type="button" className="btn ghost" onClick={() => setCustomerDetail(null)}>
+                  Fechar
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: 13 }}>
+                SCHIMITZ+ {brl(customerDetail.cashbackBalance)} · {customerDetail.addressesCount}{' '}
+                endereço(s) · total pago {brl(customerDetail.paidTotal)}
+              </p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {customerDetail.orders.map((o) => (
+                  <div
+                    key={o.id}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: '1px solid var(--line)',
+                      fontSize: 13,
+                    }}
+                  >
+                    <b>{o.publicId}</b> · {orderStatusLabel(o.status)} · {brl(o.total)} ·{' '}
+                    {new Date(o.createdAt).toLocaleString('pt-BR')}
+                    <div className="muted">
+                      {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ')}
+                    </div>
+                  </div>
+                ))}
+                {!customerDetail.orders.length ? (
+                  <p className="muted" style={{ margin: 0 }}>
+                    Sem pedidos.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">

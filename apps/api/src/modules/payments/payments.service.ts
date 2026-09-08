@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -133,7 +132,8 @@ export class PaymentsService {
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     if (order.userId !== userId) {
-      throw new ForbiddenException({ message: 'Pedido de outro usuário', code: 'ORDER_FORBIDDEN' });
+      // IDOR: não revelar existência — mesmo 404 de pedido inexistente
+      throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     }
     if (order.status !== 'awaiting_payment') {
       throw new BadRequestException({
@@ -352,7 +352,8 @@ export class PaymentsService {
     });
     if (!payment) throw new NotFoundException({ message: 'Pagamento não encontrado', code: 'PAYMENT_NOT_FOUND' });
     if (payment.order.userId !== userId) {
-      throw new ForbiddenException({ message: 'Pagamento de outro usuário', code: 'PAYMENT_FORBIDDEN' });
+      // IDOR: não revelar existência
+      throw new NotFoundException({ message: 'Pagamento não encontrado', code: 'PAYMENT_NOT_FOUND' });
     }
     return {
       payment: this.serializePayment(payment),

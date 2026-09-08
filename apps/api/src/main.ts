@@ -6,15 +6,19 @@ import helmet from 'helmet';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { setupSwagger, shouldEnableSwagger } from './common/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const prefix = process.env.API_PREFIX || 'api/v1';
   app.setGlobalPrefix(prefix);
+  const swaggerOn = shouldEnableSwagger();
   // Storefront (outra origem) precisa carregar imagens da API
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      // Swagger UI usa inline assets; desliga CSP só quando docs estão ativos
+      contentSecurityPolicy: swaggerOn ? false : undefined,
     }),
   );
   const origins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
@@ -42,6 +46,8 @@ async function bootstrap() {
 
   // Railway / proxies
   app.set('trust proxy', 1);
+
+  setupSwagger(app, prefix);
 
   const port = Number(process.env.PORT || 3001);
   await app.listen(port);
