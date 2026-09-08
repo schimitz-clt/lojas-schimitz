@@ -171,9 +171,11 @@ export class AuthService {
   }
 
   async refresh(dto: RefreshDto) {
+    const refreshToken = (dto.refreshToken || '').trim();
+    if (!refreshToken) throw new UnauthorizedException('Refresh token inválido');
     let payload: { sub: string; typ?: string; jti?: string };
     try {
-      payload = await this.jwt.verifyAsync(dto.refreshToken, {
+      payload = await this.jwt.verifyAsync(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
     } catch {
@@ -181,7 +183,7 @@ export class AuthService {
     }
     if (payload.typ !== 'refresh') throw new UnauthorizedException('Refresh token inválido');
 
-    const matched = await this.findRefreshRow(payload.sub, dto.refreshToken, payload.jti);
+    const matched = await this.findRefreshRow(payload.sub, refreshToken, payload.jti);
     if (!matched || matched.revokedAt || matched.expiresAt <= new Date()) {
       throw new UnauthorizedException('Refresh token inválido, expirado ou revogado');
     }

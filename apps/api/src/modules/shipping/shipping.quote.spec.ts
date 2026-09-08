@@ -90,4 +90,27 @@ const tie = pickCepRule('89000', [
 ]);
 assert(tie?.fee === 2, 'higher sortOrder on same length');
 
+
+const poaRules = [
+  { cepPrefix: '90', fee: 0, estimatedDays: 1, label: 'Porto Alegre (90) — frete grátis', sortOrder: 10 },
+  { cepPrefix: '91', fee: 0, estimatedDays: 1, label: 'Porto Alegre (91) — frete grátis', sortOrder: 10 },
+];
+const q91 = computeShippingQuote({
+  cep: '91160-390',
+  subtotal: 50,
+  settings: { freeAbove: 299, defaultFee: 29.9, defaultDays: 5 },
+  rules: poaRules,
+});
+assert(q91.price === 0, `CEP 91 free got ${q91.price}`);
+assert(q91.matchedPrefix === '91', `matched 91 got ${q91.matchedPrefix}`);
+assert((q91.label || '').includes('91'), `label 91 got ${q91.label}`);
+
+const q91250 = computeShippingQuote({
+  cep: '91250000',
+  subtotal: 10,
+  settings: { freeAbove: 299, defaultFee: 29.9, defaultDays: 5 },
+  rules: poaRules,
+});
+assert(q91250.price === 0, 'warehouse CEP 91250 free');
+
 console.log('shipping.quote.spec.ts OK');

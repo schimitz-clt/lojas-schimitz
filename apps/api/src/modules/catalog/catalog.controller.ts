@@ -1,4 +1,5 @@
 import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
 import { serializePublicProduct, serializePublicProducts } from './product.serialize';
@@ -10,11 +11,13 @@ import {
   parseSort,
 } from './catalog.query';
 
+@ApiTags('catalog')
 @Controller()
 export class CatalogController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('categories')
+  @ApiOperation({ summary: 'Listar categorias ativas' })
   async categories() {
     const data = await this.prisma.category.findMany({
       where: { active: true },
@@ -24,6 +27,7 @@ export class CatalogController {
   }
 
   @Get('products')
+  @ApiOperation({ summary: 'Listar produtos (filtros q/category/price/sort)' })
   async products(
     @Query('q') q?: string,
     @Query('category') category?: string,
@@ -65,6 +69,7 @@ export class CatalogController {
   }
 
   @Get('products/:slug')
+  @ApiOperation({ summary: 'Detalhe do produto por slug' })
   async product(@Param('slug') slug: string) {
     const data = await this.prisma.product.findUnique({
       where: { slug },

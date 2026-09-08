@@ -11,7 +11,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/health` | público |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
-| POST | `/auth/refresh` | público |
+| POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |
 | POST | `/auth/logout` | user |
 | POST | `/auth/forgot-password` body `{ email }` → mensagem genérica (anti-enumeração); token SHA-256 no DB; e-mail SMTP ou log local | público (throttle) |
 | POST | `/auth/reset-password` body `{ token, password }` → invalida refresh + tokens reset | público (throttle) |
@@ -80,5 +80,13 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 - UI: `GET /api/v1/docs` (quando habilitado)
 - Default: **ligado** em development/test; **desligado** em production/staging
 - Override: `SWAGGER_ENABLED=true|false`
-- Documenta auth, orders, payments, addresses, admin, webhooks, health
+- Documenta auth, catalog, cart, shipping, orders, payments, addresses, admin, webhooks, health
 - Não embute JWT/SMTP/MP secrets no schema
+
+
+## Sessão / cookies (SCH-006)
+
+- Login/register/refresh: `Set-Cookie: sch_refresh=...; HttpOnly; Path=/; SameSite=...`
+- Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
+- Access token continua no header `Authorization: Bearer`.
+- Resposta JSON ainda inclui `refreshToken` (compat mobile/legado).

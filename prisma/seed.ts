@@ -221,6 +221,7 @@ async function main() {
   });
 
 
+
   await prisma.shippingSettings.upsert({
     where: { id: 'default' },
     update: {},
@@ -231,6 +232,26 @@ async function main() {
       defaultDays: 5,
     },
   });
+
+  for (const d of [
+    { cepPrefix: '90', label: 'Porto Alegre (90) — frete grátis' },
+    { cepPrefix: '91', label: 'Porto Alegre (91) — frete grátis' },
+  ] as const) {
+    const exists = await prisma.shippingCepRule.findFirst({ where: { cepPrefix: d.cepPrefix } });
+    if (!exists) {
+      await prisma.shippingCepRule.create({
+        data: {
+          cepPrefix: d.cepPrefix,
+          fee: 0,
+          estimatedDays: 1,
+          label: d.label,
+          active: true,
+          sortOrder: 10,
+        },
+      });
+    }
+  }
+
 
   console.log('Seed SCH-001 concluído.');
 }

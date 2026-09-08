@@ -90,3 +90,14 @@ abrem `wa.me` com a mensagem pronta. Detalhes: `docs/WHATSAPP.md`.
 No servico da API (opcional): OPENAI_API_KEY ou CHAT_API_KEY, CHAT_API_BASE, CHAT_MODEL.
 Sem chave o widget continua: FAQ das politicas + link WhatsApp.
 Rate limit proprio 20/min. Ver docs/CHAT.md.
+
+
+## Verificação SMTP / notificações (OWNER)
+
+Checklist manual (não automatizado nesta sessão):
+
+1. Railway API: `SMTP_HOST`, `SMTP_PORT` (587 ou 465), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` reais.
+2. `POST /auth/forgot-password` com e-mail de teste → mensagem genérica na API; e-mail chega ou link no log se SMTP off.
+3. Pedido pago (null simulate local ou PIX live autorizado) → e-mail cliente + aviso admin (`STORE_NOTIFY_EMAIL`).
+4. Sem `OPENAI_API_KEY` o chat usa FAQ; billing OpenAI é OWNER.
+5. Fotos de produto reais e Play Console / assetlinks: OWNER.

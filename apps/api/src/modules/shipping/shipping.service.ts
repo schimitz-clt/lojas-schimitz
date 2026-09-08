@@ -89,15 +89,45 @@ export class ShippingService implements ShippingProvider {
 
   async ensureSettings() {
     const existing = await this.prisma.shippingSettings.findUnique({ where: { id: 'default' } });
-    if (existing) return existing;
-    return this.prisma.shippingSettings.create({
-      data: {
-        id: 'default',
-        freeAbove: new Decimal(DEFAULT_SHIPPING_SETTINGS.freeAbove),
-        defaultFee: new Decimal(DEFAULT_SHIPPING_SETTINGS.defaultFee),
-        defaultDays: DEFAULT_SHIPPING_SETTINGS.defaultDays,
-      },
-    });
+    const settings =
+      existing ??
+      (await this.prisma.shippingSettings.create({
+        data: {
+          id: 'default',
+          freeAbove: new Decimal(DEFAULT_SHIPPING_SETTINGS.freeAbove),
+          defaultFee: new Decimal(DEFAULT_SHIPPING_SETTINGS.defaultFee),
+          defaultDays: DEFAULT_SHIPPING_SETTINGS.defaultDays,
+        },
+      }));
+    await this.ensureDefaultPoaRules();
+    return settings;
+  }
+
+  /**
+   * Porto Alegre usa CEPs 90xxx e 91xxx (ex.: 91160-390, warehouse origin-91250).
+   * Idempotente: só cria prefixo ausente — não sobrescreve regras admin.
+   */
+  async ensureDefaultPoaRules() {
+    const defaults: { cepPrefix: string; label: string }[] = [
+      { cepPrefix: '90', label: 'Porto Alegre (90) — frete grátis' },
+      { cepPrefix: '91', label: 'Porto Alegre (91) — frete grátis' },
+    ];
+    for (const d of defaults) {
+      const found = await this.prisma.shippingCepRule.findFirst({
+        where: { cepPrefix: d.cepPrefix },
+      });
+      if (found) continue;
+      await this.prisma.shippingCepRule.create({
+        data: {
+          cepPrefix: d.cepPrefix,
+          fee: new Decimal(0),
+          estimatedDays: 1,
+          label: d.label,
+          active: true,
+          sortOrder: 10,
+        },
+      });
+    }
   }
 
   async quote(input: ShippingQuoteInput): Promise<ShippingQuote> {

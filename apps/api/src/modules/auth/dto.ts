@@ -35,9 +35,13 @@ export class LoginDto {
 }
 
 export class RefreshDto {
-  @ApiProperty({ description: 'Refresh token opaco' })
+  @ApiPropertyOptional({
+    description:
+      'Refresh token (legado/mobile). Opcional se o cookie HttpOnly `sch_refresh` estiver presente.',
+  })
+  @IsOptional()
   @IsString()
-  refreshToken!: string;
+  refreshToken?: string;
 }
 
 export class ForgotPasswordDto {

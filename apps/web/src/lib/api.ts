@@ -73,13 +73,17 @@ async function tryRefreshSession(): Promise<boolean> {
 
   refreshInFlight = (async () => {
     const refreshToken = localStorage.getItem('sch_refresh');
-    if (!refreshToken) return false;
+    // Cookie HttpOnly pode bastar (credentials); body cobre cross-origin / legado.
+    if (!refreshToken) {
+      // ainda tenta via cookie-only
+    }
     try {
       const res = await fetch(`${API}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
         cache: 'no-store',
+        credentials: 'include',
       });
       const json = (await res.json()) as ApiOk<SessionPayload> | ApiFail;
       if (!json.ok || !json.data?.accessToken) return false;
@@ -124,7 +128,7 @@ function buildJsonHeaders(init: RequestInit = {}): Record<string, string> {
 
 export async function api<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
   const headers = buildJsonHeaders(init);
-  const res = await fetch(`${API}${path}`, { ...init, headers, cache: 'no-store' });
+  const res = await fetch(`${API}${path}`, { ...init, headers, cache: 'no-store', credentials: 'include' });
   const json = (await res.json()) as ApiOk<T> | ApiFail;
 
   const failMsg = !json.ok ? json.error.message || 'Erro na API' : 'Token inválido';
@@ -149,6 +153,7 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
     headers,
     body: formData,
     cache: 'no-store',
+    credentials: 'include',
   });
   const json = (await res.json()) as ApiOk<T> | ApiFail;
 
@@ -166,16 +171,37 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
   return json.data;
 }
 
+/**
+ * Access (curto) + user em localStorage.
+ * Refresh: ainda gravamos em localStorage como fallback cross-origin / TWA;
+ * a API também seta cookie HttpOnly `sch_refresh` (credentials: include).
+ */
 export function saveSession(data: { accessToken: string; refreshToken: string; user: unknown }) {
   localStorage.setItem('sch_access', data.accessToken);
-  localStorage.setItem('sch_refresh', data.refreshToken);
+  if (data.refreshToken) localStorage.setItem('sch_refresh', data.refreshToken);
   localStorage.setItem('sch_user', JSON.stringify(data.user));
 }
 
 export function clearSession() {
+  if (typeof window === 'undefined') return;
+  const refreshToken = localStorage.getItem('sch_refresh') || '';
+  const access = localStorage.getItem('sch_access') || '';
   localStorage.removeItem('sch_access');
   localStorage.removeItem('sch_refresh');
   localStorage.removeItem('sch_user');
+  // Best-effort: revoga refresh (cookie e/ou body) sem bloquear UI
+  if (access || refreshToken) {
+    void fetch(`${API}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(access ? { Authorization: `Bearer ${access}` } : {}),
+      },
+      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+      cache: 'no-store',
+      credentials: 'include',
+    }).catch(() => undefined);
+  }
 }
 
 export type SessionUser = { id: string; name: string; email: string; role: string };

@@ -39,7 +39,7 @@ export function setupSwagger(app: INestApplication, apiPrefix: string) {
         '**Não** documenta nem expõe JWT secrets, SMTP, tokens MP ou webhooks secrets.',
       ].join('\n\n'),
     )
-    .setVersion('0.5.0')
+    .setVersion('0.6.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Access token JWT' },
       'access-token',
@@ -53,7 +53,10 @@ export function setupSwagger(app: INestApplication, apiPrefix: string) {
       'idempotency-key',
     )
     .addTag('health', 'Healthcheck')
-    .addTag('auth', 'Registro, login, refresh, logout, reset de senha')
+    .addTag('auth', 'Registro, login, refresh (cookie HttpOnly + body), logout, reset de senha')
+    .addTag('catalog', 'Categorias e produtos públicos')
+    .addTag('cart', 'Carrinho user/guest')
+    .addTag('shipping', 'Cotação de frete própria')
     .addTag('orders', 'Pedidos do cliente autenticado')
     .addTag('payments', 'Intents PIX/cartão + consulta')
     .addTag('addresses', 'Endereços do usuário (/me/addresses)')

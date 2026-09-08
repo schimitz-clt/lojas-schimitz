@@ -32,3 +32,26 @@
 - IDOR: `createIntent` / `getPayment` de outro usuário → **404** (não 403) — evita enumeração.
 - Addresses/orders já filtrados por `userId`; mutações de endereço com Throttle.
 - Admin CRM clientes: somente leitura (`GET /admin/customers`); role=customer only.
+
+
+## SCH-006 — Sessão (refresh cookie) + jobs multi-réplica
+
+### Refresh token
+- **Modo dual (intencional):** a API continua devolvendo `refreshToken` no JSON (mobile TWA,
+  clientes legados, fallback cross-origin). Em paralelo, seta cookie HttpOnly `sch_refresh`
+  (`Path=/`, `SameSite` configurável, `Secure` em prod/staging).
+- `POST /auth/refresh` aceita body **ou** cookie (body tem precedência).
+- `POST /auth/logout` limpa o cookie e revoga o refresh (JWT access ainda exigido no guard).
+- Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage;
+  refresh em localStorage fica como fallback se o cookie cross-site não for enviado.
+- **Limite honesto:** em localhost web:3000 → api:3001 o cookie cross-site pode não colar
+  sem HTTPS + `SameSite=None`. Em produção use domínio compartilhado
+  (`REFRESH_COOKIE_DOMAIN=.lojasschimitz.com.br`) ou proxy same-site.
+- Env: `REFRESH_COOKIE_ENABLED` (default true), `REFRESH_COOKIE_NAME`, `REFRESH_COOKIE_SECURE`,
+  `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_DOMAIN`, `REFRESH_COOKIE_MAX_AGE_SEC`.
+
+### expireReservations multi-réplica
+- Job ainda é `setInterval` in-process (cada réplica agenda).
+- Transições de pedido já são DB-safe (UPDATE condicional `awaiting_payment`).
+- SCH-006: lease em tabela `SchedulerLock` (CREATE IF NOT EXISTS) para só uma réplica
+  executar o ciclo — evita `cancelIntent`/logs duplicados. Sem Redis.

@@ -1,13 +1,18 @@
-import { Body, Controller, Headers, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, Inject, Logger, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { ok } from '../../common/http';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
 import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
+import {
+  clearRefreshCookie,
+  resolveRefreshToken,
+  setRefreshCookie,
+} from './refresh-cookie';
 
 function clientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -36,6 +41,10 @@ export class AuthController {
     }
   }
 
+  private attachRefreshCookie(res: Response, tokens: { refreshToken: string }) {
+    setRefreshCookie(res, tokens.refreshToken);
+  }
+
   @Post('register')
   @ApiOperation({ summary: 'Registrar cliente' })
   @ApiSecurity('guest-token')
@@ -43,10 +52,12 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     const tokens = await this.auth.register(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
+    this.attachRefreshCookie(res, tokens);
     return ok(tokens);
   }
 
@@ -57,26 +68,51 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     const tokens = await this.auth.login(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
+    this.attachRefreshCookie(res, tokens);
     return ok(tokens);
   }
 
   @Post('refresh')
-  @ApiOperation({ summary: 'Renovar access token' })
+  @ApiOperation({
+    summary: 'Renovar access token',
+    description:
+      'Aceita refresh no body (`refreshToken`) **ou** no cookie HttpOnly `sch_refresh`. Body tem precedência. Resposta ainda inclui `refreshToken` (mobile/legado); cookie é renovado na rotação.',
+  })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  async refresh(@Body() dto: RefreshDto) {
-    return ok(await this.auth.refresh(dto));
+  async refresh(
+    @Body() dto: RefreshDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = resolveRefreshToken(req, dto?.refreshToken);
+    if (!refreshToken) {
+      clearRefreshCookie(res);
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+    const tokens = await this.auth.refresh({ refreshToken });
+    this.attachRefreshCookie(res, tokens);
+    return ok(tokens);
   }
 
   @Post('logout')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout / revogar refresh' })
   @UseGuards(JwtAuthGuard)
-  async logout(@CurrentUser('sub') userId: string, @Body() body: { refreshToken?: string }) {
-    return ok(await this.auth.logout(userId, body?.refreshToken));
+  async logout(
+    @CurrentUser('sub') userId: string,
+    @Body() body: { refreshToken?: string },
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = resolveRefreshToken(req, body?.refreshToken);
+    const result = await this.auth.logout(userId, refreshToken);
+    clearRefreshCookie(res);
+    return ok(result);
   }
 
   @Post('forgot-password')
