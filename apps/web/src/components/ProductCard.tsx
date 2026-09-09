@@ -117,7 +117,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
           href={`/produto/${p.slug}`}
           aria-disabled={sb?.tone === 'out'}
         >
-          {sb?.tone === 'out' ? 'Ver detalhes' : 'Comprar'}
+          {sb?.tone === out' ? 'Ver detalhes' : 'Adicionar ao carrinho'}
         </Link>
       </div>
     </article>
