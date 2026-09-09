@@ -1,4 +1,4 @@
-/** Trust / benefits row — home storefront (not Magalu branding). */
+/** Benefícios reais da loja — home. */
 export function TrustBadges() {
   return (
     <ul className="trust-row" aria-label="Vantagens da loja">
@@ -7,8 +7,8 @@ export function TrustBadges() {
           🚚
         </span>
         <div>
-          <strong>Frete grátis POA</strong>
-          <span className="muted">Entrega em Porto Alegre</span>
+          <strong>Entrega rápida</strong>
+          <span className="muted">Frete grátis em Porto Alegre</span>
         </div>
       </li>
       <li>
@@ -16,17 +16,17 @@ export function TrustBadges() {
           💳
         </span>
         <div>
-          <strong>PIX 5% off</strong>
-          <span className="muted">ou até 12x sem juros</span>
+          <strong>Pagamento seguro</strong>
+          <span className="muted">PIX 5% off ou até 12x</span>
         </div>
       </li>
       <li>
         <span className="trust-icon" aria-hidden="true">
-          ↩️
+          ⚡
         </span>
         <div>
-          <strong>Troca em 7 dias</strong>
-          <span className="muted">Direito a arrependimento</span>
+          <strong>Ofertas todo dia</strong>
+          <span className="muted">Preços e estoque reais da loja</span>
         </div>
       </li>
       <li>
@@ -34,8 +34,8 @@ export function TrustBadges() {
           💬
         </span>
         <div>
-          <strong>Atendimento</strong>
-          <span className="muted">Chat no site ou WhatsApp</span>
+          <strong>WhatsApp</strong>
+          <span className="muted">Atendimento no chat ou no Zap</span>
         </div>
       </li>
     </ul>
