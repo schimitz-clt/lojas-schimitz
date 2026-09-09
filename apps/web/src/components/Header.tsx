@@ -87,7 +87,7 @@ export function Header() {
             >
               <input
                 name="q"
-                placeholder="Buscar produtos, marcas e mais..."
+                placeholder="O que você está procurando?"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 aria-label="Buscar produtos"
@@ -121,7 +121,7 @@ export function Header() {
             ) : (
               <button
                 type="button"
-                className="hdr-cep"
+                className="hdr-cep hdr-hide-sm"
                 onClick={() => setEditingCep(true)}
                 aria-label="Informar CEP para frete"
               >
@@ -149,7 +149,7 @@ export function Header() {
                 <span className="hdr-link-ico" aria-hidden>
                   🛒
                 </span>
-                Sacola
+                Carrinho
                 {cartCount > 0 ? (
                   <span className="hdr-badge">{cartCount > 99 ? '99+' : cartCount}</span>
                 ) : null}
@@ -174,32 +174,29 @@ export function Header() {
         <div className="nav-depts">
           <div className="wrap">
             <nav className="nav" aria-label="Departamentos">
-              <Link href="/departamento/ofertas" className="nav-hot">
-                Ofertas
+              <Link href="/produtos" className="nav-hot">
+                Todas as categorias
               </Link>
-              <Link href="/produtos">Todos</Link>
-              <Link href="/departamento/eletro">Eletro</Link>
+              <Link href="/departamento/ofertas">Ofertas</Link>
               <Link href="/departamento/celulares">Celulares</Link>
-              <Link href="/departamento/informatica">Informática</Link>
               <Link href="/departamento/eletrodomesticos">Eletrodomésticos</Link>
+              <Link href="/departamento/informatica">Informática</Link>
+              <Link href="/departamento/eletro">Eletro</Link>
               <Link href="/departamento/casa">Casa</Link>
               <Link href="/departamento/esporte">Esporte</Link>
               <Link href="/marketplace">Marketplace</Link>
-              <Link href="/suporte">Suporte</Link>
             </nav>
           </div>
         </div>
       </header>
       <nav className="tabbar" aria-label="Navegação móvel">
         <Link href="/">Início</Link>
-        <Link href="/departamento/ofertas">Depart.</Link>
+        <Link href="/produtos">Categorias</Link>
+        <Link href="/produtos">Busca</Link>
+        <Link href="/favoritos">Favoritos</Link>
         <Link href="/carrinho">
           Carrinho{cartCount > 0 ? ` (${cartCount})` : ''}
         </Link>
-        <Link href={user ? '/notificacoes' : '/entrar'}>
-          Avisos{unread > 0 ? ` (${unread})` : ''}
-        </Link>
-        <Link href={user ? '/conta' : '/entrar'}>Conta</Link>
       </nav>
     </>
   );
