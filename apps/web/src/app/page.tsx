@@ -93,7 +93,7 @@ function HomeInner() {
       <HomeBanners />
       <section className="hero">
         <div className="badge">Vitrine · Lojas Schimitz</div>
-        <h1>Tudo o que você precisa. No padrão das grandes.</h1>
+        <h1>Tecnologia, conforto e praticidade para o seu dia a dia!</h1>
         <p>
           Busca, CEP, 12x, PIX 5% off, favoritos e sacola. Atendimento no chat do site ou no WhatsApp
           (51) 99625-3766.
