@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:20 America/Sao_Paulo (UTC-3)  
 **Base git:** `4a8a6a7` (Phase 15 checkpoint SHA docs).  
-**Commit SHA:** _(preenchido após push)_  
+**Commit SHA:** `52bf27052a93df4af4d865dba6e9c704d53c5181`  
 **Escopo:** auditoria Next img lazy/sizes, catálogo sem N+1/over-fetch, índices Prisma **aditivos** em hot paths, defaults de paginação/select. Sem migrate destrutivo, sem cobranças, sem secrets.
 
 ## FASE / STATUS
@@ -11,7 +11,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 16 — measurable safe performance |
 | **STATUS** | DONE (tsc + testes relevantes; índices additive only) |
-| **COMMIT** | _(SHA após push)_ |
+| **COMMIT** | `52bf27052a93df4af4d865dba6e9c704d53c5181` |
 | **PRODUÇÃO** | Migração só `CREATE INDEX IF NOT EXISTS` (não destrutiva) |
 | **RISCOS** | Baixo — índices extras + menos colunas/imagens no list; sem mudança de contrato público relevante |
 | **BLOQUEIOS** | Nenhum interno |
