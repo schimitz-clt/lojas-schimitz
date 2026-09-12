@@ -5,7 +5,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 | Campo | Valor |
 |---|---|
 | Nome | Lojas Schimitz |
-| applicationId | `br.com.lojasschimitz.app` |
+| applicationId | `com.lojasschimitz.app` |
 | minSdk / targetSdk | 24 / 35 |
 | Entrada | `MainActivity` (WebView) |
 
@@ -48,7 +48,7 @@ cd apps/mobile
 ```
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`
-(applicationId debug: `br.com.lojasschimitz.app.debug`)
+(applicationId debug: `com.lojasschimitz.app.debug`)
 
 ## Build release (AAB para Play Store)
 
@@ -127,7 +127,7 @@ Alternativa GUI: Android Studio → **Build → Generate Signed Bundle / APK** �
 ## Checklist Google Play Console
 
 1. Criar conta de desenvolvedor (taxa única **US$ 25**).
-2. Criar app **Lojas Schimitz**, pacote `br.com.lojasschimitz.app`.
+2. Criar app **Lojas Schimitz**, pacote `com.lojasschimitz.app`.
 3. Upload do **AAB** assinado (produção ou teste interno primeiro).
 4. Ficha da loja: título, descrição curta/longa, ícone 512×512, feature graphic.
 5. **Screenshots** (telefone; tablet se declarar suporte).
@@ -154,7 +154,7 @@ Exemplo (troque o fingerprint):
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "br.com.lojasschimitz.app",
+      "package_name": "com.lojasschimitz.app",
       "sha256_cert_fingerprints": [
         "AA:BB:CC:…:FF"
       ]

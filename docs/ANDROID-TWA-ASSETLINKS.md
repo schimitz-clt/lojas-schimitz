@@ -1,6 +1,6 @@
 # Digital Asset Links (TWA / App Links)
 
-Pacote Android: `br.com.lojasschimitz.app`
+Pacote Android: `com.lojasschimitz.app`
 
 Arquivo servido pelo Next em:
 
