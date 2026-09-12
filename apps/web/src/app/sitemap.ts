@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const res = await fetch(`${API}/products?pageSize=60`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API}/products?pageSize=100`, { next: { revalidate: 3600 } });
     if (!res.ok) return staticEntries;
     const json = (await res.json()) as {
       ok?: boolean;

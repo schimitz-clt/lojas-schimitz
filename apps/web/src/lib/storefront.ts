@@ -30,8 +30,18 @@ const DEFAULT_SETTINGS: StoreSettings = {
   ogImageUrl: null,
 };
 
+/** Canonical storefront origin (www → apex for production host). */
 export function siteOrigin() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').trim().replace(/\/$/, '');
+  try {
+    const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+    if (u.hostname.toLowerCase() === 'www.lojasschimitz.com.br') {
+      return 'https://lojasschimitz.com.br';
+    }
+    return `${u.protocol}//${u.host}`.replace(/\/$/, '');
+  } catch {
+    return raw || 'http://localhost:3000';
+  }
 }
 
 export async function fetchStoreSettings(): Promise<StoreSettings> {
@@ -76,6 +86,38 @@ export async function fetchProductMeta(slug: string): Promise<{
       name: d.name,
       description: desc.slice(0, 320),
       image,
+    };
+  } catch {
+    return null;
+  }
+}
+
+
+export async function fetchCategoryMeta(slug: string): Promise<{
+  name: string;
+  description: string;
+} | null> {
+  try {
+    const res = await fetch(`${API}/categories`, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      ok?: boolean;
+      data?: { slug: string; name: string }[];
+    };
+    const items = json.data || [];
+    const hit = items.find((c) => c.slug === slug);
+    if (!hit) {
+      // Soft fallback for nav-only slugs (e.g. ofertas) — still emit a stable title.
+      const pretty = slug.replace(/-/g, ' ').trim();
+      if (!pretty) return null;
+      return {
+        name: pretty.charAt(0).toUpperCase() + pretty.slice(1),
+        description: `${pretty.charAt(0).toUpperCase() + pretty.slice(1)} na Lojas Schimitz`,
+      };
+    }
+    return {
+      name: hit.name,
+      description: `${hit.name} na Lojas Schimitz — eletro, celulares e casa em Porto Alegre.`,
     };
   } catch {
     return null;

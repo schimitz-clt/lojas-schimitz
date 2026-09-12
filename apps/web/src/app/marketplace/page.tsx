@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Marketplace',
   description:
     'Marketplace Lojas Schimitz — catálogo de produtos e vendedores parceiros em Porto Alegre.',
+  alternates: { canonical: '/marketplace' },
 };
 
 export default function MarketplacePage() {

@@ -5,9 +5,8 @@
  * https://lojasschimitz.com.br + same path + query.
  *
  * This only runs when the request actually reaches Next.js.
- * Today www 404s at the Railway edge (`Application not found`) before
- * the app — Railway must attach the www custom domain and/or Cloudflare
- * must 301 www → apex. See docs/MEGA-PHASE-1-2-CHECKPOINT.md.
+ * Primary path (2026-09-12): Cloudflare 301 www → apex (see Phase 5).
+ * Middleware remains a defense-in-depth if traffic ever hits Next on www.
  */
 
 export const WWW_HOST = 'www.lojasschimitz.com.br';

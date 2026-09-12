@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Política de Privacidade',
   description:
     'Como a Lojas Schimitz trata dados de conta, pedidos, pagamentos e cookies no site e no app.',
+  alternates: { canonical: '/privacidade' },
 };
 
 const UPDATED = '12 de setembro de 2026';

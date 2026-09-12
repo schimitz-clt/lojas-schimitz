@@ -99,6 +99,8 @@ export function HomeBanners() {
       className="home-banner-img"
       width={1200}
       height={457}
+      loading="eager"
+      fetchPriority="high"
       decoding="async"
       onError={() => setImgFailed(true)}
     />

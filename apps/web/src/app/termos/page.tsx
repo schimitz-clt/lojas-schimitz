@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Termos de Uso',
   description:
     'Condições de compra na Lojas Schimitz: preços, frete, pagamentos PIX/cartão e trocas.',
+  alternates: { canonical: '/termos' },
 };
 
 const UPDATED = '12 de setembro de 2026';
