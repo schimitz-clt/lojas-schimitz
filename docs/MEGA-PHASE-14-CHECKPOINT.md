@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:10 America/Sao_Paulo (UTC-3)  
 **Base git:** `ff99599` (Phase 13 checkpoint SHA docs).  
-**Commit SHA:** _(preenchido após commit)_  
+**Commit SHA:** `3cfe788928f183d091e24702cf57cc1eaf3796e3`  
 **Escopo:** separar conceitos FREIGHT / TRACKING / CARRIER / ORDER / DELIVERY; interface `CarrierProvider` (`quote` / `createLabel` / `track`); default ativo `PropriaCarrierProvider` (manual); stub `MelhorEnvioCarrierProvider` que **nunca** finge sucesso. Sem sync fake, sem cobranças, sem secrets no git, sem DB destrutivo.
 
 ## FASE / STATUS
@@ -10,8 +10,8 @@
 | Campo | Valor |
 |-------|--------|
 | **FASE** | MEGA Phase 14 — logistics architecture |
-| **STATUS** | DONE (unitários PASS; tsc API a confirmar no commit) |
-| **COMMIT** | _(SHA após push)_ |
+| **STATUS** | DONE (unitários PASS; tsc API PASS) |
+| **COMMIT** | `3cfe788928f183d091e24702cf57cc1eaf3796e3` |
 | **PRODUÇÃO** | Nenhuma mutation em produção / Railway; nenhuma chamada HTTP a transportadora |
 | **RISCOS** | Baixo — adapter manual + stub; admin path existente preservado |
 | **BLOQUEIOS** | **BLOQUEIO EXTERNO** — credenciais Melhor Envio (OWNER) |
@@ -80,7 +80,7 @@ Esta fase **não** integra Melhor Envio / Correios / Jadlog ao vivo. Sem contrat
 ## TESTES
 
 - `apps/api/src/modules/shipping/carriers/carrier.provider.spec.ts` — seleção, propria manual, NOT_CONFIGURED, CARRIER_LIVE_NOT_WIRED
-- `tsc -p apps/api --noEmit` — a confirmar no commit
+- `tsc -p apps/api --noEmit` — PASS
 
 ## Arquivos
 
