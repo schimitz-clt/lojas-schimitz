@@ -112,6 +112,8 @@ export function summarizeOps(input: {
   placeholderProducts?: PlaceholderProductRef[];
   threshold?: number;
   time?: string;
+  /** Env-name presence only — never secret values. */
+  mailConfigured?: boolean;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -128,6 +130,9 @@ export function summarizeOps(input: {
     },
     payments: {
       pendingCount: input.pendingPaymentCount,
+    },
+    mail: {
+      configured: Boolean(input.mailConfigured),
     },
   };
 }

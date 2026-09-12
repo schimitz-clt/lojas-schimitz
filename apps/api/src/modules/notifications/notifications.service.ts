@@ -185,9 +185,24 @@ export class NotificationsService implements OnModuleInit {
     });
   }
 
-  /** Best-effort: nunca lança. */
+  /** Best-effort: nunca lança. Dedup in-app order_paid por user+order. */
   async createSafe(input: CreateNotificationInput) {
     try {
+      if (input.orderId && input.type === 'order_paid') {
+        const existing = await this.prisma.notification.findFirst({
+          where: {
+            userId: input.userId,
+            orderId: input.orderId,
+            type: 'order_paid',
+          },
+        });
+        if (existing) {
+          this.log.log(
+            `createSafe skip duplicate order_paid user=${input.userId} order=${input.orderId}`,
+          );
+          return existing;
+        }
+      }
       return await this.create(input);
     } catch (e: any) {
       this.log.warn(
@@ -291,7 +306,7 @@ export class NotificationsService implements OnModuleInit {
         );
       } else {
         this.log.log(
-          `notifyStoreOfPaidOrder destinatários e-mail (${opts.publicId}): ${recipients.join(', ')}`,
+          `notifyStoreOfPaidOrder mail recipients=${recipients.length} order=${opts.publicId}`,
         );
       }
     } catch (e: any) {

@@ -99,6 +99,7 @@ async function testResendHttpPath() {
       try {
         const mail = new MailService();
         assert.equal(mail.isConfigured(), true);
+        assert.equal(mail.getProviderMode(), 'resend-http');
         const result = await mail.notifyPasswordReset('user@example.com', {
           customerName: 'Ana',
           resetUrl: 'http://localhost:3000/redefinir-senha?token=abc',
@@ -220,11 +221,138 @@ async function testOffWhenNoConfig() {
   );
 }
 
+async function testProviderModeAndIdempotency() {
+  await withMailEnv(
+    {
+      RESEND_API_KEY: 're_test_unit_key_xxxxxxxx',
+      MAIL_FROM: 'Lojas Schimitz <onboarding@resend.dev>',
+      SMTP_HOST: undefined,
+      SMTP_PASS: undefined,
+      SMTP_USER: undefined,
+      SMTP_PORT: undefined,
+    },
+    async () => {
+      let calls = 0;
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ id: `email_idem_${calls}` }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch;
+      try {
+        const mail = new MailService();
+        assert.equal(mail.getProviderMode(), 'resend-http');
+        assert.equal(mail.isMailConfiguredFromEnv(), true);
+        const first = await mail.notifyOrderPaid('buyer@example.com', {
+          publicId: 'SCH-IDEM',
+          total: 10,
+          customerName: 'Ana',
+        });
+        assert.equal(first.sent, true);
+        if (first.sent) {
+          assert.equal(first.mode, 'resend-http');
+          assert.equal(first.messageId, 'email_idem_1');
+        }
+        const second = await mail.notifyOrderPaid('buyer@example.com', {
+          publicId: 'SCH-IDEM',
+          total: 10,
+          customerName: 'Ana',
+        });
+        assert.equal(second.sent, false);
+        if (!second.sent) assert.equal(second.reason, 'duplicate');
+        assert.equal(calls, 1, 'duplicate must not hit provider');
+
+        // Different publicId is a new send
+        const third = await mail.notifyOrderPaid('buyer@example.com', {
+          publicId: 'SCH-OTHER',
+          total: 11,
+        });
+        assert.equal(third.sent, true);
+        assert.equal(calls, 2);
+
+        // Failed send releases claim — retry allowed
+        mail.clearIdempotencyForTests();
+        globalThis.fetch = (async () =>
+          new Response(JSON.stringify({ message: 'fail' }), { status: 500 })) as typeof fetch;
+        const fail = await mail.notifyAdminOrderPaid('admin@example.com', {
+          publicId: 'SCH-FAIL',
+          total: 1,
+          adminUrl: 'https://example.com/admin',
+        });
+        assert.equal(fail.sent, false);
+        if (!fail.sent) assert.equal(fail.reason, 'send_failed');
+
+        let okCalls = 0;
+        globalThis.fetch = (async () => {
+          okCalls += 1;
+          return new Response(JSON.stringify({ id: 'email_retry_ok' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }) as typeof fetch;
+        const retry = await mail.notifyAdminOrderPaid('admin@example.com', {
+          publicId: 'SCH-FAIL',
+          total: 1,
+          adminUrl: 'https://example.com/admin',
+        });
+        assert.equal(retry.sent, true);
+        assert.equal(okCalls, 1);
+        console.log('mail.service provider mode + idempotency — PASSOU');
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+    },
+  );
+}
+
+async function testPasswordResetNotIdempotent() {
+  await withMailEnv(
+    {
+      RESEND_API_KEY: 're_test_unit_key_xxxxxxxx',
+      MAIL_FROM: 'Lojas Schimitz <onboarding@resend.dev>',
+      SMTP_HOST: undefined,
+      SMTP_PASS: undefined,
+    },
+    async () => {
+      let calls = 0;
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ id: `email_reset_${calls}` }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch;
+      try {
+        const mail = new MailService();
+        const a = await mail.notifyPasswordReset('user@example.com', {
+          resetUrl: 'http://localhost/a',
+          expiresMinutes: 60,
+        });
+        const b = await mail.notifyPasswordReset('user@example.com', {
+          resetUrl: 'http://localhost/b',
+          expiresMinutes: 60,
+        });
+        assert.equal(a.sent, true);
+        assert.equal(b.sent, true);
+        assert.equal(calls, 2, 'password reset must allow resend');
+        console.log('mail.service password reset not idempotent — PASSOU');
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+    },
+  );
+}
+
 (async () => {
   await testResendHttpPath();
   await testResendDualUseSmtpPass();
   await testResendHttpFailure();
   await testOffWhenNoConfig();
+  await testProviderModeAndIdempotency();
+  await testPasswordResetNotIdempotent();
   console.log('mail.service tests ok');
 })().catch((e) => {
   console.error(e);

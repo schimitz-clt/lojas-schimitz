@@ -69,6 +69,7 @@ import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps } from './admin-ops';
+import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
 
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
@@ -123,6 +124,7 @@ export class AdminController {
         placeholderProducts,
         pendingPaymentCount,
         threshold,
+        mailConfigured: mailConfiguredFromEnvPresence(),
       }),
     );
   }

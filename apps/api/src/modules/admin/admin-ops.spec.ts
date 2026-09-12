@@ -57,6 +57,7 @@ assert.equal(full.inventory.lowStockCount, 2);
 assert.equal(full.catalog.placeholderProductCount, 7);
 assert.deepEqual(full.catalog.placeholderProducts, []);
 assert.equal(full.payments.pendingCount, 3);
+assert.equal(full.mail.configured, false);
 assert.equal(full.time, '2026-09-12T15:00:00.000Z');
 
 const listed = listPlaceholderProducts([
@@ -76,9 +77,11 @@ const withList = summarizeOps({
   placeholderProducts: listed,
   pendingPaymentCount: 0,
   time: '2026-09-12T18:00:00.000Z',
+  mailConfigured: true,
 });
 assert.equal(withList.catalog.placeholderProductCount, 2);
 assert.equal(withList.catalog.placeholderProducts[0].id, 'a');
 assert.equal(withList.catalog.placeholderProducts[1].name, 'Sem foto');
+assert.equal(withList.mail.configured, true);
 
 console.log('admin-ops unit tests ok');
