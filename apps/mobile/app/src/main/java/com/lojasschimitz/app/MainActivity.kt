@@ -9,9 +9,12 @@ import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Bundle
 import android.view.View
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.SslErrorHandler
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -35,7 +38,7 @@ class MainActivity : AppCompatActivity() {
             "lojasschimitz.com.br",
             "www.lojasschimitz.com.br",
         )
-        // Pagamentos / OAuth costumam funcionar melhor no navegador externo.
+        // Pagamentos / OAuth no navegador externo — 3P cookies no WebView não são necessários.
         private val EXTERNAL_HOST_HINTS = listOf(
             "mercadopago.com",
             "mercadopago.com.br",
@@ -107,6 +110,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        CookieManager.getInstance().flush()
+        super.onPause()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
@@ -129,6 +137,12 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
+        CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            // PIX/checkout same-origin; MP hosts abrem no navegador externo.
+            setAcceptThirdPartyCookies(webView, false)
+        }
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -141,8 +155,11 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
-            userAgentString = "$userAgentString LojasSchimitzApp/1.0"
+            userAgentString = "$userAgentString LojasSchimitzApp/1.0.3"
             allowFileAccess = true
+            allowContentAccess = true
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = false
         }
 
         webView.addJavascriptInterface(
@@ -212,6 +229,18 @@ class MainActivity : AppCompatActivity() {
                     showOfflinePage()
                 }
             }
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: SslError?,
+            ) {
+                // Nunca handler.proceed() — cancela certificado inválido.
+                handler?.cancel()
+                if (view === webView) {
+                    showOfflinePage()
+                }
+            }
         }
     }
 
@@ -271,9 +300,17 @@ class MainActivity : AppCompatActivity() {
             return true
         }
 
-        // Mesma origem: fica no WebView
-        if ((scheme == "http" || scheme == "https") && isAllowedHost(host)) {
+        // Mesma origem HTTPS: fica no WebView
+        if (scheme == "https" && isAllowedHost(host)) {
             return false
+        }
+
+        // http na allowlist: upgrade para https (cleartext bloqueado)
+        if (scheme == "http" && isAllowedHost(host)) {
+            val httpsUri = uri.buildUpon().scheme("https").build()
+            lastRequestedUrl = httpsUri.toString()
+            webView.loadUrl(lastRequestedUrl)
+            return true
         }
 
         // Outros https externos (ex.: redes sociais, mapas) → navegador
@@ -293,8 +330,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun isAllowedUrl(url: String): Boolean {
         if (!URLUtil.isNetworkUrl(url)) return false
-        val host = Uri.parse(url).host?.lowercase().orEmpty()
-        return isAllowedHost(host)
+        val parsed = Uri.parse(url)
+        val host = parsed.host?.lowercase().orEmpty()
+        val scheme = parsed.scheme?.lowercase().orEmpty()
+        return scheme == "https" && isAllowedHost(host)
     }
 
     private fun openExternal(uri: Uri) {

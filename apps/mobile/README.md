@@ -6,7 +6,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 |---|---|
 | Nome | Lojas Schimitz |
 | applicationId | `com.lojasschimitz.app` |
-| minSdk / targetSdk | 24 / 35 |
+| minSdk / targetSdk | 24 / 36 |
 | Entrada | `MainActivity` (WebView) |
 
 > **Por que não Capacitor/TWA?** Neste monorepo um WebView Kotlin é mais simples (sem `node_modules` no app), mantém Nest/Next intactos e cobre navegação mesma-origem + WhatsApp/Mercado Pago. Capacitor/TWA podem ser avaliados depois se precisarem de plugins JS.
@@ -21,7 +21,9 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Status bar / splash escuros com destaque dourado (`#1A1A1A` / `#D4AF37`).
 - Ícones placeholder (quadrado dourado) — troque antes de publicar.
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
-- Página offline/erro (`assets/offline.html`) se não houver rede ou a carga principal falhar.
+- Página offline/erro (`assets/offline.html`) se não houver rede, falha da carga principal ou erro SSL.
+- `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` HttpOnly); 3P cookies desligados (MP abre externo).
+- Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
 
 ## Pré-requisitos (no seu computador)
 
