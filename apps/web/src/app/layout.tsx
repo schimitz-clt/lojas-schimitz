@@ -58,6 +58,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <h3>Ajuda</h3>
                 <ul>
                   <li><a href="/suporte">Suporte</a></li>
+                  <li><a href="/privacidade">Privacidade</a></li>
+                  <li><a href="/termos">Termos</a></li>
                   <li><a href="/pedidos">Meus pedidos</a></li>
                   <li><a href="/conta">Minha conta</a></li>
                   <li>
@@ -80,7 +82,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p className="footer-copy muted">
               © {new Date().getFullYear()} Lojas Schimitz ·{' '}
               <a href="/produtos">Produtos</a> · <a href="/marketplace">Marketplace</a> ·{' '}
-              <a href="/suporte">Suporte</a> ·{' '}
+              <a href="/suporte">Suporte</a> · <a href="/privacidade">Privacidade</a> ·{' '}
+              <a href="/termos">Termos</a> ·{' '}
               <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">
                 WhatsApp
               </a>
