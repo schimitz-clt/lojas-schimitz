@@ -2,6 +2,7 @@ import assert from 'assert';
 import {
   DEFAULT_OPS_LOW_STOCK_THRESHOLD,
   countPlaceholderProducts,
+  deriveOpsAlerts,
   isLowOnHand,
   isMissingOrPlaceholderImage,
   isPlaceholderImageUrl,
@@ -9,6 +10,7 @@ import {
   summarizeInventoryOps,
   summarizeOps,
   summarizeOrderStatusCounts,
+  summarizeSalesWindow,
 } from './admin-ops';
 
 assert.equal(DEFAULT_OPS_LOW_STOCK_THRESHOLD, 5);
@@ -113,5 +115,68 @@ const withOrders = summarizeOps({
 assert.equal(withOrders.orders.buckets.paid, 5);
 assert.equal(withOrders.orders.buckets.delivered, 2);
 assert.equal(withOrders.orders.total, 7);
+
+
+const salesWin = summarizeSalesWindow({
+  from: '2026-09-12',
+  to: '2026-09-12',
+  orderCount: 2,
+  revenue: 199.995,
+});
+assert.equal(salesWin.orderCount, 2);
+assert.equal(salesWin.revenue, 200);
+assert.equal(salesWin.from, '2026-09-12');
+
+const emptyAlerts = deriveOpsAlerts({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  mailConfigured: true,
+  orderBuckets: {},
+});
+assert.deepEqual(emptyAlerts, []);
+
+const richAlerts = deriveOpsAlerts({
+  lowStockCount: 3,
+  outOfStockCount: 1,
+  placeholderProductCount: 2,
+  pendingPaymentCount: 4,
+  mailConfigured: false,
+  orderBuckets: { paid: 5, problems: 2, awaiting_payment: 4 },
+});
+assert.equal(richAlerts.some((a) => a.code === 'out_of_stock' && a.severity === 'critical'), true);
+assert.equal(richAlerts.some((a) => a.code === 'low_stock' && a.count === 3), true);
+assert.equal(richAlerts.some((a) => a.code === 'pending_payments' && a.queueBucket === 'awaiting_payment'), true);
+assert.equal(richAlerts.some((a) => a.code === 'paid_needs_organizing' && a.queueBucket === 'paid'), true);
+assert.equal(richAlerts.some((a) => a.code === 'order_problems' && a.severity === 'critical'), true);
+assert.equal(richAlerts.some((a) => a.code === 'placeholder_photos'), true);
+assert.equal(richAlerts.some((a) => a.code === 'mail_not_configured'), true);
+assert.equal(richAlerts.some((a) => a.code === 'awaiting_payment_orders'), true);
+
+const dash = summarizeOps({
+  lowStockCount: 1,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 2,
+  orderStatusCounts: [
+    { status: 'paid', count: 3 },
+    { status: 'awaiting_payment', count: 2 },
+  ],
+  mailConfigured: true,
+  salesToday: salesWin,
+  salesLast30d: summarizeSalesWindow({
+    from: '2026-08-14',
+    to: '2026-09-12',
+    orderCount: 10,
+    revenue: 1500,
+  }),
+});
+assert.equal(dash.sales.today?.revenue, 200);
+assert.equal(dash.sales.last30d?.orderCount, 10);
+assert.equal(dash.alerts.some((a) => a.code === 'paid_needs_organizing' && a.count === 3), true);
+assert.equal(dash.alerts.some((a) => a.code === 'pending_payments' && a.count === 2), true);
+assert.equal(dash.mail.configured, true);
+assert.equal(dash.orders.buckets.paid, 3);
 
 console.log('admin-ops unit tests ok');

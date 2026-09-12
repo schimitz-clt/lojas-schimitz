@@ -147,6 +147,134 @@ export function summarizeOrderStatusCounts(rows: OrderStatusCountRow[]) {
   };
 }
 
+export type OpsSalesWindow = {
+  from: string;
+  to: string;
+  orderCount: number;
+  revenue: number;
+};
+
+/** Pure sales window snapshot — numbers come from DB aggregates only. */
+export function summarizeSalesWindow(input: {
+  from: string;
+  to: string;
+  orderCount: number;
+  revenue: number;
+}): OpsSalesWindow {
+  const orderCount = Math.max(0, Math.floor(Number(input.orderCount) || 0));
+  const revenue = Math.round(((Number(input.revenue) || 0) + Number.EPSILON) * 100) / 100;
+  return {
+    from: input.from,
+    to: input.to,
+    orderCount,
+    revenue,
+  };
+}
+
+export type OpsAlertSeverity = 'info' | 'warn' | 'critical';
+
+export type OpsAlert = {
+  code: string;
+  severity: OpsAlertSeverity;
+  message: string;
+  count: number;
+  /** Optional queue bucket to filter when clicking the alert in admin UI. */
+  queueBucket?: AdminOrderQueueBucket;
+};
+
+/**
+ * Derive actionable ops alerts from real snapshot fields only.
+ * No invented metrics — empty/zero conditions yield no alert.
+ */
+export function deriveOpsAlerts(input: {
+  lowStockCount: number;
+  outOfStockCount: number;
+  placeholderProductCount: number;
+  pendingPaymentCount: number;
+  mailConfigured?: boolean;
+  orderBuckets?: Partial<Record<AdminOrderQueueBucket, number>>;
+}): OpsAlert[] {
+  const alerts: OpsAlert[] = [];
+  const out = Math.max(0, Number(input.outOfStockCount) || 0);
+  const low = Math.max(0, Number(input.lowStockCount) || 0);
+  const placeholders = Math.max(0, Number(input.placeholderProductCount) || 0);
+  const pending = Math.max(0, Number(input.pendingPaymentCount) || 0);
+  const buckets = input.orderBuckets || {};
+  const problems = Math.max(0, Number(buckets.problems) || 0);
+  const paid = Math.max(0, Number(buckets.paid) || 0);
+  const awaiting = Math.max(0, Number(buckets.awaiting_payment) || 0);
+
+  if (out > 0) {
+    alerts.push({
+      code: 'out_of_stock',
+      severity: 'critical',
+      message: `${out} produto(s) com estoque zerado`,
+      count: out,
+    });
+  }
+  if (low > 0) {
+    alerts.push({
+      code: 'low_stock',
+      severity: 'warn',
+      message: `${low} produto(s) com estoque baixo`,
+      count: low,
+    });
+  }
+  if (pending > 0) {
+    alerts.push({
+      code: 'pending_payments',
+      severity: 'warn',
+      message: `${pending} pagamento(s) pendente(s)`,
+      count: pending,
+      queueBucket: 'awaiting_payment',
+    });
+  }
+  if (awaiting > 0) {
+    alerts.push({
+      code: 'awaiting_payment_orders',
+      severity: 'info',
+      message: `${awaiting} pedido(s) aguardando pagamento`,
+      count: awaiting,
+      queueBucket: 'awaiting_payment',
+    });
+  }
+  if (paid > 0) {
+    alerts.push({
+      code: 'paid_needs_organizing',
+      severity: 'warn',
+      message: `${paid} pedido(s) pago(s) aguardando organizing`,
+      count: paid,
+      queueBucket: 'paid',
+    });
+  }
+  if (problems > 0) {
+    alerts.push({
+      code: 'order_problems',
+      severity: 'critical',
+      message: `${problems} pedido(s) no bucket problemas`,
+      count: problems,
+      queueBucket: 'problems',
+    });
+  }
+  if (placeholders > 0) {
+    alerts.push({
+      code: 'placeholder_photos',
+      severity: 'info',
+      message: `${placeholders} produto(s) com foto placeholder/ausente`,
+      count: placeholders,
+    });
+  }
+  if (input.mailConfigured === false) {
+    alerts.push({
+      code: 'mail_not_configured',
+      severity: 'info',
+      message: 'E-mail transacional não configurado (env ausente)',
+      count: 0,
+    });
+  }
+  return alerts;
+}
+
 export function summarizeOps(input: {
   lowStockCount: number;
   outOfStockCount: number;
@@ -159,6 +287,9 @@ export function summarizeOps(input: {
   mailConfigured?: boolean;
   /** Cheap groupBy Order.status — optional for backward-compatible callers. */
   orderStatusCounts?: OrderStatusCountRow[];
+  /** Optional sales windows already aggregated from DB (no fake numbers). */
+  salesToday?: OpsSalesWindow;
+  salesLast30d?: OpsSalesWindow;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -168,6 +299,15 @@ export function summarizeOps(input: {
   });
   const placeholderProducts = input.placeholderProducts ?? [];
   const orders = summarizeOrderStatusCounts(input.orderStatusCounts ?? []);
+  const mailConfigured = Boolean(input.mailConfigured);
+  const alerts = deriveOpsAlerts({
+    lowStockCount: input.lowStockCount,
+    outOfStockCount: input.outOfStockCount,
+    placeholderProductCount: input.placeholderProductCount,
+    pendingPaymentCount: input.pendingPaymentCount,
+    mailConfigured,
+    orderBuckets: orders.buckets,
+  });
   return {
     ...base,
     catalog: {
@@ -178,8 +318,13 @@ export function summarizeOps(input: {
       pendingCount: input.pendingPaymentCount,
     },
     mail: {
-      configured: Boolean(input.mailConfigured),
+      configured: mailConfigured,
     },
     orders,
+    sales: {
+      today: input.salesToday ?? null,
+      last30d: input.salesLast30d ?? null,
+    },
+    alerts,
   };
 }

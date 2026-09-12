@@ -308,6 +308,21 @@ const emptyCouponForm = (): CouponForm => ({
 
 const DEFAULT_LOW_STOCK = 5;
 
+type AdminOpsSalesWindow = {
+  from: string;
+  to: string;
+  orderCount: number;
+  revenue: number;
+};
+
+type AdminOpsAlert = {
+  code: string;
+  severity: 'info' | 'warn' | 'critical';
+  message: string;
+  count: number;
+  queueBucket?: string;
+};
+
 type AdminOpsSnapshot = {
   time: string;
   inventory: {
@@ -327,6 +342,11 @@ type AdminOpsSnapshot = {
     problemsStatuses?: string[];
     total: number;
   };
+  sales?: {
+    today: AdminOpsSalesWindow | null;
+    last30d: AdminOpsSalesWindow | null;
+  };
+  alerts?: AdminOpsAlert[];
 };
 
 
@@ -535,6 +555,15 @@ export default function AdminPage() {
     } finally {
       setOpsBusy(false);
     }
+  }, []);
+
+  /** Click ops bucket/alert → filter orders queue and scroll into view. */
+  const selectOpsBucket = useCallback((bucket: string) => {
+    setOrderStatusFilter(bucket);
+    requestAnimationFrame(() => {
+      const el = document.getElementById('admin-orders-queue');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }, []);
 
   async function openCustomer(id: string) {
@@ -1333,7 +1362,7 @@ export default function AdminPage() {
       >
         <div className="body">
           <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Exceções (ops)</h2>
+            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Centro de comando (ops)</h2>
             <button
               type="button"
               className="btn ghost"
@@ -1345,101 +1374,151 @@ export default function AdminPage() {
             </button>
           </div>
           <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
-            Contagens do servidor (`GET /admin/ops`). Não cobra e não altera dados.
+            Dados reais de `GET /admin/ops` (DB/API). Sem métricas inventadas. Clique no bucket → filtra a fila de pedidos.
           </p>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.inventory.lowStockCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
-                color: '#ffd100',
-                border: '1px solid #ffd100',
-              }}
-            >
-              Estoque baixo: {ops?.inventory.lowStockCount ?? '—'}
-            </span>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
-                color: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
-                border: '1px solid #666',
-              }}
-            >
-              Zerados: {ops?.inventory.outOfStockCount ?? '—'}
-            </span>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
-                color: '#ffd100',
-                border: '1px solid #ffd100',
-              }}
-            >
-              Foto placeholder: {ops?.catalog?.placeholderProductCount ?? '—'}
-            </span>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.payments?.pendingCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
-                color: '#ffd100',
-                border: '1px solid #ffd100',
-              }}
-            >
-              Pagamentos pendentes: {ops?.payments?.pendingCount ?? '—'}
-            </span>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.orders?.buckets?.problems ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
-                color: (ops?.orders?.buckets?.problems ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
-                border: '1px solid #666',
-              }}
-            >
-              Fila problemas: {ops?.orders?.buckets?.problems ?? '—'}
-            </span>
-            <span
-              className="badge"
-              style={{
-                marginBottom: 0,
-                background: (ops?.orders?.buckets?.paid ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
-                color: '#ffd100',
-                border: '1px solid #ffd100',
-              }}
-            >
-              Pagos (aguardar organizing): {ops?.orders?.buckets?.paid ?? '—'}
-            </span>
-          </div>
-          {ops?.orders ? (
-            <div style={{ marginTop: 12 }}>
-              <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
-                Pedidos por bucket (groupBy status — sem API de transportadora).
-              </p>
-              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => setOrderStatusFilter(key)}
-                    style={{
-                      padding: '6px 10px',
-                      fontSize: 12,
-                      borderColor: orderStatusFilter === key ? '#ffd100' : '#444',
-                      color: '#ffd100',
-                    }}
-                  >
-                    {adminQueueBucketLabel(key)}: {ops.orders?.buckets?.[key] ?? 0}
-                  </button>
-                ))}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gap: 10,
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ background: '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Receita hoje</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>
+                {ops?.sales?.today ? brl(ops.sales.today.revenue) : '—'}
+              </div>
+              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+                {ops?.sales?.today ? `${ops.sales.today.orderCount} pedido(s) pagos` : 'aguardando snapshot'}
               </div>
             </div>
+            <div style={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Receita 30 dias</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>
+                {ops?.sales?.last30d ? brl(ops.sales.last30d.revenue) : '—'}
+              </div>
+              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+                {ops?.sales?.last30d ? `${ops.sales.last30d.orderCount} pedido(s) pagos` : 'aguardando snapshot'}
+              </div>
+            </div>
+            <div style={{ background: (ops?.inventory.lowStockCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Estoque baixo</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.inventory.lowStockCount ?? '—'}</div>
+            </div>
+            <div style={{ background: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a', border: '1px solid #666', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Zerados</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100' }}>
+                {ops?.inventory.outOfStockCount ?? '—'}
+              </div>
+            </div>
+            <div style={{ background: (ops?.payments?.pendingCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pag. pendentes</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.payments?.pendingCount ?? '—'}</div>
+            </div>
+            <div style={{ background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Foto placeholder</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.catalog?.placeholderProductCount ?? '—'}</div>
+            </div>
+            <div style={{ background: '#1a1a1a', border: `1px solid ${ops?.mail?.configured ? '#ffd100' : '#666'}`, borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>E-mail (env)</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: ops?.mail?.configured ? '#ffd100' : '#ffb4b4' }}>
+                {ops == null ? '—' : ops.mail?.configured ? 'Configurado' : 'Ausente'}
+              </div>
+            </div>
+            <div style={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 8, padding: '10px 12px' }}>
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pedidos (total)</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.orders?.total ?? '—'}</div>
+            </div>
+          </div>
+
+          {ops?.alerts?.length ? (
+            <div style={{ marginBottom: 14 }}>
+              <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
+                Alertas (condições reais do snapshot)
+              </p>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                {ops.alerts.map((a) => {
+                  const bg =
+                    a.severity === 'critical' ? '#3a1515' : a.severity === 'warn' ? '#3a2f0a' : '#1a1a1a';
+                  const fg = a.severity === 'critical' ? '#ffb4b4' : '#ffd100';
+                  return (
+                    <li key={a.code}>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => {
+                          if (a.queueBucket) selectOpsBucket(a.queueBucket);
+                        }}
+                        disabled={!a.queueBucket}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          background: bg,
+                          color: fg,
+                          borderColor: fg,
+                          opacity: a.queueBucket ? 1 : 0.95,
+                          cursor: a.queueBucket ? 'pointer' : 'default',
+                        }}
+                      >
+                        <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8, opacity: 0.85 }}>
+                          {a.severity}
+                        </span>
+                        {a.message}
+                        {a.queueBucket ? ' → abrir fila' : ''}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : ops ? (
+            <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, color: '#8a8a84' }}>
+              Sem alertas no momento.
+            </p>
           ) : null}
+
+          <div style={{ marginTop: 4 }}>
+            <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
+              Fila operacional — clique no bucket para filtrar pedidos
+            </p>
+            <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => selectOpsBucket('')}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  borderColor: orderStatusFilter === '' ? '#ffd100' : '#444',
+                  color: '#ffd100',
+                  background: orderStatusFilter === '' ? '#3a2f0a' : 'transparent',
+                }}
+              >
+                Todos: {ops?.orders?.total ?? '—'}
+              </button>
+              {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => selectOpsBucket(key)}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    borderColor: orderStatusFilter === key ? '#ffd100' : '#444',
+                    color: '#ffd100',
+                    background: orderStatusFilter === key ? '#3a2f0a' : 'transparent',
+                  }}
+                >
+                  {adminQueueBucketLabel(key)}: {ops?.orders?.buckets?.[key] ?? 0}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {ops?.catalog?.placeholderProducts?.length ? (
             <div style={{ marginTop: 14 }}>
               <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
@@ -3039,7 +3118,7 @@ export default function AdminPage() {
         {!products.length ? <p className="muted">Nenhum produto ainda. Cadastre o primeiro acima.</p> : null}
       </div>
 
-      <h3>Pedidos ({orders.length})</h3>
+      <h3 id="admin-orders-queue">Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
@@ -3079,11 +3158,14 @@ export default function AdminPage() {
               key={tab.key || 'all'}
               type="button"
               className={active ? 'btn' : 'btn ghost'}
-              onClick={() => setOrderStatusFilter(tab.key)}
+              onClick={() => selectOpsBucket(tab.key)}
               style={{
                 padding: '8px 12px',
                 fontSize: 13,
                 opacity: active ? 1 : 0.9,
+                borderColor: active ? '#ffd100' : undefined,
+                background: active ? '#0a0a0a' : undefined,
+                color: active ? '#ffd100' : undefined,
               }}
             >
               {tab.label}

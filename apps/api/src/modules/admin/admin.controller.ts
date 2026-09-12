@@ -68,7 +68,8 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps, summarizeSalesWindow } from './admin-ops';
+import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
 
@@ -99,16 +100,23 @@ export class AdminController {
   @Get('ops')
   @ApiOperation({
     summary:
-      'Sinal operacional: estoque, placeholders, pagamentos pendentes e contagens por status de pedido',
+      'Centro de comando: estoque, placeholders, pagamentos, filas, vendas (DB) e alertas reais',
   })
   async ops() {
     const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
+    const todayYmd = saoPauloYmd(new Date());
+    const todayRange = parseSalesDateRange(todayYmd, todayYmd);
+    const last30 = parseSalesDateRange(undefined, todayYmd); // default last 30d inclusive
+    const paidStatuses = [...PAID_REVENUE_STATUSES] as OrderStatus[];
+
     const [
       lowStockCount,
       outOfStockCount,
       pendingPaymentCount,
       productImageRows,
       orderStatusGroups,
+      salesTodayAgg,
+      salesLast30Agg,
     ] = await Promise.all([
       this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
       this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
@@ -124,6 +132,22 @@ export class AdminController {
       this.prisma.order.groupBy({
         by: ['status'],
         _count: { _all: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          status: { in: paidStatuses },
+          createdAt: { gte: todayRange.fromDate, lt: todayRange.toDateExclusive },
+        },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          status: { in: paidStatuses },
+          createdAt: { gte: last30.fromDate, lt: last30.toDateExclusive },
+        },
+        _count: { _all: true },
+        _sum: { total: true },
       }),
     ]);
     const placeholderProducts = listPlaceholderProducts(productImageRows);
@@ -141,6 +165,18 @@ export class AdminController {
         threshold,
         mailConfigured: mailConfiguredFromEnvPresence(),
         orderStatusCounts,
+        salesToday: summarizeSalesWindow({
+          from: todayRange.from,
+          to: todayRange.to,
+          orderCount: salesTodayAgg._count._all,
+          revenue: Number(salesTodayAgg._sum.total ?? 0),
+        }),
+        salesLast30d: summarizeSalesWindow({
+          from: last30.from,
+          to: last30.to,
+          orderCount: salesLast30Agg._count._all,
+          revenue: Number(salesLast30Agg._sum.total ?? 0),
+        }),
       }),
     );
   }

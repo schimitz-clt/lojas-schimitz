@@ -9,7 +9,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/health` | público |
-| GET | `/admin/ops` | admin — inventory + catalog placeholders + `payments.pendingCount` + `mail.configured` + `orders.{byStatus,buckets,total}` (fila: awaiting_payment…delivered + problems) |
+| GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `mail.configured` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` (DB aggregate) + `alerts[]` (real conditions) |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |
