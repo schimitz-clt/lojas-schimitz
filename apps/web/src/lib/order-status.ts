@@ -83,3 +83,42 @@ export function fulfillmentStepIndex(status: string): number {
   if (status === 'cancelled' || status === 'refunded') return -1;
   return -1;
 }
+
+/** Buckets da fila operacional (admin) — alinhados à API. */
+export const ADMIN_ORDER_QUEUE_BUCKETS = [
+  'awaiting_payment',
+  'paid',
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
+  'problems',
+] as const;
+
+export const PROBLEM_ORDER_STATUSES = [
+  'cancelled',
+  'refunded',
+  'separating',
+  'shipped',
+] as const;
+
+export const ADMIN_QUEUE_BUCKET_LABEL: Record<string, string> = {
+  awaiting_payment: 'Aguardando pagamento',
+  paid: 'Pago',
+  organizing: 'Organizando',
+  packing: 'Em embalagem',
+  ready_for_pickup: 'Pronto para coleta',
+  in_transit: 'Em trânsito',
+  delivered: 'Entregue',
+  problems: 'Problemas',
+};
+
+/** Pagamento → paid; próximo passo manual: organizing. */
+export const POST_PAYMENT_OPS_HINT =
+  'Após o pagamento o pedido fica em Pago. Use “Marcar: Organizando” para iniciar a separação — não há transição automática.';
+
+export function adminQueueBucketLabel(key: string) {
+  return ADMIN_QUEUE_BUCKET_LABEL[key] || orderStatusLabel(key);
+}
+

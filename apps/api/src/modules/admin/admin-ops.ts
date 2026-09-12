@@ -1,3 +1,10 @@
+import {
+  ADMIN_ORDER_QUEUE_BUCKETS,
+  PROBLEM_ORDER_STATUSES,
+  statusesForAdminQueueBucket,
+  type AdminOrderQueueBucket,
+} from '../../common/order-status';
+
 /**
  * Health-adjacent admin ops helpers.
  * Counts + id/name checklist for owner photo replacement.
@@ -104,6 +111,42 @@ export function summarizeInventoryOps(input: {
 }
 
 /** Full ops snapshot: inventory + catalog placeholders + pending payments. */
+export type OrderStatusCountRow = { status: string; count: number };
+
+/** Aggregate raw Order.status groupBy into byStatus + operational buckets. */
+export function summarizeOrderStatusCounts(rows: OrderStatusCountRow[]) {
+  const byStatus: Record<string, number> = {};
+  let total = 0;
+  for (const row of rows) {
+    const n = Number(row.count) || 0;
+    byStatus[row.status] = (byStatus[row.status] || 0) + n;
+    total += n;
+  }
+  const buckets: Record<AdminOrderQueueBucket, number> = {
+    awaiting_payment: 0,
+    paid: 0,
+    organizing: 0,
+    packing: 0,
+    ready_for_pickup: 0,
+    in_transit: 0,
+    delivered: 0,
+    problems: 0,
+  };
+  for (const bucket of ADMIN_ORDER_QUEUE_BUCKETS) {
+    let sum = 0;
+    for (const st of statusesForAdminQueueBucket(bucket)) {
+      sum += byStatus[st] || 0;
+    }
+    buckets[bucket] = sum;
+  }
+  return {
+    byStatus,
+    buckets,
+    problemsStatuses: [...PROBLEM_ORDER_STATUSES],
+    total,
+  };
+}
+
 export function summarizeOps(input: {
   lowStockCount: number;
   outOfStockCount: number;
@@ -114,6 +157,8 @@ export function summarizeOps(input: {
   time?: string;
   /** Env-name presence only — never secret values. */
   mailConfigured?: boolean;
+  /** Cheap groupBy Order.status — optional for backward-compatible callers. */
+  orderStatusCounts?: OrderStatusCountRow[];
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -122,6 +167,7 @@ export function summarizeOps(input: {
     time: input.time,
   });
   const placeholderProducts = input.placeholderProducts ?? [];
+  const orders = summarizeOrderStatusCounts(input.orderStatusCounts ?? []);
   return {
     ...base,
     catalog: {
@@ -134,5 +180,6 @@ export function summarizeOps(input: {
     mail: {
       configured: Boolean(input.mailConfigured),
     },
+    orders,
   };
 }

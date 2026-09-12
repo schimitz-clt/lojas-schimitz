@@ -162,6 +162,8 @@ export class AdminOrdersQueryDto {
     'delivered',
     'cancelled',
     'refunded',
+    /** Virtual ops bucket: cancelled|refunded|separating|shipped */
+    'problems',
   ])
   status?: string;
 }

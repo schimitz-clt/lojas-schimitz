@@ -8,6 +8,7 @@ import {
   listPlaceholderProducts,
   summarizeInventoryOps,
   summarizeOps,
+  summarizeOrderStatusCounts,
 } from './admin-ops';
 
 assert.equal(DEFAULT_OPS_LOW_STOCK_THRESHOLD, 5);
@@ -83,5 +84,34 @@ assert.equal(withList.catalog.placeholderProductCount, 2);
 assert.equal(withList.catalog.placeholderProducts[0].id, 'a');
 assert.equal(withList.catalog.placeholderProducts[1].name, 'Sem foto');
 assert.equal(withList.mail.configured, true);
+
+const orderCounts = summarizeOrderStatusCounts([
+  { status: 'paid', count: 2 },
+  { status: 'organizing', count: 1 },
+  { status: 'cancelled', count: 3 },
+  { status: 'shipped', count: 1 },
+  { status: 'awaiting_payment', count: 4 },
+]);
+assert.equal(orderCounts.byStatus.paid, 2);
+assert.equal(orderCounts.buckets.paid, 2);
+assert.equal(orderCounts.buckets.organizing, 1);
+assert.equal(orderCounts.buckets.awaiting_payment, 4);
+assert.equal(orderCounts.buckets.problems, 4); // cancelled 3 + shipped 1
+assert.equal(orderCounts.total, 11);
+
+const withOrders = summarizeOps({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  orderStatusCounts: [
+    { status: 'paid', count: 5 },
+    { status: 'delivered', count: 2 },
+  ],
+  mailConfigured: false,
+});
+assert.equal(withOrders.orders.buckets.paid, 5);
+assert.equal(withOrders.orders.buckets.delivered, 2);
+assert.equal(withOrders.orders.total, 7);
 
 console.log('admin-ops unit tests ok');

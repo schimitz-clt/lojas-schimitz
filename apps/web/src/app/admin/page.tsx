@@ -2,7 +2,13 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, apiUpload, brl, clearSession, currentUser, isUnauthorizedError } from '@/lib/api';
-import { nextFulfillmentStatus, orderStatusLabel } from '@/lib/order-status';
+import {
+  nextFulfillmentStatus,
+  orderStatusLabel,
+  adminQueueBucketLabel,
+  POST_PAYMENT_OPS_HINT,
+  ADMIN_ORDER_QUEUE_BUCKETS,
+} from '@/lib/order-status';
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
 import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
@@ -314,19 +320,22 @@ type AdminOpsSnapshot = {
     placeholderProducts?: { id: string; name: string }[];
   };
   payments?: { pendingCount: number };
+  mail?: { configured: boolean };
+  orders?: {
+    byStatus: Record<string, number>;
+    buckets: Record<string, number>;
+    problemsStatuses?: string[];
+    total: number;
+  };
 };
 
 
 const ORDER_STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'Todos' },
-  { key: 'awaiting_payment', label: 'Aguardando pagamento' },
-  { key: 'paid', label: 'Pago' },
-  { key: 'organizing', label: 'Organizando' },
-  { key: 'packing', label: 'Em embalagem' },
-  { key: 'ready_for_pickup', label: 'Pronto para coleta' },
-  { key: 'in_transit', label: 'Em trânsito' },
-  { key: 'delivered', label: 'Entregue' },
-  { key: 'cancelled', label: 'Cancelado' },
+  ...ADMIN_ORDER_QUEUE_BUCKETS.map((key) => ({
+    key,
+    label: adminQueueBucketLabel(key),
+  })),
 ];
 
 function availableStock(p: AdminProduct) {
@@ -939,6 +948,7 @@ export default function AdminPage() {
         body: JSON.stringify(body),
       });
       await load();
+      void loadOps();
     } catch (e: any) {
       setErr(e.message || 'Falha ao atualizar status');
     } finally {
@@ -1382,7 +1392,54 @@ export default function AdminPage() {
             >
               Pagamentos pendentes: {ops?.payments?.pendingCount ?? '—'}
             </span>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.orders?.buckets?.problems ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
+                color: (ops?.orders?.buckets?.problems ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
+                border: '1px solid #666',
+              }}
+            >
+              Fila problemas: {ops?.orders?.buckets?.problems ?? '—'}
+            </span>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.orders?.buckets?.paid ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
+                color: '#ffd100',
+                border: '1px solid #ffd100',
+              }}
+            >
+              Pagos (aguardar organizing): {ops?.orders?.buckets?.paid ?? '—'}
+            </span>
           </div>
+          {ops?.orders ? (
+            <div style={{ marginTop: 12 }}>
+              <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
+                Pedidos por bucket (groupBy status — sem API de transportadora).
+              </p>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+                {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => setOrderStatusFilter(key)}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: 12,
+                      borderColor: orderStatusFilter === key ? '#ffd100' : '#444',
+                      color: '#ffd100',
+                    }}
+                  >
+                    {adminQueueBucketLabel(key)}: {ops.orders?.buckets?.[key] ?? 0}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {ops?.catalog?.placeholderProducts?.length ? (
             <div style={{ marginTop: 14 }}>
               <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
@@ -2984,8 +3041,13 @@ export default function AdminPage() {
 
       <h3>Pedidos ({orders.length})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
-        Entrega própria: Compra → Organizando → Embalagem → Pronto para envio → Em trânsito → Entrega.
-        Ao marcar Em trânsito, informe o código de rastreio (opcional). WhatsApp é wa.me — não envia sozinho.
+        Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
+        Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
+        Ao marcar Em trânsito, informe o código de rastreio manual (opcional). Sem integração de transportadora.
+        WhatsApp é wa.me — não envia sozinho.
+      </p>
+      <p className="ok" style={{ fontSize: 13, marginTop: 0 }}>
+        {POST_PAYMENT_OPS_HINT}
       </p>
       <div
         style={{
@@ -2997,9 +3059,21 @@ export default function AdminPage() {
       >
         {ORDER_STATUS_TABS.map((tab) => {
           const active = orderStatusFilter === tab.key;
-          const count = orderStatusFilter === '' || orderStatusFilter === tab.key
-            ? (tab.key === '' ? orders.length : orders.filter((o) => o.status === tab.key).length)
-            : null;
+          const opsCount =
+            tab.key === ''
+              ? ops?.orders?.total
+              : ops?.orders?.buckets?.[tab.key];
+          const listCount =
+            tab.key === ''
+              ? orders.length
+              : tab.key === 'problems'
+                ? orders.length
+                : orders.filter((o) => o.status === tab.key).length;
+          const count = active
+            ? listCount
+            : opsCount != null
+              ? opsCount
+              : null;
           return (
             <button
               key={tab.key || 'all'}
@@ -3013,7 +3087,7 @@ export default function AdminPage() {
               }}
             >
               {tab.label}
-              {active && count != null ? ` (${count})` : ''}
+              {count != null ? ` (${count})` : ''}
             </button>
           );
         })}
@@ -3068,7 +3142,10 @@ export default function AdminPage() {
                   className="ok"
                   style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
                 >
-                  <span>Cliente pagou — avise no WhatsApp (e-mail já cobre o cliente, se SMTP estiver ativo).</span>
+                  <span>
+                    Cliente pagou — próximo ops: Marcar Organizando (não é automático). Avisar no WhatsApp
+                    (e-mail já cobre o cliente, se mail estiver ativo).
+                  </span>
                   <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
                     Cliente pagou — abrir WhatsApp
                   </a>
@@ -3119,7 +3196,7 @@ export default function AdminPage() {
       {!orders.length ? (
         <p className="muted">
           {orderStatusFilter
-            ? `Nenhum pedido com status “${orderStatusLabel(orderStatusFilter)}”.`
+            ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
             : 'Nenhum pedido ainda.'}
         </p>
       ) : null}

@@ -3,6 +3,10 @@ import {
   nextFulfillmentStatus,
   isRefundAllowed,
   shouldRestockOnRefund,
+  statusesForAdminQueueBucket,
+  bucketForOrderStatus,
+  POST_PAYMENT_OPS_HINT,
+  ADMIN_ORDER_QUEUE_BUCKETS,
 } from './order-status';
 import assert from 'assert';
 
@@ -36,5 +40,20 @@ assert.equal(isRefundAllowed('delivered'), false);
 assert.equal(shouldRestockOnRefund('paid'), true);
 assert.equal(shouldRestockOnRefund('organizing'), true);
 assert.equal(shouldRestockOnRefund('in_transit'), false);
+
+assert.deepEqual(statusesForAdminQueueBucket('paid'), ['paid']);
+assert.deepEqual(statusesForAdminQueueBucket('problems').sort(), [
+  'cancelled',
+  'refunded',
+  'separating',
+  'shipped',
+].sort());
+assert.equal(bucketForOrderStatus('paid'), 'paid');
+assert.equal(bucketForOrderStatus('cancelled'), 'problems');
+assert.equal(bucketForOrderStatus('separating'), 'problems');
+assert.equal(bucketForOrderStatus('draft'), 'draft');
+assert.equal(nextFulfillmentStatus('paid'), 'organizing');
+assert.ok(POST_PAYMENT_OPS_HINT.includes('organizing'));
+assert.ok(ADMIN_ORDER_QUEUE_BUCKETS.includes('problems'));
 
 console.log('order-status tests ok');

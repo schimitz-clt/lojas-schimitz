@@ -69,6 +69,7 @@ import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps } from './admin-ops';
+import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
 
 @ApiTags('admin')
@@ -97,25 +98,39 @@ export class AdminController {
 
   @Get('ops')
   @ApiOperation({
-    summary: 'Sinal operacional: estoque baixo, placeholders (id/nome) e pagamentos pendentes',
+    summary:
+      'Sinal operacional: estoque, placeholders, pagamentos pendentes e contagens por status de pedido',
   })
   async ops() {
     const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
-    const [lowStockCount, outOfStockCount, pendingPaymentCount, productImageRows] =
-      await Promise.all([
-        this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
-        this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
-        this.prisma.payment.count({ where: { status: 'pending' } }),
-        this.prisma.product.findMany({
-          select: {
-            id: true,
-            name: true,
-            images: { orderBy: { position: 'asc' }, take: 1, select: { url: true } },
-          },
-          orderBy: { name: 'asc' },
-        }),
-      ]);
+    const [
+      lowStockCount,
+      outOfStockCount,
+      pendingPaymentCount,
+      productImageRows,
+      orderStatusGroups,
+    ] = await Promise.all([
+      this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
+      this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
+      this.prisma.payment.count({ where: { status: 'pending' } }),
+      this.prisma.product.findMany({
+        select: {
+          id: true,
+          name: true,
+          images: { orderBy: { position: 'asc' }, take: 1, select: { url: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
     const placeholderProducts = listPlaceholderProducts(productImageRows);
+    const orderStatusCounts = orderStatusGroups.map((g) => ({
+      status: g.status,
+      count: g._count._all,
+    }));
     return ok(
       summarizeOps({
         lowStockCount,
@@ -125,6 +140,7 @@ export class AdminController {
         pendingPaymentCount,
         threshold,
         mailConfigured: mailConfiguredFromEnvPresence(),
+        orderStatusCounts,
       }),
     );
   }
@@ -167,8 +183,20 @@ export class AdminController {
 
   @Get('orders')
   async ordersList(@Query() query: AdminOrdersQueryDto) {
+    let where: { status?: OrderStatus | { in: OrderStatus[] } } | undefined;
+    if (query.status) {
+      if (query.status === 'problems' || isAdminOrderQueueBucket(query.status)) {
+        const statuses = statusesForAdminQueueBucket(query.status) as OrderStatus[];
+        where =
+          statuses.length === 1
+            ? { status: statuses[0] }
+            : { status: { in: statuses } };
+      } else {
+        where = { status: query.status as OrderStatus };
+      }
+    }
     const data = await this.prisma.order.findMany({
-      where: query.status ? { status: query.status as OrderStatus } : undefined,
+      where,
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {

@@ -110,3 +110,58 @@ export function isRefundAllowed(status: string) {
 export function shouldRestockOnRefund(status: string) {
   return (REFUND_RESTOCK_STATUSES as readonly string[]).includes(status);
 }
+
+/** Buckets da fila operacional do admin (reusa OrderStatus; sem inventar status). */
+export const ADMIN_ORDER_QUEUE_BUCKETS = [
+  'awaiting_payment',
+  'paid',
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
+  'problems',
+] as const;
+
+export type AdminOrderQueueBucket = (typeof ADMIN_ORDER_QUEUE_BUCKETS)[number];
+
+/**
+ * "Problemas": cancelados/reembolsados + legado stuck (separating/shipped)
+ * que ainda precisam de atenção do admin (avançar ou fechar).
+ */
+export const PROBLEM_ORDER_STATUSES = [
+  'cancelled',
+  'refunded',
+  'separating',
+  'shipped',
+] as const;
+
+/** Status reais do enum cobertos por um bucket da fila (problems é virtual). */
+export function statusesForAdminQueueBucket(bucket: string): string[] {
+  if (bucket === 'problems') return [...PROBLEM_ORDER_STATUSES];
+  if ((ADMIN_ORDER_QUEUE_BUCKETS as readonly string[]).includes(bucket)) {
+    return [bucket];
+  }
+  return [];
+}
+
+export function isAdminOrderQueueBucket(value: string): value is AdminOrderQueueBucket {
+  return (ADMIN_ORDER_QUEUE_BUCKETS as readonly string[]).includes(value);
+}
+
+/**
+ * Pagamento CAS → `paid` apenas (não auto-organizing).
+ * Próximo passo operacional seguro: admin one-click → organizing.
+ */
+export const POST_PAYMENT_OPS_HINT =
+  'Pagamento confirma status paid. Próximo passo: admin marca organizing (não há auto-transition para organizing).';
+
+export function bucketForOrderStatus(status: string): AdminOrderQueueBucket | 'draft' | null {
+  if (status === 'draft') return 'draft';
+  if ((PROBLEM_ORDER_STATUSES as readonly string[]).includes(status)) return 'problems';
+  if ((ADMIN_ORDER_QUEUE_BUCKETS as readonly string[]).includes(status)) {
+    return status as AdminOrderQueueBucket;
+  }
+  return null;
+}
+

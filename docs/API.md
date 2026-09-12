@@ -9,7 +9,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/health` | público |
-| GET | `/admin/ops` | admin — `inventory.lowStockCount` / `outOfStockCount` (threshold 5) + `catalog.placeholderProductCount` + `catalog.placeholderProducts[{id,name}]` + `payments.pendingCount` |
+| GET | `/admin/ops` | admin — inventory + catalog placeholders + `payments.pendingCount` + `mail.configured` + `orders.{byStatus,buckets,total}` (fila: awaiting_payment…delivered + problems) |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |
@@ -42,7 +42,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/admin/reviews` | admin |
 | PATCH | `/admin/reviews/:id` body `{ status: "published"|"hidden" }` | admin |
 | DELETE | `/admin/reviews/:id` | admin |
-| GET | `/admin/orders` (inclui `user.phone`) `/admin/products` `/admin/categories` | admin |
+| GET | `/admin/orders` `?status=` (OrderStatus ou bucket virtual `problems`) — inclui `user.phone`; `/admin/products` `/admin/categories` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, byDay, bySeller, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB; magic-bytes; erros `UPLOAD_*`) → `{ url, filename }` (url apex se SITE_URL/APP_URL) | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
