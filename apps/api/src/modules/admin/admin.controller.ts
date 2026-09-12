@@ -68,7 +68,7 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, summarizeInventoryOps } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, countPlaceholderProducts, summarizeOps } from './admin-ops';
 
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
@@ -95,17 +95,29 @@ export class AdminController {
 
 
   @Get('ops')
-  @ApiOperation({ summary: 'Sinal operacional: estoque baixo (health-adjacent)' })
+  @ApiOperation({
+    summary: 'Sinal operacional: estoque baixo, placeholders e pagamentos pendentes',
+  })
   async ops() {
     const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
-    const [lowStockCount, outOfStockCount] = await Promise.all([
-      this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
-      this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
-    ]);
+    const [lowStockCount, outOfStockCount, pendingPaymentCount, productImageRows] =
+      await Promise.all([
+        this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
+        this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
+        this.prisma.payment.count({ where: { status: 'pending' } }),
+        this.prisma.product.findMany({
+          select: {
+            images: { orderBy: { position: 'asc' }, take: 1, select: { url: true } },
+          },
+        }),
+      ]);
+    const placeholderProductCount = countPlaceholderProducts(productImageRows);
     return ok(
-      summarizeInventoryOps({
+      summarizeOps({
         lowStockCount,
         outOfStockCount,
+        placeholderProductCount,
+        pendingPaymentCount,
         threshold,
       }),
     );

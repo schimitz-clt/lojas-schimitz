@@ -302,6 +302,18 @@ const emptyCouponForm = (): CouponForm => ({
 
 const DEFAULT_LOW_STOCK = 5;
 
+type AdminOpsSnapshot = {
+  time: string;
+  inventory: {
+    lowStockThreshold: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+  };
+  catalog?: { placeholderProductCount: number };
+  payments?: { pendingCount: number };
+};
+
+
 const ORDER_STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'Todos' },
   { key: 'awaiting_payment', label: 'Aguardando pagamento' },
@@ -409,6 +421,8 @@ export default function AdminPage() {
   const [customerBusy, setCustomerBusy] = useState(false);
   const [customerDetail, setCustomerDetail] = useState<AdminCustomerDetail | null>(null);
   const [customerDetailBusy, setCustomerDetailBusy] = useState(false);
+  const [ops, setOps] = useState<AdminOpsSnapshot | null>(null);
+  const [opsBusy, setOpsBusy] = useState(false);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -491,6 +505,26 @@ export default function AdminPage() {
     }
   }, [customerQ]);
 
+  const loadOps = useCallback(async () => {
+    const u = currentUser();
+    if (!u || u.role !== 'admin') return;
+    setOpsBusy(true);
+    try {
+      const data = await api<AdminOpsSnapshot>('/admin/ops');
+      setOps(data);
+    } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
+      // Non-blocking: existing sections still work if ops fails
+      console.warn('admin ops', e?.message || e);
+    } finally {
+      setOpsBusy(false);
+    }
+  }, []);
+
   async function openCustomer(id: string) {
     setCustomerDetailBusy(true);
     setErr('');
@@ -539,6 +573,10 @@ export default function AdminPage() {
   useEffect(() => {
     void loadCustomers();
   }, [loadCustomers]);
+
+  useEffect(() => {
+    void loadOps();
+  }, [loadOps]);
 
   const editingLabel = useMemo(
     () => (editingId ? 'Editar produto' : 'Cadastrar produto'),
@@ -1270,8 +1308,85 @@ export default function AdminPage() {
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
 
-
-
+      <section
+        className="card"
+        style={{
+          marginTop: 16,
+          marginBottom: 28,
+          borderColor: '#1a1a1a',
+          background: '#0a0a0a',
+          color: '#f5f5f3',
+        }}
+      >
+        <div className="body">
+          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Exceções (ops)</h2>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={opsBusy}
+              onClick={() => void loadOps()}
+              style={{ borderColor: '#ffd100', color: '#ffd100' }}
+            >
+              {opsBusy ? 'Atualizando…' : 'Atualizar'}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
+            Contagens do servidor (`GET /admin/ops`). Não cobra e não altera dados.
+          </p>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.inventory.lowStockCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
+                color: '#ffd100',
+                border: '1px solid #ffd100',
+              }}
+            >
+              Estoque baixo: {ops?.inventory.lowStockCount ?? '—'}
+            </span>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
+                color: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
+                border: '1px solid #666',
+              }}
+            >
+              Zerados: {ops?.inventory.outOfStockCount ?? '—'}
+            </span>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
+                color: '#ffd100',
+                border: '1px solid #ffd100',
+              }}
+            >
+              Foto placeholder: {ops?.catalog?.placeholderProductCount ?? '—'}
+            </span>
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: (ops?.payments?.pendingCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
+                color: '#ffd100',
+                border: '1px solid #ffd100',
+              }}
+            >
+              Pagamentos pendentes: {ops?.payments?.pendingCount ?? '—'}
+            </span>
+          </div>
+          {ops?.time ? (
+            <p className="muted" style={{ marginBottom: 0, marginTop: 10, fontSize: 12, color: '#8a8a84' }}>
+              Snapshot: {ops.time}
+            </p>
+          ) : null}
+        </div>
+      </section>
 
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
