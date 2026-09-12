@@ -68,7 +68,7 @@ function responseLooksUnauthorized(res: Response, json: ApiOk<unknown> | ApiFail
   return false;
 }
 
-type SessionPayload = { accessToken: string; refreshToken: string; user: unknown };
+type SessionPayload = { accessToken: string; refreshToken?: string; user: unknown };
 
 /** Single-flight: parallel 401s share one refresh (token rotation). */
 let refreshInFlight: Promise<boolean> | null = null;
@@ -180,14 +180,15 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
  * Em localhost ainda gravamos refresh no localStorage (API cross-origin :3001).
  * Read path dual-mode: se `sch_refresh` existir no storage, o body ainda é enviado.
  */
-export function saveSession(data: { accessToken: string; refreshToken: string; user: unknown }) {
+export function saveSession(data: { accessToken: string; refreshToken?: string; user: unknown }) {
   localStorage.setItem('sch_access', data.accessToken);
   localStorage.setItem('sch_user', JSON.stringify(data.user));
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   if (shouldPersistRefreshInLocalStorage(host)) {
+    // Localhost cross-origin: body refresh still needed when API returns it.
     if (data.refreshToken) localStorage.setItem('sch_refresh', data.refreshToken);
   } else {
-    // Migrate away from XSS-reachable refresh on same-origin / production.
+    // Same-origin / production / Android WebView: never persist refresh (cookie-first).
     localStorage.removeItem('sch_refresh');
   }
 }

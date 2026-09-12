@@ -166,7 +166,7 @@ export class OrdersService {
     const address = await this.prisma.address.findFirst({
       where: { id: dto.addressId, userId },
     });
-    if (!address) throw new NotFoundException('Endereço não encontrado');
+    if (!address) throw new NotFoundException({ message: 'Endereço não encontrado', code: 'ADDRESS_NOT_FOUND' });
     const buyer = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { phone: true },
@@ -340,14 +340,14 @@ export class OrdersService {
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
-    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     return order;
   }
 
   /** Somente quem ganha awaiting_payment → cancelled libera reserva. */
   async cancel(userId: string, publicId: string) {
     const found = await this.prisma.order.findFirst({ where: { publicId, userId } });
-    if (!found) throw new NotFoundException('Pedido não encontrado');
+    if (!found) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     const won = await this.transitionFromAwaiting(found.id, 'cancelled');
     if (!won) {
       const current = await this.prisma.order.findUnique({
@@ -500,7 +500,7 @@ export class OrdersService {
     opts?: { trackingCode?: string | null; carrier?: string | null },
   ) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     if (!canTransition(order.status, to)) {
       throw new BadRequestException({
         message: `Transição inválida: ${order.status} → ${to}`,

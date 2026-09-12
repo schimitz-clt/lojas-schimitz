@@ -64,3 +64,13 @@ Checklist + hardening seguro: ver `docs/MEGA-PHASE-8-SECURITY.md`.
 - Storefront: headers baseline (HSTS/XFO/nosniff/…) + `poweredByHeader: false`.
 - Dual-mode refresh **mantido**.
 
+
+## MEGA Phase 9
+
+IDOR/BOLA + refresh cookie-prefer: ver `docs/MEGA-PHASE-9-CHECKPOINT.md`.
+- Orders/addresses: ownership por `userId`; cross-user → **404** (`ORDER_NOT_FOUND` / `ADDRESS_NOT_FOUND`).
+- PATCH `/me`: somente `name`/`phone` (sem escalada de role).
+- Admin: `RolesGuard` + `@Roles('admin')` (customer → 403).
+- Refresh: cookie HttpOnly tem precedência; body fallback; JSON `refreshToken` dual (default).
+- Opt-out JSON: `REFRESH_JSON_TOKEN_ENABLED=false` (só com cookie enabled; não ativar sem e2e).
+- CSRF: SameSite=Lax via proxy mitiga POST cross-site; residual se `SameSite=None` direto na API.

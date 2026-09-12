@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { CreateAddressDto, UpdateAddressDto } from './dto';
+import { OWNERSHIP_CODES } from '../../common/ownership';
 
 @Injectable()
 export class AddressesService {
@@ -39,7 +40,12 @@ export class AddressesService {
 
   async update(userId: string, id: string, dto: UpdateAddressDto) {
     const existing = await this.prisma.address.findFirst({ where: { id, userId } });
-    if (!existing) throw new NotFoundException('Endereço não encontrado');
+    if (!existing) {
+      throw new NotFoundException({
+        message: 'Endereço não encontrado',
+        code: OWNERSHIP_CODES.ADDRESS_NOT_FOUND,
+      });
+    }
 
     if (dto.isDefault) {
       await this.prisma.address.updateMany({
@@ -48,8 +54,9 @@ export class AddressesService {
       });
     }
 
-    return this.prisma.address.update({
-      where: { id },
+    // Defense-in-depth: re-scope by userId (BOLA) — never mutate by id alone.
+    const updated = await this.prisma.address.updateMany({
+      where: { id, userId },
       data: {
         ...(dto.label !== undefined ? { label: dto.label } : {}),
         ...(dto.cep !== undefined ? { cep: dto.cep.replace(/\D/g, '') } : {}),
@@ -63,12 +70,37 @@ export class AddressesService {
         ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
       },
     });
+    if (updated.count === 0) {
+      throw new NotFoundException({
+        message: 'Endereço não encontrado',
+        code: OWNERSHIP_CODES.ADDRESS_NOT_FOUND,
+      });
+    }
+    const row = await this.prisma.address.findFirst({ where: { id, userId } });
+    if (!row) {
+      throw new NotFoundException({
+        message: 'Endereço não encontrado',
+        code: OWNERSHIP_CODES.ADDRESS_NOT_FOUND,
+      });
+    }
+    return row;
   }
 
   async remove(userId: string, id: string) {
     const existing = await this.prisma.address.findFirst({ where: { id, userId } });
-    if (!existing) throw new NotFoundException('Endereço não encontrado');
-    await this.prisma.address.delete({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        message: 'Endereço não encontrado',
+        code: OWNERSHIP_CODES.ADDRESS_NOT_FOUND,
+      });
+    }
+    const deleted = await this.prisma.address.deleteMany({ where: { id, userId } });
+    if (deleted.count === 0) {
+      throw new NotFoundException({
+        message: 'Endereço não encontrado',
+        code: OWNERSHIP_CODES.ADDRESS_NOT_FOUND,
+      });
+    }
     return { deleted: true };
   }
 }

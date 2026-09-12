@@ -10,6 +10,7 @@ import {
   clearRefreshCookie,
   resolveRefreshToken,
   setRefreshCookie,
+  shapeAuthSessionPayload,
 } from './refresh-cookie';
 
 function clientIp(req: Request): string {
@@ -56,7 +57,7 @@ export class AuthController {
     const tokens = await this.auth.register(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
     this.attachRefreshCookie(res, tokens);
-    return ok(tokens);
+    return ok(shapeAuthSessionPayload(tokens));
   }
 
   @Post('login')
@@ -72,14 +73,14 @@ export class AuthController {
     const tokens = await this.auth.login(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
     this.attachRefreshCookie(res, tokens);
-    return ok(tokens);
+    return ok(shapeAuthSessionPayload(tokens));
   }
 
   @Post('refresh')
   @ApiOperation({
     summary: 'Renovar access token',
     description:
-      'Aceita refresh no body (`refreshToken`) **ou** no cookie HttpOnly `sch_refresh`. Body tem precedência. Resposta ainda inclui `refreshToken` (mobile/legado); cookie é renovado na rotação.',
+      'Aceita refresh no cookie HttpOnly `sch_refresh` **ou** no body (`refreshToken`). Cookie tem precedência (Phase 9); body é fallback. Resposta inclui `refreshToken` por default (compat); omitível com REFRESH_JSON_TOKEN_ENABLED=false.',
   })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async refresh(
@@ -94,7 +95,7 @@ export class AuthController {
     }
     const tokens = await this.auth.refresh({ refreshToken });
     this.attachRefreshCookie(res, tokens);
-    return ok(tokens);
+    return ok(shapeAuthSessionPayload(tokens));
   }
 
   @Post('logout')

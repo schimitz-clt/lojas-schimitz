@@ -7,8 +7,11 @@ import {
   refreshCookieEnabled,
   refreshCookieSameSite,
   refreshCookieSecure,
+  refreshJsonTokenEnabled,
   resolveRefreshToken,
   setRefreshCookie,
+  shapeAuthSessionPayload,
+  shouldOmitRefreshTokenInJson,
 } from './refresh-cookie';
 
 const saved = { ...process.env };
@@ -22,6 +25,7 @@ function resetEnv() {
     'REFRESH_COOKIE_SAMESITE',
     'REFRESH_COOKIE_NAME',
     'REFRESH_COOKIE_DOMAIN',
+    'REFRESH_JSON_TOKEN_ENABLED',
   ]) {
     if (k in saved) process.env[k] = saved[k]!;
     else delete process.env[k];
@@ -76,9 +80,15 @@ try {
   } as unknown as Request;
   assert.equal(readRefreshFromRequest(req), 'abc/def');
 
-  assert.equal(resolveRefreshToken(req, 'body-token'), 'body-token');
+  // Phase 9: cookie preferred over body
+  assert.equal(resolveRefreshToken(req, 'body-token'), 'abc/def');
   assert.equal(resolveRefreshToken(req, '  '), 'abc/def');
   assert.equal(resolveRefreshToken(req, undefined), 'abc/def');
+
+  const reqNoCookie = { headers: {} } as unknown as Request;
+  assert.equal(resolveRefreshToken(reqNoCookie, 'body-only'), 'body-only');
+  assert.equal(resolveRefreshToken(reqNoCookie, '  '), undefined);
+  assert.equal(resolveRefreshToken(reqNoCookie, undefined), undefined);
 
   process.env.REFRESH_COOKIE_ENABLED = 'true';
   process.env.APP_ENV = 'development';
@@ -101,6 +111,34 @@ try {
   const resOff = mockRes();
   setRefreshCookie(resOff, 'x');
   assert.equal(resOff.getHeader('Set-Cookie'), undefined);
+
+  // JSON omit deprecation path (opt-in only)
+  delete process.env.REFRESH_JSON_TOKEN_ENABLED;
+  process.env.REFRESH_COOKIE_ENABLED = 'true';
+  assert.equal(refreshJsonTokenEnabled(), true);
+  assert.equal(shouldOmitRefreshTokenInJson(), false);
+  const full = shapeAuthSessionPayload({
+    accessToken: 'a',
+    refreshToken: 'r',
+    user: { id: '1' },
+  });
+  assert.equal((full as any).refreshToken, 'r');
+
+  process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
+  assert.equal(refreshJsonTokenEnabled(), false);
+  assert.equal(shouldOmitRefreshTokenInJson(), true);
+  const omitted = shapeAuthSessionPayload({
+    accessToken: 'a',
+    refreshToken: 'r',
+    user: { id: '1' },
+  }) as any;
+  assert.equal(omitted.refreshToken, undefined);
+  assert.equal(omitted.accessToken, 'a');
+
+  // Cookie off → never omit (body-only clients)
+  process.env.REFRESH_COOKIE_ENABLED = 'false';
+  process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
+  assert.equal(shouldOmitRefreshTokenInJson(), false);
 
   console.log('refresh-cookie unit tests ok');
 } finally {

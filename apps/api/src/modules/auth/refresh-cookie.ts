@@ -1,9 +1,12 @@
 /**
  * Refresh token em cookie HttpOnly (modo dual com body).
  *
- * Motivo: access JWT curto continua no cliente (Bearer / localStorage) para mobile
- * e headers; refresh fica em cookie HttpOnly quando o browser envia (SameSite/Domain OK).
- * Body `refreshToken` permanece aceito (Android TWA / clientes sem cookie / legado).
+ * MEGA Phase 9:
+ * - Prefer cookie quando presente; body permanece fallback (localhost / legado / mobile).
+ * - JSON ainda inclui `refreshToken` por default (compat). Opt-out via
+ *   REFRESH_JSON_TOKEN_ENABLED=false + REFRESH_COOKIE_ENABLED (deprecation path).
+ * - Web same-origin / Android WebView: credentials include + cookie; não persistir
+ *   refresh em localStorage fora de localhost.
  *
  * Cross-origin (ex.: web :3000 → api :3001): cookie exige SameSite=None; Secure e
  * HTTPS, ou proxy same-site. Sem isso o body continua sendo o caminho funcional.
@@ -11,6 +14,9 @@
  * Com proxy same-origin no Next (`/api/v1` → Nest), o browser vê cookie no host da loja.
  * O proxy reescreve Set-Cookie (remove Domain; SameSite=None→Lax). REFRESH_COOKIE_DOMAIN
  * no Nest ainda pode ser .lojasschimitz.com.br para acesso direto à API; o proxy remove Domain.
+ *
+ * CSRF: SameSite=Lax (via proxy) bloqueia POST cross-site com cookie. SameSite=None
+ * residual se o cliente falar direto com a API — ver docs/MEGA-PHASE-9-CHECKPOINT.md.
  */
 
 import type { Request, Response } from 'express';
@@ -22,6 +28,30 @@ export function refreshCookieEnabled(): boolean {
   const flag = String(process.env.REFRESH_COOKIE_ENABLED || 'true').toLowerCase().trim();
   if (flag === 'false' || flag === '0' || flag === 'off') return false;
   return true;
+}
+
+/**
+ * When false AND cookie mode is on, login/register/refresh JSON omits `refreshToken`
+ * (clients must use Set-Cookie). Default true — safe compat; do not flip in prod
+ * until Set-Cookie path is proven for all clients (web + Android WebView).
+ */
+export function refreshJsonTokenEnabled(): boolean {
+  const flag = String(process.env.REFRESH_JSON_TOKEN_ENABLED || 'true').toLowerCase().trim();
+  if (flag === 'false' || flag === '0' || flag === 'off') return false;
+  return true;
+}
+
+export function shouldOmitRefreshTokenInJson(): boolean {
+  return refreshCookieEnabled() && !refreshJsonTokenEnabled();
+}
+
+/** Strip refreshToken from auth session payload when deprecation flag is active. */
+export function shapeAuthSessionPayload<T extends { refreshToken: string }>(
+  tokens: T,
+): T | Omit<T, 'refreshToken'> {
+  if (!shouldOmitRefreshTokenInJson()) return tokens;
+  const { refreshToken: _omit, ...rest } = tokens;
+  return rest;
 }
 
 function isProdLike() {
@@ -116,9 +146,14 @@ export function clearRefreshCookie(res: Response) {
   }
 }
 
-/** Extrai refresh: body tem precedência sobre cookie (clientes explícitos). */
+/**
+ * Extrai refresh: cookie HttpOnly tem precedência (Phase 9).
+ * Body permanece fallback para localhost / legado / clientes sem cookie.
+ */
 export function resolveRefreshToken(req: Request, bodyToken?: string): string | undefined {
+  const fromCookie = readRefreshFromRequest(req);
+  if (fromCookie) return fromCookie;
   const fromBody = typeof bodyToken === 'string' ? bodyToken.trim() : '';
   if (fromBody) return fromBody;
-  return readRefreshFromRequest(req);
+  return undefined;
 }
