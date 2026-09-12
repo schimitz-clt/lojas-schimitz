@@ -337,8 +337,17 @@ export class OrdersService {
   async list(userId: string) {
     return this.prisma.order.findMany({
       where: { userId },
-      include: { items: true, payments: true },
+      select: {
+        id: true,
+        publicId: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        items: { select: { id: true, name: true, qty: true, unitPrice: true } },
+        payments: { select: { id: true, status: true, method: true } },
+      },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 

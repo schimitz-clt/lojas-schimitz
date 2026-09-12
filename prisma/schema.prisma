@@ -201,6 +201,7 @@ model Product {
   favorites  Favorite[]
 
   @@index([sellerId])
+  @@index([active])
 }
 
 model ProductImage {
@@ -210,6 +211,8 @@ model ProductImage {
   url       String
   alt       String  @default("")
   position  Int     @default(0)
+
+  @@index([productId])
 }
 
 model Inventory {
@@ -295,6 +298,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([userId, status])
 }
 
 model OrderItem {
@@ -312,6 +316,8 @@ model OrderItem {
 
   commissions CommissionLedger[]
 
+  @@index([orderId])
+  @@index([productId])
   @@index([sellerId])
 }
 

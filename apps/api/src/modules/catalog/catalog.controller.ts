@@ -47,10 +47,20 @@ export class CatalogController {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: {
-          images: { orderBy: { position: 'asc' } },
-          inventory: true,
-          category: true,
+        // List cards need primary image + stock + seller — avoid over-fetching description/dims/all images.
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          price: true,
+          compareAtPrice: true,
+          badge: true,
+          ratingAvg: true,
+          ratingCount: true,
+          active: true,
+          images: { orderBy: { position: 'asc' }, take: 1, select: { url: true, position: true, alt: true } },
+          inventory: { select: { qtyOnHand: true, qtyReserved: true } },
+          category: { select: { id: true, name: true, slug: true } },
           seller: { select: { id: true, name: true, slug: true } },
         },
         orderBy,

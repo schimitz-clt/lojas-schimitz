@@ -267,6 +267,8 @@ export default function ProductPage() {
                 alt={p.name}
                 width={800}
                 height={800}
+                sizes="(max-width: 768px) 100vw, 480px"
+                loading="eager"
                 decoding="async"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
@@ -294,7 +296,15 @@ export default function ProductPage() {
                   aria-label={`Foto ${i + 1}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" />
+                  <img
+                    src={url}
+                    alt=""
+                    width={80}
+                    height={80}
+                    sizes="80px"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </button>
               ))}
             </div>

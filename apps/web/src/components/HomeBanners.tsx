@@ -99,6 +99,7 @@ export function HomeBanners() {
       className="home-banner-img"
       width={1200}
       height={457}
+      sizes="100vw"
       loading="eager"
       fetchPriority="high"
       decoding="async"

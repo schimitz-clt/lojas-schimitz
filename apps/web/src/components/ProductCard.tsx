@@ -57,6 +57,7 @@ function ProductImage({
       alt={alt}
       width={400}
       height={400}
+      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
       onError={(e) => {
