@@ -2,7 +2,10 @@
  * Public catalog product shape.
  * Cart already exposes flat `stock` + `image`; list/detail must match that source
  * (inventory available qty + primary ProductImage.url) so clients aren't stuck with nulls.
+ * Railway /api/v1/uploads URLs are rewritten to the public apex (curl-verified).
  */
+
+import { rewritePublicUploadUrl, rewritePublicUploadUrls } from '../../common/public-upload-url';
 
 export type InventoryLike = {
   qtyOnHand: number;
@@ -41,11 +44,13 @@ export function serializePublicProduct<T extends Record<string, unknown>>(produc
   image: string | null;
   imageUrl: string | null;
 } {
-  const images = (product as { images?: ImageLike[] }).images;
+  const rawImages = (product as { images?: ImageLike[] }).images;
+  const images = rewritePublicUploadUrls(rawImages);
   const inventory = (product as { inventory?: InventoryLike }).inventory;
-  const image = primaryImageUrl(images);
+  const image = rewritePublicUploadUrl(primaryImageUrl(images ?? rawImages));
   return {
     ...product,
+    ...(images ? { images } : {}),
     stock: availableStock(inventory),
     image,
     imageUrl: image,

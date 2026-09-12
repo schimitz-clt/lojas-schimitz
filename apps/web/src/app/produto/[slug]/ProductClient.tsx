@@ -11,6 +11,8 @@ import {
   stockBadge,
 } from '@/lib/pricing';
 import { PdpSkeleton } from '@/components/Skeleton';
+import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
 type Detail = {
   id: string;
@@ -218,11 +220,15 @@ export default function ProductPage() {
   const gallery = useMemo(() => {
     if (!p) return [] as string[];
     const urls = (p.images || [])
-      .map((i) => (i.url || '').trim())
-      .filter(Boolean);
+      .map((i) => {
+        const raw = (i.url || '').trim();
+        return rewritePublicUploadUrl(raw) || raw;
+      })
+      .filter((u): u is string => Boolean(u) && !isMissingOrPlaceholderImage(u));
     if (urls.length) return urls;
-    const flat = (p.image || p.imageUrl || '').trim();
-    return flat ? [flat] : [];
+    const flatRaw = (p.image || p.imageUrl || '').trim();
+    const flat = rewritePublicUploadUrl(flatRaw) || flatRaw;
+    return flat && !isMissingOrPlaceholderImage(flat) ? [flat] : [];
   }, [p]);
 
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;

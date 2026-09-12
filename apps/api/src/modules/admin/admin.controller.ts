@@ -67,6 +67,8 @@ import {
 import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
+import { rewritePublicUploadUrl } from '../../common/public-upload-url';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, summarizeInventoryOps } from './admin-ops';
 
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
@@ -90,6 +92,24 @@ export class AdminController {
     private readonly adminCustomers: AdminCustomersService,
   ) {}
 
+
+
+  @Get('ops')
+  @ApiOperation({ summary: 'Sinal operacional: estoque baixo (health-adjacent)' })
+  async ops() {
+    const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
+    const [lowStockCount, outOfStockCount] = await Promise.all([
+      this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
+      this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
+    ]);
+    return ok(
+      summarizeInventoryOps({
+        lowStockCount,
+        outOfStockCount,
+        threshold,
+      }),
+    );
+  }
 
   @Get('admins')
   async listAdmins() {
@@ -377,7 +397,8 @@ export class AdminController {
       throw new BadRequestException('Arquivo maior que 15 MB');
     }
     const { filename } = this.uploads.save(file.buffer, file.mimetype);
-    const url = this.uploads.publicUrl(filename, req);
+    const rawUrl = this.uploads.publicUrl(filename, req);
+    const url = rewritePublicUploadUrl(rawUrl) || rawUrl;
     return ok({ url, filename });
   }
 }

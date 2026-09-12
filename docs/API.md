@@ -9,6 +9,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/health` | público |
+| GET | `/admin/ops` | admin — sinal operacional: `inventory.lowStockCount` / `outOfStockCount` (threshold 5) |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |
@@ -90,3 +91,11 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 - Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
 - Access token continua no header `Authorization: Bearer`.
 - Resposta JSON ainda inclui `refreshToken` (compat mobile/legado).
+
+
+## URLs públicas de upload
+
+Imagens persistidas como `https://lojas-schimitz-production.up.railway.app/api/v1/uploads/...`
+são reescritas na serialização (catálogo, banners, carrinho, seller, resposta de upload)
+para `https://lojasschimitz.com.br/api/v1/uploads/...`. O path same-origin faz proxy
+(verificado: mesmo PNG/etag no apex e no host Railway). O arquivo no disco/DB não muda.

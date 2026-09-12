@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
+import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 
 const DEFAULT_TITLE = 'Lojas Schimitz';
 const DEFAULT_DESCRIPTION =
@@ -33,7 +34,7 @@ function serializeSettings(s: {
     id: s.id,
     siteTitle: s.siteTitle,
     siteDescription: s.siteDescription,
-    ogImageUrl: s.ogImageUrl,
+    ogImageUrl: rewritePublicUploadUrl(s.ogImageUrl) ?? s.ogImageUrl,
     updatedAt: s.updatedAt,
   };
 }
@@ -53,7 +54,7 @@ function serializeBanner(b: {
     id: b.id,
     title: b.title,
     alt: b.alt,
-    imageUrl: b.imageUrl,
+    imageUrl: rewritePublicUploadUrl(b.imageUrl) || b.imageUrl,
     linkUrl: b.linkUrl,
     sortOrder: b.sortOrder,
     active: b.active,

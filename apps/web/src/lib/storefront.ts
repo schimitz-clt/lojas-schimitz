@@ -1,3 +1,5 @@
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+
 /** Tipos e fetch server-side para SEO / banners (storefront). */
 
 export type StoreSettings = {
@@ -67,8 +69,9 @@ export async function fetchProductMeta(slug: string): Promise<{
     if (!json.ok || !json.data) return null;
     const d = json.data;
     const desc = (d.description || '').trim() || `${d.name} na Lojas Schimitz`;
-    const image =
+    const rawImage =
       d.images?.[0]?.url?.trim() || d.image?.trim() || d.imageUrl?.trim() || undefined;
+    const image = rawImage ? rewritePublicUploadUrl(rawImage) || rawImage : undefined;
     return {
       name: d.name,
       description: desc.slice(0, 320),

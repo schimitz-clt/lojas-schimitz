@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { PrismaService } from '../../prisma.service';
 import { randomUUID } from 'crypto';
 import { AddCartItemDto, UpdateCartItemDto } from './dto';
+import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 
 @Injectable()
 export class CartService {
@@ -68,7 +69,7 @@ export class CartService {
         name: item.product.name,
         slug: item.product.slug,
         price,
-        image: item.product.images[0]?.url ?? null,
+        image: rewritePublicUploadUrl(item.product.images[0]?.url ?? null),
         stock: item.product.inventory
           ? item.product.inventory.qtyOnHand - item.product.inventory.qtyReserved
           : 0,

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, apiUpload, brl, clearSession, currentUser, isUnauthorizedError } from '@/lib/api';
 import { nextFulfillmentStatus, orderStatusLabel } from '@/lib/order-status';
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
+import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
 type AdminOrder = {
   id: string;
@@ -117,18 +119,6 @@ const emptyForm = (): ProductForm => ({
   imageUrl: '',
   badge: '',
 });
-
-
-/** Demo/seed image host — warn admin to replace with real upload. */
-function isPlaceholderImageUrl(url?: string | null): boolean {
-  if (!url) return false;
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host === 'placehold.co' || host.endsWith('.placehold.co');
-  } catch {
-    return /placehold\.co/i.test(url);
-  }
-}
 
 
 type AdminCoupon = {
@@ -575,7 +565,7 @@ export default function AdminPage() {
       categoryId: p.categoryId || p.category?.id || '',
       sellerId: p.sellerId || p.seller?.id || '',
       active: !!p.active,
-      imageUrl: p.images?.[0]?.url || '',
+      imageUrl: rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url || '',
       badge: p.badge || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2754,7 +2744,7 @@ export default function AdminPage() {
       {(() => {
         const placeholderCount = products.filter((p) => {
           const url = p.images?.[0]?.url;
-          return !url || isPlaceholderImageUrl(url);
+          return isMissingOrPlaceholderImage(url);
         }).length;
         if (!placeholderCount) return null;
         return (
@@ -2780,8 +2770,8 @@ export default function AdminPage() {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
           const isLow = onHand <= lowStockThreshold;
-          const imgUrl = p.images?.[0]?.url;
-          const isPlaceholderImg = !imgUrl || isPlaceholderImageUrl(imgUrl);
+          const imgUrl = rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url;
+          const isPlaceholderImg = isMissingOrPlaceholderImage(imgUrl);
           return (
             <div
               key={p.id}
@@ -2790,10 +2780,10 @@ export default function AdminPage() {
             >
               <div className="body row" style={{ alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                  {p.images?.[0]?.url ? (
+                  {imgUrl && !isPlaceholderImg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={p.images[0].url}
+                      src={imgUrl}
                       alt=""
                       style={{
                         width: 56,

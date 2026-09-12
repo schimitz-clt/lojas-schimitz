@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { brl } from '@/lib/api';
 import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
+import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
 export type Product = {
   id: string;
@@ -22,9 +24,11 @@ export type Product = {
 
 function resolveImageUrl(p: Product): string {
   const nested = p.images?.[0]?.url?.trim() || '';
-  if (nested) return nested;
   const flat = (p.image || p.imageUrl || '').trim();
-  return flat;
+  const raw = nested || flat;
+  const rewritten = rewritePublicUploadUrl(raw) || raw;
+  if (isMissingOrPlaceholderImage(rewritten)) return '';
+  return rewritten;
 }
 
 function resolveStock(p: Product): number | null {

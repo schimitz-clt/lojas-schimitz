@@ -4,11 +4,19 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
+import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
 function isUsableBanner(b: HomeBanner | null | undefined): b is HomeBanner {
   if (!b || typeof b !== 'object') return false;
-  const url = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
-  return Boolean(url);
+  const raw = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
+  const url = rewritePublicUploadUrl(raw) || raw;
+  return Boolean(url) && !isMissingOrPlaceholderImage(url);
+}
+
+function bannerImageUrl(b: HomeBanner): string {
+  const raw = (b.imageUrl || '').trim();
+  return rewritePublicUploadUrl(raw) || raw;
 }
 
 /** Faixa promocional estática (só texto/CSS) quando a API não tem banners. */
@@ -86,7 +94,7 @@ export function HomeBanners() {
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={current.imageUrl}
+      src={bannerImageUrl(current)}
       alt={current.alt || current.title || 'Banner'}
       className="home-banner-img"
       width={1200}

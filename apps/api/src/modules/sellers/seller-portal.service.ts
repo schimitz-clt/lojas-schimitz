@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { assertSellerCanUpdateProduct } from './seller-portal.authz';
 import { CommissionsService } from '../commissions/commissions.service';
+import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 
 @Injectable()
 export class SellerPortalService {
@@ -72,7 +73,7 @@ export class SellerPortalService {
       active: p.active,
       stock: p.inventory?.qtyOnHand ?? 0,
       reserved: p.inventory?.qtyReserved ?? 0,
-      imageUrl: p.images[0]?.url ?? null,
+      imageUrl: rewritePublicUploadUrl(p.images[0]?.url ?? null),
       category: p.category,
     }));
   }

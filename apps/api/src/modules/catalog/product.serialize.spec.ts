@@ -75,4 +75,22 @@ import {
   console.log('product.serialize: missing inventory/image → null — PASSOU');
 }
 
+{
+  const railway =
+    'https://lojas-schimitz-production.up.railway.app/api/v1/uploads/518992fa-c11b-4ca5-8113-18e5a1e6c6db.png';
+  const apex =
+    'https://lojasschimitz.com.br/api/v1/uploads/518992fa-c11b-4ca5-8113-18e5a1e6c6db.png';
+  const out = serializePublicProduct({
+    id: 'u',
+    slug: 'upload',
+    name: 'Upload',
+    images: [{ url: railway, position: 0 }],
+    inventory: { qtyOnHand: 3, qtyReserved: 0 },
+  });
+  assert.equal(out.image, apex);
+  assert.equal(out.imageUrl, apex);
+  assert.equal(out.images?.[0]?.url, apex);
+  console.log('product.serialize: public-upload rewrite — PASSOU');
+}
+
 console.log('product.serialize.spec ok');

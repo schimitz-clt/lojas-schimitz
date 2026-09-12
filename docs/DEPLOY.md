@@ -105,3 +105,19 @@ Checklist:
 3. Pedido pago (null simulate local ou PIX live autorizado) → e-mail cliente + aviso admin (`STORE_NOTIFY_EMAIL`).
 4. Sem `OPENAI_API_KEY` o chat usa FAQ; billing OpenAI é OWNER.
 5. Fotos de produto reais e Play Console / assetlinks: OWNER.
+
+
+## www → apex (BLOQUEIO de infra)
+
+O Next.js (`apps/web/src/middleware.ts`) responde **301** de
+`https://www.lojasschimitz.com.br{path}{query}` para
+`https://lojasschimitz.com.br{path}{query}` **somente se** o request chegar ao app.
+
+Hoje `www` 404 no **Railway edge** (`Application not found`, `x-railway-fallback: true`)
+antes do Next. Código sozinho não corrige.
+
+**OWNER / infra (escolher um):**
+1. Railway: anexar custom domain `www.lojasschimitz.com.br` no serviço **web** (mesmo app do apex), **ou**
+2. Cloudflare: Page Rule / Redirect Rule 301 `www` → `https://lojasschimitz.com.br/$1`
+
+DNS `www` já resolve (CF proxy). Falta roteamento para o serviço web.

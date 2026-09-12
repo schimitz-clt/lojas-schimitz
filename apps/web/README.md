@@ -50,3 +50,10 @@ Em hosts **não-locais** (ex.: `lojasschimitz.com.br`, WebView Android):
 Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): o refresh ainda é persistido em `localStorage` e enviado no body.
 
 Access JWT curto e dados de usuário continuam em `localStorage` em todos os ambientes.
+
+
+## www → apex
+
+`src/middleware.ts` faz 301 `www.lojasschimitz.com.br` → `https://lojasschimitz.com.br` com o mesmo path/query.
+Isso só vale quando o Host www chega no Next. Sem custom domain www no Railway (ou redirect na Cloudflare),
+o edge continua respondendo 404 `Application not found`. Ver `docs/DEPLOY.md`.
