@@ -38,3 +38,15 @@ Variáveis:
 - `API_PROXY_TARGET` — origem da API **sem** `/api/v1` (ex.: `https://lojas-schimitz-production.up.railway.app`). Se omitida, deriva de `NEXT_PUBLIC_API_URL`.
 
 Webhooks Mercado Pago permanecem na URL Railway da API (não passam por este proxy).
+
+## Auth cookie-first (refresh)
+
+Em hosts **não-locais** (ex.: `lojasschimitz.com.br`, WebView Android):
+
+- Todo `fetch` da API usa `credentials: 'include'`.
+- Refresh fica no cookie HttpOnly `sch_refresh` (proxy same-origin); **não** grava refresh em `localStorage`.
+- Se ainda existir `sch_refresh` no `localStorage` (legado), o body de `/auth/refresh` e `/auth/logout` continua enviando o token (dual-mode).
+
+Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): o refresh ainda é persistido em `localStorage` e enviado no body.
+
+Access JWT curto e dados de usuário continuam em `localStorage` em todos os ambientes.

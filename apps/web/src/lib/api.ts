@@ -1,5 +1,6 @@
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
 import { getBrowserApiBase } from './api-proxy';
+import { refreshBodyFromStorage, shouldPersistRefreshInLocalStorage } from './auth-session';
 
 /** Browser: same-origin /api/v1 in prod; localhost API for local. Dual refresh body kept. */
 function API() {
@@ -77,16 +78,13 @@ async function tryRefreshSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
+    // Dual-mode: body if localStorage has refresh (localhost / legacy); else cookie-only.
     const refreshToken = localStorage.getItem('sch_refresh');
-    // Cookie HttpOnly pode bastar (credentials); body cobre cross-origin / legado.
-    if (!refreshToken) {
-      // ainda tenta via cookie-only
-    }
     try {
       const res = await fetch(`${API()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+        body: JSON.stringify(refreshBodyFromStorage(refreshToken)),
         cache: 'no-store',
         credentials: 'include',
       });
@@ -178,13 +176,20 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
 
 /**
  * Access (curto) + user em localStorage.
- * Refresh: ainda gravamos em localStorage como fallback cross-origin / TWA;
- * a API também seta cookie HttpOnly `sch_refresh` (credentials: include).
+ * Refresh: cookie-first em hosts não-locais (HttpOnly `sch_refresh` via credentials).
+ * Em localhost ainda gravamos refresh no localStorage (API cross-origin :3001).
+ * Read path dual-mode: se `sch_refresh` existir no storage, o body ainda é enviado.
  */
 export function saveSession(data: { accessToken: string; refreshToken: string; user: unknown }) {
   localStorage.setItem('sch_access', data.accessToken);
-  if (data.refreshToken) localStorage.setItem('sch_refresh', data.refreshToken);
   localStorage.setItem('sch_user', JSON.stringify(data.user));
+  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  if (shouldPersistRefreshInLocalStorage(host)) {
+    if (data.refreshToken) localStorage.setItem('sch_refresh', data.refreshToken);
+  } else {
+    // Migrate away from XSS-reachable refresh on same-origin / production.
+    localStorage.removeItem('sch_refresh');
+  }
 }
 
 export function clearSession() {
@@ -194,19 +199,17 @@ export function clearSession() {
   localStorage.removeItem('sch_access');
   localStorage.removeItem('sch_refresh');
   localStorage.removeItem('sch_user');
-  // Best-effort: revoga refresh (cookie e/ou body) sem bloquear UI
-  if (access || refreshToken) {
-    void fetch(`${API()}/auth/logout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(access ? { Authorization: `Bearer ${access}` } : {}),
-      },
-      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
-      cache: 'no-store',
-      credentials: 'include',
-    }).catch(() => undefined);
-  }
+  // Best-effort: revoga cookie e/ou body (sempre tenta limpar HttpOnly via credentials).
+  void fetch(`${API()}/auth/logout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(access ? { Authorization: `Bearer ${access}` } : {}),
+    },
+    body: JSON.stringify(refreshBodyFromStorage(refreshToken)),
+    cache: 'no-store',
+    credentials: 'include',
+  }).catch(() => undefined);
 }
 
 export type SessionUser = { id: string; name: string; email: string; role: string };
