@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:05 America/Sao_Paulo (UTC-3)  
 **Base git:** `a178132` (Phase 11 checkpoint SHA docs).  
-**Commit SHA:** _(preenchido após commit)_  
+**Commit SHA:** `527389b7b3eb884baeffadee03d5cb12466fbdaa`  
 **Escopo:** validação centralizada de transições de `OrderStatus` + preservação de histórico (`OrderStatusHistory`). Sem cobranças, sem DB destrutivo, sem secrets.
 
 ## FASE / STATUS
@@ -11,7 +11,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 12 — order state machine validation |
 | **STATUS** | DONE (unitários PASS; DB harness SKIP neste ambiente) |
-| **COMMIT** | _(ver git após push)_ |
+| **COMMIT** | `527389b7b3eb884baeffadee03d5cb12466fbdaa` |
 | **PRODUÇÃO** | Nenhuma mutation em produção / Railway |
 | **RISCOS** | Baixo — allowlist já existia; alinhamento `in_transit`/`shipped` → `refunded` + erros mais claros |
 | **BLOQUEIOS** | Postgres local ausente → harness DB paralelo de fulfillment não rodou aqui |
