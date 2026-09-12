@@ -1,6 +1,7 @@
 /**
  * Health-adjacent admin ops helpers.
- * Counts only — no product/payment dump. Default threshold matches admin UI (5).
+ * Counts + id/name checklist for owner photo replacement.
+ * No product/payment dump. Default threshold matches admin UI (5).
  */
 
 export const DEFAULT_OPS_LOW_STOCK_THRESHOLD = 5;
@@ -67,6 +68,25 @@ export function countPlaceholderProducts(
   return n;
 }
 
+export type PlaceholderProductRef = { id: string; name: string };
+
+/** Id + name only — owner checklist to replace placehold.co / empty photos. */
+export function listPlaceholderProducts(
+  products: Array<{
+    id: string;
+    name: string;
+    images?: Array<{ url?: string | null }> | null;
+  }>,
+): PlaceholderProductRef[] {
+  const out: PlaceholderProductRef[] = [];
+  for (const p of products) {
+    if (isMissingOrPlaceholderImage(p.images?.[0]?.url)) {
+      out.push({ id: p.id, name: p.name });
+    }
+  }
+  return out;
+}
+
 export function summarizeInventoryOps(input: {
   lowStockCount: number;
   outOfStockCount: number;
@@ -89,6 +109,7 @@ export function summarizeOps(input: {
   outOfStockCount: number;
   placeholderProductCount: number;
   pendingPaymentCount: number;
+  placeholderProducts?: PlaceholderProductRef[];
   threshold?: number;
   time?: string;
 }) {
@@ -98,10 +119,12 @@ export function summarizeOps(input: {
     threshold: input.threshold,
     time: input.time,
   });
+  const placeholderProducts = input.placeholderProducts ?? [];
   return {
     ...base,
     catalog: {
       placeholderProductCount: input.placeholderProductCount,
+      placeholderProducts,
     },
     payments: {
       pendingCount: input.pendingPaymentCount,

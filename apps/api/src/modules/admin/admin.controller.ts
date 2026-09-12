@@ -60,15 +60,15 @@ import { ShippingService } from '../shipping/shipping.service';
 import { ReviewsService } from '../reviews/reviews.service';
 import { AdminUpdateReviewStatusDto } from '../reviews/dto';
 import {
-  UPLOAD_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
   UploadsService,
 } from '../uploads/uploads.service';
+import { validateUpload } from '../uploads/upload-validate';
 import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, countPlaceholderProducts, summarizeOps } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps } from './admin-ops';
 
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
@@ -96,7 +96,7 @@ export class AdminController {
 
   @Get('ops')
   @ApiOperation({
-    summary: 'Sinal operacional: estoque baixo, placeholders e pagamentos pendentes',
+    summary: 'Sinal operacional: estoque baixo, placeholders (id/nome) e pagamentos pendentes',
   })
   async ops() {
     const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
@@ -107,16 +107,20 @@ export class AdminController {
         this.prisma.payment.count({ where: { status: 'pending' } }),
         this.prisma.product.findMany({
           select: {
+            id: true,
+            name: true,
             images: { orderBy: { position: 'asc' }, take: 1, select: { url: true } },
           },
+          orderBy: { name: 'asc' },
         }),
       ]);
-    const placeholderProductCount = countPlaceholderProducts(productImageRows);
+    const placeholderProducts = listPlaceholderProducts(productImageRows);
     return ok(
       summarizeOps({
         lowStockCount,
         outOfStockCount,
-        placeholderProductCount,
+        placeholderProductCount: placeholderProducts.length,
+        placeholderProducts,
         pendingPaymentCount,
         threshold,
       }),
@@ -385,8 +389,8 @@ export class AdminController {
 
   /**
    * Multipart upload de imagem de produto (admin).
-   * Campo: `file` — jpg/png/webp, máx. 15 MB.
-   * Retorna `{ url }` absoluta servida em GET /api/v1/uploads/:filename
+   * Campo: `file` — jpg/png/webp (magic-bytes), máx. 15 MB.
+   * Retorna `{ url }` absoluta (apex se SITE_URL/APP_URL) em GET /api/v1/uploads/:filename
    */
   @Post('uploads')
   @UseInterceptors(
@@ -400,15 +404,20 @@ export class AdminController {
     @Req() req: Request,
   ) {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Envie um arquivo no campo "file"');
+      throw new BadRequestException({
+        message: 'Envie um arquivo no campo "file" (JPG, PNG ou WebP, até 15 MB).',
+        code: 'UPLOAD_EMPTY',
+      });
     }
-    if (!UPLOAD_ALLOWED_MIME.has(file.mimetype)) {
-      throw new BadRequestException('Tipo inválido. Use JPG, PNG ou WebP.');
+    const checked = validateUpload({
+      buffer: file.buffer,
+      mimetype: file.mimetype,
+      size: file.size,
+    });
+    if (!checked.ok) {
+      throw new BadRequestException({ message: checked.message, code: checked.code });
     }
-    if (file.size > UPLOAD_MAX_BYTES) {
-      throw new BadRequestException('Arquivo maior que 15 MB');
-    }
-    const { filename } = this.uploads.save(file.buffer, file.mimetype);
+    const { filename } = this.uploads.save(file.buffer, checked.mime);
     const rawUrl = this.uploads.publicUrl(filename, req);
     const url = rewritePublicUploadUrl(rawUrl) || rawUrl;
     return ok({ url, filename });

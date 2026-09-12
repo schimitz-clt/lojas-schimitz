@@ -6,12 +6,22 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { mapMulterUploadError } from '../../modules/uploads/upload-validate';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
+    const multerMapped = mapMulterUploadError(exception);
+    if (multerMapped) {
+      res.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        ok: false,
+        error: { code: multerMapped.code, message: multerMapped.message, details: [] },
+      });
+      return;
+    }
     const isHttp = exception instanceof HttpException;
     const status = isHttp ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const env = process.env.APP_ENV || process.env.NODE_ENV || 'development';

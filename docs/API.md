@@ -9,7 +9,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/health` | público |
-| GET | `/admin/ops` | admin — sinal operacional: `inventory.lowStockCount` / `outOfStockCount` (threshold 5) |
+| GET | `/admin/ops` | admin — `inventory.lowStockCount` / `outOfStockCount` (threshold 5) + `catalog.placeholderProductCount` + `catalog.placeholderProducts[{id,name}]` + `payments.pendingCount` |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |
@@ -44,7 +44,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | DELETE | `/admin/reviews/:id` | admin |
 | GET | `/admin/orders` (inclui `user.phone`) `/admin/products` `/admin/categories` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, byDay, bySeller, topProducts | admin |
-| POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB) → `{ url, filename }` | admin |
+| POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB; magic-bytes; erros `UPLOAD_*`) → `{ url, filename }` (url apex se SITE_URL/APP_URL) | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
 | PATCH | `/admin/orders/:id/status` body `{ status, trackingCode?, carrier? }` (fulfillment) | admin |
@@ -99,3 +99,9 @@ Imagens persistidas como `https://lojas-schimitz-production.up.railway.app/api/v
 são reescritas na serialização (catálogo, banners, carrinho, seller, resposta de upload)
 para `https://lojasschimitz.com.br/api/v1/uploads/...`. O path same-origin faz proxy
 (verificado: mesmo PNG/etag no apex e no host Railway). O arquivo no disco/DB não muda.
+
+Uploads novos (`POST /admin/uploads`) gravam a URL pública no apex quando
+`SITE_URL` / `APP_URL` / `NEXT_PUBLIC_SITE_URL` / `PUBLIC_WEB_URL` está definido
+(www é normalizado para o apex). Sem essas vars, cai em `PUBLIC_API_URL` e o rewrite
+Railway → apex continua. Validação: JPG/PNG/WebP por magic-bytes, máx. 15 MB;
+`LIMIT_FILE_SIZE` do Multer vira 400 `UPLOAD_TOO_LARGE` (não 500).

@@ -32,7 +32,8 @@ serviço da API. Sem volume, as fotos somem no redeploy (disco efêmero).
 
 Variáveis:
 - `UPLOADS_DIR=/data/uploads`
-- `PUBLIC_API_URL=https://<sua-api>.up.railway.app/api/v1` (links absolutos estáveis)
+- `SITE_URL=https://lojasschimitz.com.br` (ou `APP_URL` / `NEXT_PUBLIC_SITE_URL`) — uploads novos gravam URL no apex
+- `PUBLIC_API_URL=https://<sua-api>.up.railway.app/api/v1` (fallback; serialize ainda reescreve Railway → apex)
 - CORS já cobre o admin/web via `CORS_ORIGINS`
 
 R2/S3 permanece plano futuro (ARCHITECTURE.md); este caminho não exige credenciais de cloud.

@@ -309,7 +309,10 @@ type AdminOpsSnapshot = {
     lowStockCount: number;
     outOfStockCount: number;
   };
-  catalog?: { placeholderProductCount: number };
+  catalog?: {
+    placeholderProductCount: number;
+    placeholderProducts?: { id: string; name: string }[];
+  };
   payments?: { pendingCount: number };
 };
 
@@ -1380,6 +1383,22 @@ export default function AdminPage() {
               Pagamentos pendentes: {ops?.payments?.pendingCount ?? '—'}
             </span>
           </div>
+          {ops?.catalog?.placeholderProducts?.length ? (
+            <div style={{ marginTop: 14 }}>
+              <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
+                Checklist do dono — trocar foto (id + nome). Sem inventar imagem.
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#f5f5f3' }}>
+                {ops.catalog.placeholderProducts.map((p) => (
+                  <li key={p.id} style={{ marginBottom: 4 }}>
+                    <code style={{ color: '#ffd100' }}>{p.id}</code>
+                    {' — '}
+                    {p.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {ops?.time ? (
             <p className="muted" style={{ marginBottom: 0, marginTop: 10, fontSize: 12, color: '#8a8a84' }}>
               Snapshot: {ops.time}

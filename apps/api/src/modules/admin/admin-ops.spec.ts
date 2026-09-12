@@ -5,6 +5,7 @@ import {
   isLowOnHand,
   isMissingOrPlaceholderImage,
   isPlaceholderImageUrl,
+  listPlaceholderProducts,
   summarizeInventoryOps,
   summarizeOps,
 } from './admin-ops';
@@ -54,7 +55,30 @@ const full = summarizeOps({
 });
 assert.equal(full.inventory.lowStockCount, 2);
 assert.equal(full.catalog.placeholderProductCount, 7);
+assert.deepEqual(full.catalog.placeholderProducts, []);
 assert.equal(full.payments.pendingCount, 3);
 assert.equal(full.time, '2026-09-12T15:00:00.000Z');
+
+const listed = listPlaceholderProducts([
+  { id: 'a', name: 'Roblox', images: [{ url: 'https://placehold.co/1' }] },
+  { id: 'b', name: 'Real', images: [{ url: 'https://lojasschimitz.com.br/api/v1/uploads/ok.png' }] },
+  { id: 'c', name: 'Sem foto', images: [] },
+]);
+assert.deepEqual(listed, [
+  { id: 'a', name: 'Roblox' },
+  { id: 'c', name: 'Sem foto' },
+]);
+
+const withList = summarizeOps({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: listed.length,
+  placeholderProducts: listed,
+  pendingPaymentCount: 0,
+  time: '2026-09-12T18:00:00.000Z',
+});
+assert.equal(withList.catalog.placeholderProductCount, 2);
+assert.equal(withList.catalog.placeholderProducts[0].id, 'a');
+assert.equal(withList.catalog.placeholderProducts[1].name, 'Sem foto');
 
 console.log('admin-ops unit tests ok');
