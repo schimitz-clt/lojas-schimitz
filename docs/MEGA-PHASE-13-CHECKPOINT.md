@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:10 America/Sao_Paulo (UTC-3)  
 **Base git:** `c65b466` (Phase 12 checkpoint SHA docs).  
-**Commit SHA:** _(filled after push)_  
+**Commit SHA:** `c8b0fd2382974fca752aa74fd26d1e1eadb2de9c`  
 **Escopo:** fortalecer `/admin` como centro de comando com **dados reais** (DB/API): widgets de vendas, filas, estoque, pagamentos, placeholders, `mailConfigured`, alertas derivados e clique bucket → filtro de pedidos. Sem cobranças, sem DB destrutivo, sem secrets, sem métricas inventadas.
 
 ## FASE / STATUS
@@ -11,7 +11,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 13 — admin ops command center |
 | **STATUS** | DONE (unitários PASS; tsc API PASS) |
-| **COMMIT** | _(set after push)_ |
+| **COMMIT** | `c8b0fd2382974fca752aa74fd26d1e1eadb2de9c` |
 | **PRODUÇÃO** | Nenhuma mutation em produção / Railway |
 | **RISCOS** | Baixo — só agregações read-only + UI |
 | **BLOQUEIOS** | Nenhum para este slice |
