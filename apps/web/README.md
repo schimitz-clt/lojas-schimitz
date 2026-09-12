@@ -26,3 +26,15 @@ Abra http://localhost:3000
 - `/entrar` `/cadastro` `/conta`
 - `/favoritos` `/pedidos`
 - `/admin` (role admin)
+
+
+## Proxy same-origin (`/api/v1`)
+
+Em produção o browser chama **`/api/v1/*`** (mesma origem que a loja) para cookies HttpOnly `sch_refresh` funcionarem. O Route Handler em `src/app/api/v1/[[...path]]` encaminha para a API Nest.
+
+Variáveis:
+
+- `NEXT_PUBLIC_API_URL` — URL absoluta da API (SSR + local). Continua apontando para Railway/`localhost:3001`.
+- `API_PROXY_TARGET` — origem da API **sem** `/api/v1` (ex.: `https://lojas-schimitz-production.up.railway.app`). Se omitida, deriva de `NEXT_PUBLIC_API_URL`.
+
+Webhooks Mercado Pago permanecem na URL Railway da API (não passam por este proxy).

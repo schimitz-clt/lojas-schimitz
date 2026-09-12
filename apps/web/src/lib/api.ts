@@ -1,5 +1,10 @@
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { getBrowserApiBase } from './api-proxy';
+
+/** Browser: same-origin /api/v1 in prod; localhost API for local. Dual refresh body kept. */
+function API() {
+  return getBrowserApiBase();
+}
 
 export type ApiOk<T> = { ok: true; data: T; meta?: { requestId: string } };
 export type ApiFail = { ok: false; error: { code: string; message: string } };
@@ -78,7 +83,7 @@ async function tryRefreshSession(): Promise<boolean> {
       // ainda tenta via cookie-only
     }
     try {
-      const res = await fetch(`${API}/auth/refresh`, {
+      const res = await fetch(`${API()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(refreshToken ? { refreshToken } : {}),
@@ -128,7 +133,7 @@ function buildJsonHeaders(init: RequestInit = {}): Record<string, string> {
 
 export async function api<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
   const headers = buildJsonHeaders(init);
-  const res = await fetch(`${API}${path}`, { ...init, headers, cache: 'no-store', credentials: 'include' });
+  const res = await fetch(`${API()}${path}`, { ...init, headers, cache: 'no-store', credentials: 'include' });
   const json = (await res.json()) as ApiOk<T> | ApiFail;
 
   const failMsg = !json.ok ? json.error.message || 'Erro na API' : 'Token inválido';
@@ -148,7 +153,7 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
   const guest = typeof window !== 'undefined' ? localStorage.getItem('sch_guest') : '';
   if (guest) headers['x-guest-token'] = guest;
 
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`${API()}${path}`, {
     method: 'POST',
     headers,
     body: formData,
@@ -191,7 +196,7 @@ export function clearSession() {
   localStorage.removeItem('sch_user');
   // Best-effort: revoga refresh (cookie e/ou body) sem bloquear UI
   if (access || refreshToken) {
-    void fetch(`${API}/auth/logout`, {
+    void fetch(`${API()}/auth/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
