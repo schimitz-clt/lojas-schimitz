@@ -7,6 +7,7 @@ import {
   orderWhatsAppMessage,
   waMeUrl,
 } from '../../common/whatsapp';
+import { buildInAppDedupeWhere, inAppDedupeKey } from './notification-dedupe';
 
 export type CreateNotificationInput = {
   userId: string;
@@ -149,7 +150,7 @@ export class NotificationsService implements OnModuleInit {
         const user = await this.prisma.user.findUnique({ where: { email } });
         if (!user) {
           this.log.warn(
-            `ensureEnvAdminsPromoted: ${email} não cadastrado — cadastre/login na loja ou crie via POST /admin/admins`,
+            'ensureEnvAdminsPromoted: env notify e-mail não cadastrado — cadastre/login ou POST /admin/admins',
           );
           continue;
         }
@@ -160,10 +161,10 @@ export class NotificationsService implements OnModuleInit {
         });
         promoted += 1;
         this.log.log(
-          `ensureEnvAdminsPromoted: ${email} promovido (era role=${user.role} status=${user.status})`,
+          `ensureEnvAdminsPromoted: userId=${user.id} promovido (era role=${user.role} status=${user.status})`,
         );
       } catch (e: any) {
-        this.log.error(`ensureEnvAdminsPromoted falhou para ${email}: ${e?.message || e}`);
+        this.log.error(`ensureEnvAdminsPromoted falhou: ${e?.message || e}`);
       }
     }
     if (promoted) {
@@ -185,29 +186,26 @@ export class NotificationsService implements OnModuleInit {
     });
   }
 
-  /** Best-effort: nunca lança. Dedup in-app order_paid por user+order. */
+  /** Best-effort: nunca lança. Dedup in-app por tipo (ver notification-dedupe). */
   async createSafe(input: CreateNotificationInput) {
     try {
-      if (input.orderId && input.type === 'order_paid') {
-        const existing = await this.prisma.notification.findFirst({
-          where: {
-            userId: input.userId,
-            orderId: input.orderId,
-            type: 'order_paid',
-          },
-        });
+      const where = buildInAppDedupeWhere({
+        userId: input.userId,
+        type: input.type,
+        title: input.title,
+        orderId: input.orderId,
+      });
+      if (where) {
+        const existing = await this.prisma.notification.findFirst({ where });
         if (existing) {
-          this.log.log(
-            `createSafe skip duplicate order_paid user=${input.userId} order=${input.orderId}`,
-          );
+          // Log sem e-mail / sem PII — só ids de domínio.
+          this.log.log(`createSafe skip duplicate key=${inAppDedupeKey(where)}`);
           return existing;
         }
       }
       return await this.create(input);
     } catch (e: any) {
-      this.log.warn(
-        `createSafe falhou (${input.type} → user ${input.userId}): ${e?.message || e}`,
-      );
+      this.log.warn(`createSafe falhou type=${input.type}: ${e?.message || e}`);
       return null;
     }
   }

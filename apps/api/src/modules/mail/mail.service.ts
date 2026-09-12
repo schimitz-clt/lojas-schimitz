@@ -11,6 +11,7 @@ import {
 import {
   adminOrderPaidEmail,
   AdminOrderPaidMailContext,
+  orderCreatedEmail,
   orderDeliveredEmail,
   orderPaidEmail,
   orderReadyForPickupEmail,
@@ -19,6 +20,9 @@ import {
   OrderMailContext,
   passwordResetEmail,
   PasswordResetMailContext,
+  paymentRefusedEmail,
+  welcomeRegisterEmail,
+  WelcomeMailContext,
 } from './mail.templates';
 
 export type MailSendResult =
@@ -341,13 +345,43 @@ export class MailService {
     const { subject, text, html } = passwordResetEmail(ctx);
     // No idempotency key — user may request another reset intentionally.
     const result = await this.send(to, subject, text, html, 'password_reset', null);
-    // Local/dev: if mail is off, log the reset URL so ops can open it manually.
-    // Never put the raw token in API responses or checkpoints.
-    if (!result.sent && result.reason === 'smtp_not_configured') {
-      this.log.warn(
-        `mail off — password reset link (local only) for ${normalizeMailRecipient(to)}: ${ctx.resetUrl}`,
-      );
+    // Local/dev only: log reset URL without recipient e-mail (no PII / no secrets in prod logs).
+    if (
+      !result.sent &&
+      result.reason === 'smtp_not_configured' &&
+      (process.env.NODE_ENV || '').toLowerCase() !== 'production'
+    ) {
+      this.log.warn(`mail off — password reset link (local only, recipient omitted): ${ctx.resetUrl}`);
     }
     return result;
+  }
+
+  async notifyWelcome(to: string, ctx: WelcomeMailContext) {
+    const { subject, text, html } = welcomeRegisterEmail(ctx);
+    return this.send(to, subject, text, html, 'welcome', this.keyFor('welcome', to, {}));
+  }
+
+  async notifyOrderCreated(to: string, ctx: OrderMailContext) {
+    const { subject, text, html } = orderCreatedEmail(ctx);
+    return this.send(
+      to,
+      subject,
+      text,
+      html,
+      'order_created',
+      this.keyFor('order_created', to, ctx),
+    );
+  }
+
+  async notifyPaymentRefused(to: string, ctx: OrderMailContext) {
+    const { subject, text, html } = paymentRefusedEmail(ctx);
+    return this.send(
+      to,
+      subject,
+      text,
+      html,
+      'payment_refused',
+      this.keyFor('payment_refused', to, ctx),
+    );
   }
 }

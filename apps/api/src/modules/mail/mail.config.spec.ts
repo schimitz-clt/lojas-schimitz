@@ -112,4 +112,39 @@ import {
   console.log('mail.config idempotency keys — PASSOU');
 }
 
+
+{
+  assert.equal(
+    buildMailIdempotencyKey({ kind: 'welcome', to: 'A@B.com' }),
+    'welcome:a@b.com',
+  );
+  assert.equal(
+    buildMailIdempotencyKey({ kind: 'order_created', to: 'a@b.com', publicId: 'SCH-9' }),
+    'order_created:SCH-9:a@b.com',
+  );
+  assert.equal(
+    buildMailIdempotencyKey({ kind: 'payment_refused', to: 'a@b.com', publicId: 'SCH-9' }),
+    'payment_refused:SCH-9:a@b.com',
+  );
+  assert.equal(
+    buildMailIdempotencyKey({ kind: 'welcome', to: '  ' }),
+    null,
+  );
+  // Different fulfillment labels must not collide
+  const a = buildMailIdempotencyKey({
+    kind: 'order_status',
+    to: 'a@b.com',
+    publicId: 'SCH-2',
+    statusLabel: 'Organizando',
+  });
+  const b = buildMailIdempotencyKey({
+    kind: 'order_status',
+    to: 'a@b.com',
+    publicId: 'SCH-2',
+    statusLabel: 'Em embalagem',
+  });
+  assert.ok(a && b && a !== b);
+  console.log('mail.config Phase 15 idempotency kinds — PASSOU');
+}
+
 console.log('mail.config tests ok');

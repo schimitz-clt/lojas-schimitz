@@ -200,4 +200,30 @@ function fanOutAdmins(
   console.log('admin-notify: env recipients + skip placeholder — PASSOU');
 }
 
+
+{
+  const paySrc = readFileSync(join(__dirname, '../payments/payments.service.ts'), 'utf8');
+  assert.ok(paySrc.includes('notifyCustomerPaymentRefused'), 'payments deve notificar recusa');
+  assert.ok(paySrc.includes("type: 'payment_refused'"), 'in-app payment_refused');
+  assert.ok(paySrc.includes('notifyPaymentRefused'), 'mail payment refused');
+
+  const authSrc = readFileSync(join(__dirname, '../auth/auth.service.ts'), 'utf8');
+  assert.ok(authSrc.includes('notifyWelcome'), 'register envia welcome');
+  assert.ok(authSrc.includes("type: 'welcome'"), 'in-app welcome');
+
+  const ordSrc = readFileSync(join(__dirname, '../orders/orders.service.ts'), 'utf8');
+  assert.ok(ordSrc.includes('notifyOrderCreated'), 'order create notifica');
+  assert.ok(ordSrc.includes("status === 'awaiting_payment'"), 'order_created type path');
+  assert.ok(ordSrc.includes('notifyOrderStatus') || ordSrc.includes("status === 'packing'"), 'fulfillment packing/organizing mail');
+
+  const dedupeSrc = readFileSync(join(__dirname, 'notification-dedupe.ts'), 'utf8');
+  assert.ok(dedupeSrc.includes('payment_refused'));
+  assert.ok(dedupeSrc.includes('order_created'));
+  assert.ok(dedupeSrc.includes('welcome'));
+
+  const mailSvc = readFileSync(join(__dirname, '../mail/mail.service.ts'), 'utf8');
+  assert.ok(!/for \$\{normalizeMailRecipient/.test(mailSvc), 'password reset log sem recipient e-mail');
+  console.log('admin-notify: Phase 15 wiring audit — PASSOU');
+}
+
 console.log('admin-notify tests ok');

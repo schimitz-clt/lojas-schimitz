@@ -6,12 +6,15 @@
 export type MailProviderMode = 'resend-http' | 'smtp' | 'off';
 
 export type MailSendKind =
+  | 'welcome'
+  | 'order_created'
   | 'order_paid'
   | 'admin_order_paid'
   | 'order_ready'
   | 'order_shipped'
   | 'order_delivered'
   | 'order_status'
+  | 'payment_refused'
   | 'password_reset';
 
 /** True when MAIL_FROM + (RESEND_API_KEY or SMTP_HOST) env names are present. Does not read secret values beyond emptiness. */
@@ -51,7 +54,10 @@ export function normalizeMailRecipient(to: string): string {
 
 /**
  * Build process-local idempotency key for transactional mail.
- * Password reset returns null (user may legitimately request again).
+ * - password_reset → null (user may legitimately request again)
+ * - welcome → welcome:to (no order)
+ * - order_status → kind:publicId:label:to
+ * - others → kind:publicId:to
  */
 export function buildMailIdempotencyKey(opts: {
   kind: MailSendKind;
@@ -62,6 +68,9 @@ export function buildMailIdempotencyKey(opts: {
   if (opts.kind === 'password_reset') return null;
   const to = normalizeMailRecipient(opts.to);
   if (!to) return null;
+  if (opts.kind === 'welcome') {
+    return `welcome:${to}`;
+  }
   const publicId = String(opts.publicId || '').trim();
   if (!publicId) return null;
   if (opts.kind === 'order_status') {

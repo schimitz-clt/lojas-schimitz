@@ -1,11 +1,15 @@
 import assert from 'assert';
 import {
   adminOrderPaidEmail,
+  orderCreatedEmail,
   orderDeliveredEmail,
   orderPaidEmail,
   orderReadyForPickupEmail,
   orderShippedEmail,
+  orderStatusEmail,
   passwordResetEmail,
+  paymentRefusedEmail,
+  welcomeRegisterEmail,
 } from './mail.templates';
 import { MailService } from './mail.service';
 
@@ -47,6 +51,28 @@ const reset = passwordResetEmail({
 assert.ok(reset.subject.includes('Redefinição'));
 assert.ok(reset.text.includes('redefinir-senha'));
 assert.ok(reset.html.includes('Ana'));
+
+const welcome = welcomeRegisterEmail({ customerName: 'Ana', siteUrl: 'https://lojasschimitz.com.br' });
+assert.ok(welcome.subject.includes('Bem-vindo'));
+assert.ok(welcome.text.includes('Lojas Schimitz'));
+assert.ok(welcome.html.includes('Ana'));
+
+const created = orderCreatedEmail({ publicId: 'SCH-C', total: 55, customerName: 'Ana' });
+assert.ok(created.subject.includes('Pedido criado'));
+assert.ok(created.text.includes('SCH-C'));
+assert.ok(created.text.includes('aguardando pagamento'));
+
+const refused = paymentRefusedEmail({ publicId: 'SCH-R', total: 12 });
+assert.ok(refused.subject.includes('não aprovado'));
+assert.ok(refused.text.includes('SCH-R'));
+
+const organizing = orderStatusEmail({
+  publicId: 'SCH-O',
+  total: 1,
+  statusLabel: 'Organizando',
+});
+assert.ok(organizing.subject.includes('Organizando'));
+assert.ok(organizing.text.includes('SCH-O'));
 
 console.log('mail.templates tests ok');
 
@@ -346,6 +372,110 @@ async function testPasswordResetNotIdempotent() {
   );
 }
 
+
+async function testPhase15IdempotentKinds() {
+  await withMailEnv(
+    {
+      RESEND_API_KEY: 're_test_unit_key_xxxxxxxx',
+      MAIL_FROM: 'Lojas Schimitz <onboarding@resend.dev>',
+      SMTP_HOST: undefined,
+      SMTP_PASS: undefined,
+    },
+    async () => {
+      let calls = 0;
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ id: `email_p15_${calls}` }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch;
+      try {
+        const mail = new MailService();
+        mail.clearIdempotencyForTests();
+
+        const w1 = await mail.notifyWelcome('new@example.com', { customerName: 'Ana' });
+        const w2 = await mail.notifyWelcome('new@example.com', { customerName: 'Ana' });
+        assert.equal(w1.sent, true);
+        assert.equal(w2.sent, false);
+        if (!w2.sent) assert.equal(w2.reason, 'duplicate');
+
+        const c1 = await mail.notifyOrderCreated('buyer@example.com', {
+          publicId: 'SCH-P15C',
+          total: 10,
+        });
+        const c2 = await mail.notifyOrderCreated('buyer@example.com', {
+          publicId: 'SCH-P15C',
+          total: 10,
+        });
+        assert.equal(c1.sent, true);
+        assert.equal(c2.sent, false);
+        if (!c2.sent) assert.equal(c2.reason, 'duplicate');
+
+        const r1 = await mail.notifyPaymentRefused('buyer@example.com', {
+          publicId: 'SCH-P15R',
+          total: 10,
+        });
+        const r2 = await mail.notifyPaymentRefused('buyer@example.com', {
+          publicId: 'SCH-P15R',
+          total: 10,
+        });
+        assert.equal(r1.sent, true);
+        assert.equal(r2.sent, false);
+        if (!r2.sent) assert.equal(r2.reason, 'duplicate');
+
+        // Fulfillment status labels must not collide
+        const s1 = await mail.notifyOrderStatus('buyer@example.com', {
+          publicId: 'SCH-P15S',
+          total: 10,
+          statusLabel: 'Organizando',
+        });
+        const s2 = await mail.notifyOrderStatus('buyer@example.com', {
+          publicId: 'SCH-P15S',
+          total: 10,
+          statusLabel: 'Em embalagem',
+        });
+        const s1b = await mail.notifyOrderStatus('buyer@example.com', {
+          publicId: 'SCH-P15S',
+          total: 10,
+          statusLabel: 'Organizando',
+        });
+        assert.equal(s1.sent, true);
+        assert.equal(s2.sent, true);
+        assert.equal(s1b.sent, false);
+        if (!s1b.sent) assert.equal(s1b.reason, 'duplicate');
+
+        const ship1 = await mail.notifyOrderShipped('buyer@example.com', {
+          publicId: 'SCH-P15SH',
+          total: 10,
+        });
+        const ship2 = await mail.notifyOrderShipped('buyer@example.com', {
+          publicId: 'SCH-P15SH',
+          total: 10,
+        });
+        assert.equal(ship1.sent, true);
+        assert.equal(ship2.sent, false);
+
+        const d1 = await mail.notifyOrderDelivered('buyer@example.com', {
+          publicId: 'SCH-P15D',
+          total: 10,
+        });
+        const d2 = await mail.notifyOrderDelivered('buyer@example.com', {
+          publicId: 'SCH-P15D',
+          total: 10,
+        });
+        assert.equal(d1.sent, true);
+        assert.equal(d2.sent, false);
+
+        console.log('mail.service Phase 15 idempotent kinds — PASSOU');
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+    },
+  );
+}
+
 (async () => {
   await testResendHttpPath();
   await testResendDualUseSmtpPass();
@@ -353,6 +483,7 @@ async function testPasswordResetNotIdempotent() {
   await testOffWhenNoConfig();
   await testProviderModeAndIdempotency();
   await testPasswordResetNotIdempotent();
+  await testPhase15IdempotentKinds();
   console.log('mail.service tests ok');
 })().catch((e) => {
   console.error(e);

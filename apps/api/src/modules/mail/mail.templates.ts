@@ -28,6 +28,56 @@ function wrapHtml(title: string, bodyHtml: string) {
 </html>`;
 }
 
+export type WelcomeMailContext = {
+  customerName?: string | null;
+  siteUrl?: string | null;
+};
+
+/** Boas-vindas no cadastro (sem PII além do nome no corpo do e-mail). */
+export function welcomeRegisterEmail(ctx: WelcomeMailContext) {
+  const subject = 'Bem-vindo(a) à Lojas Schimitz';
+  const site = (ctx.siteUrl || '').trim() || 'https://lojasschimitz.com.br';
+  const text = `${greeting(ctx.customerName)}
+
+Sua conta na Lojas Schimitz foi criada com sucesso.
+
+Explore ofertas e finalize compras com segurança:
+${site}
+
+Se você não criou esta conta, ignore este e-mail.
+`;
+  const html = wrapHtml(
+    'Bem-vindo(a)',
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>Sua conta na Lojas Schimitz foi criada com sucesso.</p>
+     <p><a href="${site}">Abrir a loja</a></p>
+     <p style="font-size:13px;color:#555;">Se você não criou esta conta, ignore este e-mail.</p>`,
+  );
+  return { subject, text, html };
+}
+
+export function orderCreatedEmail(ctx: OrderMailContext) {
+  const total = formatBRL(ctx.total);
+  const subject = `Pedido criado — ${ctx.publicId}`;
+  const text = `${greeting(ctx.customerName)}
+
+Recebemos o seu pedido ${ctx.publicId}.
+
+Total: ${total}
+
+Ele está aguardando pagamento. Assim que confirmarmos, começamos a organizar a entrega.
+Lojas Schimitz
+`;
+  const html = wrapHtml(
+    'Pedido criado',
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>Recebemos o seu pedido <strong>${ctx.publicId}</strong>.</p>
+     <p>Total: <strong>${total}</strong></p>
+     <p>Ele está <strong>aguardando pagamento</strong>. Assim que confirmarmos, começamos a organizar a entrega.</p>`,
+  );
+  return { subject, text, html };
+}
+
 export function orderPaidEmail(ctx: OrderMailContext) {
   const total = formatBRL(ctx.total);
   const subject = `Pedido pago — ${ctx.publicId}`;
@@ -47,6 +97,28 @@ Obrigado por comprar na Lojas Schimitz.
      <p>Total: <strong>${total}</strong></p>
      <p>Já vamos organizar e preparar a entrega.</p>
      <p>Obrigado por comprar na Lojas Schimitz.</p>`,
+  );
+  return { subject, text, html };
+}
+
+export function paymentRefusedEmail(ctx: OrderMailContext) {
+  const total = formatBRL(ctx.total);
+  const subject = `Pagamento não aprovado — ${ctx.publicId}`;
+  const text = `${greeting(ctx.customerName)}
+
+O pagamento do pedido ${ctx.publicId} não foi aprovado.
+
+Total: ${total}
+
+Você pode tentar novamente com outro meio de pagamento enquanto a reserva estiver ativa.
+Lojas Schimitz
+`;
+  const html = wrapHtml(
+    'Pagamento não aprovado',
+    `<p>${greeting(ctx.customerName)}</p>
+     <p>O pagamento do pedido <strong>${ctx.publicId}</strong> <strong>não foi aprovado</strong>.</p>
+     <p>Total: <strong>${total}</strong></p>
+     <p>Você pode tentar novamente com outro meio de pagamento enquanto a reserva estiver ativa.</p>`,
   );
   return { subject, text, html };
 }

@@ -13,6 +13,7 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
 
@@ -92,6 +93,7 @@ export class AuthService {
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(LoginAttemptService) private readonly attempts: LoginAttemptService,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
@@ -112,7 +114,28 @@ export class AuthService {
       },
     });
     this.attempts.clear(ip, dto.email);
+    // Welcome: mail + in-app (idempotent; never throw).
+    await this.notifyWelcome(user.id, user.email, user.name);
     return this.issue(user.id, user.email, user.role, user.name);
+  }
+
+  /** Best-effort welcome after register — no recipient e-mail in logs. */
+  private async notifyWelcome(userId: string, email: string, name: string | null) {
+    try {
+      await this.notifications.createSafe({
+        userId,
+        type: 'welcome',
+        title: 'Bem-vindo(a)',
+        body: 'Sua conta na Lojas Schimitz foi criada. Boas compras!',
+        linkUrl: '/',
+      });
+      await this.mail.notifyWelcome(email, {
+        customerName: name,
+        siteUrl: resolveSiteUrl(),
+      });
+    } catch (e: any) {
+      this.log.warn(`notifyWelcome falhou userId=${userId}: ${e?.message || e}`);
+    }
   }
 
   async login(dto: LoginDto, ip = 'unknown', _guestToken?: string) {

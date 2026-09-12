@@ -320,6 +320,7 @@ export class OrdersService {
         entityId: order.id,
         meta: { publicId: order.publicId, total },
       });
+      await this.notifyOrderCreated(userId, order);
       return order;
     } catch (e) {
       if (this.isUniqueViolation(e) && idempotencyKey) {
@@ -642,10 +643,20 @@ export class OrdersService {
         : status === 'cancelled'
           ? `O pedido ${publicId} foi cancelado.`
           : `Seu pedido ${publicId} agora está: ${label}.`);
+    const type =
+      status === 'paid'
+        ? 'order_paid'
+        : status === 'cancelled'
+          ? 'order_cancelled'
+          : status === 'awaiting_payment'
+            ? 'order_created'
+            : 'order_status';
+    const resolvedTitle =
+      status === 'awaiting_payment' ? 'Pedido criado' : title;
     await this.notifications.createSafe({
       userId,
-      type: status === 'paid' ? 'order_paid' : status === 'cancelled' ? 'order_cancelled' : 'order_status',
-      title,
+      type,
+      title: resolvedTitle,
       body,
       linkUrl: `/pedidos/${publicId}`,
       orderId,
@@ -665,7 +676,7 @@ export class OrdersService {
     try {
       const to = order.user?.email;
       if (!to) {
-        this.log.warn(`Fulfillment ${status} sem e-mail: ${order.id}`);
+        this.log.warn(`Fulfillment ${status} sem e-mail order=${order.publicId}`);
         return;
       }
       const ctx = {
@@ -684,7 +695,35 @@ export class OrdersService {
         await this.mail.notifyOrderStatus(to, ctx);
       }
     } catch (e: any) {
-      this.log.error(`notifyFulfillmentEmail falhou: ${e?.message || e}`);
+      this.log.error(`notifyFulfillmentEmail falhou order=${order.publicId}: ${e?.message || e}`);
+    }
+  }
+
+  /** Best-effort: pedido criado (in-app + e-mail). Idempotente. Nunca lança. */
+  private async notifyOrderCreated(
+    userId: string,
+    order: { id: string; publicId: string; total: unknown },
+  ) {
+    try {
+      await this.notifyCustomerInApp(
+        userId,
+        order.id,
+        order.publicId,
+        'awaiting_payment',
+        `Pedido ${order.publicId} criado — aguardando pagamento.`,
+      );
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      });
+      if (!user?.email) return;
+      await this.mail.notifyOrderCreated(user.email, {
+        publicId: order.publicId,
+        total: Number(order.total),
+        customerName: user.name,
+      });
+    } catch (e: any) {
+      this.log.warn(`notifyOrderCreated falhou order=${order.publicId}: ${e?.message || e}`);
     }
   }
 }

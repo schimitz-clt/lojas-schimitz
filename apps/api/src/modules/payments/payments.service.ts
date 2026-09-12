@@ -321,6 +321,7 @@ export class PaymentsService {
         data: { status: 'refused' },
       });
       payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      await this.notifyCustomerPaymentRefused(order.id);
     }
 
     const response = {
@@ -662,6 +663,9 @@ export class PaymentsService {
         meta: { orderId: payment.orderId },
       });
       // Recusa/expire/cancel NÃO cancela Order (#6/#7)
+      if (info.status === 'refused') {
+        await this.notifyCustomerPaymentRefused(payment.orderId);
+      }
       return { applied: true, reason: info.status };
     }
 
@@ -810,6 +814,42 @@ export class PaymentsService {
       }
     }
   }
+  /** Best-effort: pagamento recusado (in-app + e-mail). Idempotente. Nunca lança. Sem e-mail nos logs. */
+  private async notifyCustomerPaymentRefused(orderId: string) {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { email: true, name: true } } },
+      });
+      if (!order) {
+        this.log.warn(`payment refused notify: order missing id=${orderId}`);
+        return;
+      }
+      if (order.userId) {
+        await this.notifications.createSafe({
+          userId: order.userId,
+          type: 'payment_refused',
+          title: 'Pagamento não aprovado',
+          body: `O pagamento do pedido ${order.publicId} não foi aprovado.`,
+          linkUrl: `/pedidos/${order.publicId}`,
+          orderId: order.id,
+        });
+      }
+      const to = order.user?.email;
+      if (!to) {
+        this.log.warn(`payment refused notify: sem e-mail order=${order.publicId}`);
+        return;
+      }
+      await this.mail.notifyPaymentRefused(to, {
+        publicId: order.publicId,
+        total: Number(order.total),
+        customerName: order.user?.name,
+      });
+    } catch (e: any) {
+      this.log.error(`notifyCustomerPaymentRefused falhou orderId=${orderId}: ${e?.message || e}`);
+    }
+  }
+
   /** Best-effort: e-mail + notificação in-app "Pedido pago" (cliente + loja). Nunca lança. */
   private async notifyCustomerPaid(orderId: string) {
     try {
@@ -818,7 +858,7 @@ export class PaymentsService {
         include: { user: { select: { email: true, name: true } } },
       });
       if (!order) {
-        this.log.warn(`Pedido pago não encontrado: ${orderId}`);
+        this.log.warn(`notifyCustomerPaid: order missing id=${orderId}`);
         return;
       }
       if (order.userId) {
@@ -841,7 +881,7 @@ export class PaymentsService {
       });
       const to = order.user?.email;
       if (!to) {
-        this.log.warn(`Pedido pago sem e-mail de cliente: ${orderId}`);
+        this.log.warn(`notifyCustomerPaid: sem e-mail order=${order.publicId}`);
         return;
       }
       await this.mail.notifyOrderPaid(to, {
