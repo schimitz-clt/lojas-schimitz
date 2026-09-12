@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:15 America/Sao_Paulo (UTC-3)  
 **Base git:** `80569e2` (Phase 14 checkpoint SHA docs).  
-**Commit SHA:** 
+**Commit SHA:** `36afe0cd0d5673b0be5b7f6c711ad891208f7731`  
 **Escopo:** auditoria + fills de mail/in-app no ciclo de pedido; idempotência sem spam; sem PII/secrets nos logs além de order id / publicId; templates Resend text. Sem blast, sem cobranças, sem secrets no git.
 
 ## FASE / STATUS
@@ -11,7 +11,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 15 — reliable notification events |
 | **STATUS** | DONE (unitários PASS; tsc API PASS) |
-| **COMMIT** | 
+| **COMMIT** | `36afe0cd0d5673b0be5b7f6c711ad891208f7731` |
 | **PRODUÇÃO** | Nenhuma mutation em produção; nenhum envio real em massa |
 | **RISCOS** | Baixo — best-effort notify + process-local mail TTL + in-app dedupe |
 | **BLOQUEIOS** | **BLOQUEIO EXTERNO** — domínio Resend verificado (OWNER); ver Phase 6 |
