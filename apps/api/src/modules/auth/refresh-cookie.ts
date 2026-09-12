@@ -7,6 +7,10 @@
  *
  * Cross-origin (ex.: web :3000 → api :3001): cookie exige SameSite=None; Secure e
  * HTTPS, ou proxy same-site. Sem isso o body continua sendo o caminho funcional.
+ *
+ * Com proxy same-origin no Next (`/api/v1` → Nest), o browser vê cookie no host da loja.
+ * O proxy reescreve Set-Cookie (remove Domain; SameSite=None→Lax). REFRESH_COOKIE_DOMAIN
+ * no Nest ainda pode ser .lojasschimitz.com.br para acesso direto à API; o proxy remove Domain.
  */
 
 import type { Request, Response } from 'express';
