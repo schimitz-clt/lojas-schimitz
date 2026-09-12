@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~19:55 America/Sao_Paulo (UTC-3)  
 **Base git:** `80be031` (Phase 10 checkpoint SHA docs).  
-**Commit SHA:** _(preenchido após push)_  
+**Commit SHA:** `d18659c29b526dd1c4e18f8f9dbe600822c043c8`  
 **Escopo:** inventário — `qtyOnHand`, `qtyReserved`, `available = max(0, onHand − reserved)`; auditoria CAS reserve/release/commit; guards anti-negativo; fix TOCTOU admin stock. Sem cobranças, sem DB destrutivo, sem secrets.
 
 ## FASE / STATUS
@@ -11,7 +11,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 11 — inventory concurrency |
 | **STATUS** | DONE (unitários PASS; DB race harness SKIP neste ambiente) |
-| **COMMIT** | ver SHA no topo após push |
+| **COMMIT** | `d18659c29b526dd1c4e18f8f9dbe600822c043c8` |
 | **PRODUÇÃO** | Nenhuma mutation em produção / Railway |
 | **RISCOS** | Baixo — mudanças aditivas (clamp display + CAS admin + throw no release fail) |
 | **BLOQUEIOS** | Postgres local ausente → `inventory.db` / `fase-d.db` não rodaram aqui |
