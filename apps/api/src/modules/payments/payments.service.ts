@@ -25,7 +25,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
-import { pixChargeAmount, roundMoney } from '../../common/pricing';
+import { amountsMatchForApprove, pixChargeAmount, roundMoney } from '../../common/pricing';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -535,17 +535,24 @@ export class PaymentsService {
     }
 
     if (info.status === 'approved') {
-      // Amount deve bater com Order.total
-      if (Number(info.amount) !== Number(payment.order.total) && Number(info.amount) !== Number(payment.amount)) {
-        // Tolerância: comparar com order.total
-        if (Math.abs(Number(info.amount) - Number(payment.order.total)) > 0.009) {
-          await this.audit.log('payment.amount_mismatch', {
-            entity: 'Payment',
-            entityId: paymentId,
-            meta: { expected: Number(payment.order.total), got: Number(info.amount) },
-          });
-          return { applied: false, reason: 'amount_mismatch' };
-        }
+      // Amount: Payment.amount is authority (PIX may be 95% of Order.total); tolerance via moneyEquals.
+      if (
+        !amountsMatchForApprove({
+          providerAmount: Number(info.amount),
+          paymentAmount: Number(payment.amount),
+          orderTotal: Number(payment.order.total),
+        })
+      ) {
+        await this.audit.log('payment.amount_mismatch', {
+          entity: 'Payment',
+          entityId: paymentId,
+          meta: {
+            expectedPayment: Number(payment.amount),
+            expectedOrder: Number(payment.order.total),
+            got: Number(info.amount),
+          },
+        });
+        return { applied: false, reason: 'amount_mismatch' };
       }
       if (info.externalReference && info.externalReference !== payment.order.publicId) {
         await this.audit.log('payment.reference_mismatch', {

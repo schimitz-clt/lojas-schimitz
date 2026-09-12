@@ -22,6 +22,7 @@ import {
   NotificationsService,
   buildAdminFulfillmentNotification,
 } from '../notifications/notifications.service';
+import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
 
 type AdminFulfillmentTarget =
   | FulfillmentStatus
@@ -194,14 +195,14 @@ export class OrdersService {
       }
     }
 
-    const subtotal = cart.items.reduce((s, i) => s + Number(i.product.price) * i.qty, 0);
-    let discount = new Decimal(0);
+    const rawSubtotal = cart.items.reduce((s, i) => s + Number(i.product.price) * i.qty, 0);
+    const subtotal = roundMoney(rawSubtotal);
+    let couponDiscount = 0;
     let couponId: string | undefined;
-    let cashbackUsed = new Decimal(0);
 
     if (dto.couponCode) {
       const validated = await this.coupons.validate(dto.couponCode, subtotal);
-      discount = new Decimal(validated.discount);
+      couponDiscount = Number(validated.discount);
       couponId = validated.id;
     }
 
@@ -215,9 +216,6 @@ export class OrdersService {
           code: 'CASHBACK_INSUFFICIENT',
         });
       }
-      const maxApplicable = Math.max(0, subtotal - Number(discount));
-      cashbackUsed = new Decimal(Math.min(requestedCashback, maxApplicable));
-      cashbackUsed = new Decimal(cashbackUsed.toDecimalPlaces(2));
     }
 
     const quote = await this.shipping.quote({
@@ -225,9 +223,16 @@ export class OrdersService {
       subtotal,
       items: cart.items.map((i) => ({ qty: i.qty, weightKg: i.product.weightKg ? Number(i.product.weightKg) : undefined })),
     });
-    const freight = quote.price;
-    const totalDiscount = Number(discount) + Number(cashbackUsed);
-    const total = Math.max(0, subtotal - totalDiscount + freight);
+    const totals = computeCheckoutTotals({
+      subtotal,
+      couponDiscount,
+      cashbackUsed: requestedCashback > 0 ? requestedCashback : 0,
+      freight: quote.price,
+    });
+    const discount = new Decimal(totals.couponDiscount);
+    const cashbackUsed = new Decimal(totals.cashbackUsed);
+    const freight = totals.freight;
+    const total = totals.total;
     const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     try {
