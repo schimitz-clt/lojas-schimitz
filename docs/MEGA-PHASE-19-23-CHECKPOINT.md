@@ -2,6 +2,7 @@
 
 **Data:** 2026-09-12 ~20:30 America/Sao_Paulo (UTC-3)  
 **Base git:** `e6e5bc1` (Phase 18 checkpoint SHA).  
+**COMMIT:** `60b2a8dd60c16dc9100215f6e2811174468f1b8e`  
 **Escopo:** catalog readiness admin, chat hardening (LLM opcional), observability, chaos plan/tests. Sem Phase 21/22 activation. Sem cobranças, Play publish, fake photos ou secrets.
 
 ## STATUS 19–25 (resumo)
@@ -60,4 +61,7 @@ npx tsx src/modules/payments/payment.chaos.spec.ts
 
 ## COMMIT
 
-Preenchido após push (SHA abaixo no relatório do agente).
+| Campo | Valor |
+|-------|--------|
+| **COMMIT** | `60b2a8dd60c16dc9100215f6e2811174468f1b8e` |
+| **Author** | schimitz-clt <schimitzclaiton@gmail.com> |
