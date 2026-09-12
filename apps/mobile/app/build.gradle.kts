@@ -12,11 +12,11 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    namespace = "br.com.lojasschimitz.app"
+    namespace = "com.lojasschimitz.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "br.com.lojasschimitz.app"
+        applicationId = "com.lojasschimitz.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

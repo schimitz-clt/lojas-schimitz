@@ -1,4 +1,4 @@
-package br.com.lojasschimitz.app
+package com.lojasschimitz.app
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
