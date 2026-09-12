@@ -7,6 +7,8 @@ import {
   bucketForOrderStatus,
   POST_PAYMENT_OPS_HINT,
   ADMIN_ORDER_QUEUE_BUCKETS,
+  assertValidTransition,
+  InvalidOrderTransitionError,
 } from './order-status';
 import assert from 'assert';
 
@@ -55,5 +57,20 @@ assert.equal(bucketForOrderStatus('draft'), 'draft');
 assert.equal(nextFulfillmentStatus('paid'), 'organizing');
 assert.ok(POST_PAYMENT_OPS_HINT.includes('organizing'));
 assert.ok(ADMIN_ORDER_QUEUE_BUCKETS.includes('problems'));
+
+assert.equal(isRefundAllowed('in_transit'), true);
+assert.equal(isRefundAllowed('shipped'), true);
+assert.equal(canTransition('in_transit', 'refunded'), true);
+assert.equal(canTransition('shipped', 'refunded'), true);
+assertValidTransition('paid', 'organizing');
+let threw = false;
+try {
+  assertValidTransition('paid', 'delivered');
+} catch (e) {
+  threw = true;
+  assert.ok(e instanceof InvalidOrderTransitionError);
+  assert.equal(e.code, 'INVALID_TRANSITION');
+}
+assert.ok(threw);
 
 console.log('order-status tests ok');

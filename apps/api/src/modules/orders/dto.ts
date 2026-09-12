@@ -1,5 +1,6 @@
 import { IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ADMIN_FULFILLMENT_TARGETS, type AdminFulfillmentTargetStatus } from '../../common/order-status';
 
 export class CreateOrderDto {
   @IsUUID()
@@ -21,8 +22,8 @@ export class CreateOrderDto {
 /** Admin: avanço manual de fulfillment (entrega própria). */
 export class AdminUpdateOrderStatusDto {
   @IsString()
-  @IsIn(['organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'])
-  status!: 'organizing' | 'packing' | 'ready_for_pickup' | 'in_transit' | 'delivered' | 'separating' | 'shipped';
+  @IsIn([...ADMIN_FULFILLMENT_TARGETS])
+  status!: AdminFulfillmentTargetStatus;
 
   /** Código de rastreio — recomendado ao marcar in_transit/shipped. */
   @IsOptional()

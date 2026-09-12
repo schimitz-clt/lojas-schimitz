@@ -6,14 +6,89 @@ export const ORDER_TRANSITIONS: Record<string, string[]> = {
   organizing: ['packing', 'refunded'],
   packing: ['ready_for_pickup', 'refunded'],
   ready_for_pickup: ['in_transit', 'refunded'],
-  in_transit: ['delivered'],
+  in_transit: ['delivered', 'refunded'],
   delivered: [],
   cancelled: [],
   refunded: [],
   /** Legado (pré SCH-007). */
   separating: ['packing', 'in_transit', 'shipped', 'refunded'],
-  shipped: ['delivered'],
+  shipped: ['delivered', 'refunded'],
 };
+
+/** Happy-path fulfillment chain (excl. exceptions cancelled/refunded). */
+export const ORDER_STATUS_HAPPY_PATH = [
+  'draft',
+  'awaiting_payment',
+  'paid',
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
+] as const;
+
+/** Alvos permitidos no PATCH admin de fulfillment (DTO IsIn). */
+export const ADMIN_FULFILLMENT_TARGETS = [
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
+  'separating',
+  'shipped',
+] as const;
+
+export type AdminFulfillmentTargetStatus = (typeof ADMIN_FULFILLMENT_TARGETS)[number];
+
+export function allowedTransitions(from: string): string[] {
+  return [...(ORDER_TRANSITIONS[from] || [])];
+}
+
+export type InvalidTransitionPayload = {
+  message: string;
+  code: 'INVALID_TRANSITION';
+  from: string;
+  to: string;
+  allowed: string[];
+};
+
+export function invalidTransitionPayload(from: string, to: string): InvalidTransitionPayload {
+  return {
+    message: `Transição inválida: ${from} → ${to}`,
+    code: 'INVALID_TRANSITION',
+    from,
+    to,
+    allowed: allowedTransitions(from),
+  };
+}
+
+/**
+ * Throw if from→to is not in the central allowlist.
+ * Framework-agnostic Error; Nest maps via `.payload`.
+ */
+export class InvalidOrderTransitionError extends Error {
+  readonly code = 'INVALID_TRANSITION' as const;
+  readonly from: string;
+  readonly to: string;
+  readonly allowed: string[];
+  readonly payload: InvalidTransitionPayload;
+
+  constructor(from: string, to: string) {
+    const payload = invalidTransitionPayload(from, to);
+    super(payload.message);
+    this.name = 'InvalidOrderTransitionError';
+    this.from = from;
+    this.to = to;
+    this.allowed = payload.allowed;
+    this.payload = payload;
+  }
+}
+
+export function assertValidTransition(from: string, to: string): void {
+  if (!canTransition(from, to)) {
+    throw new InvalidOrderTransitionError(from, to);
+  }
+}
 
 /** Passos de fulfillment após pagamento (UI / admin). */
 export const FULFILLMENT_STATUSES = [
@@ -100,11 +175,9 @@ export const REFUND_RESTOCK_STATUSES = ['paid', 'organizing', 'packing', 'separa
 /** Estorno permitido sem restock automático (já embalado / em rota). */
 export const REFUND_NO_RESTOCK_STATUSES = ['ready_for_pickup', 'in_transit', 'shipped'] as const;
 
+/** Estorno permitido ⇔ allowlist central inclui → refunded. */
 export function isRefundAllowed(status: string) {
-  return (
-    (REFUND_RESTOCK_STATUSES as readonly string[]).includes(status) ||
-    (REFUND_NO_RESTOCK_STATUSES as readonly string[]).includes(status)
-  );
+  return canTransition(status, 'refunded');
 }
 
 export function shouldRestockOnRefund(status: string) {

@@ -11,9 +11,11 @@ import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
 import {
-  canTransition,
+  assertValidTransition,
+  InvalidOrderTransitionError,
   orderStatusLabel,
-  type FulfillmentStatus,
+  type AdminFulfillmentTargetStatus,
+  canTransition,
 } from '../../common/order-status';
 import { MailService } from '../mail/mail.service';
 import { CouponsService } from '../coupons/coupons.service';
@@ -24,10 +26,7 @@ import {
 } from '../notifications/notifications.service';
 import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
 
-type AdminFulfillmentTarget =
-  | FulfillmentStatus
-  | 'separating'
-  | 'shipped';
+type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
 @Injectable()
 export class OrdersService {
@@ -458,6 +457,8 @@ export class OrdersService {
    * paid → commitSale (decrementa on-hand); cancelled → release (libera reserva).
    */
   async transitionFromAwaiting(orderId: string, to: 'paid' | 'cancelled'): Promise<boolean> {
+    // Allowlist central (awaiting_payment → paid|cancelled only).
+    if (!canTransition('awaiting_payment', to)) return false;
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$executeRaw`
         UPDATE "Order"
@@ -506,11 +507,13 @@ export class OrdersService {
   ) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
-    if (!canTransition(order.status, to)) {
-      throw new BadRequestException({
-        message: `Transição inválida: ${order.status} → ${to}`,
-        code: 'INVALID_TRANSITION',
-      });
+    try {
+      assertValidTransition(order.status, to);
+    } catch (e) {
+      if (e instanceof InvalidOrderTransitionError) {
+        throw new BadRequestException(e.payload);
+      }
+      throw e;
     }
     const from = order.status;
     const trackingCode =
