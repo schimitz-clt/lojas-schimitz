@@ -55,3 +55,12 @@
 - Transições de pedido já são DB-safe (UPDATE condicional `awaiting_payment`).
 - SCH-006: lease em tabela `SchedulerLock` (CREATE IF NOT EXISTS) para só uma réplica
   executar o ciclo — evita `cancelIntent`/logs duplicados. Sem Redis.
+
+
+## MEGA Phase 8
+
+Checklist + hardening seguro: ver `docs/MEGA-PHASE-8-SECURITY.md`.
+- Filtro global: em prod/staging, HTTP ≥500 sempre `Erro interno` (sem stack/details).
+- Storefront: headers baseline (HSTS/XFO/nosniff/…) + `poweredByHeader: false`.
+- Dual-mode refresh **mantido**.
+
