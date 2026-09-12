@@ -75,9 +75,14 @@ export function countPlaceholderProducts(
   return n;
 }
 
-export type PlaceholderProductRef = { id: string; name: string };
+export type PlaceholderProductRef = {
+  id: string;
+  name: string;
+  /** Primary image URL as stored (may be empty string when missing). Never invents photos. */
+  imageUrl: string;
+};
 
-/** Id + name only — owner checklist to replace placehold.co / empty photos. */
+/** Id + name + imageUrl — owner checklist to replace placehold.co / empty photos. */
 export function listPlaceholderProducts(
   products: Array<{
     id: string;
@@ -87,11 +92,34 @@ export function listPlaceholderProducts(
 ): PlaceholderProductRef[] {
   const out: PlaceholderProductRef[] = [];
   for (const p of products) {
-    if (isMissingOrPlaceholderImage(p.images?.[0]?.url)) {
-      out.push({ id: p.id, name: p.name });
+    const raw = p.images?.[0]?.url;
+    if (isMissingOrPlaceholderImage(raw)) {
+      const imageUrl = typeof raw === 'string' ? raw.trim() : '';
+      out.push({ id: p.id, name: p.name, imageUrl });
     }
   }
   return out;
+}
+
+function csvEscape(v: string | number | null | undefined): string {
+  const s = v == null ? '' : String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** CSV (id,name,imageUrl) for products needing real photos — no fake images generated. */
+export function placeholderProductsCsv(rows: PlaceholderProductRef[]): {
+  filename: string;
+  csv: string;
+} {
+  const header = 'id,name,imageUrl';
+  const lines = rows.map((r) =>
+    [csvEscape(r.id), csvEscape(r.name), csvEscape(r.imageUrl)].join(','),
+  );
+  return {
+    filename: 'products-needing-photos.csv',
+    csv: [header, ...lines].join('\n') + '\n',
+  };
 }
 
 export function summarizeInventoryOps(input: {

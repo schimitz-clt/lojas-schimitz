@@ -29,6 +29,8 @@ withEnv({ APP_ENV: 'development', NODE_ENV: 'development' }, () => {
   assert.equal(body.error.message, 'boom-db-connection-string');
   assert.equal('stack' in body.error, false);
   assert.deepEqual(body.error.details, []);
+  assert.ok(body.meta && typeof body.meta.requestId === 'string');
+  assert.ok(body.meta.requestId.length > 0);
 });
 
 // Non-HTTP Error in production → generic
@@ -70,5 +72,10 @@ withEnv({ APP_ENV: 'staging', NODE_ENV: 'production' }, () => {
   assert.equal(body.error.message, 'Erro interno');
   assert.equal(JSON.stringify(body).includes('postgresql'), false);
 });
+
+{
+  const { body } = buildClientError(new Error('x'), 'fixed-req-id');
+  assert.equal(body.meta.requestId, 'fixed-req-id');
+}
 
 console.log('http-exception.filter tests ok');

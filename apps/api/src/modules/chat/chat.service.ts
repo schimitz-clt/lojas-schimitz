@@ -12,6 +12,7 @@ import {
   needsHandoff,
   noLlmFallbackReply,
   parseLlmJson,
+  sanitizeChatMessage,
 } from './chat.intent';
 import { appendTurn, getConversation, type ChatTurn } from './chat.memory';
 import { buildSystemPrompt } from './chat.prompt';
@@ -28,6 +29,7 @@ export class ChatService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Optional LLM — chat always works via FAQ/catalog/WhatsApp when null. Never required. */
   llmConfig(): LlmConfig | null {
     const apiKey = (process.env.OPENAI_API_KEY || process.env.CHAT_API_KEY || '').trim();
     if (!apiKey) return null;
@@ -37,7 +39,7 @@ export class ChatService {
   }
 
   async reply(input: { message: string; conversationId?: string }): Promise<ChatReply> {
-    const message = (input.message || '').trim();
+    const message = sanitizeChatMessage(input.message);
     const conversationId = isConversationId(input.conversationId) ? input.conversationId : randomUUID();
     const history = getConversation(conversationId);
     const handoffNow = needsHandoff(message);

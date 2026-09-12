@@ -1,15 +1,17 @@
 # API `/api/v1`
 
 Envelope de sucesso: `{ "ok": true, "data": {}, "meta": { "requestId": "uuid" } }`
-Envelope de erro: `{ "ok": false, "error": { "code": "...", "message": "..." } }`
+Envelope de erro: `{ "ok": false, "error": { "code": "...", "message": "..." }, "meta": { "requestId": "uuid" } }`
 
 Header de usuário: `Authorization: Bearer <access_token>`
 Header de visitante no carrinho: `x-guest-token: <uuid>`
 
 | Método | Rota | Acesso |
 |---|---|---|
-| GET | `/health` | público |
-| GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `mail.configured` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` (DB aggregate) + `alerts[]` (real conditions) |
+| GET | `/health` | público — liveness |
+| GET | `/health/ready` | público — readiness (DB `SELECT 1`) |
+| GET | `/admin/ops` | admin — command center: inventory + placeholders (`id,name,imageUrl`) + `payments.pendingCount` + `mail.configured` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` (DB aggregate) + `alerts[]` (real conditions) |
+| GET | `/admin/ops/products-needing-photos` | admin — CSV `{ filename, csv }` colunas `id,name,imageUrl` (sem gerar fotos) |
 | POST | `/auth/register` | público |
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` body opcional `{ refreshToken }` **ou** cookie HttpOnly `sch_refresh` | público |

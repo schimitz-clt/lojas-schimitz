@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Response } from 'express';
 import { mapMulterUploadError } from '../../modules/uploads/upload-validate';
 import { isProdLikeAppEnv } from '../swagger';
@@ -13,13 +14,17 @@ export type ClientErrorBody = {
   success: false;
   ok: false;
   error: { code: string; message: string; details: unknown[] };
+  meta: { requestId: string };
 };
 
 /**
  * Build the public error envelope. Never includes stack.
  * In prod-like envs, HTTP ≥500 always gets a generic message (no Prisma/path leaks).
  */
-export function buildClientError(exception: unknown): {
+export function buildClientError(
+  exception: unknown,
+  requestId = randomUUID(),
+): {
   status: number;
   body: ClientErrorBody;
 } {
@@ -31,6 +36,7 @@ export function buildClientError(exception: unknown): {
         success: false,
         ok: false,
         error: { code: multerMapped.code, message: multerMapped.message, details: [] },
+        meta: { requestId },
       },
     };
   }
@@ -78,6 +84,7 @@ export function buildClientError(exception: unknown): {
       success: false,
       ok: false,
       error: { code, message, details },
+      meta: { requestId },
     },
   };
 }
@@ -87,7 +94,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
-    const { status, body } = buildClientError(exception);
+    const req = ctx.getRequest<{ headers?: Record<string, string | string[] | undefined> }>();
+    const hdr = req?.headers?.['x-request-id'];
+    const fromHeader = Array.isArray(hdr) ? hdr[0] : hdr;
+    const requestId =
+      typeof fromHeader === 'string' && fromHeader.trim().length > 0 && fromHeader.length <= 128
+        ? fromHeader.trim()
+        : randomUUID();
+    const { status, body } = buildClientError(exception, requestId);
+    res.setHeader('x-request-id', requestId);
     res.status(status).json(body);
   }
 }

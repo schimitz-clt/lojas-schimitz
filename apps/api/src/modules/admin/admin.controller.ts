@@ -68,7 +68,7 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, summarizeOps, summarizeSalesWindow } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, summarizeOps, summarizeSalesWindow } from './admin-ops';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
@@ -179,6 +179,25 @@ export class AdminController {
         }),
       }),
     );
+  }
+
+
+  @Get('ops/products-needing-photos')
+  @ApiOperation({
+    summary:
+      'CSV export (id,name,imageUrl) of products with missing/placeholder photos — no fake images',
+  })
+  async productsNeedingPhotosCsv() {
+    const productImageRows = await this.prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        images: { orderBy: { position: 'asc' }, take: 1, select: { url: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    const rows = listPlaceholderProducts(productImageRows);
+    return ok(placeholderProductsCsv(rows));
   }
 
   @Get('admins')

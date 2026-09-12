@@ -166,3 +166,35 @@ export function parseLlmJson(raw: string): { reply: string; handoff: boolean } |
     return null;
   }
 }
+
+/** Max length after sanitize (aligned with ChatMessageDto @MaxLength). */
+export const CHAT_MESSAGE_MAX_LENGTH = 1200;
+
+/**
+ * Basic prompt-injection hygiene for user chat text.
+ * - strips control chars / null bytes
+ * - collapses whitespace
+ * - removes common "ignore previous instructions" / role-spoof lines
+ * - hard-caps length
+ * Does not invent content; empty after sanitize stays empty.
+ */
+export function sanitizeChatMessage(raw: string | null | undefined): string {
+  let t = typeof raw === 'string' ? raw : '';
+  t = t.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  t = t.replace(/\r\n?/g, '\n');
+  // Drop lines that look like role / instruction overrides
+  const lines = t.split('\n').filter((line) => {
+    const s = line.trim();
+    if (!s) return true;
+    if (/^(system|assistant|developer)\s*:/i.test(s)) return false;
+    if (/ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i.test(s)) return false;
+    if (/disregard\s+(all\s+)?(previous|prior|above)/i.test(s)) return false;
+    if (/you\s+are\s+now\s+(dan|jailbreak|unrestricted)/i.test(s)) return false;
+    return true;
+  });
+  t = lines.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  if (t.length > CHAT_MESSAGE_MAX_LENGTH) {
+    t = t.slice(0, CHAT_MESSAGE_MAX_LENGTH);
+  }
+  return t;
+}

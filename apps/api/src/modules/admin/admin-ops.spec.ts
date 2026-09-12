@@ -7,6 +7,7 @@ import {
   isMissingOrPlaceholderImage,
   isPlaceholderImageUrl,
   listPlaceholderProducts,
+  placeholderProductsCsv,
   summarizeInventoryOps,
   summarizeOps,
   summarizeOrderStatusCounts,
@@ -69,9 +70,16 @@ const listed = listPlaceholderProducts([
   { id: 'c', name: 'Sem foto', images: [] },
 ]);
 assert.deepEqual(listed, [
-  { id: 'a', name: 'Roblox' },
-  { id: 'c', name: 'Sem foto' },
+  { id: 'a', name: 'Roblox', imageUrl: 'https://placehold.co/1' },
+  { id: 'c', name: 'Sem foto', imageUrl: '' },
 ]);
+
+const csv = placeholderProductsCsv(listed);
+assert.equal(csv.filename, 'products-needing-photos.csv');
+assert.ok(csv.csv.startsWith('id,name,imageUrl\n'));
+assert.ok(csv.csv.includes('a,Roblox,https://placehold.co/1'));
+assert.ok(csv.csv.includes('c,Sem foto,'));
+assert.ok(!csv.csv.includes('fake-photo'));
 
 const withList = summarizeOps({
   lowStockCount: 0,
