@@ -7,6 +7,11 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../../common/audit.service';
 import { ShippingProvider } from '../shipping/shipping.provider';
+import {
+  CarrierLiveNotWiredError,
+  CarrierNotConfiguredError,
+  type CarrierProvider,
+} from '../shipping/carriers';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PaymentProvider } from '../payments/payment.provider';
@@ -37,6 +42,7 @@ export class OrdersService {
     @Inject(InventoryService) private readonly inventory: InventoryService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject('ShippingProvider') private readonly shipping: ShippingProvider,
+    @Inject('CarrierProvider') private readonly carriers: CarrierProvider,
     @Inject('PaymentProvider') private readonly paymentsProvider: PaymentProvider,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(CouponsService) private readonly coupons: CouponsService,
@@ -516,14 +522,44 @@ export class OrdersService {
       throw e;
     }
     const from = order.status;
-    const trackingCode =
+    let trackingCode =
       opts?.trackingCode !== undefined && opts?.trackingCode !== null
         ? String(opts.trackingCode).trim() || null
         : undefined;
-    const carrier =
+    let carrier =
       opts?.carrier !== undefined && opts?.carrier !== null
         ? String(opts.carrier).trim() || null
         : undefined;
+
+    // Phase 14: normalize via CarrierProvider on transit (propria = manual; live adapters must not fake success).
+    if (to === 'in_transit' || to === 'shipped') {
+      try {
+        const label = await this.carriers.createLabel({
+          orderId: order.id,
+          publicId: order.publicId,
+          trackingCode:
+            trackingCode !== undefined ? trackingCode : order.trackingCode,
+          carrierHint: carrier !== undefined ? carrier : order.carrier,
+          addressSnap: order.addressSnap,
+        });
+        // Prefer explicit admin input; otherwise take provider normalization (propria = manual).
+        trackingCode = trackingCode !== undefined ? trackingCode : label.trackingCode;
+        carrier =
+          carrier !== undefined && carrier !== null
+            ? carrier
+            : label.carrier || order.carrier || 'propria';
+      } catch (e) {
+        if (e instanceof CarrierNotConfiguredError || e instanceof CarrierLiveNotWiredError) {
+          throw new BadRequestException({
+            message: e.message,
+            code: e.code,
+            carrier: e.carrier,
+          });
+        }
+        throw e;
+      }
+    }
+
     const rows = await this.prisma.$transaction(async (tx) => {
       const data: { status: typeof to; trackingCode?: string | null; carrier?: string | null } = {
         status: to as never,

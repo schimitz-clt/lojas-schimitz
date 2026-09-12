@@ -47,7 +47,19 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB; magic-bytes; erros `UPLOAD_*`) → `{ url, filename }` (url apex se SITE_URL/APP_URL) | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
 | PATCH | `/admin/products/:id` (mesmos campos, parciais) | admin |
-| PATCH | `/admin/orders/:id/status` body `{ status, trackingCode?, carrier? }` (fulfillment) | admin |
+| PATCH | `/admin/orders/:id/status` body `{ status, trackingCode?, carrier? }` (fulfillment; `in_transit`/`shipped` normaliza via CarrierProvider — default `propria` manual) | admin |
+
+### Logística (conceitos Phase 14)
+
+| Conceito | Onde | Nota |
+|----------|------|------|
+| **FREIGHT** | `POST /shipping/quote`, `Order.freight` / `freightSnap` | Cotação CEP (`ShippingProvider`) |
+| **CARRIER** | `Order.carrier`, `CarrierProvider` (`CARRIER_PROVIDER`) | Default `propria`; Melhor Envio = stub |
+| **TRACKING** | `Order.trackingCode` | Manual no admin ao marcar Em trânsito |
+| **ORDER** | `Order` + `OrderStatus` | Máquina de estados Phase 12 |
+| **DELIVERY** | `in_transit` → `delivered` | Sem sync automático de transportadora |
+
+Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTERNO). Sem token → `NOT_CONFIGURED`. Nunca fake tracking.
 | GET/POST | `/admin/sellers` | admin |
 | PATCH | `/admin/sellers/:id/status` body `{ status: "pending"|"active"|"suspended" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
