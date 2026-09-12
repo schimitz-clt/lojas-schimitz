@@ -10,7 +10,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 17 — technical SEO JSON-LD |
 | **STATUS** | DONE (helpers + unit tests; robots/sitemap já corretos) |
-| **COMMIT** | _(preenchido após push)_ |
+| **COMMIT** | `3db4678ecf47e4937ef3ed013927f88b915dec33` |
 | **PRODUÇÃO** | Deploy Next ativa `<script type="application/ld+json">` no SSR |
 | **RISCOS** | Baixo — markup aditivo; dados só da API pública |
 | **BLOQUEIOS** | Nenhum interno |
