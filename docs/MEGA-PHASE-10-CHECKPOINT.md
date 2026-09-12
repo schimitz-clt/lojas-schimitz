@@ -2,7 +2,7 @@
 
 **Data:** 2026-09-12 ~20:00 America/Sao_Paulo (UTC-3)  
 **Base git:** `ceb82a2` (Phase 9 IDOR/BOLA + cookie-prefer refresh).  
-**Commit SHA:** `10420b965e8ecf045e44b41e41cd24a84908fc7a`  
+**Commit SHA:** `16683f1ecb895f320f73558758e01c5da7942fef`  
 **Escopo:** auditoria de matemática de checkout/pedido/pagamento + assinatura/idempotência de webhook **sem cobranças reais**. Fixes só para bugs claros de money/idempotency.
 
 ## Resumo
