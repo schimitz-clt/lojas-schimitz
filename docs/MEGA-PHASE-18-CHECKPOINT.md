@@ -10,7 +10,7 @@
 |-------|--------|
 | **FASE** | MEGA Phase 18 — Android WebView audit |
 | **STATUS** | DONE (hardening + AAB closed 1.0.3; **não** publicado em Play production) |
-| **COMMIT** | TBD |
+| **COMMIT** | `fb0089b189c0e5f8d19683ef2ab883db1c171e48` |
 | **PRODUÇÃO WEB** | Inalterada nesta fase |
 | **RISCOS** | Baixo — CookieManager/SSL explícitos; MP continua no browser externo |
 | **BLOQUEIO** | Play production publish + 12 testers + Play App Signing SHA verify |
