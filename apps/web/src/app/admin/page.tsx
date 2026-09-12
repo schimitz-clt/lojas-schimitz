@@ -119,6 +119,18 @@ const emptyForm = (): ProductForm => ({
 });
 
 
+/** Demo/seed image host — warn admin to replace with real upload. */
+function isPlaceholderImageUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'placehold.co' || host.endsWith('.placehold.co');
+  } catch {
+    return /placehold\.co/i.test(url);
+  }
+}
+
+
 type AdminCoupon = {
   id: string;
   code: string;
@@ -2257,6 +2269,39 @@ export default function AdminPage() {
               <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
                 JPG, PNG ou WebP · até 15 MB. Você também pode colar um link abaixo.
               </p>
+              {!form.imageUrl.trim() ? (
+                <p
+                  role="status"
+                  style={{
+                    margin: '10px 0 0',
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    background: '#2a2208',
+                    border: '1px solid #6b5a12',
+                    color: '#f5e6a3',
+                    fontSize: 13,
+                  }}
+                >
+                  Sem foto — a vitrine fica sem imagem. Envie um JPG/PNG/WebP ou cole a URL
+                  depois do upload.
+                </p>
+              ) : isPlaceholderImageUrl(form.imageUrl) ? (
+                <p
+                  role="status"
+                  style={{
+                    margin: '10px 0 0',
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    background: '#2a2208',
+                    border: '1px solid #6b5a12',
+                    color: '#f5e6a3',
+                    fontSize: 13,
+                  }}
+                >
+                  Imagem placeholder (placehold.co) — troque por foto real antes de vender.
+                  Use &quot;Enviar foto&quot; acima.
+                </p>
+              ) : null}
             </div>
             <label>
               URL da imagem (opcional)
@@ -2706,11 +2751,37 @@ export default function AdminPage() {
       </section>
 
       <h3>Produtos ({products.length})</h3>
+      {(() => {
+        const placeholderCount = products.filter((p) => {
+          const url = p.images?.[0]?.url;
+          return !url || isPlaceholderImageUrl(url);
+        }).length;
+        if (!placeholderCount) return null;
+        return (
+          <p
+            role="status"
+            style={{
+              margin: '0 0 12px',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: '#2a2208',
+              border: '1px solid #6b5a12',
+              color: '#f5e6a3',
+              fontSize: 14,
+            }}
+          >
+            {placeholderCount} produto(s) sem foto real (vazio ou placehold.co). Edite e envie
+            fotos para a vitrine não parecer demo.
+          </p>
+        );
+      })()}
       <div style={{ display: 'grid', gap: 10, marginBottom: 28 }}>
         {products.map((p) => {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
           const isLow = onHand <= lowStockThreshold;
+          const imgUrl = p.images?.[0]?.url;
+          const isPlaceholderImg = !imgUrl || isPlaceholderImageUrl(imgUrl);
           return (
             <div
               key={p.id}
@@ -2747,6 +2818,11 @@ export default function AdminPage() {
                     <div>
                       <b>{p.name}</b>{' '}
                       {!p.active ? <span className="badge">Inativo</span> : null}
+                      {isPlaceholderImg ? (
+                        <span className="badge" style={{ background: '#3a2f0a', color: '#f5e6a3' }}>
+                          {!imgUrl ? 'Sem foto' : 'Foto placeholder'}
+                        </span>
+                      ) : null}
                       {isLow ? (
                         <span className="badge" style={{ background: '#3a1515', color: '#ffb4b4' }}>
                           Estoque baixo
