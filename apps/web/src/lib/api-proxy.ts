@@ -56,7 +56,8 @@ export function rewriteSetCookieHeaders(headers: string[]): string[] {
 
 /**
  * Browser base URL: same-origin /api/v1 outside localhost so HttpOnly cookies work.
- * Local keeps NEXT_PUBLIC_API_URL (default localhost:3001) — dual-mode refresh unchanged.
+ * Local keeps NEXT_PUBLIC_API_URL (default localhost:3001) — body refresh in localStorage.
+ * Non-local uses /api/v1 (cookie-first; see auth-session.ts).
  */
 export function getBrowserApiBase(): string {
   if (typeof window !== 'undefined') {
