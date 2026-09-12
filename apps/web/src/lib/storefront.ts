@@ -20,6 +20,23 @@ export type HomeBanner = {
   active: boolean;
 };
 
+/** Product fields used by generateMetadata + Product JSON-LD (real API only). */
+export type ProductSeo = {
+  name: string;
+  description: string;
+  slug: string;
+  image?: string;
+  images?: string[];
+  sku?: string | null;
+  price?: string | number;
+  stock?: number | null;
+  condition?: string | null;
+  ratingAvg?: string | number | null;
+  ratingCount?: number | null;
+  category?: { slug: string; name: string } | null;
+  seller?: { name: string; slug?: string } | null;
+};
+
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 const DEFAULT_SETTINGS: StoreSettings = {
@@ -56,11 +73,7 @@ export async function fetchStoreSettings(): Promise<StoreSettings> {
   }
 }
 
-export async function fetchProductMeta(slug: string): Promise<{
-  name: string;
-  description: string;
-  image?: string;
-} | null> {
+export async function fetchProductMeta(slug: string): Promise<ProductSeo | null> {
   try {
     const res = await fetch(`${API}/products/${encodeURIComponent(slug)}`, {
       next: { revalidate: 60 },
@@ -70,22 +83,51 @@ export async function fetchProductMeta(slug: string): Promise<{
       ok?: boolean;
       data?: {
         name: string;
+        slug?: string;
         description?: string;
+        sku?: string | null;
+        price?: string | number;
+        stock?: number | null;
+        condition?: string | null;
+        ratingAvg?: string | number | null;
+        ratingCount?: number | null;
         images?: { url: string }[];
         image?: string | null;
         imageUrl?: string | null;
+        category?: { slug: string; name: string } | null;
+        seller?: { name: string; slug?: string } | null;
       };
     };
     if (!json.ok || !json.data) return null;
     const d = json.data;
     const desc = (d.description || '').trim() || `${d.name} na Lojas Schimitz`;
+    const imageUrls: string[] = [];
+    for (const img of d.images || []) {
+      const raw = img?.url?.trim();
+      if (!raw) continue;
+      imageUrls.push(rewritePublicUploadUrl(raw) || raw);
+    }
     const rawImage =
-      d.images?.[0]?.url?.trim() || d.image?.trim() || d.imageUrl?.trim() || undefined;
-    const image = rawImage ? rewritePublicUploadUrl(rawImage) || rawImage : undefined;
+      imageUrls[0] || d.image?.trim() || d.imageUrl?.trim() || undefined;
+    const image = rawImage
+      ? rewritePublicUploadUrl(rawImage) || rawImage
+      : undefined;
     return {
       name: d.name,
+      slug: d.slug || slug,
       description: desc.slice(0, 320),
       image,
+      images: imageUrls.length ? imageUrls : image ? [image] : undefined,
+      sku: d.sku ?? null,
+      price: d.price,
+      stock: d.stock ?? null,
+      condition: d.condition ?? null,
+      ratingAvg: d.ratingAvg ?? null,
+      ratingCount: d.ratingCount ?? null,
+      category: d.category
+        ? { slug: d.category.slug, name: d.category.name }
+        : null,
+      seller: d.seller ? { name: d.seller.name, slug: d.seller.slug } : null,
     };
   } catch {
     return null;

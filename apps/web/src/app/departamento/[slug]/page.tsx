@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import DepartamentoClient from './DepartamentoClient';
+import { JsonLd } from '@/components/JsonLd';
+import { buildBreadcrumbList } from '@/lib/json-ld';
 import { fetchCategoryMeta, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -27,6 +29,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function Page() {
-  return <DepartamentoClient />;
+export default async function Page({ params }: Props) {
+  const { slug } = await params;
+  const cat = await fetchCategoryMeta(slug);
+  const origin = siteOrigin();
+  const name = cat?.name || slug;
+
+  const breadcrumb = buildBreadcrumbList(origin, [
+    { name: 'Início', path: '/' },
+    { name: 'Produtos', path: '/produtos' },
+    { name, path: `/departamento/${encodeURIComponent(slug)}` },
+  ]);
+
+  return (
+    <>
+      <JsonLd data={breadcrumb} />
+      <DepartamentoClient />
+    </>
+  );
 }
