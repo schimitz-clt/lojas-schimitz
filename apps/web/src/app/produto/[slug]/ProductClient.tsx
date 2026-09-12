@@ -235,7 +235,7 @@ export default function ProductPage() {
   if (!p) return <PdpSkeleton />;
 
   const stockFromInv =
-    p.inventory != null ? p.inventory.qtyOnHand - p.inventory.qtyReserved : null;
+    p.inventory != null ? Math.max(0, p.inventory.qtyOnHand - p.inventory.qtyReserved) : null;
   const stock =
     typeof p.stock === 'number' ? p.stock : p.stock === null ? null : stockFromInv;
   const sb = stockBadge(stock);

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { AdminCreateProductDto, AdminUpdateProductDto } from './dto';
 import { SellersService } from '../sellers/sellers.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 const productInclude = {
   inventory: true,
@@ -21,6 +22,7 @@ export class AdminProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sellers: SellersService,
+    private readonly inventory: InventoryService,
   ) {}
 
   list(opts?: { lowStock?: number }) {
@@ -131,17 +133,8 @@ export class AdminProductsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         if (dto.stock !== undefined) {
-          const reserved = existing.inventory?.qtyReserved ?? 0;
-          if (dto.stock < reserved) {
-            throw new BadRequestException(
-              `Estoque não pode ser menor que a reserva atual (${reserved})`,
-            );
-          }
-          await tx.inventory.upsert({
-            where: { productId: id },
-            update: { qtyOnHand: dto.stock },
-            create: { productId: id, qtyOnHand: dto.stock, qtyReserved: 0 },
-          });
+          // CAS: qtyOnHand only if qtyReserved <= stock (anti TOCTOU vs concurrent reserve)
+          await this.inventory.setOnHandCas(tx, id, dto.stock);
         }
 
         if (dto.imageUrl !== undefined) {

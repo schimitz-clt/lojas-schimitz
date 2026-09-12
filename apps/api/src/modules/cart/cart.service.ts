@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma.service';
 import { randomUUID } from 'crypto';
 import { AddCartItemDto, UpdateCartItemDto } from './dto';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
+import { availableQty } from '../inventory/inventory.math';
 
 @Injectable()
 export class CartService {
@@ -71,7 +72,7 @@ export class CartService {
         price,
         image: rewritePublicUploadUrl(item.product.images[0]?.url ?? null),
         stock: item.product.inventory
-          ? item.product.inventory.qtyOnHand - item.product.inventory.qtyReserved
+          ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
           : 0,
         lineTotal: price * item.qty,
       };
@@ -99,7 +100,7 @@ export class CartService {
     if (!product || !product.active) throw new NotFoundException('Produto não encontrado');
 
     const available = product.inventory
-      ? product.inventory.qtyOnHand - product.inventory.qtyReserved
+      ? availableQty(product.inventory.qtyOnHand, product.inventory.qtyReserved)
       : 0;
     if (available < dto.qty) throw new BadRequestException('Estoque insuficiente');
 
@@ -134,7 +135,7 @@ export class CartService {
     if (!item) throw new NotFoundException('Item não encontrado no carrinho');
 
     const available = item.product.inventory
-      ? item.product.inventory.qtyOnHand - item.product.inventory.qtyReserved
+      ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
       : 0;
     if (available < dto.qty) throw new BadRequestException('Estoque insuficiente');
 
@@ -196,7 +197,7 @@ export class CartService {
         const product = item.product;
         if (!product || !product.active) continue;
         const available = product.inventory
-          ? product.inventory.qtyOnHand - product.inventory.qtyReserved
+          ? availableQty(product.inventory.qtyOnHand, product.inventory.qtyReserved)
           : 0;
         if (available <= 0) continue;
 

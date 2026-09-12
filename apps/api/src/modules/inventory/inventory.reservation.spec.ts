@@ -1,13 +1,15 @@
 /**
  * Reserva de estoque — simulação CAS (sem Postgres).
- * Cobre: oversell bloqueado, commit no pagamento, release no cancelamento.
+ * Cobre: oversell bloqueado, commit no pagamento, release no cancelamento,
+ * available nunca negativo, qty inválida.
  */
 import assert from 'assert';
+import { availableQty } from './inventory.math';
 
 type Inv = { onHand: number; reserved: number };
 
 function available(inv: Inv) {
-  return Math.max(0, inv.onHand - inv.reserved);
+  return availableQty(inv.onHand, inv.reserved);
 }
 
 /** Espelha InventoryService.reserve predicado CAS. */
@@ -18,8 +20,9 @@ function reserve(inv: Inv, qty: number): boolean {
   return true;
 }
 
-/** Espelha release (cancel / expiry). */
+/** Espelha release (cancel / expiry) — falha se reserved insuficiente. */
 function release(inv: Inv, qty: number): boolean {
+  if (qty < 1) return false;
   if (inv.reserved < qty) return false;
   inv.reserved -= qty;
   return true;
@@ -27,6 +30,7 @@ function release(inv: Inv, qty: number): boolean {
 
 /** Espelha commitSale (pagamento aprovado). */
 function commitSale(inv: Inv, qty: number): boolean {
+  if (qty < 1) return false;
   if (inv.reserved < qty || inv.onHand < qty) return false;
   inv.onHand -= qty;
   inv.reserved -= qty;
@@ -105,7 +109,52 @@ function createOrderThenCancel(inv: Inv, qty: number) {
   assert.equal(release(inv, 1), true); // B cancelled
   assert.equal(inv.onHand, 1);
   assert.equal(inv.reserved, 0);
+  assert.ok(available(inv) >= 0);
   console.log('stock: pay+cancel concorrentes — PASSOU');
+}
+
+// 7) qty inválida (<1) rejeitada em reserve/release/commit
+{
+  const inv: Inv = { onHand: 5, reserved: 0 };
+  assert.equal(reserve(inv, 0), false);
+  assert.equal(reserve(inv, -1), false);
+  assert.equal(release(inv, 0), false);
+  assert.equal(commitSale(inv, 0), false);
+  assert.equal(inv.onHand, 5);
+  assert.equal(inv.reserved, 0);
+  console.log('stock: qty inválida rejeitada — PASSOU');
+}
+
+// 8) release sem reserva falha (não deixa reserved negativo)
+{
+  const inv: Inv = { onHand: 3, reserved: 1 };
+  assert.equal(release(inv, 2), false);
+  assert.equal(inv.reserved, 1);
+  assert.equal(available(inv), 2);
+  console.log('stock: release excessivo falha — PASSOU');
+}
+
+// 9) Após commit, available nunca negativo; onHand/reserved >= 0
+{
+  const inv: Inv = { onHand: 1, reserved: 0 };
+  assert.equal(reserve(inv, 1), true);
+  assert.equal(commitSale(inv, 1), true);
+  assert.equal(inv.onHand, 0);
+  assert.equal(inv.reserved, 0);
+  assert.equal(available(inv), 0);
+  assert.equal(commitSale(inv, 1), false);
+  assert.equal(release(inv, 1), false);
+  console.log('stock: pós-venda zerado sem negativo — PASSOU');
+}
+
+// 10) Interleaving: N reservas paralelas simuladas sobre 3 unidades
+{
+  const inv: Inv = { onHand: 3, reserved: 0 };
+  const wins = [1, 1, 1, 1, 1].map((q) => reserve(inv, q));
+  assert.equal(wins.filter(Boolean).length, 3);
+  assert.equal(inv.reserved, 3);
+  assert.equal(available(inv), 0);
+  console.log('stock: 5 tentativas / 3 unidades — PASSOU');
 }
 
 console.log('inventory.reservation tests ok');

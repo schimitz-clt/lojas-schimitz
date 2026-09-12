@@ -14,6 +14,7 @@ import {
   assert.equal(availableStock({ qtyOnHand: 50, qtyReserved: 0 }), 50);
   assert.equal(availableStock({ qtyOnHand: 50, qtyReserved: 7 }), 43);
   assert.equal(availableStock({ qtyOnHand: 0, qtyReserved: 0 }), 0);
+  assert.equal(availableStock({ qtyOnHand: 2, qtyReserved: 5 }), 0, 'never negative');
   console.log('product.serialize: availableStock — PASSOU');
 }
 

@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { availableQty } from './inventory.math';
 
 @Injectable()
 export class InventoryService {
   available(qtyOnHand: number, qtyReserved: number) {
-    return Math.max(0, qtyOnHand - qtyReserved);
+    return availableQty(qtyOnHand, qtyReserved);
   }
 
   /**
@@ -38,17 +39,29 @@ export class InventoryService {
 
   /** Libera reserva (cancelamento / expiração de unpaid). */
   async release(tx: Prisma.TransactionClient, productId: string, qty: number) {
+    if (qty < 1) {
+      throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
+    }
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyReserved" = "qtyReserved" - ${qty}
       WHERE "productId" = ${productId}
         AND "qtyReserved" >= ${qty}
     `;
+    if (rows === 0) {
+      throw new BadRequestException({
+        message: 'Falha ao liberar reserva de estoque',
+        code: 'INVENTORY_RELEASE_FAILED',
+      });
+    }
     return rows;
   }
 
   /** Confirma venda: baixa on-hand e reserva (pagamento aprovado). */
   async commitSale(tx: Prisma.TransactionClient, productId: string, qty: number) {
+    if (qty < 1) {
+      throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
+    }
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyOnHand" = "qtyOnHand" - ${qty},
@@ -102,6 +115,9 @@ export class InventoryService {
 
   /** Reposição após estorno de Order ainda no depósito. NÃO altera o predicado CAS. */
   async restock(tx: Prisma.TransactionClient, productId: string, qty: number) {
+    if (qty < 1) {
+      throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
+    }
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyOnHand" = "qtyOnHand" + ${qty}
@@ -114,5 +130,35 @@ export class InventoryService {
       });
     }
     return rows;
+  }
+
+  /**
+   * Admin set qtyOnHand com predicado CAS: não permite onHand < qtyReserved
+   * (evita TOCTOU entre leitura de reserved e update).
+   */
+  async setOnHandCas(tx: Prisma.TransactionClient, productId: string, qtyOnHand: number) {
+    if (!Number.isFinite(qtyOnHand) || qtyOnHand < 0 || !Number.isInteger(qtyOnHand)) {
+      throw new BadRequestException({ message: 'Estoque inválido', code: 'INVALID_STOCK' });
+    }
+    const existing = await tx.inventory.findUnique({ where: { productId } });
+    if (!existing) {
+      await tx.inventory.create({
+        data: { productId, qtyOnHand, qtyReserved: 0 },
+      });
+      return;
+    }
+    const rows = await tx.$executeRaw`
+      UPDATE "Inventory"
+      SET "qtyOnHand" = ${qtyOnHand}
+      WHERE "productId" = ${productId}
+        AND "qtyReserved" <= ${qtyOnHand}
+    `;
+    if (rows === 0) {
+      const fresh = await tx.inventory.findUnique({ where: { productId } });
+      const reserved = fresh?.qtyReserved ?? 0;
+      throw new BadRequestException(
+        `Estoque não pode ser menor que a reserva atual (${reserved})`,
+      );
+    }
   }
 }

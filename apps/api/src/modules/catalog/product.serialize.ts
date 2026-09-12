@@ -6,6 +6,7 @@
  */
 
 import { rewritePublicUploadUrl, rewritePublicUploadUrls } from '../../common/public-upload-url';
+import { availableQty } from '../inventory/inventory.math';
 
 export type InventoryLike = {
   qtyOnHand: number;
@@ -17,10 +18,10 @@ export type ImageLike = {
   position?: number;
 };
 
-/** Available units: onHand − reserved. null when inventory row is missing (Sob consulta). */
+/** Available units: max(0, onHand − reserved). null when inventory row is missing (Sob consulta). */
 export function availableStock(inventory: InventoryLike): number | null {
   if (!inventory) return null;
-  return inventory.qtyOnHand - inventory.qtyReserved;
+  return availableQty(inventory.qtyOnHand, inventory.qtyReserved);
 }
 
 /** Primary image URL — same source as cart (`images[0].url`). */

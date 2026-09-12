@@ -34,7 +34,7 @@ function resolveImageUrl(p: Product): string {
 function resolveStock(p: Product): number | null {
   if (typeof p.stock === 'number') return p.stock;
   if (p.stock === null) return null;
-  if (p.inventory) return p.inventory.qtyOnHand - p.inventory.qtyReserved;
+  if (p.inventory) return Math.max(0, p.inventory.qtyOnHand - p.inventory.qtyReserved);
   return null;
 }
 
