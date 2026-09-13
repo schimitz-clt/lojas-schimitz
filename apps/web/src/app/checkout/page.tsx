@@ -1,15 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api, brl, currentUser } from '@/lib/api';
-import { pixPrice } from '@/lib/pricing';
+import { api, brl, currentUser, waLink } from '@/lib/api';
+import { pixPrice, pixSavings } from '@/lib/pricing';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
   CheckoutAddressSection,
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
+import { TrustBadges } from '@/components/TrustBadges';
 
 type CartItem = {
   id: string;
@@ -33,8 +34,18 @@ type FreightQuote = {
   freeAbove: number;
 };
 
+const AFTER_STEPS = [
+  { title: 'Pagamento', detail: 'PIX ou cartão no próximo passo' },
+  { title: 'Pedido confirmado', detail: 'Assim que o pagamento for aprovado' },
+  { title: 'Separação', detail: 'Organizamos e embalamos na loja' },
+  { title: 'Envio / entrega', detail: 'Entrega própria Schimitz' },
+  { title: 'Acompanhamento', detail: 'Status atualizado nesta página' },
+] as const;
+
 export default function CheckoutPage() {
   const router = useRouter();
+  const errId = useId();
+  const submittingRef = useRef(false);
   const [cart, setCart] = useState<Cart | null>(null);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
@@ -125,24 +136,24 @@ export default function CheckoutPage() {
   }
 
   async function submit() {
+    if (submittingRef.current || loading) return;
     if (!addressId) {
       setErr('Salve um endereço de entrega acima para continuar.');
       const el = document.querySelector('.checkout-address');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     setErr('');
     try {
       const cashbackNum = Number(String(cashbackAmount).replace(',', '.')) || 0;
       if (cashbackNum < 0) {
         setErr('Valor de SCHIMITZ+ inválido.');
-        setLoading(false);
         return;
       }
       if (loyalty && cashbackNum > loyalty.balance + 0.0001) {
         setErr('Saldo SCHIMITZ+ insuficiente.');
-        setLoading(false);
         return;
       }
       const persistKey = `sch_idem_order:${addressId}:${coupon || ''}:${cashbackNum}`;
@@ -165,6 +176,7 @@ export default function CheckoutPage() {
     } catch (e: any) {
       setErr(e.message || 'Não foi possível criar o pedido. Preço e estoque são recalculados no servidor.');
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -183,8 +195,13 @@ export default function CheckoutPage() {
   const cashbackNum = Math.max(0, Number(String(cashbackAmount).replace(',', '.')) || 0);
   const cashbackApplied = Math.min(cashbackNum, Math.max(0, cart.subtotal - couponDiscount));
   const freightPrice = freight?.price ?? 0;
-  const estimated = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
+  const displayTotal = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
+  const freightReady = Boolean(freight) && !freightLoading;
+  const totalsSettled = freightReady;
+  const pixTotal = pixPrice(displayTotal);
+  const pixSave = pixSavings(displayTotal);
   const canConfirm = Boolean(addressId) && !loading;
+  const supportHref = waLink('Olá! Preciso de ajuda no checkout da Lojas Schimitz.');
 
   return (
     <div className="checkout-page" style={{ padding: '24px 0' }}>
@@ -192,51 +209,62 @@ export default function CheckoutPage() {
         <Link href="/carrinho">Sacola</Link> · Checkout
       </p>
       <h1 style={{ marginTop: 8 }}>Checkout</h1>
-      <p className="muted">
-        Cadastre ou escolha o endereço aqui, veja o frete e confirme. O total definitivo é validado no servidor.
+      <p className="muted" style={{ marginBottom: 16 }}>
+        Confira o pedido, endereço e frete. O total definitivo é validado no servidor ao criar o pedido.
       </p>
-      {err ? <div className="alert">{err}</div> : null}
-      {cart.items.map((i) => {
-        const raw = rewritePublicUploadUrl(i.image) || i.image || '';
-        const src = raw && !isMissingOrPlaceholderImage(raw) ? raw : '';
-        const href = i.slug ? `/produto/${i.slug}` : null;
-        return (
-          <div key={i.id} className="card" style={{ marginBottom: 8 }}>
-            <div className="body checkout-line">
-              <div className="checkout-line-media" aria-hidden>
-                {src ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="" width={48} height={48} loading="lazy" decoding="async" />
-                  </>
-                ) : (
-                  <span style={{ fontSize: 9, fontWeight: 800, textAlign: 'center', color: 'var(--muted)' }}>
-                    SCH
-                  </span>
-                )}
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                {href ? (
-                  <Link href={href} style={{ fontWeight: 700 }}>
-                    {i.name}
-                  </Link>
-                ) : (
-                  <b>{i.name}</b>
-                )}
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {i.qty} × {brl(i.price)} — {brl(i.lineTotal)}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-      <p>Subtotal estimado {brl(cart.subtotal)}</p>
-      <p className="muted" style={{ marginTop: -8, fontSize: 13 }}>
-        No PIX (5% OFF no pagamento): <strong style={{ color: 'var(--ink)' }}>{brl(pixPrice(cart.subtotal))}</strong>
-      </p>
-      {couponPreview ? <p className="ok">Cupom {couponPreview.code}: −{brl(couponPreview.discount)}</p> : null}
-      {cashbackApplied > 0 ? <p>SCHIMITZ+: −{brl(cashbackApplied)}</p> : null}
+
+      <section className="checkout-section card" aria-labelledby="checkout-items-heading">
+        <div className="body">
+          <h2 id="checkout-items-heading" className="checkout-section-title">
+            Seu pedido
+          </h2>
+          <ul className="checkout-items">
+            {cart.items.map((i) => {
+              const raw = rewritePublicUploadUrl(i.image) || i.image || '';
+              const src = raw && !isMissingOrPlaceholderImage(raw) ? raw : '';
+              const href = i.slug ? `/produto/${i.slug}` : null;
+              return (
+                <li key={i.id} className="checkout-line">
+                  <div className="checkout-line-media">
+                    {src ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={i.name}
+                          width={64}
+                          height={64}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </>
+                    ) : (
+                      <span className="checkout-line-ph" aria-hidden>
+                        SCH
+                      </span>
+                    )}
+                  </div>
+                  <div className="checkout-line-body">
+                    {href ? (
+                      <Link href={href} className="checkout-line-name">
+                        {i.name}
+                      </Link>
+                    ) : (
+                      <span className="checkout-line-name">{i.name}</span>
+                    )}
+                    <div className="checkout-line-meta muted">
+                      <span>
+                        Qtd. {i.qty} · und. {brl(i.price)}
+                      </span>
+                      <span className="checkout-line-subtotal">{brl(i.lineTotal)}</span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
 
       {addressesLoaded ? (
         <CheckoutAddressSection
@@ -256,26 +284,38 @@ export default function CheckoutPage() {
         <p className="muted">Carregando endereços…</p>
       )}
 
-      <div className="card" style={{ marginTop: 12, marginBottom: 8 }}>
+      <section className="checkout-section card" aria-labelledby="checkout-freight-heading">
         <div className="body">
-          <b>Frete (entrega própria)</b>
-          {freightLoading ? <p className="muted" style={{ marginBottom: 0 }}>Calculando frete...</p> : null}
-          {freightErr ? <div className="alert" style={{ marginTop: 8 }}>{freightErr}</div> : null}
+          <h2 id="checkout-freight-heading" className="checkout-section-title">
+            Entrega
+          </h2>
+          {freightLoading ? (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Calculando frete…
+            </p>
+          ) : null}
+          {freightErr ? (
+            <div className="alert" style={{ marginTop: 8 }} role="alert">
+              {freightErr}
+            </div>
+          ) : null}
           {!freightLoading && freight ? (
             <>
               <p style={{ marginBottom: 4 }}>
-                {freight.price === 0
-                  ? 'Frete grátis'
-                  : `Frete: ${brl(freight.price)}`}
+                <strong>
+                  {freight.price === 0 ? 'Frete grátis' : `Frete: ${brl(freight.price)}`}
+                </strong>
                 {' · '}
-                prazo estimado: {freight.days} dia{freight.days === 1 ? '' : 's'}
+                {freight.days} dia{freight.days === 1 ? '' : 's'}
+                {freight.modality ? ` · ${freight.modality}` : ''}
               </p>
               <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+                {freight.carrier ? `${freight.carrier}` : 'Entrega própria'}
                 {freight.label
-                  ? `Zona: ${freight.label}${freight.matchedPrefix ? ` (CEP ${freight.matchedPrefix}…)` : ''}`
+                  ? ` · zona ${freight.label}${freight.matchedPrefix ? ` (CEP ${freight.matchedPrefix}…)` : ''}`
                   : freight.matchedPrefix
-                    ? `Regra de CEP ${freight.matchedPrefix}…`
-                    : 'Taxa padrão da loja (sem zona específica para este CEP).'}
+                    ? ` · regra CEP ${freight.matchedPrefix}…`
+                    : ' · taxa padrão da loja (sem zona específica para este CEP).'}
               </p>
             </>
           ) : null}
@@ -285,15 +325,13 @@ export default function CheckoutPage() {
             </p>
           ) : null}
         </div>
-      </div>
-      <p><b>Estimativa total: {brl(estimated)}</b></p>
-      <p className="muted" style={{ marginTop: -8, fontSize: 13 }}>
-        Se pagar com PIX: ~{brl(pixPrice(estimated))} (5% OFF no pagamento; frete e cupom já na estimativa)
-      </p>
+      </section>
+
       <div style={{ marginTop: 12 }}>
-        <label>Cupom (opcional)</label>
+        <label htmlFor="checkout-coupon">Cupom (opcional)</label>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <input
+            id="checkout-coupon"
             placeholder="Ex.: PIX5"
             value={coupon}
             onChange={(e) => {
@@ -302,17 +340,29 @@ export default function CheckoutPage() {
               setCouponErr('');
             }}
             style={{ flex: 1, minWidth: 160 }}
+            autoComplete="off"
           />
-          <button type="button" className="btn ghost" disabled={validating || !coupon.trim()} onClick={applyCoupon}>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={validating || !coupon.trim()}
+            onClick={applyCoupon}
+          >
             {validating ? 'Validando...' : 'Aplicar cupom'}
           </button>
         </div>
-        {couponErr ? <div className="alert" style={{ marginTop: 8 }}>{couponErr}</div> : null}
+        {couponErr ? (
+          <div className="alert" style={{ marginTop: 8 }} role="alert">
+            {couponErr}
+          </div>
+        ) : null}
       </div>
+
       {loyalty && loyalty.balance > 0 ? (
         <div style={{ marginTop: 12 }}>
-          <label>Usar SCHIMITZ+ (saldo {brl(loyalty.balance)})</label>
+          <label htmlFor="checkout-cashback">Usar SCHIMITZ+ (saldo {brl(loyalty.balance)})</label>
           <input
+            id="checkout-cashback"
             inputMode="decimal"
             placeholder="0,00"
             value={cashbackAmount}
@@ -327,19 +377,136 @@ export default function CheckoutPage() {
           SCHIMITZ+: ao pagar, você ganha {(loyalty.rate * 100).toFixed(0)}% de cashback no saldo.
         </p>
       ) : null}
+
+      <section className="checkout-section card checkout-summary" aria-labelledby="checkout-pay-heading">
+        <div className="body">
+          <h2 id="checkout-pay-heading" className="checkout-section-title">
+            Resumo do pagamento
+          </h2>
+          <dl className="checkout-breakdown">
+            <div>
+              <dt>Subtotal</dt>
+              <dd>{brl(cart.subtotal)}</dd>
+            </div>
+            {couponPreview ? (
+              <div>
+                <dt>Cupom {couponPreview.code}</dt>
+                <dd className="ok">−{brl(couponPreview.discount)}</dd>
+              </div>
+            ) : null}
+            {cashbackApplied > 0 ? (
+              <div>
+                <dt>SCHIMITZ+</dt>
+                <dd>−{brl(cashbackApplied)}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>Frete</dt>
+              <dd>
+                {freightLoading
+                  ? '…'
+                  : freight
+                    ? freight.price === 0
+                      ? 'Grátis'
+                      : brl(freight.price)
+                    : addressId
+                      ? '—'
+                      : 'Informe o endereço'}
+              </dd>
+            </div>
+            <div className="checkout-breakdown-total">
+              <dt>{totalsSettled ? 'Total' : 'Total (aguardando frete)'}</dt>
+              <dd>{brl(displayTotal)}</dd>
+            </div>
+          </dl>
+
+          <div className="checkout-pix-box" aria-label="Desconto PIX">
+            <div className="checkout-pix-row">
+              <span>
+                <strong>PIX 5% OFF</strong>
+                <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+                  {totalsSettled
+                    ? 'Desconto aplicado no pagamento via PIX'
+                    : 'Prévia com o total atual (frete ainda não fechado)'}
+                </span>
+              </span>
+              <span className="checkout-pix-prices">
+                <s className="muted">{brl(displayTotal)}</s>
+                <strong className="checkout-pix-value">{brl(pixTotal)}</strong>
+              </span>
+            </div>
+            {pixSave > 0 ? (
+              <p className="checkout-pix-save ok">Você economiza {brl(pixSave)} no PIX</p>
+            ) : null}
+          </div>
+
+          <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+            No pagamento você escolhe PIX ou cartão. Parcelas do cartão aparecem na etapa seguinte,
+            conforme o Mercado Pago.
+          </p>
+        </div>
+      </section>
+
+      <section className="checkout-section" aria-labelledby="checkout-trust-heading">
+        <h2 id="checkout-trust-heading" className="checkout-section-title checkout-section-title-plain">
+          Compra com tranquilidade
+        </h2>
+        <TrustBadges variant="checkout" />
+      </section>
+
+      <section className="checkout-section card" aria-labelledby="checkout-after-heading">
+        <div className="body">
+          <h2 id="checkout-after-heading" className="checkout-section-title">
+            O que acontece depois
+          </h2>
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            Jornada típica — não é o status atual do seu pedido.
+          </p>
+          <ol className="checkout-after-steps">
+            {AFTER_STEPS.map((step, idx) => (
+              <li key={step.title}>
+                <span className="checkout-after-num" aria-hidden>
+                  {idx + 1}
+                </span>
+                <div>
+                  <strong>{step.title}</strong>
+                  <span className="muted">{step.detail}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {err ? (
+        <div className="alert checkout-err" id={errId} role="alert" style={{ marginTop: 12 }}>
+          {err}
+        </div>
+      ) : null}
+
       <button
+        type="button"
         className="btn checkout-confirm-btn"
         disabled={!canConfirm}
         onClick={submit}
-        style={{ marginTop: 16, width: '100%', maxWidth: 420 }}
+        style={{ marginTop: 16, width: '100%', maxWidth: 480, minHeight: 48 }}
+        aria-busy={loading || undefined}
+        aria-describedby={err ? errId : undefined}
       >
-        {loading ? 'Criando pedido...' : 'Confirmar e ir ao pagamento'}
+        {loading ? 'Criando pedido…' : 'Confirmar pedido e pagar'}
       </button>
       {!addressId && addressesLoaded ? (
         <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
           O botão libera depois que você salvar um endereço nesta página.
         </p>
       ) : null}
+
+      <p className="checkout-support muted">
+        Dúvidas?{' '}
+        <a href={supportHref} target="_blank" rel="noopener noreferrer">
+          WhatsApp (51) 99625-3766
+        </a>
+      </p>
     </div>
   );
 }

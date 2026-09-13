@@ -12,6 +12,13 @@ export function pixPrice(price: number | string): number {
   return Math.round(toNumber(price) * (1 - PIX_DISCOUNT) * 100) / 100;
 }
 
+/** Display-only savings vs list/total when paying with PIX (presentation of server 5% rule). */
+export function pixSavings(price: number | string): number {
+  const base = toNumber(price);
+  const savings = Math.round((base - pixPrice(base)) * 100) / 100;
+  return Math.max(0, savings);
+}
+
 export function installmentValue(price: number | string, n = MAX_INSTALLMENTS): number {
   const times = Math.max(1, Math.min(MAX_INSTALLMENTS, Math.floor(n) || 1));
   return Math.round((toNumber(price) / times) * 100) / 100;

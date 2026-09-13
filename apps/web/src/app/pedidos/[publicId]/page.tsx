@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { pixPrice } from '@/lib/pricing';
-import { api, brl } from '@/lib/api';
+import { api, brl, waLink } from '@/lib/api';
 import {
   FULFILLMENT_STEPS,
   FULFILLMENT_JOURNEY_COPY,
@@ -10,6 +10,7 @@ import {
   fulfillmentTimelineLabel,
   orderStatusLabel,
 } from '@/lib/order-status';
+import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
@@ -130,7 +131,7 @@ function FulfillmentTimeline({
   }
   const activeIdx = current < 0 ? 0 : current;
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" id="order-tracking" style={{ marginTop: 16 }}>
       <div className="body">
         <h3>Rastreamento da entrega</h3>
         <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
@@ -282,7 +283,7 @@ export default function PedidoPage() {
   }, [qr, qrFromMp]);
 
   async function createIntent() {
-    if (!o) return;
+    if (!o || paying) return;
     setPaying(true);
     setErr('');
     try {
@@ -370,25 +371,55 @@ export default function PedidoPage() {
   const isPixPending =
     intent?.payment?.method === 'pix' && intent.payment.status === 'pending';
 
-  return (
-    <div style={{ padding: '24px 0' }}>
-      <h1>Pedido {o.publicId}</h1>
-      <p>
-        Status: <b>{orderStatusLabel(o.status)}</b>
-      </p>
-      {o.items?.map((i) => (
-        <div key={i.id} className="row">
-          <span>
-            {i.qty}× {i.name}
-          </span>
-          <span>{brl(i.unitPrice)}</span>
-        </div>
-      ))}
-      <p>
-        Total {brl(o.total)} (desconto {brl(o.discount)})
-      </p>
+  const paidLike = ['paid', 'organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'].includes(o.status);
+  const pendingPay = awaiting || o.status === 'draft';
+  const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
 
-      {err ? <div className="alert">{err}</div> : null}
+  return (
+    <div className="order-page" style={{ padding: '24px 0' }}>
+      <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+        <Link href="/conta">Minha conta</Link> · Pedido
+      </p>
+      <h1 style={{ marginTop: 8 }}>Pedido {o.publicId}</h1>
+
+      <div className={`order-status-banner ${pendingPay ? 'is-pending' : paidLike ? 'is-paid' : 'is-other'}`}>
+        <p style={{ margin: 0 }}>
+          Status do pedido: <b>{orderStatusLabel(o.status)}</b>
+        </p>
+        {pendingPay ? (
+          <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
+            Aguardando pagamento. Conclua abaixo para confirmar o pedido — o status só muda para pago após aprovação.
+          </p>
+        ) : o.status === 'paid' ? (
+          <p className="ok" style={{ margin: '6px 0 0', fontSize: 14 }}>
+            Pagamento confirmado. Estamos organizando seu pedido.
+          </p>
+        ) : paidLike ? (
+          <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
+            Acompanhe a entrega na timeline abaixo.
+          </p>
+        ) : null}
+      </div>
+
+      <section className="card" style={{ marginTop: 12 }} aria-labelledby="order-items-heading">
+        <div className="body">
+          <h2 id="order-items-heading" className="checkout-section-title">Itens</h2>
+          {o.items?.map((i) => (
+            <div key={i.id} className="row" style={{ marginBottom: 6 }}>
+              <span>
+                {i.qty}× {i.name}
+              </span>
+              <span>{brl(i.unitPrice)}</span>
+            </div>
+          ))}
+          <p style={{ marginBottom: 0 }}>
+            Total {brl(o.total)}
+            {Number(o.discount) > 0 ? ` (desconto ${brl(o.discount)})` : ''}
+          </p>
+        </div>
+      </section>
+
+      {err ? <div className="alert" role="alert" style={{ marginTop: 12 }}>{err}</div> : null}
 
       {showTimeline ? (
         <FulfillmentTimeline
@@ -402,8 +433,8 @@ export default function PedidoPage() {
       {awaiting && !intent ? (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="body">
-            <h3>Pagamento</h3>
-            <p className="muted">Escolha o método: PIX ou cartão.</p>
+            <h3>Pagamento pendente</h3>
+            <p className="muted">Escolha o método: PIX (5% OFF) ou cartão. O pedido só fica pago após aprovação.</p>
             <label style={{ display: 'block', marginBottom: 8 }}>
               <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX (5% off → {brl(pixPrice(o.total))})
             </label>
@@ -445,7 +476,13 @@ export default function PedidoPage() {
                 />
               </div>
             ) : null}
-            <button className="btn" disabled={paying} onClick={createIntent}>
+            <button
+              className="btn checkout-confirm-btn"
+              disabled={paying}
+              onClick={createIntent}
+              style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
+              aria-busy={paying || undefined}
+            >
               {paying
                 ? 'Gerando pagamento...'
                 : method === 'card'
@@ -503,8 +540,8 @@ export default function PedidoPage() {
                     <textarea readOnly value={qr} rows={3} style={{ width: '100%' }} />
                     <button
                       type="button"
-                      className="btn"
-                      style={{ marginTop: 8 }}
+                      className="btn checkout-confirm-btn"
+                      style={{ marginTop: 8, width: '100%', maxWidth: 420, minHeight: 48 }}
                       onClick={copyPixCode}
                     >
                       {copied ? 'Código copiado!' : 'Copiar código PIX'}
@@ -526,6 +563,24 @@ export default function PedidoPage() {
           </div>
         </div>
       ) : null}
+
+      <div className="order-followup" style={{ marginTop: 20 }}>
+        {paidLike || showTimeline ? (
+          <a className="btn ghost" href="#order-tracking" style={{ minHeight: 44 }}>
+            Acompanhar pedido
+          </a>
+        ) : (
+          <Link className="btn ghost" href="/conta" style={{ minHeight: 44 }}>
+            Ver meus pedidos
+          </Link>
+        )}
+        <p className="checkout-support muted" style={{ marginTop: 14 }}>
+          Precisa de ajuda?{' '}
+          <a href={supportHref} target="_blank" rel="noopener noreferrer">
+            WhatsApp (51) 99625-3766
+          </a>
+        </p>
+      </div>
     </div>
   );
 }
