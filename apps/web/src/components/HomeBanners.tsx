@@ -36,9 +36,6 @@ function StaticPromoStrip() {
           <Link className="btn ghost" href="/departamento/ofertas">
             Ofertas
           </Link>
-          <Link className="btn ghost" href="/suporte">
-            Suporte
-          </Link>
         </div>
         <ul className="home-promo-chips" aria-label="Benefícios">
           <li>Frete grátis POA</li>
@@ -47,6 +44,14 @@ function StaticPromoStrip() {
           <li>Troca 7 dias</li>
         </ul>
       </div>
+    </section>
+  );
+}
+
+function BannerSkeleton() {
+  return (
+    <section className="home-banners home-banners-skel" aria-hidden>
+      <div className="home-banner-slide skel skel-media" style={{ minHeight: 140 }} />
     </section>
   );
 }
@@ -82,10 +87,7 @@ export function HomeBanners() {
     setImgFailed(false);
   }, [idx, banners]);
 
-  // Loading: evita flash da faixa estática antes da API responder.
-  if (banners === null) return null;
-
-  // Sem banners (ou imagem quebrada): faixa promocional de texto.
+  if (banners === null) return <BannerSkeleton />;
   if (banners.length === 0) return <StaticPromoStrip />;
 
   const current = banners[Math.min(idx, banners.length - 1)];
@@ -118,6 +120,26 @@ export function HomeBanners() {
           img
         )}
         {current.title ? <div className="home-banner-caption">{current.title}</div> : null}
+        {banners.length > 1 ? (
+          <>
+            <button
+              type="button"
+              className="home-banner-nav home-banner-prev"
+              aria-label="Banner anterior"
+              onClick={() => setIdx((i) => (i - 1 + banners.length) % banners.length)}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="home-banner-nav home-banner-next"
+              aria-label="Próximo banner"
+              onClick={() => setIdx((i) => (i + 1) % banners.length)}
+            >
+              ›
+            </button>
+          </>
+        ) : null}
       </div>
       {banners.length > 1 ? (
         <div className="home-banner-dots" role="tablist" aria-label="Banners">

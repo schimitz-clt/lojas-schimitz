@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { api, waLink } from '@/lib/api';
+import { api } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { TrustBadges } from '@/components/TrustBadges';
@@ -89,41 +89,27 @@ function HomeInner() {
   }
 
   return (
-    <>
+    <div className="home">
+      {/* 1. Promo banners */}
       <HomeBanners />
-      <section className="hero">
-        <div className="badge">Vitrine · Lojas Schimitz</div>
-        <h1>Tecnologia, conforto e praticidade para o seu dia a dia!</h1>
-        <p>
-          Busca, CEP, 12x, PIX 5% off, favoritos e sacola. Atendimento no chat do site ou no WhatsApp
-          (51) 99625-3766.
-        </p>
-        <div className="actions">
-          <a className="btn" href="#ofertas">
-            Conferir ofertas
-          </a>
-          <a className="btn ghost" href={waLink()} target="_blank" rel="noreferrer">
-            Falar no WhatsApp
-          </a>
+
+      {/* 2. Category icons */}
+      <section className="home-cats" aria-labelledby="home-cats-title">
+        <div className="section-head section-head-tight">
+          <h2 id="home-cats-title">Categorias</h2>
+          <Link href="/produtos">Ver todas</Link>
         </div>
+        <nav className="cat-strip" aria-label="Categorias">
+          {CATEGORIES.map((c) => (
+            <Link key={c.href} href={c.href} className="cat-chip">
+              <span className="cat-chip-ico" aria-hidden>
+                {c.ico}
+              </span>
+              <span className="cat-chip-label">{c.label}</span>
+            </Link>
+          ))}
+        </nav>
       </section>
-
-      <TrustBadges />
-
-      <div className="section-head">
-        <h2>Departamentos</h2>
-        <Link href="/produtos">Ver todos</Link>
-      </div>
-      <nav className="cat-strip" aria-label="Categorias">
-        {CATEGORIES.map((c) => (
-          <Link key={c.href} href={c.href} className="cat-chip">
-            <span className="cat-chip-ico" aria-hidden>
-              {c.ico}
-            </span>
-            {c.label}
-          </Link>
-        ))}
-      </nav>
 
       {err ? (
         <div className="alert">API offline ou sem dados: {err}. Suba a API e rode o seed.</div>
@@ -141,6 +127,7 @@ function HomeInner() {
         </div>
       ) : null}
 
+      {/* 3. Product vitrines */}
       {!loading && products.length > 0 ? (
         <>
           <section className="home-rail" id="ofertas">
@@ -148,7 +135,7 @@ function HomeInner() {
               <h2>Ofertas do dia</h2>
               <Link href="/departamento/ofertas">Ver mais</Link>
             </div>
-            <div className="grid">
+            <div className="grid grid-vitrine">
               {(offers.length ? offers : products.slice(0, 8)).map((p, i) => (
                 <ProductCard key={`o-${p.id}`} p={p} priority={i < 4} />
               ))}
@@ -160,7 +147,7 @@ function HomeInner() {
               <h2>Mais vendidos</h2>
               <Link href="/produtos?sort=relevance">Ver catálogo</Link>
             </div>
-            <div className="grid">
+            <div className="grid grid-vitrine">
               {bestsellers.map((p) => (
                 <ProductCard key={`b-${p.id}`} p={p} />
               ))}
@@ -172,7 +159,7 @@ function HomeInner() {
               <h2>Recomendados para você</h2>
               <Link href="/produtos">Explorar</Link>
             </div>
-            <div className="grid">
+            <div className="grid grid-vitrine">
               {recommendations.map((p) => (
                 <ProductCard key={`r-${p.id}`} p={p} />
               ))}
@@ -180,7 +167,15 @@ function HomeInner() {
           </section>
         </>
       ) : null}
-    </>
+
+      {/* 4. Store benefits */}
+      <section className="home-benefits" aria-labelledby="home-benefits-title">
+        <div className="section-head">
+          <h2 id="home-benefits-title">Por que comprar na Schimitz</h2>
+        </div>
+        <TrustBadges />
+      </section>
+    </div>
   );
 }
 

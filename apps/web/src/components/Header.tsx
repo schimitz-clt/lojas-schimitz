@@ -189,15 +189,6 @@ export function Header() {
           </div>
         </div>
       </header>
-      <nav className="tabbar" aria-label="Navegação móvel">
-        <Link href="/">Início</Link>
-        <Link href="/produtos">Categorias</Link>
-        <Link href="/produtos">Busca</Link>
-        <Link href="/favoritos">Favoritos</Link>
-        <Link href="/carrinho">
-          Carrinho{cartCount > 0 ? ` (${cartCount})` : ''}
-        </Link>
-      </nav>
     </>
   );
 }

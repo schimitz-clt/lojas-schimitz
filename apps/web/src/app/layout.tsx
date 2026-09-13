@@ -1,8 +1,17 @@
 import type { Metadata } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/Header';
+import { BottomNav } from '@/components/BottomNav';
 import { ChatWidget } from '@/components/ChatWidget';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-schimitz',
+  weight: ['400', '500', '600', '700', '800'],
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await fetchStoreSettings();
@@ -32,10 +41,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body>
+    <html lang="pt-BR" className={jakarta.variable}>
+      <body className={jakarta.className}>
         <Header />
-        <main className="wrap">{children}</main>
+        <main className="wrap main-shell">{children}</main>
         <footer className="footer">
           <div className="wrap">
             <div className="footer-grid">
@@ -91,6 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         </footer>
+        <BottomNav />
         <ChatWidget />
       </body>
     </html>
