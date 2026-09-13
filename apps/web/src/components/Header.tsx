@@ -64,8 +64,20 @@ export function Header() {
 
   return (
     <>
-      <div className="topbar">
-        LOJAS SCHIMITZ · OFERTAS TODO DIA · 12x · 5% OFF NO PIX · FRETE GRÁTIS EM PORTO ALEGRE
+      <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
+        <span>Frete grátis em POA</span>
+        <span className="topbar-sep" aria-hidden>
+          ·
+        </span>
+        <span>5% OFF no PIX</span>
+        <span className="topbar-sep" aria-hidden>
+          ·
+        </span>
+        <span>Até 12x sem juros</span>
+        <span className="topbar-sep" aria-hidden>
+          ·
+        </span>
+        <span>Atendimento WhatsApp</span>
       </div>
       <header className="header">
         <div className="wrap">

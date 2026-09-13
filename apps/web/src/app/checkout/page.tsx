@@ -3,12 +3,24 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, brl, currentUser } from '@/lib/api';
+import { pixPrice } from '@/lib/pricing';
+import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
   CheckoutAddressSection,
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
 
-type Cart = { items: { id: string; name: string; qty: number; price: number; lineTotal: number }[]; subtotal: number };
+type CartItem = {
+  id: string;
+  name: string;
+  slug?: string;
+  qty: number;
+  price: number;
+  lineTotal: number;
+  image?: string | null;
+};
+type Cart = { items: CartItem[]; subtotal: number };
 type CouponPreview = { code: string; discount: number; finalSubtotal: number };
 type Loyalty = { balance: number; label: string; rate: number };
 type FreightQuote = {
@@ -184,12 +196,45 @@ export default function CheckoutPage() {
         Cadastre ou escolha o endereço aqui, veja o frete e confirme. O total definitivo é validado no servidor.
       </p>
       {err ? <div className="alert">{err}</div> : null}
-      {cart.items.map((i) => (
-        <div key={i.id} className="card" style={{ marginBottom: 8 }}>
-          <div className="body">{i.name} × {i.qty} — {brl(i.lineTotal)}</div>
-        </div>
-      ))}
+      {cart.items.map((i) => {
+        const raw = rewritePublicUploadUrl(i.image) || i.image || '';
+        const src = raw && !isMissingOrPlaceholderImage(raw) ? raw : '';
+        const href = i.slug ? `/produto/${i.slug}` : null;
+        return (
+          <div key={i.id} className="card" style={{ marginBottom: 8 }}>
+            <div className="body checkout-line">
+              <div className="checkout-line-media" aria-hidden>
+                {src ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" width={48} height={48} loading="lazy" decoding="async" />
+                  </>
+                ) : (
+                  <span style={{ fontSize: 9, fontWeight: 800, textAlign: 'center', color: 'var(--muted)' }}>
+                    SCH
+                  </span>
+                )}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                {href ? (
+                  <Link href={href} style={{ fontWeight: 700 }}>
+                    {i.name}
+                  </Link>
+                ) : (
+                  <b>{i.name}</b>
+                )}
+                <div className="muted" style={{ fontSize: 13 }}>
+                  {i.qty} × {brl(i.price)} — {brl(i.lineTotal)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
       <p>Subtotal estimado {brl(cart.subtotal)}</p>
+      <p className="muted" style={{ marginTop: -8, fontSize: 13 }}>
+        No PIX (5% OFF no pagamento): <strong style={{ color: 'var(--ink)' }}>{brl(pixPrice(cart.subtotal))}</strong>
+      </p>
       {couponPreview ? <p className="ok">Cupom {couponPreview.code}: −{brl(couponPreview.discount)}</p> : null}
       {cashbackApplied > 0 ? <p>SCHIMITZ+: −{brl(cashbackApplied)}</p> : null}
 
@@ -242,6 +287,9 @@ export default function CheckoutPage() {
         </div>
       </div>
       <p><b>Estimativa total: {brl(estimated)}</b></p>
+      <p className="muted" style={{ marginTop: -8, fontSize: 13 }}>
+        Se pagar com PIX: ~{brl(pixPrice(estimated))} (5% OFF no pagamento; frete e cupom já na estimativa)
+      </p>
       <div style={{ marginTop: 12 }}>
         <label>Cupom (opcional)</label>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>

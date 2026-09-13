@@ -344,8 +344,11 @@ export default function ProductPage() {
                   </div>
                 ))
               ) : (
-                <div className="pdp-carousel-slide pdp-carousel-empty">
-                  <span className="muted">Sem foto</span>
+                <div className="pdp-carousel-slide pdp-carousel-empty pdp-carousel-ph" aria-label="Imagem em breve">
+                  <span className="pdp-carousel-ph-mark">
+                    LOJAS <em>SCHIMITZ</em>
+                  </span>
+                  <span className="pdp-carousel-ph-hint">Imagem em breve</span>
                 </div>
               )}
             </div>

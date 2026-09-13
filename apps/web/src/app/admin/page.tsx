@@ -670,7 +670,21 @@ export default function AdminPage() {
       imageUrl: imgs[0]?.url || '',
       badge: p.badge || '',
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById('admin-product-form');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  function startEditById(productId: string) {
+    const found = products.find((p) => p.id === productId);
+    if (!found) {
+      setErr('Produto não encontrado na lista carregada. Atualize a página e tente de novo.');
+      return;
+    }
+    startEdit(found);
+    setMsg(`Editando “${found.name}” — envie fotos reais abaixo (até 10).`);
   }
 
   function resetForm() {
@@ -1698,14 +1712,39 @@ export default function AdminPage() {
           {ops?.catalog?.placeholderProducts?.length ? (
             <div style={{ marginTop: 14 }}>
               <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
-                Checklist do dono — trocar foto (id + nome). Sem inventar imagem.
+                Checklist do dono — produtos sem foto real. Clique em Trocar foto para abrir o
+                formulário e enviar upload (sem inventar imagem).
               </p>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#f5f5f3' }}>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', fontSize: 13, color: '#f5f5f3' }}>
                 {ops.catalog.placeholderProducts.map((p) => (
-                  <li key={p.id} style={{ marginBottom: 4 }}>
-                    <code style={{ color: '#ffd100' }}>{p.id}</code>
-                    {' — '}
-                    {p.name}
+                  <li
+                    key={p.id}
+                    style={{
+                      marginBottom: 8,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: '#1a1a1a',
+                      border: '1px solid #3a3a32',
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <b style={{ color: '#fff' }}>{p.name}</b>
+                      <br />
+                      <code style={{ color: '#ffd100', fontSize: 11 }}>{p.id}</code>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ background: '#ffd100', color: '#111', minHeight: 36 }}
+                      onClick={() => startEditById(p.id)}
+                    >
+                      Trocar foto
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -2573,7 +2612,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <section id="admin-product-form" className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontSize: 20 }}>{editingLabel}</h2>

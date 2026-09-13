@@ -6,19 +6,65 @@ import {
   CheckoutAddressSection,
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
+import { pixPrice, stockBadge } from '@/lib/pricing';
+import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+
+type CartItem = {
+  id: string;
+  productId: string;
+  name: string;
+  slug?: string;
+  qty: number;
+  price: number;
+  lineTotal: number;
+  image?: string | null;
+  stock?: number | null;
+};
 
 type Cart = {
   id: string;
   guestToken?: string | null;
-  items: { id: string; productId: string; name: string; qty: number; price: number; lineTotal: number; image?: string | null }[];
+  items: CartItem[];
   subtotal: number;
   itemCount: number;
 };
+
+function CartThumb({ item }: { item: CartItem }) {
+  const raw = rewritePublicUploadUrl(item.image) || item.image || '';
+  const src = raw && !isMissingOrPlaceholderImage(raw) ? raw : '';
+  if (!src) {
+    return (
+      <div className="cart-line-media" aria-hidden>
+        <span className="cart-line-ph">
+          LOJAS <em>SCHIMITZ</em>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="cart-line-media">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        width={72}
+        height={72}
+        loading="lazy"
+        decoding="async"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    </div>
+  );
+}
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionErr, setActionErr] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
@@ -30,6 +76,7 @@ export default function CartPage() {
       const data = await api<Cart>('/cart');
       if (data.guestToken) localStorage.setItem('sch_guest', data.guestToken);
       setCart(data);
+      setErr('');
     } catch (e: any) {
       setErr(e.message);
     }
@@ -60,79 +107,158 @@ export default function CartPage() {
 
   async function change(id: string, qty: number) {
     setBusyId(id);
+    setActionErr('');
     try {
       await api(`/cart/items/${id}`, { method: 'PATCH', body: JSON.stringify({ qty }) });
       await load();
+      try {
+        window.dispatchEvent(new Event('sch-cart-updated'));
+      } catch {
+        /* ignore */
+      }
+    } catch (e: any) {
+      setActionErr(e.message || 'Não foi possível atualizar a quantidade');
     } finally {
       setBusyId(null);
     }
   }
   async function remove(id: string) {
     setBusyId(id);
+    setActionErr('');
     try {
       await api(`/cart/items/${id}`, { method: 'DELETE' });
       await load();
+      try {
+        window.dispatchEvent(new Event('sch-cart-updated'));
+      } catch {
+        /* ignore */
+      }
+    } catch (e: any) {
+      setActionErr(e.message || 'Não foi possível remover o item');
     } finally {
       setBusyId(null);
     }
   }
 
   if (err) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
-  if (!cart) return <p className="muted">Carregando sacola...</p>;
+  if (!cart) {
+    return (
+      <div className="cart-page" style={{ padding: '24px 0' }}>
+        <h1 style={{ marginTop: 0 }}>Sacola</h1>
+        <div className="card skel-card" aria-busy="true" aria-label="Carregando sacola">
+          <div className="body" style={{ display: 'grid', gap: 10 }}>
+            <div className="skel" style={{ height: 18, width: '40%' }} />
+            <div className="skel" style={{ height: 72, width: '100%' }} />
+            <div className="skel" style={{ height: 72, width: '100%' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const hasItems = cart.items.length > 0;
+  const pixSubtotal = pixPrice(cart.subtotal);
+
   return (
     <div className="cart-page" style={{ padding: '24px 0' }}>
       <h1 style={{ marginTop: 0 }}>Sacola</h1>
+      {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
       {!hasItems ? (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="body">
-            <p style={{ margin: '0 0 12px' }} className="muted">Sua sacola está vazia.</p>
-            <Link className="btn" href="/produtos">Continuar comprando</Link>
+            <p style={{ margin: '0 0 8px', fontWeight: 700 }}>Sua sacola está vazia</p>
+            <p className="muted" style={{ margin: '0 0 12px', fontSize: 14 }}>
+              Explore o catálogo e adicione produtos para ver frete e pagamento no checkout.
+            </p>
+            <Link className="btn" href="/produtos">
+              Continuar comprando
+            </Link>
           </div>
         </div>
       ) : null}
-      {cart.items.map((i) => (
-        <div key={i.id} className="card" style={{ marginBottom: 10 }}>
-          <div className="body row" style={{ flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 0, flex: '1 1 160px' }}>
-              <b>{i.name}</b>
-              <div className="muted">{brl(i.price)} × {i.qty}</div>
-              <div style={{ fontWeight: 700, marginTop: 4 }}>{brl(i.lineTotal)}</div>
-            </div>
-            <div className="cart-qty" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-              <button
-                className="btn ghost"
-                type="button"
-                disabled={busyId === i.id || i.qty <= 1}
-                onClick={() => change(i.id, Math.max(1, i.qty - 1))}
-                aria-label="Diminuir quantidade"
+      {cart.items.map((i) => {
+        const sb = stockBadge(i.stock);
+        const overStock =
+          typeof i.stock === 'number' && i.stock >= 0 && i.qty > i.stock;
+        const href = i.slug ? `/produto/${i.slug}` : null;
+        return (
+          <div key={i.id} className="card" style={{ marginBottom: 10 }}>
+            <div className="body">
+              <div className="cart-line">
+                {href ? (
+                  <Link href={href} aria-label={`Ver ${i.name}`}>
+                    <CartThumb item={i} />
+                  </Link>
+                ) : (
+                  <CartThumb item={i} />
+                )}
+                <div className="cart-line-body">
+                  {href ? (
+                    <Link href={href} className="cart-line-title">
+                      {i.name}
+                    </Link>
+                  ) : (
+                    <b>{i.name}</b>
+                  )}
+                  <div className="muted" style={{ marginTop: 2 }}>
+                    {brl(i.price)} × {i.qty}
+                  </div>
+                  <div style={{ fontWeight: 700, marginTop: 4 }}>{brl(i.lineTotal)}</div>
+                  {sb ? (
+                    <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
+                      {sb.label}
+                      {typeof i.stock === 'number' && i.stock > 0 ? ` · ${i.stock} disponíveis` : ''}
+                    </p>
+                  ) : null}
+                  {overStock ? (
+                    <p className="alert" style={{ margin: '8px 0 0', fontSize: 13 }}>
+                      Quantidade acima do estoque. Ajuste antes de finalizar.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div
+                className="cart-qty"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 12 }}
               >
-                −
-              </button>
-              <span style={{ margin: '0 8px', minWidth: 24, textAlign: 'center', fontWeight: 700 }}>{i.qty}</span>
-              <button
-                className="btn ghost"
-                type="button"
-                disabled={busyId === i.id}
-                onClick={() => change(i.id, i.qty + 1)}
-                aria-label="Aumentar quantidade"
-              >
-                +
-              </button>
-              <button
-                className="btn ghost"
-                type="button"
-                style={{ marginLeft: 8 }}
-                disabled={busyId === i.id}
-                onClick={() => remove(i.id)}
-              >
-                Remover
-              </button>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  disabled={busyId === i.id || i.qty <= 1}
+                  onClick={() => change(i.id, Math.max(1, i.qty - 1))}
+                  aria-label="Diminuir quantidade"
+                >
+                  −
+                </button>
+                <span style={{ margin: '0 8px', minWidth: 24, textAlign: 'center', fontWeight: 700 }}>
+                  {i.qty}
+                </span>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  disabled={
+                    busyId === i.id ||
+                    (typeof i.stock === 'number' && i.stock >= 0 && i.qty >= i.stock)
+                  }
+                  onClick={() => change(i.id, i.qty + 1)}
+                  aria-label="Aumentar quantidade"
+                >
+                  +
+                </button>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  style={{ marginLeft: 8 }}
+                  disabled={busyId === i.id}
+                  onClick={() => remove(i.id)}
+                >
+                  Remover
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {hasItems ? (
         <>
@@ -155,7 +281,9 @@ export default function CartPage() {
                 <p className="muted" style={{ margin: '8px 0 12px', fontSize: 14 }}>
                   Entre na conta para cadastrar o endereço e calcular o frete no checkout.
                 </p>
-                <Link className="btn" href="/entrar">Entrar para continuar</Link>
+                <Link className="btn" href="/entrar">
+                  Entrar para continuar
+                </Link>
               </div>
             </div>
           ) : null}
@@ -166,10 +294,14 @@ export default function CartPage() {
                 <span className="muted">Itens</span>
                 <span>{cart.itemCount}</span>
               </div>
-              <div className="row" style={{ marginBottom: 16 }}>
+              <div className="row" style={{ marginBottom: 8 }}>
                 <h3 style={{ margin: 0 }}>Subtotal</h3>
                 <h3 style={{ margin: 0 }}>{brl(cart.subtotal)}</h3>
               </div>
+              <p className="cart-pix-hint muted">
+                No PIX: <strong style={{ color: 'var(--ink)' }}>{brl(pixSubtotal)}</strong> (5% OFF
+                aplicado no pagamento)
+              </p>
               {loggedIn && !addressId ? (
                 <p className="muted" style={{ marginTop: 0, marginBottom: 12, fontSize: 13 }}>
                   Cadastre o endereço acima (ou no próximo passo) para calcular frete e pagar.
@@ -178,19 +310,28 @@ export default function CartPage() {
               <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
                 {loggedIn ? 'Finalizar compra' : 'Entrar e finalizar'}
               </Link>
-              <Link className="btn ghost cart-keep-shopping" href="/produtos" style={{ marginTop: 10, display: 'block', textAlign: 'center' }}>
+              <Link
+                className="btn ghost cart-keep-shopping"
+                href="/produtos"
+                style={{ marginTop: 10, display: 'block', textAlign: 'center' }}
+              >
                 Continuar comprando
               </Link>
               <p className="muted" style={{ marginBottom: 0, marginTop: 12, fontSize: 13 }}>
-                Frete calculado no checkout conforme o CEP (entrega própria). Após confirmar, você paga com PIX ou cartão (Mercado Pago).
+                Frete calculado no checkout conforme o CEP (entrega própria). Após confirmar, você
+                paga com PIX ou cartão (Mercado Pago).
               </p>
             </div>
           </div>
 
           <div className="cart-sticky-checkout" aria-label="Finalizar">
             <div style={{ minWidth: 0 }}>
-              <div className="muted" style={{ fontSize: 11 }}>Subtotal</div>
-              <div className="price" style={{ fontSize: 16 }}>{brl(cart.subtotal)}</div>
+              <div className="muted" style={{ fontSize: 11 }}>
+                Subtotal
+              </div>
+              <div className="price" style={{ fontSize: 16 }}>
+                {brl(cart.subtotal)}
+              </div>
             </div>
             <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
               {loggedIn ? 'Finalizar compra' : 'Entrar e finalizar'}
