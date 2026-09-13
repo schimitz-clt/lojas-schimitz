@@ -23,7 +23,7 @@ export type ClientErrorBody = {
  */
 export function buildClientError(
   exception: unknown,
-  requestId = randomUUID(),
+  requestId: string = randomUUID(),
 ): {
   status: number;
   body: ClientErrorBody;
