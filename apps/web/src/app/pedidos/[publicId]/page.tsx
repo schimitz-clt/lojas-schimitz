@@ -11,6 +11,19 @@ import {
   orderStatusLabel,
 } from '@/lib/order-status';
 
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovado',
+  refused: 'Recusado',
+  expired: 'Expirado',
+  cancelled: 'Cancelado',
+  refunded: 'Reembolsado',
+};
+
+function paymentStatusLabel(status: string) {
+  return PAYMENT_STATUS_LABEL[status] || status;
+}
+
 type Payment = {
   id: string;
   status: string;
@@ -230,6 +243,18 @@ export default function PedidoPage() {
     reload().catch((e) => setErr(e.message));
   }, [reload]);
 
+  // Enquanto PIX/pedido aguardam confirmação, atualiza sozinho (webhook → paid).
+  useEffect(() => {
+    if (!o) return;
+    const awaiting = o.status === 'awaiting_payment' || o.status === 'draft';
+    const payPending = intent?.payment?.status === 'pending';
+    if (!awaiting && !payPending) return;
+    const id = window.setInterval(() => {
+      reload().catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [o?.status, intent?.payment?.status, reload]);
+
   const qr = intent?.payment?.payload?.qrCode || null;
   const qrFromMp = pixQrImageSrc(intent?.payment?.payload?.qrCodeBase64);
   const qrImgSrc = qrFromMp || generatedQr;
@@ -436,8 +461,13 @@ export default function PedidoPage() {
           <div className="body">
             <h3>Pagamento {intent.payment.method.toUpperCase()}</h3>
             <p>
-              Status pagamento: <b>{intent.payment.status}</b>
+              Status pagamento: <b>{paymentStatusLabel(intent.payment.status)}</b>
             </p>
+            {intent.payment.status === 'pending' ? (
+              <p className="muted" style={{ fontSize: 14 }}>
+                Depois de pagar, esta página atualiza sozinha em alguns segundos.
+              </p>
+            ) : null}
             {isPixPending || (intent.payment.method === 'pix' && (qr || qrImgSrc)) ? (
               <div style={{ marginTop: 8 }}>
                 {qrImgSrc ? (
