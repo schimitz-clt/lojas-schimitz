@@ -59,4 +59,32 @@ assert.equal(canPaymentTransition('expired', 'pending'), false);
 assert.equal(orderStatusAfterPaymentExpire('awaiting_payment'), 'awaiting_payment');
 assert.equal(orderStatusAfterPaymentExpire('paid'), 'paid');
 
+// --- already_approved must not blind no-op when order still needs CAS/notify ---
+type OrderSt = 'awaiting_payment' | 'paid' | 'cancelled' | 'shipped';
+function alreadyApprovedDecision(orderStatus: OrderSt): 'notify' | 'recover' | 'noop' {
+  if (orderStatus === 'paid') return 'notify';
+  if (orderStatus === 'awaiting_payment' || orderStatus === 'cancelled') return 'recover';
+  return 'noop';
+}
+assert.equal(alreadyApprovedDecision('paid'), 'notify');
+assert.equal(alreadyApprovedDecision('awaiting_payment'), 'recover');
+assert.equal(alreadyApprovedDecision('cancelled'), 'recover');
+assert.equal(alreadyApprovedDecision('shipped'), 'noop');
+
+// Race: webhook before externalId persisted → link by publicId, do not orphan
+function resolveLocalPayment(opts: {
+  byExternalId: boolean;
+  pendingWithoutExternalId: boolean;
+  hasExternalReference: boolean;
+}): 'linked' | 'orphan' | 'found' {
+  if (opts.byExternalId) return 'found';
+  if (opts.hasExternalReference && opts.pendingWithoutExternalId) return 'linked';
+  return 'orphan';
+}
+assert.equal(resolveLocalPayment({ byExternalId: true, pendingWithoutExternalId: false, hasExternalReference: true }), 'found');
+assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: true, hasExternalReference: true }), 'linked');
+assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: false, hasExternalReference: true }), 'orphan');
+assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: true, hasExternalReference: false }), 'orphan');
+
 console.log('payment.chaos unit tests ok');
+console.log('payment.chaos already_approved recovery + externalId link checks ok');

@@ -456,10 +456,36 @@ export class PaymentsService {
       throw e; // 5xx → retry do provedor
     }
 
-    const local = await this.prisma.payment.findFirst({
+    let local = await this.prisma.payment.findFirst({
       where: { externalId: verified.externalId },
       include: { order: true },
     });
+
+    // Race: webhook pode chegar antes de createIntent persistir externalId.
+    // Vincula pending pelo external_reference (publicId) em vez de marcar órfão prematuro.
+    if (!local && fetched.externalReference) {
+      const byRef = await this.prisma.payment.findFirst({
+        where: {
+          status: 'pending',
+          externalId: null,
+          order: { publicId: fetched.externalReference },
+        },
+        include: { order: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (byRef) {
+        local = await this.prisma.payment.update({
+          where: { id: byRef.id },
+          data: { externalId: verified.externalId },
+          include: { order: true },
+        });
+        await this.audit.log('payment.external_id_linked', {
+          entity: 'Payment',
+          entityId: byRef.id,
+          meta: { externalId: verified.externalId, publicId: fetched.externalReference },
+        });
+      }
+    }
 
     if (!local) {
       // Órfão autenticado → 2xx sem paid (#9)
@@ -524,9 +550,19 @@ export class PaymentsService {
     });
     if (!payment) return { applied: false, reason: 'missing' };
 
-    // Já terminal compatível → no-op
+    // Já approved: NÃO no-op cego.
+    // Crash entre payment.update(approved) e CAS/notify deixava pedido em awaiting_payment
+    // (ou paid sem e-mail/in-app). Replay do webhook (novo x-request-id) ou retry deve recuperar.
+    // notifyCustomerPaid / mail / in-app são idempotentes (dedupe).
     if (payment.status === 'approved' && info.status === 'approved') {
-      return { applied: false, reason: 'already_approved' };
+      if (payment.order.status === 'paid') {
+        await this.notifyCustomerPaid(payment.orderId);
+        return { applied: true, reason: 'already_approved_notify' };
+      }
+      // awaiting_payment | cancelled → cai no ramo approved (CAS+notify ou orphan+refund).
+      if (payment.order.status !== 'awaiting_payment' && payment.order.status !== 'cancelled') {
+        return { applied: false, reason: 'already_approved' };
+      }
     }
     if (payment.status === 'refunded' && info.status === 'refunded') {
       return { applied: false, reason: 'already_refunded' };
@@ -626,6 +662,8 @@ export class PaymentsService {
           entityId: paymentId,
           meta: { orderId: payment.orderId, transitioned: false, alreadyPaid: true },
         });
+        // Outro worker pode ter vencido o CAS; garantir notify (idempotente).
+        await this.notifyCustomerPaid(payment.orderId);
         return { applied: true, reason: 'already_paid' };
       }
       if (current?.status === 'cancelled') {

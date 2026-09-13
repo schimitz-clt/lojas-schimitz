@@ -238,7 +238,8 @@ export class NotificationsService implements OnModuleInit {
         if (row) created += 1;
       }
       return created;
-    } catch {
+    } catch (e: any) {
+      this.log.error(`notifyActiveAdmins falhou: ${e?.message || e}`);
       return 0;
     }
   }
@@ -251,7 +252,8 @@ export class NotificationsService implements OnModuleInit {
         select: { id: true, email: true, name: true },
       });
       return admins.filter((a) => Boolean(a.email?.trim()));
-    } catch {
+    } catch (e: any) {
+      this.log.error(`listActiveAdmins falhou: ${e?.message || e}`);
       return [];
     }
   }
