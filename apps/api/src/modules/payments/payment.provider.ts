@@ -296,10 +296,14 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
 
     // Webhook de produção (Railway). Sem isso o MP não notifica a loja.
-    const publicApi = (process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
-    const prefix = (process.env.API_PREFIX || 'api/v1').replace(/^\//, '');
-    if (publicApi) {
-      body.notification_url = `${publicApi}/${prefix}/webhooks/mercadopago`;
+    // PUBLIC_API_URL often already includes API_PREFIX (see docs/DEPLOY.md) —
+    // do not append prefix twice (…/api/v1/api/v1/webhooks/… → 404).
+    const notificationUrl = buildMercadoPagoNotificationUrl(
+      process.env.PUBLIC_API_URL || '',
+      process.env.API_PREFIX || 'api/v1',
+    );
+    if (notificationUrl) {
+      body.notification_url = notificationUrl;
     }
 
     if (input.method === 'pix') {
@@ -479,6 +483,23 @@ const WEAK_WEBHOOK_SECRETS = new Set([
   'webhook-secret',
   'mp-webhook',
 ]);
+
+
+/**
+ * Builds MP notification_url without doubling API_PREFIX when PUBLIC_API_URL
+ * already ends with it (DEPLOY.md: …/api/v1).
+ */
+export function buildMercadoPagoNotificationUrl(
+  publicApiUrl: string,
+  apiPrefix = 'api/v1',
+): string | null {
+  const base = String(publicApiUrl || '').trim().replace(/\/$/, '');
+  if (!base) return null;
+  const prefix = String(apiPrefix || 'api/v1').replace(/^\//, '').replace(/\/$/, '');
+  const withPrefix =
+    base === prefix || base.endsWith(`/${prefix}`) ? base : `${base}/${prefix}`;
+  return `${withPrefix}/webhooks/mercadopago`;
+}
 
 export function isProdLikeEnv() {
   const env = String(process.env.APP_ENV || process.env.NODE_ENV || '').toLowerCase();
