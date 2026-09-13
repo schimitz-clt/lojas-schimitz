@@ -33,10 +33,12 @@ import { AdminUsersService } from './admin-users.service';
 import { AdminCustomersService } from './admin-customers.service';
 import {
   AdminCreateCouponDto,
+  AdminAddProductImageDto,
   AdminCreateProductDto,
   AdminCreateShippingCepRuleDto,
   AdminOrdersQueryDto,
   AdminProductsQueryDto,
+  AdminReorderProductImagesDto,
   AdminUpdateCouponDto,
   AdminUpdateProductDto,
   AdminUpdateShippingCepRuleDto,
@@ -377,6 +379,30 @@ export class AdminController {
   @Patch('products/:id')
   async updateProduct(@Param('id') id: string, @Body() dto: AdminUpdateProductDto) {
     return ok(await this.productsService.update(id, dto));
+  }
+
+  @Post('products/:id/images')
+  @ApiOperation({ summary: 'Adiciona foto ao produto (após /admin/uploads)' })
+  async addProductImage(@Param('id') id: string, @Body() dto: AdminAddProductImageDto) {
+    return ok(await this.productsService.addImage(id, dto));
+  }
+
+  @Patch('products/:id/images/reorder')
+  @ApiOperation({ summary: 'Reordena fotos (índice 0 = capa)' })
+  async reorderProductImages(
+    @Param('id') id: string,
+    @Body() dto: AdminReorderProductImagesDto,
+  ) {
+    return ok(await this.productsService.reorderImages(id, dto.orderedIds));
+  }
+
+  @Delete('products/:id/images/:imageId')
+  @ApiOperation({ summary: 'Remove uma foto do produto' })
+  async deleteProductImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return ok(await this.productsService.deleteImage(id, imageId));
   }
 
   @Get('categories')

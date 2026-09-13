@@ -93,10 +93,14 @@ type AdminProduct = {
   categoryId?: string | null;
   category?: Category | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
-  images?: { url: string }[];
+  images?: { id: string; url: string; position?: number; alt?: string }[];
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string; status?: string } | null;
 };
+
+type FormImage = { id?: string; url: string; position: number };
+
+const MAX_PRODUCT_IMAGES = 10;
 
 type ProductForm = {
   name: string;
@@ -402,6 +406,7 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [formImages, setFormImages] = useState<FormImage[]>([]);
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [lowStockThreshold, setLowStockThreshold] = useState(DEFAULT_LOW_STOCK);
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
@@ -630,10 +635,28 @@ export default function AdminPage() {
       .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
   }, [products, lowStockThreshold]);
 
+  function mapProductImages(images?: AdminProduct['images']): FormImage[] {
+    const list = (images || [])
+      .map((img, i) => ({
+        id: img.id,
+        url: rewritePublicUploadUrl(img.url) || img.url || '',
+        position: img.position ?? i,
+      }))
+      .filter((img) => Boolean(img.url))
+      .sort((a, b) => a.position - b.position);
+    return list.map((img, i) => ({ ...img, position: i }));
+  }
+
+  function syncCoverUrl(images: FormImage[]) {
+    setForm((f) => ({ ...f, imageUrl: images[0]?.url || '' }));
+  }
+
   function startEdit(p: AdminProduct) {
     setEditingId(p.id);
     setMsg('');
     setErr('');
+    const imgs = mapProductImages(p.images);
+    setFormImages(imgs);
     setForm({
       name: p.name,
       description: p.description || '',
@@ -644,7 +667,7 @@ export default function AdminPage() {
       categoryId: p.categoryId || p.category?.id || '',
       sellerId: p.sellerId || p.seller?.id || '',
       active: !!p.active,
-      imageUrl: rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url || '',
+      imageUrl: imgs[0]?.url || '',
       badge: p.badge || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -653,33 +676,180 @@ export default function AdminPage() {
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm());
+    setFormImages([]);
     setMsg('');
+  }
+
+  async function persistNewImages(productId: string, urls: string[]) {
+    let last: AdminProduct | null = null;
+    for (const url of urls) {
+      last = await api<AdminProduct>(`/admin/products/${productId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+    }
+    return last;
+  }
+
+  async function uploadOnePhoto(file: File, currentCount: number): Promise<boolean> {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setErr('Use uma imagem JPG, PNG ou WebP.');
+      return false;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setErr('A foto deve ter no máximo 15 MB.');
+      return false;
+    }
+    if (currentCount >= MAX_PRODUCT_IMAGES) {
+      setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+      return false;
+    }
+    const fd = new FormData();
+    fd.append('file', file);
+    const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
+    const url = data.url;
+    if (editingId) {
+      const updated = await api<AdminProduct>(`/admin/products/${editingId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+      const imgs = mapProductImages(updated.images);
+      setFormImages(imgs);
+      syncCoverUrl(imgs);
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+      setMsg('Foto adicionada ao produto.');
+    } else {
+      setFormImages((prev) => {
+        if (prev.length >= MAX_PRODUCT_IMAGES) return prev;
+        const next = [...prev, { url, position: prev.length }];
+        setForm((f) => ({ ...f, imageUrl: next[0]?.url || '' }));
+        return next;
+      });
+      setMsg('Foto enviada. Salve o produto para publicar.');
+    }
+    return true;
   }
 
   async function uploadPhoto(file: File | null) {
     if (!file) return;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      setErr('Use uma imagem JPG, PNG ou WebP.');
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      setErr('A foto deve ter no máximo 15 MB.');
-      return;
-    }
     setUploading(true);
     setErr('');
     setMsg('');
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
-      setForm((f) => ({ ...f, imageUrl: data.url }));
-      setMsg('Foto enviada. Salve o produto para publicar.');
+      await uploadOnePhoto(file, formImages.length);
     } catch (e: any) {
       setErr(e.message || 'Falha ao enviar foto');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function uploadPhotos(files: FileList | File[] | null) {
+    if (!files || !files.length) return;
+    const list = Array.from(files);
+    setUploading(true);
+    setErr('');
+    setMsg('');
+    let count = formImages.length;
+    try {
+      for (const file of list) {
+        if (count >= MAX_PRODUCT_IMAGES) {
+          setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+          break;
+        }
+        const okUpload = await uploadOnePhoto(file, count);
+        if (!okUpload) break;
+        count += 1;
+      }
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao enviar foto');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeFormImage(index: number) {
+    const target = formImages[index];
+    if (!target) return;
+    setErr('');
+    setMsg('');
+    try {
+      if (editingId && target.id) {
+        const updated = await api<AdminProduct>(
+          `/admin/products/${editingId}/images/${target.id}`,
+          { method: 'DELETE' },
+        );
+        const imgs = mapProductImages(updated.images);
+        setFormImages(imgs);
+        syncCoverUrl(imgs);
+        setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setMsg('Foto removida.');
+      } else {
+        const next = formImages
+          .filter((_, i) => i !== index)
+          .map((img, i) => ({ ...img, position: i }));
+        setFormImages(next);
+        syncCoverUrl(next);
+      }
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao remover foto');
+    }
+  }
+
+  async function moveFormImage(index: number, dir: -1 | 1) {
+    const j = index + dir;
+    if (j < 0 || j >= formImages.length) return;
+    const next = [...formImages];
+    const tmp = next[index];
+    next[index] = next[j];
+    next[j] = tmp;
+    const ordered = next.map((img, i) => ({ ...img, position: i }));
+    setErr('');
+    try {
+      if (editingId && ordered.every((img) => img.id)) {
+        const updated = await api<AdminProduct>(`/admin/products/${editingId}/images/reorder`, {
+          method: 'PATCH',
+          body: JSON.stringify({ orderedIds: ordered.map((img) => img.id as string) }),
+        });
+        const imgs = mapProductImages(updated.images);
+        setFormImages(imgs);
+        syncCoverUrl(imgs);
+        setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setMsg(dir < 0 && index === 1 ? 'Capa atualizada.' : 'Ordem das fotos atualizada.');
+      } else {
+        setFormImages(ordered);
+        syncCoverUrl(ordered);
+      }
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao reordenar fotos');
+    }
+  }
+
+  async function setCoverImage(index: number) {
+    if (index <= 0) return;
+    const next = [...formImages];
+    const [picked] = next.splice(index, 1);
+    next.unshift(picked);
+    const ordered = next.map((img, i) => ({ ...img, position: i }));
+    setErr('');
+    try {
+      if (editingId && ordered.every((img) => img.id)) {
+        const updated = await api<AdminProduct>(`/admin/products/${editingId}/images/reorder`, {
+          method: 'PATCH',
+          body: JSON.stringify({ orderedIds: ordered.map((img) => img.id as string) }),
+        });
+        const imgs = mapProductImages(updated.images);
+        setFormImages(imgs);
+        syncCoverUrl(imgs);
+        setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setMsg('Capa definida (posição 0).');
+      } else {
+        setFormImages(ordered);
+        syncCoverUrl(ordered);
+      }
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao definir capa');
     }
   }
 
@@ -708,6 +878,7 @@ export default function AdminPage() {
       return;
     }
 
+    const coverUrl = (formImages[0]?.url || form.imageUrl).trim() || null;
     const body: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim(),
@@ -718,22 +889,27 @@ export default function AdminPage() {
       sellerId: form.sellerId || null,
       badge: form.badge.trim() || null,
       compareAtPrice,
-      imageUrl: form.imageUrl.trim() || null,
     };
     if (form.sku.trim()) body.sku = form.sku.trim();
 
     try {
       if (editingId) {
+        // Fotos já são gerenciadas pelos endpoints /images; não sobrescrever capa via imageUrl.
         await api(`/admin/products/${editingId}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
         setMsg('Produto atualizado.');
       } else {
-        await api('/admin/products', {
+        body.imageUrl = coverUrl;
+        const created = await api<AdminProduct>('/admin/products', {
           method: 'POST',
           body: JSON.stringify(body),
         });
+        const extraUrls = formImages.slice(1).map((img) => img.url).filter(Boolean);
+        if (created?.id && extraUrls.length) {
+          await persistNewImages(created.id, extraUrls);
+        }
         setMsg('Produto cadastrado e já disponível na loja (se ativo).');
       }
       resetForm();
@@ -2495,45 +2671,124 @@ export default function AdminPage() {
               </select>
             </label>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Foto do produto</div>
-              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <label className="btn ghost" style={{ cursor: uploading ? 'wait' : 'pointer', margin: 0 }}>
-                  {uploading ? 'Enviando...' : 'Enviar foto'}
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                Fotos do produto{' '}
+                <span className="muted" style={{ fontWeight: 500 }}>
+                  ({formImages.length}/{MAX_PRODUCT_IMAGES})
+                </span>
+              </div>
+              <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
+                Até {MAX_PRODUCT_IMAGES} fotos · JPG/PNG/WebP · 15 MB cada. A primeira é a capa da
+                vitrine. Em produto já salvo, upload/remoção/reordenação aplica na hora.
+              </p>
+              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <label
+                  className="btn ghost"
+                  style={{
+                    cursor: uploading || formImages.length >= MAX_PRODUCT_IMAGES ? 'not-allowed' : 'pointer',
+                    margin: 0,
+                    opacity: formImages.length >= MAX_PRODUCT_IMAGES ? 0.6 : 1,
+                  }}
+                >
+                  {uploading ? 'Enviando...' : 'Enviar fotos'}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    disabled={uploading || saving}
+                    multiple
+                    disabled={uploading || saving || formImages.length >= MAX_PRODUCT_IMAGES}
                     style={{ display: 'none' }}
                     onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
+                      const files = e.target.files;
                       e.target.value = '';
-                      void uploadPhoto(f);
+                      void uploadPhotos(files);
                     }}
                   />
                 </label>
-                {form.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={form.imageUrl}
-                    alt="Prévia"
-                    style={{
-                      width: 64,
-                      height: 64,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                      background: '#111',
-                    }}
-                  />
-                ) : null}
               </div>
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
-                JPG, PNG ou WebP · até 15 MB. Você também pode colar um link abaixo.
-              </p>
-              {!form.imageUrl.trim() ? (
+              {formImages.length ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: 10,
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  }}
+                >
+                  {formImages.map((img, i) => (
+                    <div
+                      key={img.id || `${img.url}-${i}`}
+                      style={{
+                        border: i === 0 ? '2px solid #ffd100' : '1px solid #333',
+                        borderRadius: 10,
+                        padding: 8,
+                        background: '#111',
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt={`Foto ${i + 1}`}
+                        style={{
+                          width: '100%',
+                          aspectRatio: '1',
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                          background: '#000',
+                          display: 'block',
+                        }}
+                      />
+                      <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                        {i === 0 ? 'Capa' : `Foto ${i + 1}`}
+                      </div>
+                      <div className="row" style={{ gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ padding: '4px 8px', fontSize: 12, margin: 0 }}
+                          disabled={i === 0 || uploading || saving}
+                          onClick={() => void setCoverImage(i)}
+                        >
+                          Capa
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ padding: '4px 8px', fontSize: 12, margin: 0 }}
+                          disabled={i === 0 || uploading || saving}
+                          onClick={() => void moveFormImage(i, -1)}
+                          aria-label="Mover para esquerda"
+                        >
+                          ←
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ padding: '4px 8px', fontSize: 12, margin: 0 }}
+                          disabled={i >= formImages.length - 1 || uploading || saving}
+                          onClick={() => void moveFormImage(i, 1)}
+                          aria-label="Mover para direita"
+                        >
+                          →
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ padding: '4px 8px', fontSize: 12, margin: 0, color: '#ffb4b4' }}
+                          disabled={uploading || saving}
+                          onClick={() => {
+                            if (confirm(`Remover foto ${i + 1}?`)) void removeFormImage(i);
+                          }}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <p
                   role="status"
                   style={{
-                    margin: '10px 0 0',
+                    margin: '0',
                     padding: '8px 10px',
                     borderRadius: 8,
                     background: '#2a2208',
@@ -2542,10 +2797,11 @@ export default function AdminPage() {
                     fontSize: 13,
                   }}
                 >
-                  Sem foto — a vitrine fica sem imagem. Envie um JPG/PNG/WebP ou cole a URL
-                  depois do upload.
+                  Sem foto — a vitrine fica sem imagem. Envie JPG/PNG/WebP ou cole uma URL abaixo
+                  (capa).
                 </p>
-              ) : isPlaceholderImageUrl(form.imageUrl) ? (
+              )}
+              {formImages.some((img) => isPlaceholderImageUrl(img.url)) ? (
                 <p
                   role="status"
                   style={{
@@ -2558,19 +2814,33 @@ export default function AdminPage() {
                     fontSize: 13,
                   }}
                 >
-                  Imagem placeholder (placehold.co) — troque por foto real antes de vender.
-                  Use &quot;Enviar foto&quot; acima.
+                  Há imagem placeholder (placehold.co) — troque por foto real antes de vender.
                 </p>
               ) : null}
             </div>
-            <label>
-              URL da imagem (opcional)
-              <input
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="https://... ou envie uma foto acima"
-              />
-            </label>
+            {!editingId ? (
+              <label>
+                URL da capa (opcional, se não enviar arquivo)
+                <input
+                  value={form.imageUrl}
+                  onChange={(e) => {
+                    const url = e.target.value;
+                    setForm({ ...form, imageUrl: url });
+                    setFormImages((prev) => {
+                      const trimmed = url.trim();
+                      if (!trimmed) {
+                        return prev.filter((_, i) => i !== 0).map((img, i) => ({ ...img, position: i }));
+                      }
+                      if (!prev.length) return [{ url: trimmed, position: 0 }];
+                      const next = [...prev];
+                      next[0] = { ...next[0], url: trimmed };
+                      return next;
+                    });
+                  }}
+                  placeholder="https://... ou use Enviar fotos"
+                />
+              </label>
+            ) : null}
             <label>
               Selo / destaque (opcional)
               <input

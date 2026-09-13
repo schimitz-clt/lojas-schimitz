@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
-import { AdminCreateProductDto, AdminUpdateProductDto } from './dto';
+import {
+  AdminAddProductImageDto,
+  AdminCreateProductDto,
+  AdminUpdateProductDto,
+  MAX_PRODUCT_IMAGES,
+} from './dto';
 import { SellersService } from '../sellers/sellers.service';
 import { InventoryService } from '../inventory/inventory.service';
 
@@ -169,6 +174,113 @@ export class AdminProductsService {
       if (e instanceof BadRequestException) throw e;
       this.rethrowUnique(e, 'SKU ou slug já cadastrado');
     }
+  }
+
+
+  /** Adiciona uma foto ao produto (position = próxima; máx. MAX_PRODUCT_IMAGES). */
+  async addImage(productId: string, dto: AdminAddProductImageDto) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { images: { orderBy: { position: 'asc' } } },
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+    if (product.images.length >= MAX_PRODUCT_IMAGES) {
+      throw new BadRequestException(
+        `Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`,
+      );
+    }
+    const url = dto.url.trim();
+    if (!url) throw new BadRequestException('URL da imagem obrigatória');
+    const nextPos =
+      product.images.length === 0
+        ? 0
+        : Math.max(...product.images.map((i) => i.position)) + 1;
+    await this.prisma.productImage.create({
+      data: {
+        productId,
+        url,
+        alt: (dto.alt?.trim() || product.name).slice(0, 160),
+        position: nextPos,
+      },
+    });
+    return this.prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      include: productInclude,
+    });
+  }
+
+  /** Remove uma foto e reindexa positions (0 = capa). */
+  async deleteImage(productId: string, imageId: string) {
+    const img = await this.prisma.productImage.findFirst({
+      where: { id: imageId, productId },
+    });
+    if (!img) throw new NotFoundException('Imagem não encontrada');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productImage.delete({ where: { id: imageId } });
+      const rest = await tx.productImage.findMany({
+        where: { productId },
+        orderBy: { position: 'asc' },
+      });
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i].position !== i) {
+          await tx.productImage.update({
+            where: { id: rest[i].id },
+            data: { position: i },
+          });
+        }
+      }
+    });
+    return this.prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      include: productInclude,
+    });
+  }
+
+  /**
+   * Reordena fotos: índice 0 = capa.
+   * `orderedIds` deve listar todas as imagens do produto (sem duplicatas).
+   */
+  async reorderImages(productId: string, orderedIds: string[]) {
+    if (!Array.isArray(orderedIds) || !orderedIds.length) {
+      throw new BadRequestException('Informe a lista de IDs na ordem desejada');
+    }
+    const unique = [...new Set(orderedIds.map(String))];
+    if (unique.length !== orderedIds.length) {
+      throw new BadRequestException('IDs duplicados na reordenação');
+    }
+    if (unique.length > MAX_PRODUCT_IMAGES) {
+      throw new BadRequestException(
+        `Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`,
+      );
+    }
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { images: true },
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+    const existingIds = new Set(product.images.map((i) => i.id));
+    if (unique.length !== existingIds.size) {
+      throw new BadRequestException(
+        'A reordenação deve incluir todas as fotos do produto',
+      );
+    }
+    for (const id of unique) {
+      if (!existingIds.has(id)) {
+        throw new NotFoundException(`Imagem não encontrada: ${id}`);
+      }
+    }
+    await this.prisma.$transaction(
+      unique.map((id, index) =>
+        this.prisma.productImage.update({
+          where: { id },
+          data: { position: index },
+        }),
+      ),
+    );
+    return this.prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      include: productInclude,
+    });
   }
 
   private slugify(name: string) {

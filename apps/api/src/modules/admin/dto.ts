@@ -569,3 +569,23 @@ export class AdminCustomersQueryDto {
   @Min(0)
   skip?: number;
 }
+
+/** Máximo de fotos por produto (admin + PDP). */
+export const MAX_PRODUCT_IMAGES = 10;
+
+export class AdminAddProductImageDto {
+  @IsUrl({ require_protocol: true })
+  @MaxLength(2000)
+  url!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  alt?: string;
+}
+
+export class AdminReorderProductImagesDto {
+  @IsArray()
+  @IsString({ each: true })
+  orderedIds!: string[];
+}
