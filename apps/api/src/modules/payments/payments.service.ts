@@ -28,6 +28,10 @@ import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-statu
 import { amountsMatchForApprove, pixChargeAmount, roundMoney } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
+import {
+  orphanReconciliationReason,
+  RECONCILIATION_STATUS_OPEN,
+} from './reconciliation';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -516,23 +520,92 @@ export class PaymentsService {
     }
 
     if (!local) {
-      // Órfão autenticado → 2xx sem paid. CRITICAL: MP may have approved without local Payment.
-      await this.prisma.paymentEvent.update({
-        where: { id: event.id },
-        data: { applied: true },
+      // Órfão autenticado: NÃO inventar Order/Payment e NÃO auto-refund.
+      // CRITICAL: MP may have approved/paid without local Payment — persist durable
+      // PaymentReconciliation FIRST, then 2xx (reason reconciliation_required) so MP
+      // stops retrying ONLY because the durable RECONCILIATION_REQUIRED record exists.
+      const providerName = this.provider.name === 'null' ? 'null' : 'mercadopago';
+      const reconReason = orphanReconciliationReason(fetched.status);
+      const reconciliation = await this.prisma.paymentReconciliation.upsert({
+        where: {
+          provider_externalId: {
+            provider: providerName,
+            externalId: verified.externalId,
+          },
+        },
+        create: {
+          id: randomUUID(),
+          provider: providerName,
+          externalId: verified.externalId,
+          externalReference: fetched.externalReference || null,
+          providerStatus: fetched.status,
+          reason: reconReason,
+          status: RECONCILIATION_STATUS_OPEN,
+          paymentEventId: event.id,
+          meta: {
+            publicId: fetched.externalReference || null,
+            amount: fetched.amount,
+          },
+        },
+        update: {
+          externalReference: fetched.externalReference || null,
+          providerStatus: fetched.status,
+          reason: reconReason,
+          status: RECONCILIATION_STATUS_OPEN,
+          paymentEventId: event.id,
+          resolvedAt: null,
+          meta: {
+            publicId: fetched.externalReference || null,
+            amount: fetched.amount,
+          },
+        },
       });
       await this.audit.log('payment.orphan_event', {
         entity: 'PaymentEvent',
         entityId: event.id,
-        meta: { externalId: verified.externalId, status: fetched.status, publicId: fetched.externalReference },
+        meta: {
+          externalId: verified.externalId,
+          status: fetched.status,
+          publicId: fetched.externalReference,
+          reconciliationId: reconciliation.id,
+        },
+      });
+      await this.audit.log('payment.reconciliation_required', {
+        entity: 'PaymentReconciliation',
+        entityId: reconciliation.id,
+        meta: {
+          externalId: verified.externalId,
+          providerStatus: fetched.status,
+          reason: reconReason,
+          paymentEventId: event.id,
+          publicId: fetched.externalReference || null,
+        },
       });
       structuredLog('warn', 'WEBHOOK_ORPHAN', {
         eventId: event.id,
         externalId: verified.externalId,
         publicId: fetched.externalReference || null,
         providerStatus: fetched.status,
+        reconciliationId: reconciliation.id,
       });
-      return { ok: true, applied: false, reason: 'orphan' };
+      structuredLog('warn', 'RECONCILIATION_REQUIRED', {
+        reconciliationId: reconciliation.id,
+        eventId: event.id,
+        externalId: verified.externalId,
+        publicId: fetched.externalReference || null,
+        providerStatus: fetched.status,
+        reason: reconReason,
+      });
+      await this.prisma.paymentEvent.update({
+        where: { id: event.id },
+        data: { applied: true },
+      });
+      return {
+        ok: true,
+        applied: false,
+        reason: 'reconciliation_required',
+        reconciliationId: reconciliation.id,
+      };
     }
 
     await this.prisma.paymentEvent.update({
@@ -768,6 +841,59 @@ export class PaymentsService {
     }
 
     return { applied: false, reason: 'noop' };
+  }
+
+  /**
+   * Admin: open PaymentReconciliation rows (no provider secrets / raw webhook payloads).
+   */
+  async listOpenReconciliations(limit = 50) {
+    const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const rows = await this.prisma.paymentReconciliation.findMany({
+      where: {
+        status: RECONCILIATION_STATUS_OPEN,
+        resolvedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        id: true,
+        provider: true,
+        externalId: true,
+        externalReference: true,
+        providerStatus: true,
+        reason: true,
+        status: true,
+        paymentEventId: true,
+        createdAt: true,
+        updatedAt: true,
+        resolvedAt: true,
+        meta: true,
+      },
+    });
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        provider: r.provider,
+        externalId: r.externalId,
+        externalReference: r.externalReference,
+        providerStatus: r.providerStatus,
+        reason: r.reason,
+        status: r.status,
+        paymentEventId: r.paymentEventId,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        resolvedAt: r.resolvedAt,
+        // meta only exposes non-secret summary fields if present
+        publicId:
+          r.meta && typeof r.meta === 'object' && r.meta !== null && 'publicId' in (r.meta as object)
+            ? (r.meta as { publicId?: string | null }).publicId ?? null
+            : null,
+        amount:
+          r.meta && typeof r.meta === 'object' && r.meta !== null && 'amount' in (r.meta as object)
+            ? (r.meta as { amount?: number }).amount ?? null
+            : null,
+      })),
+    };
   }
 
   async adminRefund(adminId: string, paymentId: string) {

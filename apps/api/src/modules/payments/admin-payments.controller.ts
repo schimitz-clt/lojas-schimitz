@@ -1,4 +1,4 @@
-import { Controller, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -11,6 +11,13 @@ import { PaymentsService } from './payments.service';
 @Roles('admin')
 export class AdminPaymentsController {
   constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}
+
+  /** Open PaymentReconciliation rows (orphan webhooks needing ops follow-up). No secrets. */
+  @Get('reconciliations')
+  async listReconciliations(@Query('limit') limit?: string) {
+    const n = limit != null && limit !== '' ? Number(limit) : 50;
+    return ok(await this.payments.listOpenReconciliations(Number.isFinite(n) ? n : 50));
+  }
 
   @Post(':id/refund')
   async refund(@CurrentUser('sub') adminId: string, @Param('id') id: string) {

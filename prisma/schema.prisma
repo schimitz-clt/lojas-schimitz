@@ -349,9 +349,31 @@ model PaymentEvent {
   payload         Json?
   applied         Boolean  @default(false)
   createdAt       DateTime @default(now())
+  reconciliations PaymentReconciliation[]
 
   @@unique([provider, providerEventId])
   @@index([paymentId])
+}
+
+/** Durable follow-up when authenticated webhook has no local Payment/Order (do not invent rows). */
+model PaymentReconciliation {
+  id                String    @id @default(uuid())
+  provider          String
+  externalId        String
+  externalReference String?
+  providerStatus    String
+  reason            String
+  status            String    @default("RECONCILIATION_REQUIRED")
+  paymentEventId    String?
+  paymentEvent      PaymentEvent? @relation(fields: [paymentEventId], references: [id], onDelete: SetNull)
+  meta              Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  resolvedAt        DateTime?
+
+  @@unique([provider, externalId])
+  @@index([status, createdAt])
+  @@index([paymentEventId])
 }
 
 model Review {

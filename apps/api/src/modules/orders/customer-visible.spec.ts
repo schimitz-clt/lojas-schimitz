@@ -28,5 +28,8 @@ assert.ok(expiry.includes('PENDING_PAYMENT_EXPIRY_GRACE_MS'), 'grace while payin
 assert.ok(pay.includes('resolveWebhookPayment'), 'deterministic webhook resolve');
 assert.ok(pay.includes('WEBHOOK_'), 'WEBHOOK_* logs');
 assert.ok(pay.includes('PAYMENT_INTENT_CREATED') || pay.includes('PAYMENT_'), 'PAYMENT_* logs');
+assert.ok(pay.includes('RECONCILIATION_REQUIRED'), 'orphan path logs RECONCILIATION_REQUIRED');
+assert.ok(pay.includes("reason: 'reconciliation_required'"), 'orphan 2xx reason is reconciliation_required');
+assert.equal(pay.includes("return { ok: true, applied: false, reason: 'orphan' }"), false, 'orphan must not 2xx without durable reconciliation');
 
 console.log('customer-visible list/get + expiry/webhook source tests ok');
