@@ -5,12 +5,15 @@ import {
   extractBudgetMax,
   extractCategoryHint,
   extractCepFromMessage,
+  extractProductRefs,
   extractSearchTerms,
   faqReply,
   isConversationId,
+  looksLikeCompare,
   looksLikeProductQuery,
   needsHandoff,
   noLlmFallbackReply,
+  normalizeForSearch,
   parseLlmJson,
   sanitizeChatMessage,
 } from './chat.intent';
@@ -132,5 +135,34 @@ assert.equal(planSearch.tools[0]?.args.budgetMax, 2500);
 const planGeneralLlm = planChatTurn({ message: 'e agora?', mode: 'alfa', hasLlm: true });
 assert.equal(planGeneralLlm.useLlm, true);
 assert.equal(planGeneralLlm.level, 2);
+
+
+// normalizeForSearch — accents / case / punctuation (display names untouched)
+assert.equal(normalizeForSearch('Aspirador robô'), 'aspirador robo');
+assert.equal(normalizeForSearch('  Geladeira, Frost! '), 'geladeira frost');
+assert.ok(normalizeForSearch('Aspirador robô').includes('robo'));
+assert.ok(normalizeForSearch('aspirador robo') === normalizeForSearch('Aspirador Robô'));
+
+assert.ok(looksLikeCompare('compare geladeira e aspirador'));
+assert.ok(looksLikeCompare('compara notebook e smartphone'));
+assert.ok(looksLikeCompare('notebook vs smartphone'));
+assert.equal(classifyIntent('compare geladeira e aspirador'), 'compare');
+
+const cmpRefs = extractProductRefs('compare geladeira e aspirador');
+assert.ok(cmpRefs.some((r) => /geladeira/i.test(r)), 'geladeira ref');
+assert.ok(cmpRefs.some((r) => /aspirador/i.test(r)), 'aspirador ref');
+assert.ok(cmpRefs.length >= 2);
+
+const slugRefs = extractProductRefs('compare notebook-i5-16gb e aspirador-robo-x');
+assert.ok(slugRefs.some((r) => r.includes('notebook')));
+assert.ok(slugRefs.some((r) => r.includes('aspirador')));
+
+const planCompare = planChatTurn({ message: 'compare geladeira e aspirador', mode: 'alfa', hasLlm: false });
+assert.equal(planCompare.intent, 'compare');
+assert.equal(planCompare.tools[0]?.name, 'compareProducts');
+assert.ok(Array.isArray(planCompare.tools[0]?.args.refs));
+assert.ok((planCompare.tools[0]?.args.refs as string[]).length >= 2);
+
+assert.equal(extractCategoryHint('aspirador'), 'eletrodomesticos');
 
 console.log('chat alfa routing tests ok');

@@ -22,6 +22,7 @@ import {
   sanitizeToolQuery,
   sanitizeUuid,
 } from './ai.security';
+import { normalizeForSearch } from './chat.intent';
 import type { AiToolSpec } from './ai.provider';
 
 const PRODUCT_SLUG_ALIASES: Record<string, string> = {
@@ -187,6 +188,30 @@ const PRODUCT_SELECT = {
   inventory: { select: { qtyOnHand: true, qtyReserved: true } },
 };
 
+const SEARCH_SELECT = {
+  ...PRODUCT_SELECT,
+  description: true,
+  sku: true,
+};
+
+function searchTokens(query: string): string[] {
+  return normalizeForSearch(query)
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+}
+
+function rowMatchesTokens(
+  row: { name: string; description?: string | null; sku?: string | null; slug?: string },
+  tokens: string[],
+): boolean {
+  if (!tokens.length) return true;
+  const hay = normalizeForSearch(
+    [row.name, row.description || '', row.sku || '', row.slug || ''].join(' '),
+  );
+  return tokens.every((t) => hay.includes(t));
+}
+
 async function findActiveProduct(prisma: ToolContext['prisma'], ref: string) {
   const slug = sanitizeSlug(ref);
   const id = sanitizeUuid(ref);
@@ -222,6 +247,23 @@ export function resolveOwnedOrder<T extends { userId?: string | null }>(
   return { ok: true, order };
 }
 
+async function fetchSearchCandidates(
+  ctx: ToolContext,
+  opts: { fetchQ?: string; category?: string; budgetMax?: number; take?: number },
+) {
+  const where = buildProductWhere({
+    q: opts.fetchQ || undefined,
+    category: opts.category,
+    maxPrice: opts.budgetMax != null ? String(opts.budgetMax) : undefined,
+  });
+  return ctx.prisma.product.findMany({
+    where,
+    select: SEARCH_SELECT,
+    take: opts.take ?? 24,
+    orderBy: [{ ratingCount: 'desc' }, { updatedAt: 'desc' }],
+  });
+}
+
 async function toolSearchProducts(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {
   const query = sanitizeToolQuery(args.query ?? args.q, 80);
   const category = sanitizeSlug(args.category) || undefined;
@@ -229,18 +271,46 @@ async function toolSearchProducts(ctx: ToolContext, args: Record<string, unknown
   if (!query && !category && budgetMax == null) {
     return { name: 'searchProducts', ok: false, code: 'NEED_QUERY', data: { products: [] } };
   }
-  const where = buildProductWhere({
-    q: query || undefined,
+
+  const tokens = query ? searchTokens(query) : [];
+  // Broad Prisma fetch on first token (accent-safe later via in-memory filter).
+  const fetchQ = tokens[0] || query || undefined;
+
+  const filterRows = (
+    rows: Awaited<ReturnType<typeof fetchSearchCandidates>>,
+  ) => (tokens.length ? rows.filter((r) => rowMatchesTokens(r, tokens)) : rows);
+
+  let rows = await fetchSearchCandidates(ctx, {
+    fetchQ,
     category,
-    maxPrice: budgetMax != null ? String(budgetMax) : undefined,
+    budgetMax: budgetMax ?? undefined,
+    take: 24,
   });
-  const rows = await ctx.prisma.product.findMany({
-    where,
-    select: PRODUCT_SELECT,
-    take: 4,
-    orderBy: [{ ratingCount: 'desc' }, { updatedAt: 'desc' }],
-  });
-  const products = rows.map(toProductHit);
+  let matched = filterRows(rows);
+
+  // Category must never hard-kill relevant hits — retry global with same query/budget.
+  if (category && matched.length === 0) {
+    rows = await fetchSearchCandidates(ctx, {
+      fetchQ,
+      category: undefined,
+      budgetMax: budgetMax ?? undefined,
+      take: 24,
+    });
+    matched = filterRows(rows);
+  }
+
+  // Accent-only / second-token miss: broader fetch without text q, filter in memory.
+  if (matched.length === 0 && tokens.length) {
+    rows = await fetchSearchCandidates(ctx, {
+      fetchQ: undefined,
+      category: undefined,
+      budgetMax: budgetMax ?? undefined,
+      take: 48,
+    });
+    matched = filterRows(rows);
+  }
+
+  const products = matched.slice(0, 4).map(toProductHit);
   return { name: 'searchProducts', ok: true, code: products.length ? 'OK' : 'EMPTY', data: { products } };
 }
 
@@ -253,21 +323,77 @@ async function toolGetProduct(ctx: ToolContext, args: Record<string, unknown>): 
   return { name: 'getProduct', ok: true, code: 'OK', data: { product: toProductHit(row) } };
 }
 
+async function resolveRefForCompare(
+  ctx: ToolContext,
+  ref: string,
+): Promise<
+  | { kind: 'hit'; row: NonNullable<Awaited<ReturnType<typeof findActiveProduct>>> }
+  | { kind: 'ambiguous'; rows: Awaited<ReturnType<typeof fetchSearchCandidates>> }
+  | { kind: 'miss' }
+> {
+  const exact = await findActiveProduct(ctx.prisma, ref);
+  if (exact) return { kind: 'hit', row: exact };
+
+  const tokens = searchTokens(ref);
+  if (!tokens.length) return { kind: 'miss' };
+
+  let rows = await fetchSearchCandidates(ctx, { fetchQ: tokens[0], take: 24 });
+  let matched = rows.filter((r) => rowMatchesTokens(r, tokens));
+  if (!matched.length) {
+    rows = await fetchSearchCandidates(ctx, { fetchQ: undefined, take: 48 });
+    matched = rows.filter((r) => rowMatchesTokens(r, tokens));
+  }
+  if (matched.length === 1) return { kind: 'hit', row: matched[0] };
+  if (matched.length > 1) return { kind: 'ambiguous', rows: matched.slice(0, 5) };
+  return { kind: 'miss' };
+}
+
 async function toolCompare(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {
   const raw = Array.isArray(args.refs) ? args.refs : Array.isArray(args.ids) ? args.ids : [];
   const refs = raw.map((r) => String(r || '').trim()).filter(Boolean).slice(0, 3);
   if (refs.length < 2) {
     return { name: 'compareProducts', ok: false, code: 'NEED_TWO', data: { products: [] } };
   }
+
   const products: ChatProductHit[] = [];
+  const ambiguous: ChatProductHit[] = [];
+  const seen = new Set<string>();
+
   for (const ref of refs) {
-    const row = await findActiveProduct(ctx.prisma, ref);
-    if (row) products.push(toProductHit(row));
+    const resolved = await resolveRefForCompare(ctx, ref);
+    if (resolved.kind === 'hit') {
+      const hit = toProductHit(resolved.row);
+      if (!seen.has(hit.slug)) {
+        seen.add(hit.slug);
+        products.push(hit);
+      }
+    } else if (resolved.kind === 'ambiguous') {
+      for (const row of resolved.rows) {
+        const hit = toProductHit(row);
+        if (!seen.has(hit.slug)) {
+          seen.add(hit.slug);
+          ambiguous.push(hit);
+        }
+      }
+    }
+  }
+
+  if (ambiguous.length) {
+    const candidates = [...products, ...ambiguous].slice(0, 6);
+    return {
+      name: 'compareProducts',
+      ok: false,
+      code: 'AMBIGUOUS',
+      data: { products: candidates },
+    };
+  }
+  if (products.length >= 2) {
+    return { name: 'compareProducts', ok: true, code: 'OK', data: { products: products.slice(0, 3) } };
   }
   if (!products.length) {
     return { name: 'compareProducts', ok: false, code: 'NOT_FOUND', data: { products: [] } };
   }
-  return { name: 'compareProducts', ok: true, code: 'OK', data: { products } };
+  return { name: 'compareProducts', ok: false, code: 'NEED_TWO', data: { products } };
 }
 
 async function toolAvailability(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {

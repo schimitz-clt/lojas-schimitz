@@ -29,6 +29,8 @@ const STOP = new Set([
   'esse', 'essa', 'isso', 'este', 'esta', 'aquele', 'aquela', 'the', 'and',
   'ola', 'olá', 'oi', 'bom', 'boa', 'dia', 'tarde', 'noite', 'obrigado',
   'obrigada', 'porfavor', 'pfv', 'please', 'me', 'ajuda', 'ajudar', 'sobre',
+  'compara', 'comparar', 'compare', 'comparacao', 'comparação', 'versus', 'vs',
+  'entre', 'diferenca', 'diferença',
 ]);
 
 export function needsHandoff(message: string): boolean {
@@ -37,12 +39,19 @@ export function needsHandoff(message: string): boolean {
   return HANDOFF_RE.test(t);
 }
 
-export function extractSearchTerms(message: string): string[] {
-  const raw = (message || '')
+/** Case/diacritics/space/light-punctuation normalizer for search matching only — never mutate displayed names. */
+export function normalizeForSearch(s: string): string {
+  return (s || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9+\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function extractSearchTerms(message: string): string[] {
+  const raw = normalizeForSearch(message)
     .split(/\s+/)
     .map((w) => w.trim())
     .filter((w) => w.length >= 2 && !STOP.has(w));
@@ -245,7 +254,9 @@ export function extractBudgetMax(message: string): number | undefined {
 }
 
 export function looksLikeCompare(message: string): boolean {
-  return /\b(compara[r]?|compara[cç][aã]o|diferen[cç]a entre|\bvs\.?\b|versus)\b/i.test(message || '');
+  return /\b(comparar?|compare|compara[cç][aã]o|diferen[cç]a entre|versus)\b|\bvs\.?\b/i.test(
+    message || '',
+  );
 }
 
 export function looksLikeAvailability(message: string): boolean {
@@ -280,12 +291,44 @@ const SLUG_IN_TEXT = /(?:\/produto\/|slug\s*[:=]\s*)([a-z0-9]+(?:-[a-z0-9]+){1,}
 export function extractProductRefs(message: string): string[] {
   const t = message || '';
   const out: string[] = [];
+  const push = (raw: string) => {
+    const s = raw.replace(/^(o|a|os|as|um|uma)\s+/i, '').trim();
+    if (s.length >= 2 && !out.some((x) => x.toLowerCase() === s.toLowerCase())) out.push(s);
+  };
+
   const slug = t.match(SLUG_IN_TEXT);
-  if (slug) out.push(slug[1].toLowerCase());
+  if (slug) push(slug[1].toLowerCase());
+
   const quoted = [...t.matchAll(/"([^"]{2,80})"|'([^']{2,80})'/g)].map((m) => (m[1] || m[2] || '').trim());
   for (const q of quoted) {
-    if (q && !out.includes(q)) out.push(q);
+    if (q) push(q);
   }
+
+  // Bare product-like slugs (foo-bar-baz)
+  for (const m of t.matchAll(/\b([a-z0-9]+(?:-[a-z0-9]+){1,})\b/gi)) {
+    push(m[1].toLowerCase());
+  }
+
+  // "compare X e Y" / "compare X and Y" / "diferença entre X e Y"
+  const afterCompare = t.match(
+    /(?:comparar?|compare|compara[cç][aã]o|diferen[cç]a entre)\s+(.+?)$/i,
+  );
+  if (afterCompare) {
+    const parts = afterCompare[1]
+      .replace(/[?.!]+$/g, '')
+      .split(/\s+(?:e|and|vs\.?|versus)\s+|\s*,\s*/i)
+      .map((p) => p.trim())
+      .filter((p) => p.length >= 2);
+    for (const part of parts) push(part);
+  } else {
+    // Bare "X vs Y" / "X versus Y"
+    const vs = t.match(/^\s*(.+?)\s+(?:vs\.?|versus)\s+(.+?)\s*$/i);
+    if (vs) {
+      push(vs[1]);
+      push(vs[2].replace(/[?.!]+$/g, ''));
+    }
+  }
+
   return out.slice(0, 3);
 }
 

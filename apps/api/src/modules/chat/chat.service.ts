@@ -227,6 +227,23 @@ export class ChatService {
       }
     }
 
+    if (intent === 'compare') {
+      const amb = toolResults.find((t) => t.name === 'compareProducts' && t.code === 'AMBIGUOUS');
+      if (amb) {
+        const cands =
+          (amb.data as { products?: { name?: string }[] } | null)?.products?.map((p) => p.name).filter(Boolean) ||
+          products.map((p) => p.name);
+        const names = cands.slice(0, 5).join(', ');
+        return names
+          ? `Encontrei mais de uma opção (${names}). Qual exatamente você quer comparar? Não invento produto.`
+          : 'Encontrei mais de uma opção no catálogo. Qual exatamente você quer comparar? Não invento produto.';
+      }
+      const miss = toolResults.find((t) => t.name === 'compareProducts' && (t.code === 'NOT_FOUND' || t.code === 'NEED_TWO'));
+      if (miss && products.length < 2) {
+        return 'Não consegui comparar: preciso de dois produtos claros do catálogo. Diga os nomes ou slugs (ex.: compara geladeira e aspirador).';
+      }
+    }
+
     if (products.length) {
       if (intent === 'compare' && products.length >= 2) {
         return 'Comparei só o que está no catálogo. Preço, PIX (5% off) e estoque são os da loja — sem atributos inventados.';

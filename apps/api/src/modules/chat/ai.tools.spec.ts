@@ -70,17 +70,49 @@ type OrderRow = {
 
 function mockCtx(opts: {
   products?: unknown[];
+  /** Sequential findMany results (category miss → global hit). */
+  findManyQueue?: unknown[][];
   product?: unknown | null;
+  /** Dynamic findFirst by ref/slug/name for compare tests. */
+  productsByRef?: Record<string, unknown>;
   order?: OrderRow | null;
   orders?: OrderRow[];
+  onFindMany?: (args: unknown) => void;
 }): ToolContext {
   const products = opts.products || [];
+  let findManyCalls = 0;
   return {
     userId: undefined,
     prisma: {
       product: {
-        findMany: async () => products,
-        findFirst: async () => opts.product ?? null,
+        findMany: async (args?: unknown) => {
+          opts.onFindMany?.(args);
+          if (opts.findManyQueue && findManyCalls < opts.findManyQueue.length) {
+            const batch = opts.findManyQueue[findManyCalls++];
+            return batch;
+          }
+          findManyCalls++;
+          return products;
+        },
+        findFirst: async (q?: { where?: { OR?: unknown[]; active?: boolean } }) => {
+          if (opts.productsByRef) {
+            const or = q?.where?.OR || [];
+            for (const clause of or as Record<string, unknown>[]) {
+              const slug = (clause as { slug?: string }).slug;
+              const id = (clause as { id?: string }).id;
+              const nameEq = (clause as { name?: { equals?: string } }).name?.equals;
+              const key = slug || id || nameEq;
+              if (key && opts.productsByRef[String(key).toLowerCase()]) {
+                return opts.productsByRef[String(key).toLowerCase()];
+              }
+              if (key && opts.productsByRef[String(key)]) {
+                return opts.productsByRef[String(key)];
+              }
+            }
+            return null;
+          }
+          return opts.product ?? null;
+        },
       },
       order: {
         findFirst: async (q: { where?: { publicId?: string; userId?: string } }) => {
@@ -98,6 +130,32 @@ function mockCtx(opts: {
     shipping: null,
   };
 }
+
+const aspiradorRobo = {
+  id: '22222222-2222-4222-8222-222222222222',
+  name: 'Aspirador robô',
+  slug: 'aspirador-robo-schimitz',
+  sku: 'ASP-ROBO-1',
+  description: 'Aspirador robô para casa',
+  price: 1299,
+  compareAtPrice: null,
+  badge: null,
+  images: [],
+  inventory: { qtyOnHand: 2, qtyReserved: 0 },
+};
+
+const geladeiraFrost = {
+  id: '33333333-3333-4333-8333-333333333333',
+  name: 'Geladeira Frost Free',
+  slug: 'geladeira-frost-free',
+  sku: 'GEL-FF-1',
+  description: 'Geladeira frost free 400L',
+  price: 3499,
+  compareAtPrice: null,
+  badge: null,
+  images: [],
+  inventory: { qtyOnHand: 1, qtyReserved: 0 },
+};
 
 {
   const ctx = mockCtx({ product: null });
@@ -199,6 +257,128 @@ function mockCtx(opts: {
   ]);
   assert.equal(collected.length, 1);
   assert.equal(collected[0].slug, 'notebook-i5-16gb-512ssd');
+}
+
+
+// --- ALFA search: accents, category fallback, compare ---
+{
+  const ctx = mockCtx({ products: [aspiradorRobo] });
+  const r = await executeTool('searchProducts', { query: 'aspirador' }, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(r.code, 'OK');
+  assert.equal((r.data as { products: { slug: string }[] }).products[0].slug, 'aspirador-robo-schimitz');
+  // Display name keeps accent
+  assert.equal((r.data as { products: { name: string }[] }).products[0].name, 'Aspirador robô');
+}
+
+{
+  const ctx = mockCtx({ products: [aspiradorRobo] });
+  const r = await executeTool('searchProducts', { query: 'aspirador robo' }, ctx);
+  assert.equal(r.code, 'OK');
+  assert.equal((r.data as { products: { name: string }[] }).products.length, 1);
+}
+
+{
+  const ctx = mockCtx({ products: [aspiradorRobo] });
+  const r = await executeTool('searchProducts', { query: 'Aspirador robô' }, ctx);
+  assert.equal(r.code, 'OK');
+  assert.equal((r.data as { products: { name: string }[] }).products[0].name, 'Aspirador robô');
+}
+
+{
+  const ctx = mockCtx({ products: [geladeiraFrost] });
+  const r = await executeTool('searchProducts', { query: 'geladeira' }, ctx);
+  assert.equal(r.code, 'OK');
+  assert.ok((r.data as { products: { name: string }[] }).products[0].name.includes('Geladeira'));
+}
+
+{
+  const ctx = mockCtx({ products: [] });
+  const r = await executeTool('searchProducts', { query: 'iphone-99-inventado-xyz' }, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(r.code, 'EMPTY');
+  assert.equal((r.data as { products: unknown[] }).products.length, 0);
+}
+
+// Wrong category → empty first findMany; global retry returns product
+{
+  const wheres: unknown[] = [];
+  const ctx = mockCtx({
+    findManyQueue: [[], [aspiradorRobo]],
+    onFindMany: (args) => wheres.push(args),
+  });
+  const r = await executeTool(
+    'searchProducts',
+    { query: 'aspirador', category: 'eletrodomesticos' },
+    ctx,
+  );
+  assert.equal(r.code, 'OK');
+  assert.equal((r.data as { products: { slug: string }[] }).products[0].slug, 'aspirador-robo-schimitz');
+  assert.ok(wheres.length >= 2, 'category miss must retry findMany without category');
+}
+
+// Compare partial names → clear hits
+{
+  const ctx = mockCtx({
+    productsByRef: {},
+    findManyQueue: [[geladeiraFrost], [aspiradorRobo]],
+  });
+  // findFirst miss → findMany resolve each side
+  const r = await executeTool(
+    'compareProducts',
+    { refs: ['geladeira', 'aspirador'] },
+    ctx,
+  );
+  assert.equal(r.ok, true);
+  assert.equal(r.code, 'OK');
+  const prods = (r.data as { products: { name: string }[] }).products;
+  assert.equal(prods.length, 2);
+  assert.ok(prods.some((p) => /Geladeira/i.test(p.name)));
+  assert.ok(prods.some((p) => /Aspirador/i.test(p.name)));
+}
+
+// Ambiguous compare — multiple matches for one side
+{
+  const aspirador2 = {
+    ...aspiradorRobo,
+    id: '44444444-4444-4444-8444-444444444444',
+    name: 'Aspirador vertical',
+    slug: 'aspirador-vertical',
+    sku: 'ASP-VERT-1',
+  };
+  const ctx = mockCtx({
+    productsByRef: {},
+    findManyQueue: [[geladeiraFrost], [aspiradorRobo, aspirador2]],
+  });
+  const r = await executeTool(
+    'compareProducts',
+    { refs: ['geladeira', 'aspirador'] },
+    ctx,
+  );
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'AMBIGUOUS');
+  const cands = (r.data as { products: { name: string }[] }).products;
+  assert.ok(cands.length >= 2);
+  assert.ok(cands.some((p) => /Aspirador/i.test(p.name)));
+  // never invent
+  assert.ok(!JSON.stringify(r).includes('iPhone 99'));
+}
+
+// Compare by exact slug via findFirst
+{
+  const ctx = mockCtx({
+    productsByRef: {
+      'geladeira-frost-free': geladeiraFrost,
+      'aspirador-robo-schimitz': aspiradorRobo,
+    },
+  });
+  const r = await executeTool(
+    'compareProducts',
+    { refs: ['geladeira-frost-free', 'aspirador-robo-schimitz'] },
+    ctx,
+  );
+  assert.equal(r.code, 'OK');
+  assert.equal((r.data as { products: unknown[] }).products.length, 2);
 }
 
 // No LLM key → tools + FAQ still planned; useLlm false
