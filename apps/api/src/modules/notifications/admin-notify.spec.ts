@@ -168,9 +168,11 @@ function fanOutAdmins(
   const emails = resolveStoreNotifyEmailsFromEnv({
     STORE_NOTIFY_EMAIL: 'schimitzclaiton@gmail.com, outro@exemplo.com',
     ADMIN_EMAIL: 'admin@lojas-schimitz.test', // deve ser ignorado
-    MAIL_FROM: 'Lojas Schimitz <loja@exemplo.com>',
+    MAIL_FROM: 'Lojas Schimitz <noreply@lojasschimitz.com.br>', // NÃO deve entrar
   } as NodeJS.ProcessEnv);
-  assert.deepEqual(emails, ['schimitzclaiton@gmail.com', 'outro@exemplo.com', 'loja@exemplo.com']);
+  assert.deepEqual(emails, ['schimitzclaiton@gmail.com', 'outro@exemplo.com']);
+  assert.equal(isPlaceholderStoreEmail('noreply@lojasschimitz.com.br'), true);
+  assert.equal(extractEmailAddress('Lojas Schimitz <noreply@lojasschimitz.com.br>'), null);
 
   const onlyAdmin = resolveStoreNotifyEmailsFromEnv({
     ADMIN_EMAIL: 'schimitzclaiton@gmail.com',

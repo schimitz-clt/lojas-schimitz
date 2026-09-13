@@ -277,6 +277,14 @@ export class AdminController {
     );
   }
 
+  @Post('orders/:id/notify-paid')
+  @ApiOperation({
+    summary: 'Reenvia e-mail/in-app de venda paga para a loja (pedido já pago). Sem cobrança.',
+  })
+  async resendStorePaidNotify(@Param('id') id: string) {
+    return ok(await this.orders.adminResendStorePaidNotify(id));
+  }
+
   @Get('sellers')
   async listSellers() {
     return ok(await this.sellers.list());

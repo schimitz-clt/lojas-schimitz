@@ -424,6 +424,44 @@ export class OrdersService {
     return paid;
   }
 
+  /** Reenvia e-mail/in-app da loja para pedido já pago (ops). Não cria cobrança. */
+  async adminResendStorePaidNotify(orderIdOrPublicId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        OR: [{ id: orderIdOrPublicId }, { publicId: orderIdOrPublicId }],
+      },
+      include: { user: { select: { email: true, name: true } } },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    const paidLike = [
+      'paid',
+      'organizing',
+      'packing',
+      'shipped',
+      'out_for_delivery',
+      'delivered',
+    ];
+    if (!paidLike.includes(order.status)) {
+      throw new BadRequestException({
+        message: 'Pedido ainda não está pago — não reenvia aviso de venda',
+        code: 'ORDER_NOT_PAID',
+      });
+    }
+    const result = await this.notifications.notifyStoreOfPaidOrder({
+      publicId: order.publicId,
+      total: Number(order.total),
+      orderId: order.id,
+      customerEmail: order.user?.email,
+      customerName: order.user?.name,
+    });
+    await this.audit.log('order.store_paid_notify_resend', {
+      entity: 'Order',
+      entityId: order.id,
+      meta: { publicId: order.publicId, emailsAttempted: result.emailsAttempted },
+    });
+    return { publicId: order.publicId, status: order.status, ...result };
+  }
+
   async expireReservations() {
     const expired = await this.prisma.order.findMany({
       where: { status: 'awaiting_payment', reservationExpiresAt: { lt: new Date() } },

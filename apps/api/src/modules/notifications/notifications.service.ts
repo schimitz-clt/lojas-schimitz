@@ -62,11 +62,17 @@ export function resolveAdminUrl(): string {
 }
 
 
-/** Placeholder / seed-only addresses — never use as sale notify targets. */
+/** Placeholder / seed-only / noreply — never use as sale notify targets. */
 export function isPlaceholderStoreEmail(email: string): boolean {
   const e = (email || '').trim().toLowerCase();
   if (!e || !e.includes('@')) return true;
-  return e.endsWith('@lojas-schimitz.test') || e.endsWith('.test');
+  if (e.endsWith('@lojas-schimitz.test') || e.endsWith('.test')) return true;
+  const local = e.split('@', 1)[0];
+  // MAIL_FROM often is noreply@ — that must never be the owner inbox.
+  if (local === 'noreply' || local === 'no-reply' || local === 'donotreply' || local === 'do-not-reply') {
+    return true;
+  }
+  return false;
 }
 
 /** Extrai endereço de MAIL_FROM ("Name <a@b.com>" ou "a@b.com"). */
@@ -81,8 +87,9 @@ export function extractEmailAddress(raw: string | undefined | null): string | nu
 
 /**
  * Destinatários extras de venda paga (env), além dos admins no banco.
- * Ordem: STORE_NOTIFY_EMAIL, ADMIN_EMAIL, e-mail de MAIL_FROM.
- * Dedup + ignora @lojas-schimitz.test / *.test.
+ * Ordem: STORE_NOTIFY_EMAIL, ADMIN_EMAIL.
+ * Não usa MAIL_FROM (costuma ser noreply@ e não é caixa do dono).
+ * Dedup + ignora placeholders / noreply.
  */
 export function resolveStoreNotifyEmailsFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {
   const out: string[] = [];
@@ -99,7 +106,6 @@ export function resolveStoreNotifyEmailsFromEnv(env: NodeJS.ProcessEnv = process
     for (const part of store.split(/[,;]+/)) push(part);
   }
   push(env.ADMIN_EMAIL);
-  push(env.MAIL_FROM);
   return out;
 }
 
@@ -302,7 +308,7 @@ export class NotificationsService implements OnModuleInit {
       }
       if (recipients.length === 0) {
         this.log.warn(
-          `notifyStoreOfPaidOrder: nenhum destinatário de e-mail (DB admin + ADMIN_EMAIL/STORE_NOTIFY_EMAIL/MAIL_FROM) (${opts.publicId})`,
+          `notifyStoreOfPaidOrder: nenhum destinatário de e-mail (DB admin + ADMIN_EMAIL/STORE_NOTIFY_EMAIL) (${opts.publicId})`,
         );
       } else {
         this.log.log(
