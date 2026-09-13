@@ -50,9 +50,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="footer-grid">
               <div className="footer-col">
                 <h3>Lojas Schimitz</h3>
-                <p className="muted" style={{ margin: 0, lineHeight: 1.45 }}>
-                  Eletro, celulares, informática, eletrodomésticos e casa em Porto Alegre. Atendimento no
-                  chat do site ou no WhatsApp (51) 99625-3766.
+                <p className="muted" style={{ margin: 0, lineHeight: 1.4 }}>
+                  Eletro, celulares e casa em Porto Alegre. Chat ou WhatsApp (51) 99625-3766.
                 </p>
               </div>
               <div className="footer-col">

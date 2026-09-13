@@ -38,13 +38,13 @@ export function BottomNav() {
     {
       href: '/',
       label: 'Início',
-      ico: '⌂',
+      ico: '🏠',
       match: (p) => p === '/',
     },
     {
       href: '/produtos',
       label: 'Buscar',
-      ico: '⌕',
+      ico: '🔍',
       match: (p) =>
         p.startsWith('/produtos') ||
         p.startsWith('/departamento') ||

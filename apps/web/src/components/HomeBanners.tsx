@@ -19,29 +19,42 @@ function bannerImageUrl(b: HomeBanner): string {
   return rewritePublicUploadUrl(raw) || raw;
 }
 
-/** Faixa promocional estática (só texto/CSS) quando a API não tem banners. */
+/** Hero promocional de alto impacto quando a API não tem banners. */
 function StaticPromoStrip() {
   return (
-    <section className="home-promo" aria-label="Destaques da loja">
-      <div className="home-promo-inner">
-        <p className="home-promo-kicker">Lojas Schimitz · Porto Alegre</p>
-        <h2 className="home-promo-title">Frete grátis em POA · PIX 5% off · até 12x</h2>
-        <p className="home-promo-sub">
-          Entrega própria, troca em 7 dias e atendimento no chat ou WhatsApp.
+    <section className="home-hero" aria-label="Destaques da loja">
+      <div className="home-hero-glow" aria-hidden />
+      <div className="home-hero-inner">
+        <p className="home-hero-kicker">Lojas Schimitz · Porto Alegre</p>
+        <h2 className="home-hero-title">
+          Ofertas todo dia.
+          <br />
+          <span>Entrega rápida na capital.</span>
+        </h2>
+        <p className="home-hero-sub">
+          Frete grátis em POA · PIX 5% off · até 12x sem juros · troca em 7 dias
         </p>
-        <div className="home-promo-actions">
-          <Link className="btn" href="/produtos">
-            Ver produtos
+        <div className="home-hero-actions">
+          <Link className="btn home-hero-cta" href="/departamento/ofertas">
+            Ver ofertas
           </Link>
-          <Link className="btn ghost" href="/departamento/ofertas">
-            Ofertas
+          <Link className="btn ghost home-hero-ghost" href="/produtos">
+            Explorar loja
           </Link>
         </div>
-        <ul className="home-promo-chips" aria-label="Benefícios">
-          <li>Frete grátis POA</li>
-          <li>PIX 5%</li>
-          <li>12x Mercado Pago</li>
-          <li>Troca 7 dias</li>
+        <ul className="home-hero-chips" aria-label="Benefícios">
+          <li>
+            <strong>PIX</strong> 5% off
+          </li>
+          <li>
+            <strong>12x</strong> sem juros
+          </li>
+          <li>
+            <strong>Frete</strong> grátis POA
+          </li>
+          <li>
+            <strong>Troca</strong> 7 dias
+          </li>
         </ul>
       </div>
     </section>
@@ -51,7 +64,7 @@ function StaticPromoStrip() {
 function BannerSkeleton() {
   return (
     <section className="home-banners home-banners-skel" aria-hidden>
-      <div className="home-banner-slide skel skel-media" style={{ minHeight: 140 }} />
+      <div className="home-banner-slide skel skel-media" />
     </section>
   );
 }
@@ -99,8 +112,8 @@ export function HomeBanners() {
       src={bannerImageUrl(current)}
       alt={current.alt || current.title || 'Banner'}
       className="home-banner-img"
-      width={1200}
-      height={457}
+      width={1400}
+      height={520}
       sizes="100vw"
       loading="eager"
       fetchPriority="high"
@@ -119,7 +132,12 @@ export function HomeBanners() {
         ) : (
           img
         )}
-        {current.title ? <div className="home-banner-caption">{current.title}</div> : null}
+        <div className="home-banner-overlay">
+          {current.title ? <p className="home-banner-caption">{current.title}</p> : null}
+          <Link className="btn home-banner-cta" href={current.linkUrl || '/departamento/ofertas'}>
+            Conferir agora
+          </Link>
+        </div>
         {banners.length > 1 ? (
           <>
             <button

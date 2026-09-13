@@ -1,43 +1,41 @@
 /** Benefícios reais da loja — home. */
+const ITEMS = [
+  {
+    ico: '🚚',
+    title: 'Frete grátis em POA',
+    sub: 'Entrega própria em Porto Alegre',
+  },
+  {
+    ico: '💠',
+    title: '5% off no PIX',
+    sub: 'Desconto automático no checkout',
+  },
+  {
+    ico: '💳',
+    title: 'Até 12x sem juros',
+    sub: 'Via Mercado Pago',
+  },
+  {
+    ico: '🔁',
+    title: 'Troca em 7 dias',
+    sub: 'Compra com tranquilidade',
+  },
+] as const;
+
 export function TrustBadges() {
   return (
     <ul className="trust-row" aria-label="Vantagens da loja">
-      <li>
-        <span className="trust-icon" aria-hidden="true">
-          🚚
-        </span>
-        <div>
-          <strong>Entrega rápida</strong>
-          <span className="muted">Frete grátis em Porto Alegre</span>
-        </div>
-      </li>
-      <li>
-        <span className="trust-icon" aria-hidden="true">
-          💳
-        </span>
-        <div>
-          <strong>Pagamento seguro</strong>
-          <span className="muted">PIX 5% off ou até 12x</span>
-        </div>
-      </li>
-      <li>
-        <span className="trust-icon" aria-hidden="true">
-          ⚡
-        </span>
-        <div>
-          <strong>Ofertas todo dia</strong>
-          <span className="muted">Preços e estoque reais da loja</span>
-        </div>
-      </li>
-      <li>
-        <span className="trust-icon" aria-hidden="true">
-          💬
-        </span>
-        <div>
-          <strong>WhatsApp</strong>
-          <span className="muted">Atendimento no chat ou no Zap</span>
-        </div>
-      </li>
+      {ITEMS.map((item) => (
+        <li key={item.title}>
+          <span className="trust-icon" aria-hidden="true">
+            {item.ico}
+          </span>
+          <div>
+            <strong>{item.title}</strong>
+            <span className="muted">{item.sub}</span>
+          </div>
+        </li>
+      ))}
     </ul>
   );
 }

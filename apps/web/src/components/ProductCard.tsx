@@ -1,6 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { brl } from '@/lib/api';
-import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
+import { api, brl } from '@/lib/api';
+import { installmentLine, pixPrice, stockBadge, toNumber } from '@/lib/pricing';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
@@ -38,6 +41,12 @@ function resolveStock(p: Product): number | null {
   return null;
 }
 
+function discountPct(price: number, compareAt?: number | string | null): number | null {
+  const cmp = toNumber(compareAt);
+  if (!cmp || cmp <= price) return null;
+  return Math.round((1 - price / cmp) * 100);
+}
+
 function ProductImage({
   src,
   alt,
@@ -48,23 +57,30 @@ function ProductImage({
   priority?: boolean;
 }) {
   if (!src) {
-    return <span className="muted">Sem foto</span>;
+    return (
+      <div className="pcard-ph" aria-hidden>
+        <span className="pcard-ph-mark">
+          LOJAS <em>SCHIMITZ</em>
+        </span>
+        <span className="pcard-ph-hint">Imagem em breve</span>
+      </div>
+    );
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
-      width={400}
-      height={400}
-      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+      width={480}
+      height={480}
+      sizes="(max-width: 640px) 48vw, (max-width: 1024px) 33vw, 240px"
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
       onError={(e) => {
         const el = e.currentTarget;
         el.style.display = 'none';
         const fallback = el.parentElement?.querySelector('[data-img-fallback]');
-        if (fallback instanceof HTMLElement) fallback.style.display = 'grid';
+        if (fallback instanceof HTMLElement) fallback.style.display = 'flex';
       }}
     />
   );
@@ -78,23 +94,57 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
   const sb = stockBadge(stock);
   const price = Number(p.price);
   const pix = pixPrice(price);
+  const off = discountPct(price, p.compareAtPrice);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const out = sb?.tone === 'out';
+
+  async function addToCart(e: { preventDefault(): void; stopPropagation(): void }) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (out || adding) return;
+    setAdding(true);
+    try {
+      await api('/cart/items', {
+        method: 'POST',
+        body: JSON.stringify({ productId: p.id, qty: 1 }),
+      });
+      setAdded(true);
+      try {
+        window.dispatchEvent(new Event('sch-cart-updated'));
+      } catch {
+        /* ignore */
+      }
+      window.setTimeout(() => setAdded(false), 1800);
+    } catch {
+      /* fallback: go to PDP */
+      window.location.href = `/produto/${p.slug}`;
+    } finally {
+      setAdding(false);
+    }
+  }
 
   return (
     <article className="pcard">
       <Link href={`/produto/${p.slug}`} className="pcard-link">
         <div className="pcard-media">
           {img ? <ProductImage src={img} alt={p.name} priority={priority} /> : null}
-          <span
+          <div
             data-img-fallback
-            className="muted pcard-fallback"
-            style={{ display: img ? 'none' : 'grid' }}
+            className="pcard-ph pcard-fallback"
+            style={{ display: img ? 'none' : 'flex' }}
+            aria-hidden={img ? true : undefined}
           >
-            Sem foto
-          </span>
-          {p.badge ? <span className="pcard-badge">{p.badge}</span> : null}
-          {sb ? (
-            <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span>
-          ) : null}
+            <span className="pcard-ph-mark">
+              LOJAS <em>SCHIMITZ</em>
+            </span>
+            <span className="pcard-ph-hint">Imagem em breve</span>
+          </div>
+          <div className="pcard-tags">
+            {off ? <span className="pcard-off">-{off}%</span> : null}
+            {p.badge ? <span className="pcard-badge">{p.badge}</span> : null}
+          </div>
+          {sb ? <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span> : null}
         </div>
         <div className="pcard-body">
           <h3 className="pcard-title">{p.name}</h3>
@@ -102,28 +152,42 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
             <p className="pcard-seller muted">Vendido por {p.seller.name}</p>
           ) : null}
           {count > 0 ? (
-            <p className="pcard-rating muted">
-              ★ {avg.toFixed(1).replace('.', ',')} · {count} avaliação{count === 1 ? '' : 'ões'}
+            <p className="pcard-rating">
+              <span className="pcard-stars" aria-hidden>
+                ★
+              </span>{' '}
+              {avg.toFixed(1).replace('.', ',')}
+              <span className="muted"> · {count}</span>
             </p>
           ) : null}
-          <div className="pcard-price-row">
-            <span className="price">{brl(price)}</span>
-            {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
+          <div className="pcard-price-stack">
+            {p.compareAtPrice ? (
+              <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
+            ) : null}
+            <span className="pcard-price">{brl(price)}</span>
+            <p className="pcard-pix">
+              <strong>{brl(pix)}</strong> no PIX
+              <span className="pcard-pix-tag">5% OFF</span>
+            </p>
+            <p className="pcard-install">{installmentLine(price)}</p>
           </div>
-          <p className="pcard-pix">
-            <strong>{brl(pix)}</strong> no PIX <span className="muted">(5% off)</span>
-          </p>
-          <p className="pcard-install muted">{installmentLine(price)}</p>
         </div>
       </Link>
       <div className="pcard-cta">
-        <Link
-          className={`btn pcard-btn${sb?.tone === 'out' ? ' ghost' : ''}`}
-          href={`/produto/${p.slug}`}
-          aria-disabled={sb?.tone === 'out'}
-        >
-          {sb?.tone === 'out' ? 'Ver detalhes' : 'Adicionar ao carrinho'}
-        </Link>
+        {out ? (
+          <Link className="btn pcard-btn ghost" href={`/produto/${p.slug}`}>
+            Ver detalhes
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={`btn pcard-btn${added ? ' pcard-btn-ok' : ''}`}
+            onClick={addToCart}
+            disabled={adding}
+          >
+            {adding ? 'Adicionando…' : added ? '✓ Na sacola' : 'Adicionar ao carrinho'}
+          </button>
+        )}
       </div>
     </article>
   );

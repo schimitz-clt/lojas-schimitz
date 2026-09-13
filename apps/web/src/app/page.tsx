@@ -21,6 +21,45 @@ const CATEGORIES: { href: string; label: string; ico: string }[] = [
   { href: '/marketplace', label: 'Marketplace', ico: '🏪' },
 ];
 
+function SectionHead({
+  id,
+  title,
+  href,
+  linkLabel,
+  accent,
+}: {
+  id?: string;
+  title: string;
+  href?: string;
+  linkLabel?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`section-head${accent ? ' section-head-accent' : ''}`}>
+      <h2 id={id}>{title}</h2>
+      {href && linkLabel ? <Link href={href}>{linkLabel}</Link> : null}
+    </div>
+  );
+}
+
+function ProductRail({
+  products,
+  priorityCount = 0,
+  keyPrefix,
+}: {
+  products: Product[];
+  priorityCount?: number;
+  keyPrefix: string;
+}) {
+  return (
+    <div className="grid grid-vitrine grid-rail">
+      {products.map((p, i) => (
+        <ProductCard key={`${keyPrefix}-${p.id}`} p={p} priority={i < priorityCount} />
+      ))}
+    </div>
+  );
+}
+
 function HomeInner() {
   const q = useSearchParams().get('q') || '';
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,26 +77,26 @@ function HomeInner() {
   }, [q]);
 
   const offers = useMemo(
-    () => products.filter((p) => p.compareAtPrice || p.badge).slice(0, 8),
+    () => products.filter((p) => p.compareAtPrice || p.badge).slice(0, 10),
     [products],
   );
   const bestsellers = useMemo(() => {
     const ranked = [...products].sort(
       (a, b) => Number(b.ratingCount ?? 0) - Number(a.ratingCount ?? 0),
     );
-    return ranked.slice(0, 8);
+    return ranked.slice(0, 10);
   }, [products]);
   const recommendations = useMemo(() => {
     const rest = products.filter((p) => !bestsellers.slice(0, 4).some((b) => b.id === p.id));
-    return (rest.length ? rest : products).slice(0, 8);
+    return (rest.length ? rest : products).slice(0, 10);
   }, [products, bestsellers]);
 
   if (q) {
     return (
       <>
-        <section style={{ padding: '18px 0 8px' }}>
-          <h1 style={{ marginBottom: 6 }}>Resultados para “{q}”</h1>
-          <p className="muted" style={{ marginTop: 0 }}>
+        <section className="home-search-head">
+          <h1>Resultados para “{q}”</h1>
+          <p className="muted">
             Busca na vitrine ·{' '}
             <Link href={`/produtos?q=${encodeURIComponent(q)}`}>ver no catálogo com filtros</Link>
           </p>
@@ -90,15 +129,10 @@ function HomeInner() {
 
   return (
     <div className="home">
-      {/* 1. Promo banners */}
       <HomeBanners />
 
-      {/* 2. Category icons */}
       <section className="home-cats" aria-labelledby="home-cats-title">
-        <div className="section-head section-head-tight">
-          <h2 id="home-cats-title">Categorias</h2>
-          <Link href="/produtos">Ver todas</Link>
-        </div>
+        <SectionHead id="home-cats-title" title="Categorias" href="/produtos" linkLabel="Ver todas" />
         <nav className="cat-strip" aria-label="Categorias">
           {CATEGORIES.map((c) => (
             <Link key={c.href} href={c.href} className="cat-chip">
@@ -109,6 +143,13 @@ function HomeInner() {
             </Link>
           ))}
         </nav>
+      </section>
+
+      <section className="home-benefits home-benefits-top" aria-labelledby="home-benefits-title">
+        <h2 id="home-benefits-title" className="sr-only">
+          Por que comprar na Schimitz
+        </h2>
+        <TrustBadges />
       </section>
 
       {err ? (
@@ -127,53 +168,53 @@ function HomeInner() {
         </div>
       ) : null}
 
-      {/* 3. Product vitrines */}
       {!loading && products.length > 0 ? (
         <>
-          <section className="home-rail" id="ofertas">
-            <div className="section-head">
-              <h2>Ofertas do dia</h2>
-              <Link href="/departamento/ofertas">Ver mais</Link>
-            </div>
-            <div className="grid grid-vitrine">
-              {(offers.length ? offers : products.slice(0, 8)).map((p, i) => (
-                <ProductCard key={`o-${p.id}`} p={p} priority={i < 4} />
-              ))}
-            </div>
+          <section className="home-rail home-rail-offers" id="ofertas">
+            <SectionHead
+              title="Ofertas do dia"
+              href="/departamento/ofertas"
+              linkLabel="Ver todas"
+              accent
+            />
+            <ProductRail
+              products={offers.length ? offers : products.slice(0, 10)}
+              priorityCount={4}
+              keyPrefix="o"
+            />
           </section>
 
           <section className="home-rail">
-            <div className="section-head">
-              <h2>Mais vendidos</h2>
-              <Link href="/produtos?sort=relevance">Ver catálogo</Link>
-            </div>
-            <div className="grid grid-vitrine">
-              {bestsellers.map((p) => (
-                <ProductCard key={`b-${p.id}`} p={p} />
-              ))}
-            </div>
+            <SectionHead title="Mais vendidos" href="/produtos?sort=relevance" linkLabel="Ver catálogo" />
+            <ProductRail products={bestsellers} keyPrefix="b" />
           </section>
 
           <section className="home-rail">
-            <div className="section-head">
-              <h2>Recomendados para você</h2>
-              <Link href="/produtos">Explorar</Link>
-            </div>
-            <div className="grid grid-vitrine">
-              {recommendations.map((p) => (
-                <ProductCard key={`r-${p.id}`} p={p} />
-              ))}
-            </div>
+            <SectionHead title="Recomendados para você" href="/produtos" linkLabel="Explorar" />
+            <ProductRail products={recommendations} keyPrefix="r" />
           </section>
         </>
       ) : null}
 
-      {/* 4. Store benefits */}
-      <section className="home-benefits" aria-labelledby="home-benefits-title">
-        <div className="section-head">
-          <h2 id="home-benefits-title">Por que comprar na Schimitz</h2>
+      <section className="home-strip" aria-label="Benefícios Lojas Schimitz">
+        <div className="home-strip-inner">
+          <div>
+            <p className="home-strip-kicker">Lojas Schimitz</p>
+            <h2>Compra fácil, entrega rápida, atendimento real</h2>
+            <p>
+              Estoque e preços da loja física em Porto Alegre — com PIX, parcelamento e frete grátis
+              na capital.
+            </p>
+          </div>
+          <div className="home-strip-actions">
+            <Link className="btn home-hero-cta" href="/produtos">
+              Ver produtos
+            </Link>
+            <Link className="btn ghost home-hero-ghost" href="/suporte">
+              Falar com a loja
+            </Link>
+          </div>
         </div>
-        <TrustBadges />
       </section>
     </div>
   );
