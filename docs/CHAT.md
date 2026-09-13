@@ -32,3 +32,8 @@ Env web: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WHATSAPP`
 
 - Unitário: `npx tsx src/modules/chat/chat.spec.ts`
 - Manual: `start:dev` na API + `next dev` na web → botão Chat
+
+
+## Fase Alfa
+
+Ver `docs/SCHIMITZ-AI-ALFA.md` (Schimitz AI: tools, feature flag, fallback sem LLM).

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { sendChat, type ChatProductHit, waLink } from '@/lib/api';
+import { api, sendChat, type ChatProductHit, waLink } from '@/lib/api';
+import { pixPrice } from '@/lib/pricing';
 
 type UiMsg = { id: string; role: 'user' | 'assistant'; text: string; handoff?: boolean; products?: ChatProductHit[] };
 
@@ -11,7 +12,7 @@ const MSGS = 'sch_chat_msgs';
 const WELCOME: UiMsg = {
   id: 'welcome',
   role: 'assistant',
-  text: 'Olá! Sou o assistente da Lojas Schimitz. Posso falar de frete, PIX, parcelamento, cupons, SCHIMITZ+ e produtos do catálogo. Atendimento também no WhatsApp (51) 99625-3766 — ou continue por aqui no chat.',
+  text: 'Olá! Sou o Schimitz AI. Busco no catálogo real, comparo opções e falo de PIX, frete e troca — sem inventar preço ou estoque. WhatsApp (51) 99625-3766.',
 };
 
 function loadMsgs(): UiMsg[] {
@@ -24,6 +25,69 @@ function loadMsgs(): UiMsg[] {
   } catch {
     return [WELCOME];
   }
+}
+
+function brl(n: number) {
+  return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function ProductMiniCard({ p }: { p: ChatProductHit }) {
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const pix = p.pixPrice != null ? Number(p.pixPrice) : pixPrice(p.price);
+  const canCart = Boolean(p.id) && p.inStock;
+
+  async function addToCart() {
+    if (!p.id || adding || !p.inStock) return;
+    setAdding(true);
+    try {
+      await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId: p.id, qty: 1 }) });
+      setAdded(true);
+      try {
+        window.dispatchEvent(new Event('sch-cart-updated'));
+      } catch {
+        /* ignore */
+      }
+      window.setTimeout(() => setAdded(false), 1600);
+    } catch {
+      window.location.href = p.path || `/produto/${p.slug}`;
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  return (
+    <li className="chatw-card">
+      <a href={p.path || `/produto/${p.slug}`} className="chatw-card-media" aria-label={p.name}>
+        {p.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={p.image} alt="" width={64} height={64} />
+        ) : (
+          <span className="chatw-card-ph" aria-hidden>
+            S
+          </span>
+        )}
+      </a>
+      <div className="chatw-card-body">
+        <a className="chatw-card-name" href={p.path || `/produto/${p.slug}`}>
+          {p.name}
+        </a>
+        <div className="chatw-card-price">{brl(Number(p.price))}</div>
+        <div className="chatw-card-pix">PIX {brl(pix)}</div>
+        {!p.inStock ? <div className="muted">Sem estoque</div> : null}
+        <div className="chatw-card-cta">
+          <a className="btn ghost" href={p.path || `/produto/${p.slug}`}>
+            Ver
+          </a>
+          {canCart ? (
+            <button type="button" className="btn" onClick={addToCart} disabled={adding}>
+              {added ? 'Adicionado' : adding ? '…' : 'Carrinho'}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export function ChatWidget() {
@@ -85,13 +149,13 @@ export function ChatWidget() {
   return (
     <div className="chatw">
       {open ? (
-        <section className="chatw-panel" aria-label="Chat Lojas Schimitz">
+        <section className="chatw-panel" aria-label="Schimitz AI">
           <header className="chatw-head">
             <div>
-              <strong>Lojas Schimitz</strong>
-              <div className="muted">Assistente · Porto Alegre</div>
+              <strong>Schimitz AI</strong>
+              <div className="muted">Assistente de compras · Porto Alegre</div>
             </div>
-            <button type="button" className="chatw-x" onClick={() => setOpen(false)} aria-label="Fechar chat">
+            <button type="button" className="chatw-x" onClick={() => setOpen(false)} aria-label="Fechar Schimitz AI">
               ×
             </button>
           </header>
@@ -100,21 +164,14 @@ export function ChatWidget() {
               <div key={m.id} className={`chatw-msg ${m.role}`}>
                 <p>{m.text}</p>
                 {m.products && m.products.length > 0 ? (
-                  <ul className="chatw-prods">
+                  <ul className="chatw-cards">
                     {m.products.map((p) => (
-                      <li key={p.slug}>
-                        <a href={p.path}>{p.name}</a>
-                        <span className="muted">
-                          {' '}
-                          {Number(p.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          {p.inStock ? '' : ' · sem estoque'}
-                        </span>
-                      </li>
+                      <ProductMiniCard key={p.slug} p={p} />
                     ))}
                   </ul>
                 ) : null}
                 {m.handoff ? (
-                  <a className="btn wa chatw-wa" href={waLink('Olá, vim pelo chat da Lojas Schimitz e quero falar com um atendente.')} target="_blank" rel="noreferrer">
+                  <a className="btn wa chatw-wa" href={waLink('Olá, vim pelo Schimitz AI da Lojas Schimitz e quero falar com um atendente.')} target="_blank" rel="noreferrer">
                     Continuar no WhatsApp
                   </a>
                 ) : null}
@@ -128,16 +185,16 @@ export function ChatWidget() {
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Pergunte sobre frete, PIX, produtos…"
+              placeholder="Produto, PIX, frete…"
               maxLength={1200}
-              aria-label="Mensagem"
+              aria-label="Mensagem para o Schimitz AI"
               disabled={busy}
             />
             <button className="btn" type="submit" disabled={busy || !text.trim()}>
               Enviar
             </button>
           </form>
-          <a className="chatw-human" href={waLink('Olá, vim pelo chat da Lojas Schimitz.')} target="_blank" rel="noreferrer">
+          <a className="chatw-human" href={waLink('Olá, vim pelo Schimitz AI da Lojas Schimitz.')} target="_blank" rel="noreferrer">
             Falar no WhatsApp
           </a>
         </section>
@@ -146,9 +203,9 @@ export function ChatWidget() {
         type="button"
         className="chatw-fab"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'Fechar assistente' : 'Abrir assistente da loja'}
+        aria-label={open ? 'Fechar Schimitz AI' : 'Abrir Schimitz AI'}
       >
-        {open ? '×' : 'Chat'}
+        {open ? '×' : 'AI'}
       </button>
     </div>
   );

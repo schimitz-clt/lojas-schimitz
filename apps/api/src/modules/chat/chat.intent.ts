@@ -57,11 +57,12 @@ export function extractSearchTerms(message: string): string[] {
   return out;
 }
 
+const STRONG_PRODUCT_RE =
+  /(notebook|celular|iphone|samsung|tv|geladeira|fog[aã]o|micro[- ]?ondas|aspirador|fone|headphone|tablet|monitor|impressora|air fryer|airfryer|xbox|playstation|ps5|nintendo)/i;
+
 export function looksLikeProductQuery(message: string): boolean {
   const t = (message || '').toLowerCase();
-  if (/(produto|notebook|celular|iphone|samsung|tv|geladeira|fog[aã]o|micro[- ]?ondas|aspirador|fone|headphone|tablet|monitor|impressora|air fryer|airfryer|xbox|playstation|ps5|nintendo)/i.test(t)) {
-    return true;
-  }
+  if (STRONG_PRODUCT_RE.test(t)) return true;
   const terms = extractSearchTerms(message);
   return terms.length >= 1 && !faqReply(message);
 }
@@ -197,4 +198,129 @@ export function sanitizeChatMessage(raw: string | null | undefined): string {
     t = t.slice(0, CHAT_MESSAGE_MAX_LENGTH);
   }
   return t;
+}
+
+export type ChatIntent =
+  | 'handoff'
+  | 'refuse'
+  | 'faq'
+  | 'search'
+  | 'get_product'
+  | 'compare'
+  | 'availability'
+  | 'policies'
+  | 'shipping'
+  | 'order'
+  | 'general';
+
+const CATEGORY_HINTS: { slug: string; re: RegExp }[] = [
+  { slug: 'celulares', re: /\b(celular|smartphone|iphone|samsung|xiaomi|motorola|android)\b/i },
+  { slug: 'informatica', re: /\b(notebook|laptop|computador|\bpc\b|monitor|impressora|mouse|teclado)\b/i },
+  { slug: 'eletro', re: /\b(tv|televis[aã]o|smart tv|soundbar|home theater)\b/i },
+  {
+    slug: 'eletrodomesticos',
+    re: /\b(geladeira|fog[aã]o|micro[- ]?ondas|lava[- ]?(lou[cç]a|roupa)|air\s*fryer|airfryer|aspirador|cafeteira)\b/i,
+  },
+  { slug: 'casa', re: /\b(cama|sof[aá]|panela|toalha|travesseiro|mesa de jantar)\b/i },
+  { slug: 'esporte', re: /\b(t[eê]nis|bicicleta|academia|bola|esteira)\b/i },
+];
+
+export function extractCategoryHint(message: string): string | undefined {
+  const t = message || '';
+  for (const h of CATEGORY_HINTS) {
+    if (h.re.test(t)) return h.slug;
+  }
+  return undefined;
+}
+
+export function extractBudgetMax(message: string): number | undefined {
+  const t = (message || '').toLowerCase().replace(/\./g, '').replace(',', '.');
+  const m = t.match(
+    /(?:at[eé]|no m[aá]ximo|maximo|menos de|abaixo de|or[cç]amento(?: de)?)\s*(?:r\$\s*)?(\d+(?:\.\d+)?)/i,
+  );
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return undefined;
+  return Math.round(n * 100) / 100;
+}
+
+export function looksLikeCompare(message: string): boolean {
+  return /\b(compara[r]?|compara[cç][aã]o|diferen[cç]a entre|\bvs\.?\b|versus)\b/i.test(message || '');
+}
+
+export function looksLikeAvailability(message: string): boolean {
+  return /\b(estoque|dispon[ií]vel|ainda tem|tem a[ií]|tem esse|tem essa)\b/i.test(message || '');
+}
+
+export function looksLikeOrderQuery(message: string): boolean {
+  return /\b(meu pedido|meus pedidos|pedido sch-|status do pedido|onde est[aá] meu pedido|rastreio|rastrear)\b/i.test(
+    message || '',
+  );
+}
+
+export function looksLikeGetProduct(message: string): boolean {
+  const t = message || '';
+  if (/\b(detalhe|ficha|especifica[cç][aã]o)s?\b/i.test(t)) return true;
+  if (/\/produto\/[a-z0-9-]+/i.test(t)) return true;
+  return false;
+}
+
+export function looksLikePolicies(message: string): boolean {
+  return /\b(pol[ií]tica|troca|devolu|garantia|pix|parcel|frete|cupom|cashback|schimitz\+)\b/i.test(
+    message || '',
+  );
+}
+
+export function looksLikeShippingQuery(message: string): boolean {
+  return /\b(frete|entrega|cep|envio|prazo de entrega)\b/i.test(message || '');
+}
+
+const SLUG_IN_TEXT = /(?:\/produto\/|slug\s*[:=]\s*)([a-z0-9]+(?:-[a-z0-9]+){1,})/i;
+
+export function extractProductRefs(message: string): string[] {
+  const t = message || '';
+  const out: string[] = [];
+  const slug = t.match(SLUG_IN_TEXT);
+  if (slug) out.push(slug[1].toLowerCase());
+  const quoted = [...t.matchAll(/"([^"]{2,80})"|'([^']{2,80})'/g)].map((m) => (m[1] || m[2] || '').trim());
+  for (const q of quoted) {
+    if (q && !out.includes(q)) out.push(q);
+  }
+  return out.slice(0, 3);
+}
+
+export function extractOrderPublicId(message: string): string | undefined {
+  const m = (message || '').match(/\b(SCH-[A-Z0-9-]{4,})\b/i);
+  return m ? m[1].toUpperCase() : undefined;
+}
+
+export function extractCepFromMessage(message: string): string | undefined {
+  const m = (message || '').match(/\b(\d{5}-?\d{3})\b/);
+  if (!m) return undefined;
+  const digits = m[1].replace(/\D/g, '');
+  return digits.length === 8 ? digits : undefined;
+}
+
+/**
+ * Deterministic intent for cost levels.
+ * Security refuse is decided separately (ai.security) before this.
+ */
+export function classifyIntent(message: string): ChatIntent {
+  const t = (message || '').trim();
+  if (!t) return 'general';
+  if (needsHandoff(t)) return 'handoff';
+  if (looksLikeCompare(t)) return 'compare';
+  if (looksLikeOrderQuery(t)) return 'order';
+  if (looksLikeGetProduct(t)) return 'get_product';
+  if (looksLikeAvailability(t) && (STRONG_PRODUCT_RE.test(t) || looksLikeProductQuery(t))) return 'availability';
+  if (looksLikeShippingQuery(t) && !STRONG_PRODUCT_RE.test(t)) return 'shipping';
+  if (faqReply(t) && !STRONG_PRODUCT_RE.test(t)) return 'faq';
+  if (STRONG_PRODUCT_RE.test(t)) return 'search';
+  const terms = extractSearchTerms(t);
+  if (terms.length >= 2 && !faqReply(t) && !looksLikePolicies(t)) return 'search';
+  if (faqReply(t)) return 'faq';
+  if (looksLikePolicies(t)) return 'policies';
+  if (looksLikeAvailability(t)) return 'availability';
+  if (looksLikeShippingQuery(t)) return 'shipping';
+  return 'general';
 }

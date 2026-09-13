@@ -20,6 +20,10 @@ export type ChatProductHit = {
   badge: string | null;
   inStock: boolean;
   path: string;
+  /** Additive Alfa fields — optional for older clients / tests. */
+  id?: string;
+  image?: string | null;
+  pixPrice?: number;
 };
 
 export type ChatReply = {
@@ -29,4 +33,17 @@ export type ChatReply = {
   whatsappUrl: string;
   llm: boolean;
   products: ChatProductHit[];
+  /** Additive Alfa observability (safe to ignore). */
+  level?: 0 | 1 | 2;
+  tools?: string[];
+  intent?: string;
+};
+
+export type ChatStatus = {
+  name: string;
+  phase: 'alfa' | 'beta';
+  mode: 'off' | 'faq' | 'alfa';
+  llmConfigured: boolean;
+  tools: string[];
+  privateTools: string[];
 };

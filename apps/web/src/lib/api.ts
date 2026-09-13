@@ -263,6 +263,9 @@ export type ChatProductHit = {
   badge: string | null;
   inStock: boolean;
   path: string;
+  id?: string;
+  image?: string | null;
+  pixPrice?: number;
 };
 
 export type ChatReply = {
@@ -272,6 +275,9 @@ export type ChatReply = {
   whatsappUrl: string;
   llm: boolean;
   products: ChatProductHit[];
+  level?: 0 | 1 | 2;
+  tools?: string[];
+  intent?: string;
 };
 
 export function sendChat(message: string, conversationId?: string) {

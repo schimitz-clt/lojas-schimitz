@@ -247,7 +247,7 @@ textarea { resize: vertical; min-height: 72px; }
   box-shadow: 0 10px 28px rgba(0,0,0,.32);
 }
 .chatw-panel {
-  width: min(380px, calc(100vw - 24px)); height: min(520px, calc(100vh - 140px));
+  width: min(400px, calc(100vw - 20px)); height: min(560px, calc(100vh - 120px));
   background: #fff; border: 1px solid var(--line); border-radius: 16px;
   display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,.18);
 }
@@ -262,6 +262,17 @@ textarea { resize: vertical; min-height: 72px; }
 .chatw-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid var(--line); }
 .chatw-prods { margin: 8px 0 0; padding-left: 18px; }
 .chatw-prods a { color: var(--ink); font-weight: 700; }
+.chatw-cards { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.chatw-card { display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.chatw-card-media { display: block; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #f4f4f4; }
+.chatw-card-media img { width: 64px; height: 64px; object-fit: cover; display: block; }
+.chatw-card-ph { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; font-weight: 800; color: #999; }
+.chatw-card-name { font-weight: 700; font-size: 13px; line-height: 1.3; color: var(--ink); text-decoration: none; display: block; }
+.chatw-card-price { font-size: 13px; font-weight: 700; margin-top: 2px; }
+.chatw-card-pix { font-size: 12px; color: #0a7a4a; font-weight: 700; }
+.chatw-card-cta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.chatw-card-cta .btn { font-size: 12px; min-height: 32px; padding: 0 10px; }
+.chatw-msg.assistant { max-width: 100%; }
 .chatw-wa { display: inline-block; margin-top: 10px; }
 .chatw-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); background: #fff; }
 .chatw-form input { flex: 1; }

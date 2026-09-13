@@ -1,6 +1,10 @@
 import assert from 'assert';
 import {
   CHAT_MESSAGE_MAX_LENGTH,
+  classifyIntent,
+  extractBudgetMax,
+  extractCategoryHint,
+  extractCepFromMessage,
   extractSearchTerms,
   faqReply,
   isConversationId,
@@ -11,7 +15,9 @@ import {
   sanitizeChatMessage,
 } from './chat.intent';
 import { formatCatalogForPrompt } from './chat.prompt';
-import { HANDOFF_MESSAGE, PIX_DISCOUNT_PCT, FREE_SHIPPING_REGION } from './chat.facts';
+import { HANDOFF_MESSAGE, PIX_DISCOUNT_PCT, FREE_SHIPPING_REGION, storePolicies } from './chat.facts';
+import { llmAllowed, resolveChatAiMode } from './ai.flags';
+import { planChatTurn } from './ai.router';
 
 assert.equal(needsHandoff('quero falar com um atendente'), true);
 assert.equal(needsHandoff('reclamação do pedido'), true);
@@ -94,3 +100,37 @@ assert.equal(sanitizeChatMessage('a' + 'x'.repeat(CHAT_MESSAGE_MAX_LENGTH)).leng
 assert.ok(!sanitizeChatMessage('\u0000null\u0007byte').includes('\u0000'));
 
 console.log('chat intent/prompt tests ok');
+
+
+assert.equal(classifyIntent('quero falar com um atendente'), 'handoff');
+assert.equal(classifyIntent('tem desconto no pix?'), 'faq');
+assert.equal(classifyIntent('voces tem notebook gamer?'), 'search');
+assert.equal(classifyIntent('compara notebook e smartphone'), 'compare');
+assert.equal(classifyIntent('onde está meu pedido'), 'order');
+assert.equal(classifyIntent('como funciona o frete?'), 'shipping');
+assert.equal(classifyIntent('quero trocar um produto'), 'faq');
+assert.equal(extractBudgetMax('notebook até 3000'), 3000);
+assert.equal(extractCategoryHint('iphone 15'), 'celulares');
+assert.equal(extractCepFromMessage('meu cep é 91160-390'), '91160390');
+
+assert.equal(storePolicies().pixDiscountPct, 5);
+assert.equal(storePolicies().returnDays, 7);
+
+assert.equal(resolveChatAiMode({ SCHIMITZ_AI_ENABLED: 'false' } as NodeJS.ProcessEnv), 'off');
+assert.equal(resolveChatAiMode({ CHAT_AI_MODE: 'faq' } as NodeJS.ProcessEnv), 'faq');
+assert.equal(resolveChatAiMode({} as NodeJS.ProcessEnv), 'alfa');
+assert.equal(llmAllowed('alfa', false), false);
+assert.equal(llmAllowed('alfa', true), true);
+assert.equal(llmAllowed('faq', true), false);
+
+const planSearch = planChatTurn({ message: 'notebook até 2500', mode: 'alfa', hasLlm: false });
+assert.equal(planSearch.intent, 'search');
+assert.equal(planSearch.useLlm, false);
+assert.equal(planSearch.tools[0]?.name, 'searchProducts');
+assert.equal(planSearch.tools[0]?.args.budgetMax, 2500);
+
+const planGeneralLlm = planChatTurn({ message: 'e agora?', mode: 'alfa', hasLlm: true });
+assert.equal(planGeneralLlm.useLlm, true);
+assert.equal(planGeneralLlm.level, 2);
+
+console.log('chat alfa routing tests ok');

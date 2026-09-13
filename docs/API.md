@@ -74,7 +74,8 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 | GET | `/admin/admins` → lista usuários role=admin | admin |
 | POST | `/admin/admins` body `{ email, name, password }` (argon2) | admin |
 | PATCH | `/admin/admins/:id/status` body `{ status: "active"|"blocked" }` — não desativa a si mesmo / último admin ativo; ao desativar revoga refresh tokens | admin |
-| POST | `/chat` body `{ message, conversationId? }` → reply + handoff WhatsApp + produtos reais | público (20/min) |
+| POST | `/chat` body `{ message, conversationId? }` → reply + handoff + produtos reais + `level`/`tools`/`intent` (Alfa). JWT opcional só para pedido do próprio user | público (20/min) |
+| GET | `/chat/status` → `{ mode, llmConfigured, tools }` (sem segredos) | público |
 
 | GET | `/seller/me` | seller owner (JWT) |
 | GET | `/seller/products` | seller owner |

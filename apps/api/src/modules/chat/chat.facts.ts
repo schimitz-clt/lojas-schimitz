@@ -42,3 +42,26 @@ export function storeFactsBlock() {
 
 export const HANDOFF_MESSAGE =
   'Vou te passar para o WhatsApp da loja. Clique no link e continue por lá — a equipe da Lojas Schimitz te responde.';
+
+/** Structured policies for getStorePolicies — same facts, no invention. */
+export function storePolicies() {
+  return {
+    store: STORE_NAME,
+    city: STORE_CITY,
+    categories: STORE_CATEGORIES,
+    pixDiscountPct: PIX_DISCOUNT_PCT,
+    installments: INSTALLMENTS,
+    installmentsProvider: INSTALLMENTS_PROVIDER,
+    freeShippingRegion: FREE_SHIPPING_REGION,
+    freeShippingCepPrefix: '90',
+    deliveryFlow: DELIVERY_FLOW,
+    cashbackLabel: CASHBACK_LABEL,
+    cashbackRatePct: CASHBACK_RATE_PCT,
+    returnDays: RETURN_DAYS,
+    whatsapp: '(51) 99625-3766',
+    notes: [
+      'Use somente estes fatos para políticas. Não invente prazos, descontos ou estoque.',
+      'Horário de atendimento: confirmar em /suporte ou WhatsApp.',
+    ],
+  };
+}
