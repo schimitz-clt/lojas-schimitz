@@ -23,6 +23,7 @@ export type Product = {
   stock?: number | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
+  category?: { slug: string; name: string } | null;
 };
 
 function resolveImageUrl(p: Product): string {

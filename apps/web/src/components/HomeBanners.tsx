@@ -2,10 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { pixPrice, toNumber } from '@/lib/pricing';
+import {
+  pickFeaturedHeroProduct,
+  resolveRealProductImageUrl,
+  type CatProductLike,
+} from '@/lib/category-visual';
+
+type HeroProduct = CatProductLike & {
+  id?: string;
+  price?: number | string;
+  slug?: string;
+  compareAtPrice?: number | string | null;
+  badge?: string | null;
+};
 
 function isUsableBanner(b: HomeBanner | null | undefined): b is HomeBanner {
   if (!b || typeof b !== 'object') return false;
@@ -19,43 +33,99 @@ function bannerImageUrl(b: HomeBanner): string {
   return rewritePublicUploadUrl(raw) || raw;
 }
 
-/** Hero promocional de alto impacto quando a API não tem banners. */
-function StaticPromoStrip() {
+function discountPct(price: number, compareAt?: number | string | null): number | null {
+  const cmp = toNumber(compareAt);
+  if (!cmp || cmp <= price) return null;
+  return Math.round((1 - price / cmp) * 100);
+}
+
+/** Hero promocional branco + produto real quando a API não tem banners. */
+function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
+  const img = featured ? resolveRealProductImageUrl(featured) : '';
+  const price = featured?.price != null ? Number(featured.price) : NaN;
+  const hasPrice = Number.isFinite(price) && price > 0;
+  const pix = hasPrice ? pixPrice(price) : null;
+  const off = hasPrice ? discountPct(price, featured?.compareAtPrice) : null;
+  const href = featured?.slug ? `/produto/${featured.slug}` : '/departamento/ofertas';
+
   return (
-    <section className="home-hero" aria-label="Destaques da loja">
-      <div className="home-hero-glow" aria-hidden />
-      <div className="home-hero-inner">
-        <p className="home-hero-kicker">Lojas Schimitz · Porto Alegre</p>
-        <h2 className="home-hero-title">
-          Ofertas todo dia.
-          <br />
-          <span>Entrega rápida na capital.</span>
-        </h2>
-        <p className="home-hero-sub">
-          Frete grátis em POA · PIX 5% off · até 12x sem juros · troca em 7 dias
-        </p>
-        <div className="home-hero-actions">
-          <Link className="btn home-hero-cta" href="/departamento/ofertas">
-            Ver ofertas
-          </Link>
-          <Link className="btn ghost home-hero-ghost" href="/produtos">
-            Explorar loja
-          </Link>
+    <section className="home-hero home-hero-light" aria-label="Destaques da loja">
+      <div className="home-hero-grid">
+        <div className="home-hero-copy">
+          <p className="home-hero-kicker">Lojas Schimitz · Porto Alegre</p>
+          <h2 className="home-hero-title">
+            {featured?.name ? (
+              <>
+                Destaque da loja
+                <span className="home-hero-product-name">{featured.name}</span>
+              </>
+            ) : (
+              <>
+                Ofertas todo dia.
+                <span>Entrega rápida na capital.</span>
+              </>
+            )}
+          </h2>
+          {hasPrice ? (
+            <div className="home-hero-price">
+              {featured?.compareAtPrice ? (
+                <span className="home-hero-compare">{brl(featured.compareAtPrice)}</span>
+              ) : null}
+              <span className="home-hero-price-main">{brl(price)}</span>
+              {pix != null ? (
+                <span className="home-hero-pix">
+                  <strong>{brl(pix)}</strong> no PIX
+                  {off ? <em>-{off}%</em> : <em>5% OFF</em>}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="home-hero-sub">
+              Frete grátis em POA · PIX 5% off · até 12x sem juros · troca em 7 dias
+            </p>
+          )}
+          <div className="home-hero-actions">
+            <Link className="btn home-hero-cta" href={href}>
+              {featured?.slug ? 'Ver produto' : 'Ver ofertas'}
+            </Link>
+            <Link className="btn ghost home-hero-ghost" href="/produtos">
+              Explorar loja
+            </Link>
+          </div>
+          <ul className="home-hero-chips" aria-label="Benefícios">
+            <li>
+              <strong>PIX</strong> 5% off
+            </li>
+            <li>
+              <strong>12x</strong> sem juros
+            </li>
+            <li>
+              <strong>Frete</strong> grátis POA
+            </li>
+          </ul>
         </div>
-        <ul className="home-hero-chips" aria-label="Benefícios">
-          <li>
-            <strong>PIX</strong> 5% off
-          </li>
-          <li>
-            <strong>12x</strong> sem juros
-          </li>
-          <li>
-            <strong>Frete</strong> grátis POA
-          </li>
-          <li>
-            <strong>Troca</strong> 7 dias
-          </li>
-        </ul>
+        <div className="home-hero-visual" aria-hidden={img ? undefined : true}>
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={img}
+              alt=""
+              className="home-hero-product-img"
+              width={560}
+              height={560}
+              sizes="(max-width: 720px) 70vw, 360px"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+            />
+          ) : (
+            <div className="home-hero-visual-ph">
+              <span>
+                LOJAS <em>SCHIMITZ</em>
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -69,10 +139,12 @@ function BannerSkeleton() {
   );
 }
 
-export function HomeBanners() {
+export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const [banners, setBanners] = useState<HomeBanner[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [imgFailed, setImgFailed] = useState(false);
+
+  const featured = pickFeaturedHeroProduct(products || []);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,10 +173,10 @@ export function HomeBanners() {
   }, [idx, banners]);
 
   if (banners === null) return <BannerSkeleton />;
-  if (banners.length === 0) return <StaticPromoStrip />;
+  if (banners.length === 0) return <StaticPromoStrip featured={featured} />;
 
   const current = banners[Math.min(idx, banners.length - 1)];
-  if (!current || imgFailed) return <StaticPromoStrip />;
+  if (!current || imgFailed) return <StaticPromoStrip featured={featured} />;
 
   const img = (
     // eslint-disable-next-line @next/next/no-img-element

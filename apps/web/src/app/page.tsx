@@ -7,19 +7,9 @@ import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
+import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
 
 type ListResponse = { items: Product[]; total?: number };
-
-const CATEGORIES: { href: string; label: string; ico: string }[] = [
-  { href: '/departamento/ofertas', label: 'Ofertas', ico: '🔥' },
-  { href: '/departamento/celulares', label: 'Celulares', ico: '📱' },
-  { href: '/departamento/informatica', label: 'Informática', ico: '💻' },
-  { href: '/departamento/eletro', label: 'Eletro', ico: '📺' },
-  { href: '/departamento/eletrodomesticos', label: 'Eletrodomésticos', ico: '🧊' },
-  { href: '/departamento/casa', label: 'Casa', ico: '🏠' },
-  { href: '/departamento/esporte', label: 'Esporte', ico: '⚽' },
-  { href: '/marketplace', label: 'Marketplace', ico: '🏪' },
-];
 
 function SectionHead({
   id,
@@ -57,6 +47,34 @@ function ProductRail({
         <ProductCard key={`${keyPrefix}-${p.id}`} p={p} priority={i < priorityCount} />
       ))}
     </div>
+  );
+}
+
+function CategoryStrip({ products }: { products: Product[] }) {
+  return (
+    <nav className="cat-strip" aria-label="Categorias">
+      {HOME_CATEGORIES.map((c) => {
+        const src = categoryCircleSrc(products, c);
+        const isFallback = src.startsWith('/cats/');
+        return (
+          <Link key={c.href} href={c.href} className="cat-chip">
+            <span className={`cat-chip-ico${isFallback ? ' cat-chip-ico-fallback' : ''}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt=""
+                width={72}
+                height={72}
+                loading="lazy"
+                decoding="async"
+                className="cat-chip-img"
+              />
+            </span>
+            <span className="cat-chip-label">{c.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -129,27 +147,13 @@ function HomeInner() {
 
   return (
     <div className="home">
-      <HomeBanners />
+      {/* 1. Banner / hero */}
+      <HomeBanners products={loading ? [] : products} />
 
+      {/* 2. Categories — photo circles, no emoji */}
       <section className="home-cats" aria-labelledby="home-cats-title">
         <SectionHead id="home-cats-title" title="Categorias" href="/produtos" linkLabel="Ver todas" />
-        <nav className="cat-strip" aria-label="Categorias">
-          {CATEGORIES.map((c) => (
-            <Link key={c.href} href={c.href} className="cat-chip">
-              <span className="cat-chip-ico" aria-hidden>
-                {c.ico}
-              </span>
-              <span className="cat-chip-label">{c.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </section>
-
-      <section className="home-benefits home-benefits-top" aria-labelledby="home-benefits-title">
-        <h2 id="home-benefits-title" className="sr-only">
-          Por que comprar na Schimitz
-        </h2>
-        <TrustBadges />
+        <CategoryStrip products={products} />
       </section>
 
       {err ? (
@@ -168,6 +172,7 @@ function HomeInner() {
         </div>
       ) : null}
 
+      {/* 3–5. Vitrines */}
       {!loading && products.length > 0 ? (
         <>
           <section className="home-rail home-rail-offers" id="ofertas">
@@ -196,6 +201,14 @@ function HomeInner() {
         </>
       ) : null}
 
+      {/* 6. Benefits → then footer (layout) */}
+      <section className="home-benefits" aria-labelledby="home-benefits-title">
+        <h2 id="home-benefits-title" className="sr-only">
+          Por que comprar na Schimitz
+        </h2>
+        <TrustBadges />
+      </section>
+
       <section className="home-strip" aria-label="Benefícios Lojas Schimitz">
         <div className="home-strip-inner">
           <div>
@@ -210,7 +223,7 @@ function HomeInner() {
             <Link className="btn home-hero-cta" href="/produtos">
               Ver produtos
             </Link>
-            <Link className="btn ghost home-hero-ghost" href="/suporte">
+            <Link className="btn ghost home-hero-ghost-light" href="/suporte">
               Falar com a loja
             </Link>
           </div>
