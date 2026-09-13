@@ -26,7 +26,7 @@ const origin = 'https://lojasschimitz.com.br';
 
 const crumbs = buildBreadcrumbList(origin, [
   { name: 'Início', path: '/' },
-  { name: 'Eletro', path: '/departamento/eletro' },
+  { name: 'TVs e Áudio', path: '/departamento/eletro' },
   { name: 'Ar-condicionado aiwa', path: '/produto/ar-condicionado-aiwa-2' },
 ]);
 assert.equal(crumbs['@type'], 'BreadcrumbList');

@@ -186,7 +186,7 @@ function ProdutosInner() {
         <span className="muted">·</span>
         <Link href="/departamento/ofertas">Ofertas</Link>
         <span className="muted">·</span>
-        <Link href="/departamento/eletro">Eletro</Link>
+        <Link href="/departamento/eletro">TVs e Áudio</Link>
         <span className="muted">·</span>
         <Link href="/departamento/celulares">Celulares</Link>
         <span className="muted">·</span>

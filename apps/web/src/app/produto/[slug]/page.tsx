@@ -1,13 +1,17 @@
 import type { Metadata } from 'next';
+import { permanentRedirect } from 'next/navigation';
 import ProductClient from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
+import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
 import { fetchProductMeta, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const alias = resolveProductSlugRedirect(rawSlug);
+  const slug = alias || rawSlug;
   const [product, store] = await Promise.all([fetchProductMeta(slug), fetchStoreSettings()]);
   const base = siteOrigin();
   const path = `/produto/${encodeURIComponent(slug)}`;
@@ -41,6 +45,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
   const { slug } = await params;
+  const alias = resolveProductSlugRedirect(slug);
+  if (alias) {
+    permanentRedirect(`/produto/${encodeURIComponent(alias)}`);
+  }
   const product = await fetchProductMeta(slug);
   const origin = siteOrigin();
 

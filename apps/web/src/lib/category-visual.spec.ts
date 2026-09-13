@@ -8,6 +8,7 @@ import {
 
 assert.equal(HOME_CATEGORIES.length, 8);
 assert.ok(HOME_CATEGORIES.some((c) => c.label === 'Eletrodomésticos'));
+assert.ok(HOME_CATEGORIES.some((c) => c.label === 'TVs e Áudio' && c.slug === 'eletro'));
 
 const aiwa = {
   name: 'Ar-condicionado aiwa',

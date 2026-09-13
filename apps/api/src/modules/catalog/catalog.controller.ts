@@ -11,6 +11,11 @@ import {
   parseSort,
 } from './catalog.query';
 
+/** Soft-merged duplicate slugs → canonical active product (never invent SKUs). */
+const PRODUCT_SLUG_ALIASES: Record<string, string> = {
+  'ar-condicionado-aiwa': 'ar-condicionado-aiwa-2',
+};
+
 @ApiTags('catalog')
 @Controller()
 export class CatalogController {
@@ -81,15 +86,19 @@ export class CatalogController {
   @Get('products/:slug')
   @ApiOperation({ summary: 'Detalhe do produto por slug' })
   async product(@Param('slug') slug: string) {
-    const data = await this.prisma.product.findUnique({
-      where: { slug },
-      include: {
-        images: { orderBy: { position: 'asc' } },
-        inventory: true,
-        category: true,
-        seller: { select: { id: true, name: true, slug: true } },
-      },
-    });
+    const include = {
+      images: { orderBy: { position: 'asc' as const } },
+      inventory: true,
+      category: true,
+      seller: { select: { id: true, name: true, slug: true } },
+    };
+    let data = await this.prisma.product.findUnique({ where: { slug }, include });
+    if ((!data || !data.active) && PRODUCT_SLUG_ALIASES[slug]) {
+      data = await this.prisma.product.findUnique({
+        where: { slug: PRODUCT_SLUG_ALIASES[slug] },
+        include,
+      });
+    }
     if (!data || !data.active) throw new NotFoundException('Produto não encontrado');
     return ok(serializePublicProduct(data));
   }

@@ -20,7 +20,7 @@ async function main() {
   });
 
   const categories = [
-    { slug: 'eletro', name: 'Eletro', sort: 1 },
+    { slug: 'eletro', name: 'TVs e Áudio', sort: 1 },
     { slug: 'celulares', name: 'Celulares', sort: 2 },
     { slug: 'informatica', name: 'Informática', sort: 3 },
     { slug: 'eletrodomesticos', name: 'Eletrodomésticos', sort: 4 },
@@ -185,6 +185,68 @@ async function main() {
     }
   }
 
+  // Soft-disable empty Aiwa duplicate; keep photo copy in Eletrodomésticos
+  {
+    const aiwas = await prisma.product.findMany({
+      where: {
+        OR: [
+          { slug: { startsWith: 'ar-condicionado-aiwa' } },
+          { name: { equals: 'Ar-condicionado aiwa', mode: 'insensitive' } },
+        ],
+      },
+      include: { images: true, orderItems: { select: { id: true }, take: 1 } },
+    });
+    const isRealPhoto = (url?: string | null) =>
+      Boolean(url?.trim()) && !/placehold\.co|placehold\.it|via\.placeholder\.com/i.test(url!);
+    const withPhoto = aiwas.filter((p) => p.images.some((i) => isRealPhoto(i.url)));
+    // empty OR only placehold.co — worse copy
+    const empty = aiwas.filter((p) => !p.images.some((i) => isRealPhoto(i.url)));
+    const eletrodom = await prisma.category.findUnique({ where: { slug: 'eletrodomesticos' } });
+    if (withPhoto.length && empty.length) {
+      const keep = withPhoto.sort((a, b) => Number(b.active) - Number(a.active))[0];
+      for (const bad of empty) {
+        if (bad.id === keep.id) continue;
+        // never hard-delete — soft-disable only (order history preserved if any)
+        await prisma.product.update({
+          where: { id: bad.id },
+          data: { active: false },
+        });
+        console.log(`Seed: soft-disabled duplicate ${bad.slug}`);
+      }
+      if (eletrodom && keep.categoryId !== eletrodom.id) {
+        await prisma.product.update({
+          where: { id: keep.id },
+          data: { categoryId: eletrodom.id, active: true },
+        });
+        console.log(`Seed: kept ${keep.slug} → eletrodomesticos`);
+      } else if (!keep.active) {
+        await prisma.product.update({ where: { id: keep.id }, data: { active: true } });
+      }
+      // Transfer promo badge from disabled empty copy if keep has none
+      const disabledWithBadge = empty.find((p) => p.id !== keep.id && p.badge);
+      if (disabledWithBadge?.badge && !keep.badge) {
+        await prisma.product.update({
+          where: { id: keep.id },
+          data: { badge: disabledWithBadge.badge },
+        });
+        await prisma.product.update({
+          where: { id: disabledWithBadge.id },
+          data: { badge: null },
+        });
+      }
+    }
+  }
+
+  // Clarify Eletro vs Eletrodomésticos (slug unchanged — no broken links)
+  await prisma.category.updateMany({
+    where: { slug: 'eletro' },
+    data: { name: 'TVs e Áudio', active: true },
+  });
+  await prisma.category.updateMany({
+    where: { slug: 'eletrodomesticos' },
+    data: { name: 'Eletrodomésticos', active: true },
+  });
+
   // Active products missing images → placehold.co
   const missingImg = await prisma.$queryRaw<{ id: string; name: string }[]>`
     SELECT p.id, p.name FROM "Product" p
@@ -207,6 +269,7 @@ async function main() {
   if (missingImg.length) {
     console.log(`Seed: added placeholders for ${missingImg.length} product(s)`);
   }
+
 
   await prisma.coupon.upsert({
     where: { code: 'PIX5' },

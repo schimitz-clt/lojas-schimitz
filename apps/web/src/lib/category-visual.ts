@@ -48,9 +48,9 @@ export const HOME_CATEGORIES: HomeCategory[] = [
   },
   {
     href: '/departamento/eletro',
-    label: 'Eletro',
+    label: 'TVs e Áudio',
     slug: 'eletro',
-    keywords: ['tv', 'televisão', 'televisao', 'soundbar', 'eletro'],
+    keywords: ['tv', 'televisão', 'televisao', 'soundbar', 'áudio', 'audio', 'eletro'],
     fallback: '/cats/eletro.svg',
   },
   {

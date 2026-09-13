@@ -193,7 +193,7 @@ export function Header() {
               <Link href="/departamento/celulares">Celulares</Link>
               <Link href="/departamento/eletrodomesticos">Eletrodomésticos</Link>
               <Link href="/departamento/informatica">Informática</Link>
-              <Link href="/departamento/eletro">Eletro</Link>
+              <Link href="/departamento/eletro">TVs e Áudio</Link>
               <Link href="/departamento/casa">Casa</Link>
               <Link href="/departamento/esporte">Esporte</Link>
               <Link href="/marketplace">Marketplace</Link>
