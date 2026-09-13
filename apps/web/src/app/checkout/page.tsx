@@ -11,6 +11,7 @@ import {
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
 import { TrustBadges } from '@/components/TrustBadges';
+import { persistLastOrderPublicId } from '@/lib/order-recovery';
 
 type CartItem = {
   id: string;
@@ -172,6 +173,7 @@ export default function CheckoutPage() {
         }),
       });
       sessionStorage.removeItem(persistKey);
+      persistLastOrderPublicId(order.publicId, window.localStorage);
       router.push(`/pedidos/${order.publicId}`);
     } catch (e: any) {
       setErr(e.message || 'Não foi possível criar o pedido. Preço e estoque são recalculados no servidor.');

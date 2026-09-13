@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "test": "npx --yes tsx src/lib/auth-session.spec.ts && npx --yes tsx src/lib/api-proxy.spec.ts && npx --yes tsx src/lib/www-redirect.spec.ts && npx --yes tsx src/lib/public-upload-url.spec.ts && npx --yes tsx src/lib/placeholder-image.spec.ts && npx --yes tsx src/lib/product-slug-redirects.spec.ts && npx --yes tsx src/lib/category-visual.spec.ts && npx --yes tsx src/lib/storefront.spec.ts && npx --yes tsx src/lib/json-ld.spec.ts && npx --yes tsx src/lib/storefront-security-headers.spec.ts && npx --yes tsx src/lib/chat-cards.spec.ts && npx --yes tsx src/lib/pricing.spec.ts && npx --yes tsx src/lib/order-status.spec.ts"
+    "test": "npx --yes tsx src/lib/auth-session.spec.ts && npx --yes tsx src/lib/api-proxy.spec.ts && npx --yes tsx src/lib/www-redirect.spec.ts && npx --yes tsx src/lib/public-upload-url.spec.ts && npx --yes tsx src/lib/placeholder-image.spec.ts && npx --yes tsx src/lib/product-slug-redirects.spec.ts && npx --yes tsx src/lib/category-visual.spec.ts && npx --yes tsx src/lib/storefront.spec.ts && npx --yes tsx src/lib/json-ld.spec.ts && npx --yes tsx src/lib/storefront-security-headers.spec.ts && npx --yes tsx src/lib/chat-cards.spec.ts && npx --yes tsx src/lib/pricing.spec.ts && npx --yes tsx src/lib/order-status.spec.ts && npx --yes tsx src/lib/order-recovery.spec.ts"
   },
   "dependencies": {
     "next": "^15.1.6",

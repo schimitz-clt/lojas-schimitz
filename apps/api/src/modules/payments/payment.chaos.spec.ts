@@ -3,6 +3,7 @@
  * Complements payment.webhook-idempotency + payment.status-machine.
  */
 import assert from 'assert';
+import { resolveWebhookPayment } from './webhook-resolve';
 
 type PaymentEventRow = { id: string; applied: boolean; providerEventId: string };
 
@@ -72,19 +73,56 @@ assert.equal(alreadyApprovedDecision('cancelled'), 'recover');
 assert.equal(alreadyApprovedDecision('shipped'), 'noop');
 
 // Race: webhook before externalId persisted → link by publicId, do not orphan
-function resolveLocalPayment(opts: {
-  byExternalId: boolean;
-  pendingWithoutExternalId: boolean;
-  hasExternalReference: boolean;
-}): 'linked' | 'orphan' | 'found' {
-  if (opts.byExternalId) return 'found';
-  if (opts.hasExternalReference && opts.pendingWithoutExternalId) return 'linked';
-  return 'orphan';
-}
-assert.equal(resolveLocalPayment({ byExternalId: true, pendingWithoutExternalId: false, hasExternalReference: true }), 'found');
-assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: true, hasExternalReference: true }), 'linked');
-assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: false, hasExternalReference: true }), 'orphan');
-assert.equal(resolveLocalPayment({ byExternalId: false, pendingWithoutExternalId: true, hasExternalReference: false }), 'orphan');
+assert.equal(
+  resolveWebhookPayment({
+    byExternalId: true,
+    externalReference: 'SCH-1',
+    orderFoundByPublicId: true,
+    pendingWithoutExternalId: false,
+    unboundPaymentOnOrder: false,
+  }),
+  'found',
+);
+assert.equal(
+  resolveWebhookPayment({
+    byExternalId: false,
+    externalReference: 'SCH-1',
+    orderFoundByPublicId: true,
+    pendingWithoutExternalId: true,
+    unboundPaymentOnOrder: false,
+  }),
+  'link_pending',
+);
+assert.equal(
+  resolveWebhookPayment({
+    byExternalId: false,
+    externalReference: 'SCH-1',
+    orderFoundByPublicId: true,
+    pendingWithoutExternalId: false,
+    unboundPaymentOnOrder: true,
+  }),
+  'link_unbound',
+);
+assert.equal(
+  resolveWebhookPayment({
+    byExternalId: false,
+    externalReference: 'SCH-1',
+    orderFoundByPublicId: true,
+    pendingWithoutExternalId: false,
+    unboundPaymentOnOrder: false,
+  }),
+  'orphan',
+);
+assert.equal(
+  resolveWebhookPayment({
+    byExternalId: false,
+    externalReference: '',
+    orderFoundByPublicId: false,
+    pendingWithoutExternalId: true,
+    unboundPaymentOnOrder: false,
+  }),
+  'orphan',
+);
 
 console.log('payment.chaos unit tests ok');
 console.log('payment.chaos already_approved recovery + externalId link checks ok');

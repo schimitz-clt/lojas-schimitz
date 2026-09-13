@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { pixPrice } from '@/lib/pricing';
-import { api, brl, waLink } from '@/lib/api';
+import { api, brl, currentUser, isUnauthorizedError, waLink } from '@/lib/api';
+import { loginNextPath, orderRecoveryPaths, persistLastOrderPublicId, PIX_LEAVE_COPY } from '@/lib/order-recovery';
 import {
   FULFILLMENT_STEPS,
   FULFILLMENT_JOURNEY_COPY,
@@ -241,8 +242,19 @@ export default function PedidoPage() {
   }, [publicId]);
 
   useEffect(() => {
-    reload().catch((e) => setErr(e.message));
-  }, [reload]);
+    if (publicId) persistLastOrderPublicId(String(publicId), window.localStorage);
+    if (!currentUser()) {
+      window.location.href = loginNextPath(`/pedidos/${publicId}`);
+      return;
+    }
+    reload().catch((e) => {
+      if (isUnauthorizedError(e)) {
+        window.location.href = loginNextPath(`/pedidos/${publicId}`);
+        return;
+      }
+      setErr(e.message);
+    });
+  }, [reload, publicId]);
 
   // Enquanto PIX/pedido aguardam confirmação, atualiza sozinho (webhook → paid).
   useEffect(() => {
@@ -381,6 +393,9 @@ export default function PedidoPage() {
         <Link href="/conta">Minha conta</Link> · Pedido
       </p>
       <h1 style={{ marginTop: 8 }}>Pedido {o.publicId}</h1>
+      <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+        Código permanente: <b>{o.publicId}</b> — use este código no WhatsApp e em Meus pedidos.
+      </p>
 
       <div className={`order-status-banner ${pendingPay ? 'is-pending' : paidLike ? 'is-paid' : 'is-other'}`}>
         <p style={{ margin: 0 }}>
@@ -502,7 +517,7 @@ export default function PedidoPage() {
             </p>
             {intent.payment.status === 'pending' ? (
               <p className="muted" style={{ fontSize: 14 }}>
-                Depois de pagar, esta página atualiza sozinha em alguns segundos.
+                {PIX_LEAVE_COPY}
               </p>
             ) : null}
             {isPixPending || (intent.payment.method === 'pix' && (qr || qrImgSrc)) ? (
@@ -565,15 +580,19 @@ export default function PedidoPage() {
       ) : null}
 
       <div className="order-followup" style={{ marginTop: 20 }}>
-        {paidLike || showTimeline ? (
-          <a className="btn ghost" href="#order-tracking" style={{ minHeight: 44 }}>
-            Acompanhar pedido
-          </a>
-        ) : (
-          <Link className="btn ghost" href="/conta" style={{ minHeight: 44 }}>
-            Ver meus pedidos
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <Link className="btn ghost" href={orderRecoveryPaths(o.publicId).verMeuPedido} style={{ minHeight: 44 }}>
+            Ver meu pedido
           </Link>
-        )}
+          <Link className="btn ghost" href="/pedidos" style={{ minHeight: 44 }}>
+            Meus pedidos
+          </Link>
+          {paidLike || showTimeline ? (
+            <a className="btn ghost" href="#order-tracking" style={{ minHeight: 44 }}>
+              Acompanhar pedido
+            </a>
+          ) : null}
+        </div>
         <p className="checkout-support muted" style={{ marginTop: 14 }}>
           Precisa de ajuda?{' '}
           <a href={supportHref} target="_blank" rel="noopener noreferrer">

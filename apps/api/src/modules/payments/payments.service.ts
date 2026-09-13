@@ -26,6 +26,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
 import { amountsMatchForApprove, pixChargeAmount, roundMoney } from '../../common/pricing';
+import { structuredLog } from '../../common/structured-log';
+import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -342,6 +344,14 @@ export class PaymentsService {
       entityId: payment.id,
       meta: { orderId: order.id, method: dto.method, provider: this.provider.name },
     });
+    structuredLog('info', 'PAYMENT_INTENT_CREATED', {
+      paymentId: payment.id,
+      orderId: order.id,
+      publicId: order.publicId,
+      method: dto.method,
+      provider: this.provider.name,
+      status: payment.status,
+    });
 
     return response;
   }
@@ -424,6 +434,10 @@ export class PaymentsService {
             entity: 'PaymentEvent',
             entityId: existing.id,
           });
+          structuredLog('info', 'WEBHOOK_DUPLICATE', {
+            eventId: existing.id,
+            providerEventId: verified.providerEventId,
+          });
           return { ok: true, duplicate: true, applied: true };
         }
         event = existing!;
@@ -436,6 +450,11 @@ export class PaymentsService {
       entity: 'PaymentEvent',
       entityId: event.id,
       meta: { topic: verified.topic, externalId: verified.externalId },
+    });
+    structuredLog('info', 'WEBHOOK_RECEIVED', {
+      eventId: event.id,
+      topic: verified.topic,
+      externalId: verified.externalId || null,
     });
 
     if (!verified.externalId) {
@@ -461,34 +480,43 @@ export class PaymentsService {
       include: { order: true },
     });
 
-    // Race: webhook pode chegar antes de createIntent persistir externalId.
-    // Vincula pending pelo external_reference (publicId) em vez de marcar órfão prematuro.
+    // Deterministic Order lookup via MP external_reference (= publicId).
+    // Race: webhook before externalId persist; persist-fail leftover (cancelled + null externalId).
     if (!local && fetched.externalReference) {
-      const byRef = await this.prisma.payment.findFirst({
-        where: {
-          status: 'pending',
-          externalId: null,
-          order: { publicId: fetched.externalReference },
-        },
-        include: { order: true },
-        orderBy: { createdAt: 'desc' },
+      const order = await this.prisma.order.findUnique({
+        where: { publicId: fetched.externalReference },
+        include: { payments: { orderBy: { createdAt: 'desc' } } },
       });
-      if (byRef) {
+      const candidate = order ? pickLinkablePayment(order.payments) : undefined;
+      const decision = resolveWebhookPayment({
+        byExternalId: false,
+        externalReference: fetched.externalReference,
+        orderFoundByPublicId: Boolean(order),
+        pendingWithoutExternalId: Boolean(candidate && candidate.status === 'pending' && !candidate.externalId),
+        unboundPaymentOnOrder: Boolean(candidate && !candidate.externalId),
+      });
+      if (candidate && (decision === 'link_pending' || decision === 'link_unbound')) {
         local = await this.prisma.payment.update({
-          where: { id: byRef.id },
+          where: { id: candidate.id },
           data: { externalId: verified.externalId },
           include: { order: true },
         });
         await this.audit.log('payment.external_id_linked', {
           entity: 'Payment',
-          entityId: byRef.id,
-          meta: { externalId: verified.externalId, publicId: fetched.externalReference },
+          entityId: candidate.id,
+          meta: { externalId: verified.externalId, publicId: fetched.externalReference, decision },
+        });
+        structuredLog('info', 'WEBHOOK_LINKED', {
+          paymentId: candidate.id,
+          orderId: order?.id,
+          publicId: fetched.externalReference,
+          decision,
         });
       }
     }
 
     if (!local) {
-      // Órfão autenticado → 2xx sem paid (#9)
+      // Órfão autenticado → 2xx sem paid. CRITICAL: MP may have approved without local Payment.
       await this.prisma.paymentEvent.update({
         where: { id: event.id },
         data: { applied: true },
@@ -496,7 +524,13 @@ export class PaymentsService {
       await this.audit.log('payment.orphan_event', {
         entity: 'PaymentEvent',
         entityId: event.id,
-        meta: { externalId: verified.externalId, status: fetched.status },
+        meta: { externalId: verified.externalId, status: fetched.status, publicId: fetched.externalReference },
+      });
+      structuredLog('warn', 'WEBHOOK_ORPHAN', {
+        eventId: event.id,
+        externalId: verified.externalId,
+        publicId: fetched.externalReference || null,
+        providerStatus: fetched.status,
       });
       return { ok: true, applied: false, reason: 'orphan' };
     }
@@ -517,6 +551,12 @@ export class PaymentsService {
     await this.prisma.paymentEvent.update({
       where: { id: event.id },
       data: { applied: true },
+    });
+    structuredLog('info', 'WEBHOOK_APPLIED', {
+      paymentId: local.id,
+      orderId: local.orderId,
+      publicId: local.order?.publicId,
+      status: fetched.status,
     });
 
     return { ok: true, applied: true, paymentId: local.id, status: fetched.status };
@@ -650,6 +690,12 @@ export class PaymentsService {
         });
         await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
           this.log.warn(`commission stub falhou para ${payment.orderId}: ${e?.message || e}`);
+        });
+        structuredLog('info', 'PAYMENT_APPROVED', {
+          paymentId,
+          orderId: payment.orderId,
+          publicId: payment.order.publicId,
+          transitioned: true,
         });
         await this.notifyCustomerPaid(payment.orderId);
         return { applied: true, reason: 'approved' };

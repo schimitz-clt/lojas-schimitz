@@ -30,6 +30,8 @@ import {
   buildAdminFulfillmentNotification,
 } from '../notifications/notifications.service';
 import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
+import { structuredLog } from '../../common/structured-log';
+import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -320,6 +322,12 @@ export class OrdersService {
         entityId: order.id,
         meta: { publicId: order.publicId, total },
       });
+      structuredLog('info', 'ORDER_CREATED', {
+        orderId: order.id,
+        publicId: order.publicId,
+        status: order.status,
+        total,
+      });
       await this.notifyOrderCreated(userId, order);
       return order;
     } catch (e) {
@@ -463,13 +471,32 @@ export class OrdersService {
   }
 
   async expireReservations() {
+    const now = new Date();
     const expired = await this.prisma.order.findMany({
-      where: { status: 'awaiting_payment', reservationExpiresAt: { lt: new Date() } },
-      select: { id: true, userId: true, publicId: true },
+      where: { status: 'awaiting_payment', reservationExpiresAt: { lt: now } },
+      select: {
+        id: true,
+        userId: true,
+        publicId: true,
+        reservationExpiresAt: true,
+        payments: { select: { status: true } },
+      },
     });
     let count = 0;
     const remoteCancelIds: string[] = [];
     for (const o of expired) {
+      const hasPendingPayment = o.payments.some((p) => p.status === 'pending');
+      if (shouldSkipReservationExpiry({
+        hasPendingPayment,
+        reservationExpiresAt: o.reservationExpiresAt,
+        now,
+      })) {
+        structuredLog('info', 'RESERVATION_EXPIRY_SKIPPED_PENDING_PAYMENT', {
+          orderId: o.id,
+          publicId: o.publicId,
+        });
+        continue;
+      }
       const won = await this.transitionFromAwaiting(o.id, 'cancelled');
       if (won) {
         count += 1;

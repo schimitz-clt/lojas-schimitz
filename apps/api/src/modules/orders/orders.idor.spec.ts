@@ -40,4 +40,7 @@ assert.ok(ctrl.includes('JwtAuthGuard'), 'orders require JWT');
 assert.ok(ctrl.includes("CurrentUser('sub')"), 'orders use CurrentUser sub');
 assert.ok(!ctrl.includes('RolesGuard'), 'customer orders must not use admin RolesGuard alone');
 
+assert.ok(!/async list\([\s\S]*?status:\s*'paid'/.test(svc), 'list must not hide awaiting_payment');
+assert.ok(svc.includes('where: { userId }'), 'list owner scope');
+
 console.log('orders.idor contract ok');
