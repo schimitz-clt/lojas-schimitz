@@ -385,7 +385,12 @@ type AdminOpsSnapshot = {
   };
   catalog?: {
     placeholderProductCount: number;
-    placeholderProducts?: { id: string; name: string }[];
+    placeholderProducts?: {
+      id: string;
+      name: string;
+      imageUrl?: string;
+      reason?: 'missing' | 'placeholder';
+    }[];
   };
   payments?: { pendingCount: number };
   reconciliations?: {
@@ -570,6 +575,8 @@ export default function AdminPage() {
   const [reconciliations, setReconciliations] = useState<AdminPaymentReconciliationItem[]>([]);
   const [reconBusy, setReconBusy] = useState(false);
   const [orderJumpQ, setOrderJumpQ] = useState('');
+  /** ROI filters on loaded list only — no new public search. */
+  const [orderRoiFilter, setOrderRoiFilter] = useState<'all' | 'stuck_paid' | 'no_shipping'>('all');
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -718,6 +725,34 @@ export default function AdminPage() {
     [loadReconciliations, selectOpsBucket],
   );
 
+
+  async function downloadProductsNeedingPhotosCsv() {
+    setErr('');
+    setMsg('');
+    try {
+      const data = await api<{ filename: string; csv: string }>(
+        '/admin/ops/products-needing-photos',
+      );
+      const blob = new Blob([data.csv || ''], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'products-needing-photos.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMsg(`CSV baixado: ${a.download} (só produtos que precisam de foto real — sem imagens inventadas).`);
+    } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
+      setErr(e.message || 'Falha ao baixar CSV de fotos');
+    }
+  }
+
   async function openCustomer(id: string) {
     setCustomerDetailBusy(true);
     setErr('');
@@ -783,18 +818,35 @@ export default function AdminPage() {
       .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
   }, [products, lowStockThreshold]);
 
-  /** Lightweight client jump by publicId / order id (loaded list only — no public search). */
+  /** Lightweight client jump + ROI filters (loaded list only — no public search). */
   const filteredOrders = useMemo(() => {
     const q = orderJumpQ.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter(
-      (o) =>
+    return orders.filter((o) => {
+      if (orderRoiFilter === 'stuck_paid') {
+        if (!isPaidStuckOrder(o)) return false;
+      } else if (orderRoiFilter === 'no_shipping') {
+        const hasShip =
+          Boolean(o.trackingCode?.trim()) ||
+          Boolean(o.carrier?.trim()) ||
+          Boolean(o.freightSnap?.label?.trim());
+        // Paid/fulfillment without shipping evidence — conversion ops focus.
+        const inOps =
+          o.status === 'paid' ||
+          o.status === 'organizing' ||
+          o.status === 'packing' ||
+          o.status === 'ready_for_pickup';
+        if (!inOps || hasShip) return false;
+      }
+      if (!q) return true;
+      return (
         o.publicId?.toLowerCase().includes(q) ||
         o.id?.toLowerCase().includes(q) ||
         o.user?.email?.toLowerCase().includes(q) ||
-        o.user?.name?.toLowerCase().includes(q),
-    );
-  }, [orders, orderJumpQ]);
+        o.user?.name?.toLowerCase().includes(q) ||
+        (o.trackingCode || '').toLowerCase().includes(q)
+      );
+    });
+  }, [orders, orderJumpQ, orderRoiFilter]);
 
   const attentionAlerts = useMemo(() => {
     const list = ops?.alerts || [];
@@ -1336,6 +1388,33 @@ export default function AdminPage() {
       void loadOps();
     } catch (e: any) {
       setErr(e.message || 'Falha ao atualizar status');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+
+  async function resendStorePaidNotify(order: AdminOrder) {
+    if (
+      !window.confirm(
+        `Reenviar aviso de venda paga para a loja (e-mail/in-app) do pedido ${order.publicId}? Não cria cobrança.`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(order.id);
+    setErr('');
+    setMsg('');
+    try {
+      const data = await api<{ publicId: string; emailsAttempted: number; inAppCreated: number }>(
+        `/admin/orders/${order.id}/notify-paid`,
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+      setMsg(
+        `Aviso loja reenviado (${data.publicId}): e-mails tentados ${data.emailsAttempted}, in-app ${data.inAppCreated}. Confira STORE_NOTIFY_EMAIL / MAIL_FROM se zero.`,
+      );
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao reenviar aviso da loja');
     } finally {
       setBusyId(null);
     }
@@ -1911,10 +1990,26 @@ export default function AdminPage() {
                 {ops?.reconciliations?.openCount ?? '—'}
               </div>
             </button>
-            <div style={{ background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Foto placeholder</div>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('admin-photos-checklist');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              style={{
+                background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
+                border: '1px solid #ffd100',
+                borderRadius: 8,
+                padding: '10px 12px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                color: 'inherit',
+              }}
+            >
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Foto p/ trocar</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.catalog?.placeholderProductCount ?? '—'}</div>
-            </div>
+              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>checklist + CSV</div>
+            </button>
             <div style={{ background: '#1a1a1a', border: `1px solid ${ops?.mail?.configured ? '#ffd100' : '#666'}`, borderRadius: 8, padding: '10px 12px' }}>
               <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>E-mail (env)</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: ops?.mail?.configured ? '#ffd100' : '#ffb4b4' }}>
@@ -2027,45 +2122,86 @@ export default function AdminPage() {
           </div>
 
           {ops?.catalog?.placeholderProducts?.length ? (
-            <div style={{ marginTop: 14 }}>
-              <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
-                Checklist do dono — produtos sem foto real. Clique em Trocar foto para abrir o
-                formulário e enviar upload (sem inventar imagem).
-              </p>
+            <div style={{ marginTop: 14 }} id="admin-photos-checklist">
+              <div
+                className="row"
+                style={{ marginBottom: 8, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}
+              >
+                <p className="muted" style={{ margin: 0, fontSize: 13, color: '#f5e6a3', flex: 1 }}>
+                  Checklist — produtos que precisam de foto da loja (sem inventar imagem).
+                  Motivo: sem foto ou host placeholder (placehold.co etc.).
+                </p>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => void downloadProductsNeedingPhotosCsv()}
+                  style={{ borderColor: '#ffd100', color: '#ffd100', minHeight: 36 }}
+                >
+                  Baixar CSV
+                </button>
+              </div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', fontSize: 13, color: '#f5f5f3' }}>
-                {ops.catalog.placeholderProducts.map((p) => (
-                  <li
-                    key={p.id}
-                    style={{
-                      marginBottom: 8,
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: '#1a1a1a',
-                      border: '1px solid #3a3a32',
-                    }}
-                  >
-                    <span style={{ minWidth: 0 }}>
-                      <b style={{ color: '#fff' }}>{p.name}</b>
-                      <br />
-                      <code style={{ color: '#ffd100', fontSize: 11 }}>{p.id}</code>
-                    </span>
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{ background: '#ffd100', color: '#111', minHeight: 36 }}
-                      onClick={() => startEditById(p.id)}
+                {ops.catalog.placeholderProducts.map((p) => {
+                  const reason =
+                    p.reason ||
+                    (p.imageUrl && p.imageUrl.trim() ? 'placeholder' : 'missing');
+                  return (
+                    <li
+                      key={p.id}
+                      style={{
+                        marginBottom: 8,
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: '#1a1a1a',
+                        border: '1px solid #3a3a32',
+                      }}
                     >
-                      Trocar foto
-                    </button>
-                  </li>
-                ))}
+                      <span style={{ minWidth: 0 }}>
+                        <b style={{ color: '#fff' }}>{p.name}</b>{' '}
+                        <span
+                          className="badge"
+                          style={{
+                            background: reason === 'missing' ? '#3a1515' : '#3a2f0a',
+                            color: reason === 'missing' ? '#ffb4b4' : '#ffd100',
+                            fontSize: 11,
+                          }}
+                        >
+                          {reason === 'missing' ? 'Sem foto' : 'Placeholder'}
+                        </span>
+                        <br />
+                        <code style={{ color: '#ffd100', fontSize: 11 }}>{p.id}</code>
+                        {p.imageUrl ? (
+                          <span style={{ display: 'block', fontSize: 11, opacity: 0.75, wordBreak: 'break-all' }}>
+                            URL atual: {p.imageUrl}
+                          </span>
+                        ) : (
+                          <span style={{ display: 'block', fontSize: 11, opacity: 0.75 }}>
+                            URL atual: (vazia)
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ background: '#ffd100', color: '#111', minHeight: 36 }}
+                        onClick={() => startEditById(p.id)}
+                      >
+                        Trocar foto
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
+          ) : ops ? (
+            <p className="muted" style={{ marginTop: 14, fontSize: 13, color: '#8a8a84' }}>
+              Checklist de fotos: nenhum produto com placeholder/ausente no snapshot.
+            </p>
           ) : null}
           {ops?.time ? (
             <p className="muted" style={{ marginBottom: 0, marginTop: 10, fontSize: 12, color: '#8a8a84' }}>
@@ -3741,8 +3877,16 @@ export default function AdminPage() {
               fontSize: 14,
             }}
           >
-            {placeholderCount} produto(s) sem foto real (vazio ou placehold.co). Edite e envie
-            fotos para a vitrine não parecer demo.
+            {placeholderCount} produto(s) precisam de foto da loja (vazia ou placeholder). Use
+            Trocar foto / Editar — sem inventar imagem.{' '}
+            <button
+              type="button"
+              className="btn ghost"
+              style={{ marginLeft: 8, minHeight: 32, borderColor: '#ffd100', color: '#ffd100' }}
+              onClick={() => void downloadProductsNeedingPhotosCsv()}
+            >
+              Baixar CSV
+            </button>
           </p>
         );
       })()}
@@ -3813,6 +3957,16 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {isPlaceholderImg ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ background: '#ffd100', color: '#111', minHeight: 36 }}
+                      onClick={() => startEdit(p)}
+                    >
+                      Trocar foto
+                    </button>
+                  ) : null}
                   <button type="button" className="btn ghost" onClick={() => startEdit(p)}>
                     Editar
                   </button>
@@ -3875,15 +4029,48 @@ export default function AdminPage() {
         “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
         WhatsApp é wa.me — não envia sozinho.
       </p>
-      <label style={{ display: 'block', maxWidth: 420, marginBottom: 12 }}>
-        <span className="muted" style={{ fontSize: 13 }}>Ir para pedido (publicId / id / cliente na lista carregada)</span>
+      <label style={{ display: 'block', maxWidth: 420, marginBottom: 8 }}>
+        <span className="muted" style={{ fontSize: 13 }}>
+          Busca rápida (publicId / id / cliente / rastreio na lista carregada)
+        </span>
         <input
           value={orderJumpQ}
           onChange={(e) => setOrderJumpQ(e.target.value)}
-          placeholder="Ex.: SCH-… ou e-mail"
+          placeholder="Ex.: SCH-…, e-mail ou rastreio"
           style={{ width: '100%', minHeight: 44 }}
         />
       </label>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {(
+          [
+            { key: 'all', label: 'Filtro ROI: todos' },
+            { key: 'stuck_paid', label: 'Pagos travados (≥24h)' },
+            { key: 'no_shipping', label: 'Sem frete/rastreio (pago→pronto)' },
+          ] as const
+        ).map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            className={orderRoiFilter === f.key ? 'btn' : 'btn ghost'}
+            onClick={() => {
+              setOrderRoiFilter(f.key);
+              if (f.key === 'stuck_paid') selectOpsBucket('paid');
+            }}
+            style={{
+              padding: '6px 10px',
+              fontSize: 12,
+              borderColor: orderRoiFilter === f.key ? '#ffd100' : undefined,
+              background: orderRoiFilter === f.key ? '#0a0a0a' : undefined,
+              color: orderRoiFilter === f.key ? '#ffd100' : undefined,
+            }}
+          >
+            {f.label}
+            {f.key === 'stuck_paid' && ops?.paidAwaitingOrg?.stuckCount != null
+              ? ` (${ops.paidAwaitingOrg.stuckCount})`
+              : ''}
+          </button>
+        ))}
+      </div>
       <p className="ok" style={{ fontSize: 13, marginTop: 0 }}>
         {POST_PAYMENT_OPS_HINT}
       </p>
@@ -4032,6 +4219,15 @@ export default function AdminPage() {
                   <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
                     Cliente pagou — abrir WhatsApp
                   </a>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={busyId === o.id}
+                    onClick={() => void resendStorePaidNotify(o)}
+                    title="POST /admin/orders/:id/notify-paid"
+                  >
+                    Reenviar aviso loja
+                  </button>
                 </div>
               ) : null}
 
@@ -4143,8 +4339,8 @@ export default function AdminPage() {
       })}
       {!filteredOrders.length ? (
         <p className="muted">
-          {orderJumpQ.trim()
-            ? 'Nenhum pedido na lista carregada corresponde à busca.'
+          {orderJumpQ.trim() || orderRoiFilter !== 'all'
+            ? 'Nenhum pedido na lista carregada corresponde à busca/filtro ROI.'
             : orderStatusFilter
               ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
               : 'Nenhum pedido ainda.'}
