@@ -114,6 +114,22 @@ export const ADMIN_QUEUE_BUCKET_LABEL: Record<string, string> = {
   problems: 'Problemas',
 };
 
+/** Status pós-pagamento (alinhado à API POST_PAID_STATUSES) — elegíveis a reenvio aviso loja. */
+export const POST_PAID_STATUSES = [
+  'paid',
+  'organizing',
+  'packing',
+  'ready_for_pickup',
+  'in_transit',
+  'delivered',
+  'separating',
+  'shipped',
+] as const;
+
+export function isPostPaidStatus(status: string): boolean {
+  return (POST_PAID_STATUSES as readonly string[]).includes(status);
+}
+
 /** Pagamento → paid; próximo passo manual: organizing. */
 export const POST_PAYMENT_OPS_HINT =
   'Após o pagamento o pedido fica em Pago. Use “Marcar: Organizando” para iniciar a separação — não há transição automática.';

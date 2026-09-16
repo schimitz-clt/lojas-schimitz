@@ -8,6 +8,7 @@ import {
   adminQueueBucketLabel,
   POST_PAYMENT_OPS_HINT,
   ADMIN_ORDER_QUEUE_BUCKETS,
+  isPostPaidStatus,
 } from '@/lib/order-status';
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
 import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from '@/lib/placeholder-image';
@@ -4125,7 +4126,10 @@ export default function AdminPage() {
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
         const waShipped = orderWa(o, 'shipped');
-        const paidLike = o.status === 'paid' || o.status === 'organizing' || o.status === 'separating';
+        // Early ops banner (Separar / WA pago). Resend button aligns with API POST_PAID_STATUSES.
+        const showEarlyPaidOps =
+          o.status === 'paid' || o.status === 'organizing' || o.status === 'separating';
+        const canResendStorePaidNotify = isPostPaidStatus(o.status);
         const open = openOrderId === o.id;
         const phone = customerPhone(o);
         return (
@@ -4204,21 +4208,29 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {paidLike ? (
+              {canResendStorePaidNotify ? (
                 <div
                   className="ok"
                   style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
                 >
-                  <span>
-                    Cliente pagou — próximo ops: Separar (Organizando) — não é automático.
-                    {o.status === 'paid' && isPaidStuckOrder(o)
-                      ? ` Pedido travado há ${formatStuckHours(hoursSincePaid(o))}.`
-                      : ''}{' '}
-                    Avisar no WhatsApp (e-mail já cobre o cliente, se mail estiver ativo).
-                  </span>
-                  <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
-                    Cliente pagou — abrir WhatsApp
-                  </a>
+                  {showEarlyPaidOps ? (
+                    <span>
+                      Cliente pagou — próximo ops: Separar (Organizando) — não é automático.
+                      {o.status === 'paid' && isPaidStuckOrder(o)
+                        ? ` Pedido travado há ${formatStuckHours(hoursSincePaid(o))}.`
+                        : ''}{' '}
+                      Avisar no WhatsApp (e-mail já cobre o cliente, se mail estiver ativo).
+                    </span>
+                  ) : (
+                    <span className="muted" style={{ fontSize: 13 }}>
+                      Pedido já pago ({orderStatusLabel(o.status)}) — reenviar aviso de venda à loja se o e-mail não chegou.
+                    </span>
+                  )}
+                  {showEarlyPaidOps ? (
+                    <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
+                      Cliente pagou — abrir WhatsApp
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     className="btn ghost"
