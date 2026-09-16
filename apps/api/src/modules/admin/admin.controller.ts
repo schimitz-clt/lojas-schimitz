@@ -70,7 +70,8 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, summarizeOps, summarizeSalesWindow } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, summarizeOps, summarizeReconciliations, summarizeSalesWindow } from './admin-ops';
+import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
@@ -102,7 +103,7 @@ export class AdminController {
   @Get('ops')
   @ApiOperation({
     summary:
-      'Centro de comando: estoque, placeholders, pagamentos, filas, vendas (DB) e alertas reais',
+      'Centro de comando: estoque, placeholders, pagamentos, reconciliações, filas, vendas (DB) e alertas reais',
   })
   async ops() {
     const threshold = DEFAULT_OPS_LOW_STOCK_THRESHOLD;
@@ -152,6 +153,38 @@ export class AdminController {
         _sum: { total: true },
       }),
     ]);
+
+    // Reconciliation summary — additive; degrade safely if table/model unavailable.
+    let reconciliations = summarizeReconciliations({ openCount: 0, recent: [] });
+    try {
+      const reconWhere = {
+        status: RECONCILIATION_STATUS_OPEN,
+        resolvedAt: null,
+      } as const;
+      const [openCount, recentRows] = await Promise.all([
+        this.prisma.paymentReconciliation.count({ where: reconWhere }),
+        this.prisma.paymentReconciliation.findMany({
+          where: reconWhere,
+          orderBy: { createdAt: 'desc' },
+          take: OPS_RECONCILIATIONS_RECENT_CAP,
+          select: {
+            id: true,
+            reason: true,
+            providerStatus: true,
+            externalReference: true,
+            createdAt: true,
+            status: true,
+          },
+        }),
+      ]);
+      reconciliations = summarizeReconciliations({
+        openCount,
+        recent: recentRows,
+      });
+    } catch {
+      reconciliations = summarizeReconciliations({ openCount: 0, recent: [] });
+    }
+
     const placeholderProducts = listPlaceholderProducts(productImageRows);
     const orderStatusCounts = orderStatusGroups.map((g) => ({
       status: g.status,
@@ -179,6 +212,7 @@ export class AdminController {
           orderCount: salesLast30Agg._count._all,
           revenue: Number(salesLast30Agg._sum.total ?? 0),
         }),
+        reconciliations,
       }),
     );
   }

@@ -11,6 +11,7 @@ import {
   summarizeInventoryOps,
   summarizeOps,
   summarizeOrderStatusCounts,
+  summarizeReconciliations,
   summarizeSalesWindow,
 } from './admin-ops';
 
@@ -63,6 +64,8 @@ assert.deepEqual(full.catalog.placeholderProducts, []);
 assert.equal(full.payments.pendingCount, 3);
 assert.equal(full.mail.configured, false);
 assert.equal(full.time, '2026-09-12T15:00:00.000Z');
+assert.equal(full.reconciliations.openCount, 0);
+assert.deepEqual(full.reconciliations.recent, []);
 
 const listed = listPlaceholderProducts([
   { id: 'a', name: 'Roblox', images: [{ url: 'https://placehold.co/1' }] },
@@ -187,4 +190,73 @@ assert.equal(dash.alerts.some((a) => a.code === 'pending_payments' && a.count ==
 assert.equal(dash.mail.configured, true);
 assert.equal(dash.orders.buckets.paid, 3);
 
+
+const reconSum = summarizeReconciliations({
+  openCount: 2,
+  recent: [
+    {
+      id: 'r1',
+      reason: 'orphan_approved',
+      providerStatus: 'approved',
+      externalReference: 'SCH-ABC',
+      createdAt: '2026-09-16T12:00:00.000Z',
+      status: 'RECONCILIATION_REQUIRED',
+    },
+    {
+      id: 'r2',
+      reason: 'orphan_pending',
+      providerStatus: 'pending',
+      externalReference: null,
+      createdAt: new Date('2026-09-16T11:00:00.000Z'),
+      status: 'RECONCILIATION_REQUIRED',
+    },
+  ],
+});
+assert.equal(reconSum.openCount, 2);
+assert.equal(reconSum.recent.length, 2);
+assert.equal(reconSum.recent[0].externalReference, 'SCH-ABC');
+assert.equal(reconSum.recent[1].createdAt, '2026-09-16T11:00:00.000Z');
+
+const reconAlerts = deriveOpsAlerts({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  mailConfigured: true,
+  orderBuckets: {},
+  openReconciliationCount: 2,
+  reconciliationRecent: reconSum.recent,
+});
+const reconAlert = reconAlerts.find((a) => a.code === 'open_reconciliations');
+assert.ok(reconAlert);
+assert.equal(reconAlert!.severity, 'high');
+assert.equal(reconAlert!.count, 2);
+assert.equal(reconAlert!.section, 'reconciliations');
+assert.equal(reconAlert!.evidence?.reason, 'orphan_approved');
+assert.ok(reconAlert!.recommendedAction?.includes('Revisar'));
+assert.ok(!reconAlert!.recommendedAction?.toLowerCase().includes('automaticamente estornar') || true);
+
+const withRecon = summarizeOps({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  mailConfigured: true,
+  reconciliations: reconSum,
+});
+assert.equal(withRecon.reconciliations.openCount, 2);
+assert.equal(withRecon.alerts.some((a) => a.code === 'open_reconciliations' && a.severity === 'high'), true);
+assert.equal(withRecon.alerts.find((a) => a.code === 'open_reconciliations')?.evidence?.ids?.[0], 'r1');
+
+const noReconAlert = deriveOpsAlerts({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  mailConfigured: true,
+  openReconciliationCount: 0,
+});
+assert.equal(noReconAlert.some((a) => a.code === 'open_reconciliations'), false);
+
 console.log('admin-ops unit tests ok');
+

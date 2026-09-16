@@ -23,6 +23,15 @@ type AdminOrder = {
   items?: { name: string; qty: number }[];
   user?: { id: string; name: string; email: string; phone?: string | null } | null;
   addressSnap?: { city?: string; uf?: string; label?: string; phone?: string | null } | null;
+  /** Present on GET /admin/orders include — payment evidence only (no invent). */
+  payments?: Array<{
+    id: string;
+    status: string;
+    method?: string;
+    provider?: string;
+    externalId?: string | null;
+    amount?: number | string;
+  }> | null;
 };
 
 type AdminSeller = {
@@ -321,10 +330,37 @@ type AdminOpsSalesWindow = {
 
 type AdminOpsAlert = {
   code: string;
-  severity: 'info' | 'warn' | 'critical';
+  severity: 'info' | 'warn' | 'high' | 'critical';
   message: string;
   count: number;
   queueBucket?: string;
+  section?: 'reconciliations' | 'orders' | 'inventory' | 'catalog';
+  evidence?: {
+    reason?: string;
+    providerStatus?: string;
+    externalReference?: string | null;
+    ids?: string[];
+  };
+  recommendedAction?: string;
+};
+
+type AdminOpsReconciliationRow = {
+  id: string;
+  reason: string;
+  providerStatus: string;
+  externalReference: string | null;
+  createdAt: string;
+  status: string;
+};
+
+type AdminPaymentReconciliationItem = AdminOpsReconciliationRow & {
+  provider?: string;
+  externalId?: string;
+  paymentEventId?: string | null;
+  publicId?: string | null;
+  amount?: number | null;
+  updatedAt?: string;
+  resolvedAt?: string | null;
 };
 
 type AdminOpsSnapshot = {
@@ -339,6 +375,10 @@ type AdminOpsSnapshot = {
     placeholderProducts?: { id: string; name: string }[];
   };
   payments?: { pendingCount: number };
+  reconciliations?: {
+    openCount: number;
+    recent: AdminOpsReconciliationRow[];
+  };
   mail?: { configured: boolean };
   orders?: {
     byStatus: Record<string, number>;
@@ -460,6 +500,9 @@ export default function AdminPage() {
   const [customerDetailBusy, setCustomerDetailBusy] = useState(false);
   const [ops, setOps] = useState<AdminOpsSnapshot | null>(null);
   const [opsBusy, setOpsBusy] = useState(false);
+  const [reconciliations, setReconciliations] = useState<AdminPaymentReconciliationItem[]>([]);
+  const [reconBusy, setReconBusy] = useState(false);
+  const [orderJumpQ, setOrderJumpQ] = useState('');
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -571,6 +614,43 @@ export default function AdminPage() {
     });
   }, []);
 
+  const loadReconciliations = useCallback(async () => {
+    const u = currentUser();
+    if (!u || u.role !== 'admin') return;
+    setReconBusy(true);
+    try {
+      const data = await api<{ items: AdminPaymentReconciliationItem[] }>(
+        '/admin/payments/reconciliations?limit=50',
+      );
+      setReconciliations(data?.items || []);
+    } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
+      console.warn('admin reconciliations', e?.message || e);
+    } finally {
+      setReconBusy(false);
+    }
+  }, []);
+
+  /** Deep-link alert → section or order queue (review only). */
+  const selectOpsAlert = useCallback(
+    (a: AdminOpsAlert) => {
+      if (a.section === 'reconciliations') {
+        requestAnimationFrame(() => {
+          const el = document.getElementById('admin-reconciliations');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        void loadReconciliations();
+        return;
+      }
+      if (a.queueBucket) selectOpsBucket(a.queueBucket);
+    },
+    [loadReconciliations, selectOpsBucket],
+  );
+
   async function openCustomer(id: string) {
     setCustomerDetailBusy(true);
     setErr('');
@@ -622,7 +702,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     void loadOps();
-  }, [loadOps]);
+    void loadReconciliations();
+  }, [loadOps, loadReconciliations]);
 
   const editingLabel = useMemo(
     () => (editingId ? 'Editar produto' : 'Cadastrar produto'),
@@ -634,6 +715,24 @@ export default function AdminPage() {
       .filter((p) => (p.inventory?.qtyOnHand ?? 0) <= lowStockThreshold)
       .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
   }, [products, lowStockThreshold]);
+
+  /** Lightweight client jump by publicId / order id (loaded list only — no public search). */
+  const filteredOrders = useMemo(() => {
+    const q = orderJumpQ.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.publicId?.toLowerCase().includes(q) ||
+        o.id?.toLowerCase().includes(q) ||
+        o.user?.email?.toLowerCase().includes(q) ||
+        o.user?.name?.toLowerCase().includes(q),
+    );
+  }, [orders, orderJumpQ]);
+
+  const attentionAlerts = useMemo(() => {
+    const list = ops?.alerts || [];
+    return list.filter((a) => a.severity === 'critical' || a.severity === 'high' || a.severity === 'warn');
+  }, [ops?.alerts]);
 
   function mapProductImages(images?: AdminProduct['images']): FormImage[] {
     const list = (images || [])
@@ -1540,6 +1639,84 @@ export default function AdminPage() {
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
 
+      {attentionAlerts.length ? (
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 40,
+            marginBottom: 12,
+            padding: '10px 12px',
+            background: '#0a0a0a',
+            border: '2px solid #ffd100',
+            borderRadius: 10,
+            color: '#f5f5f3',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          }}
+        >
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ color: '#ffd100', letterSpacing: 0.4, fontSize: 13 }}>
+              ATENÇÃO AGORA
+            </strong>
+            <span className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>
+              Revisar · sem execução automática
+            </span>
+          </div>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+            {attentionAlerts.slice(0, 6).map((a) => {
+              const bg =
+                a.severity === 'critical' || a.severity === 'high'
+                  ? '#3a1515'
+                  : '#3a2f0a';
+              const fg =
+                a.severity === 'critical' || a.severity === 'high' ? '#ffb4b4' : '#ffd100';
+              return (
+                <li key={`attn-${a.code}`}>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => selectOpsAlert(a)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      background: bg,
+                      color: fg,
+                      borderColor: fg,
+                      minHeight: 44,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8 }}>
+                      {a.severity}
+                    </span>
+                    {a.message}
+                    {a.section === 'reconciliations'
+                      ? ' → Reconciliações'
+                      : a.queueBucket
+                        ? ' → abrir fila'
+                        : ''}
+                    {a.evidence?.reason ? (
+                      <span style={{ display: 'block', fontSize: 11, opacity: 0.85, marginTop: 4 }}>
+                        Evidência: {a.evidence.reason}
+                        {a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''}
+                        {a.evidence.externalReference
+                          ? ` · ref ${a.evidence.externalReference}`
+                          : ''}
+                      </span>
+                    ) : null}
+                    {a.recommendedAction ? (
+                      <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                        Ação: {a.recommendedAction}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       <section
         className="card"
         style={{
@@ -1557,14 +1734,17 @@ export default function AdminPage() {
               type="button"
               className="btn ghost"
               disabled={opsBusy}
-              onClick={() => void loadOps()}
+              onClick={() => {
+                void loadOps();
+                void loadReconciliations();
+              }}
               style={{ borderColor: '#ffd100', color: '#ffd100' }}
             >
               {opsBusy ? 'Atualizando…' : 'Atualizar'}
             </button>
           </div>
           <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
-            Dados reais de `GET /admin/ops` (DB/API). Sem métricas inventadas. Clique no bucket → filtra a fila de pedidos.
+            Dados reais de `GET /admin/ops` e reconciliações. Sem métricas inventadas. Alertas = revisão humana.
           </p>
 
           <div
@@ -1607,6 +1787,28 @@ export default function AdminPage() {
               <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pag. pendentes</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.payments?.pendingCount ?? '—'}</div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('admin-reconciliations');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                void loadReconciliations();
+              }}
+              style={{
+                background: (ops?.reconciliations?.openCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
+                border: '1px solid #ffd100',
+                borderRadius: 8,
+                padding: '10px 12px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                color: 'inherit',
+              }}
+            >
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Reconciliações</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: (ops?.reconciliations?.openCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100' }}>
+                {ops?.reconciliations?.openCount ?? '—'}
+              </div>
+            </button>
             <div style={{ background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
               <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Foto placeholder</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.catalog?.placeholderProductCount ?? '—'}</div>
@@ -1630,18 +1832,22 @@ export default function AdminPage() {
               </p>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
                 {ops.alerts.map((a) => {
+                  const clickable = Boolean(a.queueBucket || a.section);
                   const bg =
-                    a.severity === 'critical' ? '#3a1515' : a.severity === 'warn' ? '#3a2f0a' : '#1a1a1a';
-                  const fg = a.severity === 'critical' ? '#ffb4b4' : '#ffd100';
+                    a.severity === 'critical' || a.severity === 'high'
+                      ? '#3a1515'
+                      : a.severity === 'warn'
+                        ? '#3a2f0a'
+                        : '#1a1a1a';
+                  const fg =
+                    a.severity === 'critical' || a.severity === 'high' ? '#ffb4b4' : '#ffd100';
                   return (
                     <li key={a.code}>
                       <button
                         type="button"
                         className="btn ghost"
-                        onClick={() => {
-                          if (a.queueBucket) selectOpsBucket(a.queueBucket);
-                        }}
-                        disabled={!a.queueBucket}
+                        onClick={() => selectOpsAlert(a)}
+                        disabled={!clickable}
                         style={{
                           width: '100%',
                           textAlign: 'left',
@@ -1649,15 +1855,24 @@ export default function AdminPage() {
                           background: bg,
                           color: fg,
                           borderColor: fg,
-                          opacity: a.queueBucket ? 1 : 0.95,
-                          cursor: a.queueBucket ? 'pointer' : 'default',
+                          opacity: clickable ? 1 : 0.95,
+                          cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
                         <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8, opacity: 0.85 }}>
                           {a.severity}
                         </span>
                         {a.message}
-                        {a.queueBucket ? ' → abrir fila' : ''}
+                        {a.section === 'reconciliations'
+                          ? ' → Reconciliações'
+                          : a.queueBucket
+                            ? ' → abrir fila'
+                            : ''}
+                        {a.recommendedAction ? (
+                          <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginTop: 4 }}>
+                            {a.recommendedAction}
+                          </span>
+                        ) : null}
                       </button>
                     </li>
                   );
@@ -1755,6 +1970,91 @@ export default function AdminPage() {
               Snapshot: {ops.time}
             </p>
           ) : null}
+        </div>
+      </section>
+
+      <section
+        id="admin-reconciliations"
+        className="card"
+        style={{
+          marginTop: 16,
+          marginBottom: 28,
+          borderColor: '#1a1a1a',
+          background: '#0a0a0a',
+          color: '#f5f5f3',
+        }}
+      >
+        <div className="body">
+          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Reconciliações</h2>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={reconBusy}
+              onClick={() => void loadReconciliations()}
+              style={{ borderColor: '#ffd100', color: '#ffd100' }}
+            >
+              {reconBusy ? 'Atualizando…' : 'Atualizar lista'}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
+            Webhooks órfãos / pagamentos sem pedido local (`GET /admin/payments/reconciliations`).
+            Somente revisão humana — sem estorno, cancelamento ou ajuste de estoque automático.
+          </p>
+          <p className="muted" style={{ fontSize: 13, color: '#f5e6a3', marginTop: 0 }}>
+            Abertas no snapshot: {ops?.reconciliations?.openCount ?? '—'} · listadas: {reconciliations.length}
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {(reconciliations.length
+              ? reconciliations
+              : (ops?.reconciliations?.recent || []).map((r) => ({
+                  ...r,
+                  provider: undefined,
+                  externalId: undefined,
+                  publicId: null,
+                  amount: null,
+                }))
+            ).map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: '#1a1a1a',
+                  border: '1px solid #ffd100',
+                  fontSize: 13,
+                }}
+              >
+                <div className="row" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <b style={{ color: '#ffd100' }}>{r.reason || 'reconciliação'}</b>{' '}
+                    <span className="badge" style={{ background: '#3a1515', color: '#ffb4b4' }}>
+                      {r.status}
+                    </span>
+                    <div className="muted" style={{ fontSize: 12, color: '#b0b0a8', marginTop: 4 }}>
+                      providerStatus: {r.providerStatus || '—'}
+                      {r.externalReference ? ` · ref ${r.externalReference}` : ''}
+                      {'publicId' in r && r.publicId ? ` · publicId ${r.publicId}` : ''}
+                      {'externalId' in r && r.externalId ? ` · ext ${r.externalId}` : ''}
+                      {'amount' in r && r.amount != null ? ` · ${brl(Number(r.amount))}` : ''}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+                      id {r.id} · {r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '—'}
+                    </div>
+                  </div>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#f5e6a3' }}>
+                  Ação recomendada: conferir no provedor (ref/publicId) e decidir manualmente. Não executar
+                  estorno/cancelamento daqui.
+                </p>
+              </div>
+            ))}
+            {!reconciliations.length && !(ops?.reconciliations?.recent?.length) ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13, color: '#8a8a84' }}>
+                Nenhuma reconciliação aberta.
+              </p>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -3427,13 +3727,22 @@ export default function AdminPage() {
         {!products.length ? <p className="muted">Nenhum produto ainda. Cadastre o primeiro acima.</p> : null}
       </div>
 
-      <h3 id="admin-orders-queue">Pedidos ({orders.length})</h3>
+      <h3 id="admin-orders-queue">Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})</h3>
       <p className="muted" style={{ fontSize: 14 }}>
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
         Ao marcar Em trânsito, informe o código de rastreio manual (opcional). Sem integração de transportadora.
         WhatsApp é wa.me — não envia sozinho.
       </p>
+      <label style={{ display: 'block', maxWidth: 420, marginBottom: 12 }}>
+        <span className="muted" style={{ fontSize: 13 }}>Ir para pedido (publicId / id / cliente na lista carregada)</span>
+        <input
+          value={orderJumpQ}
+          onChange={(e) => setOrderJumpQ(e.target.value)}
+          placeholder="Ex.: SCH-… ou e-mail"
+          style={{ width: '100%', minHeight: 44 }}
+        />
+      </label>
       <p className="ok" style={{ fontSize: 13, marginTop: 0 }}>
         {POST_PAYMENT_OPS_HINT}
       </p>
@@ -3483,7 +3792,7 @@ export default function AdminPage() {
           );
         })}
       </div>
-      {orders.map((o) => {
+      {filteredOrders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
@@ -3562,6 +3871,10 @@ export default function AdminPage() {
               {open ? (
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                   <div className="muted" style={{ fontSize: 13, display: 'grid', gap: 4 }}>
+                    <div>
+                      <b style={{ color: 'var(--text)' }}>publicId:</b> {o.publicId}{' '}
+                      <span style={{ opacity: 0.7 }}>(id {o.id})</span>
+                    </div>
                     <div><b style={{ color: 'var(--text)' }}>Cliente:</b> {o.user?.name || '—'}</div>
                     <div><b style={{ color: 'var(--text)' }}>E-mail:</b> {o.user?.email || '—'}</div>
                     <div><b style={{ color: 'var(--text)' }}>WhatsApp:</b> {phone || 'não cadastrado'}</div>
@@ -3577,6 +3890,24 @@ export default function AdminPage() {
                       {o.trackingCode || '—'}
                       {o.carrier ? ` · ${o.carrier}` : ''}
                     </div>
+                    <div style={{ marginTop: 6 }}>
+                      <b style={{ color: 'var(--text)' }}>Pagamento(s):</b>
+                      {o.payments?.length ? (
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                          {o.payments.map((pay) => (
+                            <li key={pay.id}>
+                              {pay.status}
+                              {pay.method ? ` · ${pay.method}` : ''}
+                              {pay.provider ? ` · ${pay.provider}` : ''}
+                              {pay.externalId ? ` · ext ${pay.externalId}` : ''}
+                              {pay.amount != null ? ` · ${brl(Number(pay.amount))}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span> — (nenhum registro na API)</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -3584,11 +3915,13 @@ export default function AdminPage() {
           </div>
         );
       })}
-      {!orders.length ? (
+      {!filteredOrders.length ? (
         <p className="muted">
-          {orderStatusFilter
-            ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
-            : 'Nenhum pedido ainda.'}
+          {orderJumpQ.trim()
+            ? 'Nenhum pedido na lista carregada corresponde à busca.'
+            : orderStatusFilter
+              ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
+              : 'Nenhum pedido ainda.'}
         </p>
       ) : null}
     </div>

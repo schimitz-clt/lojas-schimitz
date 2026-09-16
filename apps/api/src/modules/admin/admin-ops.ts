@@ -199,7 +199,23 @@ export function summarizeSalesWindow(input: {
   };
 }
 
-export type OpsAlertSeverity = 'info' | 'warn' | 'critical';
+export type OpsAlertSeverity = 'info' | 'warn' | 'high' | 'critical';
+
+export type OpsAlertSection = 'reconciliations' | 'orders' | 'inventory' | 'catalog';
+
+export type OpsReconciliationRecent = {
+  id: string;
+  reason: string;
+  providerStatus: string;
+  externalReference: string | null;
+  createdAt: string;
+  status: string;
+};
+
+export type OpsReconciliationsSummary = {
+  openCount: number;
+  recent: OpsReconciliationRecent[];
+};
 
 export type OpsAlert = {
   code: string;
@@ -208,12 +224,51 @@ export type OpsAlert = {
   count: number;
   /** Optional queue bucket to filter when clicking the alert in admin UI. */
   queueBucket?: AdminOrderQueueBucket;
+  /** Optional admin UI section deep-link (e.g. reconciliations list). */
+  section?: OpsAlertSection;
+  /** Compact evidence for human review — never secrets. */
+  evidence?: {
+    reason?: string;
+    providerStatus?: string;
+    externalReference?: string | null;
+    ids?: string[];
+  };
+  /** Human-in-the-loop hint only — never auto-execute. */
+  recommendedAction?: string;
 };
 
 /**
  * Derive actionable ops alerts from real snapshot fields only.
  * No invented metrics — empty/zero conditions yield no alert.
  */
+/** Cap recent reconciliations embedded in ops snapshot (command center). */
+export const OPS_RECONCILIATIONS_RECENT_CAP = 10;
+
+/** Normalize open reconciliation rows for ops snapshot — no secrets. */
+export function summarizeReconciliations(input: {
+  openCount: number;
+  recent?: Array<{
+    id: string;
+    reason: string;
+    providerStatus: string;
+    externalReference?: string | null;
+    createdAt: string | Date;
+    status: string;
+  }>;
+}): OpsReconciliationsSummary {
+  const openCount = Math.max(0, Math.floor(Number(input.openCount) || 0));
+  const recent = (input.recent ?? []).slice(0, OPS_RECONCILIATIONS_RECENT_CAP).map((r) => ({
+    id: String(r.id),
+    reason: String(r.reason || ''),
+    providerStatus: String(r.providerStatus || ''),
+    externalReference: r.externalReference == null ? null : String(r.externalReference),
+    createdAt:
+      r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt || ''),
+    status: String(r.status || ''),
+  }));
+  return { openCount, recent };
+}
+
 export function deriveOpsAlerts(input: {
   lowStockCount: number;
   outOfStockCount: number;
@@ -221,6 +276,10 @@ export function deriveOpsAlerts(input: {
   pendingPaymentCount: number;
   mailConfigured?: boolean;
   orderBuckets?: Partial<Record<AdminOrderQueueBucket, number>>;
+  /** Open PaymentReconciliation rows — real DB count only. */
+  openReconciliationCount?: number;
+  /** Optional sample for evidence (capped). */
+  reconciliationRecent?: OpsReconciliationRecent[];
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -231,6 +290,7 @@ export function deriveOpsAlerts(input: {
   const problems = Math.max(0, Number(buckets.problems) || 0);
   const paid = Math.max(0, Number(buckets.paid) || 0);
   const awaiting = Math.max(0, Number(buckets.awaiting_payment) || 0);
+  const openRecon = Math.max(0, Number(input.openReconciliationCount) || 0);
 
   if (out > 0) {
     alerts.push({
@@ -292,6 +352,31 @@ export function deriveOpsAlerts(input: {
       count: placeholders,
     });
   }
+  if (openRecon > 0) {
+    const sample = (input.reconciliationRecent ?? []).slice(0, 3);
+    const moneyRisk = sample.some((r) => {
+      const s = String(r.providerStatus || '').toLowerCase();
+      return s === 'approved' || s === 'paid';
+    });
+    alerts.push({
+      code: 'open_reconciliations',
+      // Always high: money-at-risk orphans need human review; moneyRisk only enriches evidence.
+      severity: 'high',
+      message: `${openRecon} reconciliação(ões) de pagamento aberta(s) — revisão humana${
+        moneyRisk ? ' (possível captura sem Payment local)' : ''
+      }`,
+      count: openRecon,
+      section: 'reconciliations',
+      evidence: {
+        reason: sample[0]?.reason,
+        providerStatus: sample[0]?.providerStatus,
+        externalReference: sample[0]?.externalReference ?? null,
+        ids: sample.map((r) => r.id),
+      },
+      recommendedAction:
+        'Revisar lista Reconciliações: conferir externalReference/publicId no provedor. Não estornar/cancelar automaticamente.',
+    });
+  }
   if (input.mailConfigured === false) {
     alerts.push({
       code: 'mail_not_configured',
@@ -318,6 +403,8 @@ export function summarizeOps(input: {
   /** Optional sales windows already aggregated from DB (no fake numbers). */
   salesToday?: OpsSalesWindow;
   salesLast30d?: OpsSalesWindow;
+  /** Optional open PaymentReconciliation summary (real DB only). */
+  reconciliations?: OpsReconciliationsSummary;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -328,6 +415,9 @@ export function summarizeOps(input: {
   const placeholderProducts = input.placeholderProducts ?? [];
   const orders = summarizeOrderStatusCounts(input.orderStatusCounts ?? []);
   const mailConfigured = Boolean(input.mailConfigured);
+  const reconciliations = input.reconciliations
+    ? summarizeReconciliations(input.reconciliations)
+    : summarizeReconciliations({ openCount: 0, recent: [] });
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
     outOfStockCount: input.outOfStockCount,
@@ -335,6 +425,8 @@ export function summarizeOps(input: {
     pendingPaymentCount: input.pendingPaymentCount,
     mailConfigured,
     orderBuckets: orders.buckets,
+    openReconciliationCount: reconciliations.openCount,
+    reconciliationRecent: reconciliations.recent,
   });
   return {
     ...base,
@@ -345,6 +437,7 @@ export function summarizeOps(input: {
     payments: {
       pendingCount: input.pendingPaymentCount,
     },
+    reconciliations,
     mail: {
       configured: mailConfigured,
     },
