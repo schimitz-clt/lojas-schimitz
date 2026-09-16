@@ -1,0 +1,38 @@
+# Avisos de venda paga — Resend / STORE_NOTIFY / MAIL_FROM
+
+Data: 2026-09-16 (America/Sao_Paulo)
+
+## Fluxo (código)
+
+1. Pagamento aprovado → `PaymentsService.notifyCustomerPaid` **ou** `OrdersService.markPaid`
+2. Cliente: in-app `order_paid` + e-mail `mail.notifyOrderPaid` (se tiver e-mail)
+3. Loja: `NotificationsService.notifyStoreOfPaidOrder`
+   - in-app para **todos** os admins ativos
+   - e-mail para `resolvePaidSaleEmailRecipients()` = admins ativos no DB ∪ `STORE_NOTIFY_EMAIL` ∪ `ADMIN_EMAIL`
+4. Reenvio manual (ops): `POST /admin/orders/:id/notify-paid` (pedido já pós-pago)
+
+## Variáveis
+
+| Env | Papel |
+|---|---|
+| `MAIL_FROM` | Remetente (ex. `Lojas Schimitz <noreply@…>`). **Não** é destinatário da loja. |
+| `RESEND_API_KEY` | Preferido no Railway (HTTPS). Alternativa: SMTP dual-use Resend. |
+| `SMTP_HOST` / `SMTP_PASS` | Alternativa SMTP; se host Resend + pass `re_…`, API usa HTTPS. |
+| `STORE_NOTIFY_EMAIL` | Destinatário(s) da loja (CSV). **Fonte de verdade** do dono. |
+| `ADMIN_EMAIL` | Fallback / promoção a admin ativo no boot. |
+
+Sem `MAIL_FROM` + (`RESEND_API_KEY` **ou** `SMTP_HOST`): mail provider **off** — API **não quebra** pagamento; só log + in-app.
+
+## O que NÃO fazer
+
+- Não colocar `noreply@` em `STORE_NOTIFY_EMAIL`
+- Não esperar que `MAIL_FROM` receba o aviso de venda (código ignora noreply e não usa MAIL_FROM como inbox)
+- Não usar `PAYMENTS_PROVIDER=null` / NullProvider em produção
+
+## Validação produção
+
+1. Railway API: `RESEND_API_KEY` + `MAIL_FROM` + `STORE_NOTIFY_EMAIL` setados
+2. `GET /admin/ops` → `mail.configured: true`
+3. Pedido pago de teste → e-mail cliente + e-mail loja + in-app admin
+4. Se falhar: logs `notifyStoreOfPaidOrder` / `mail provider mode=off`
+5. Admin: botão **Reenviar aviso loja** no card do pedido

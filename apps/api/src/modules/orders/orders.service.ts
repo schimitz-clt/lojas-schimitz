@@ -21,6 +21,7 @@ import {
   orderStatusLabel,
   type AdminFulfillmentTargetStatus,
   canTransition,
+  POST_PAID_STATUSES,
 } from '../../common/order-status';
 import { MailService } from '../mail/mail.service';
 import { CouponsService } from '../coupons/coupons.service';
@@ -422,11 +423,22 @@ export class OrdersService {
         customerName: paid.user?.name,
       });
       if (paid.user?.email) {
-        await this.mail.notifyOrderPaid(paid.user.email, {
-          publicId: paid.publicId,
-          total: Number(paid.total),
-          customerName: paid.user.name,
-        }).catch(() => undefined);
+        try {
+          const mailResult = await this.mail.notifyOrderPaid(paid.user.email, {
+            publicId: paid.publicId,
+            total: Number(paid.total),
+            customerName: paid.user.name,
+          });
+          if (!mailResult?.sent) {
+            this.log.warn(
+              `markPaid customer mail not sent order=${paid.publicId} reason=${mailResult?.reason || 'unknown'} — check MAIL_FROM + RESEND_API_KEY|SMTP`,
+            );
+          }
+        } catch (e: any) {
+          this.log.error(`markPaid customer mail falhou order=${paid.publicId}: ${e?.message || e}`);
+        }
+      } else {
+        this.log.warn(`markPaid: sem e-mail do cliente order=${paid.publicId}`);
       }
     }
     return paid;
@@ -441,15 +453,8 @@ export class OrdersService {
       include: { user: { select: { email: true, name: true } } },
     });
     if (!order) throw new NotFoundException('Pedido não encontrado');
-    const paidLike = [
-      'paid',
-      'organizing',
-      'packing',
-      'shipped',
-      'out_for_delivery',
-      'delivered',
-    ];
-    if (!paidLike.includes(order.status)) {
+    const paidLike = new Set<string>(POST_PAID_STATUSES);
+    if (!paidLike.has(order.status)) {
       throw new BadRequestException({
         message: 'Pedido ainda não está pago — não reenvia aviso de venda',
         code: 'ORDER_NOT_PAID',

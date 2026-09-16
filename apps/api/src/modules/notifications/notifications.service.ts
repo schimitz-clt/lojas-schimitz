@@ -301,10 +301,20 @@ export class NotificationsService implements OnModuleInit {
 
     let emailsAttempted = 0;
     try {
+      if (!this.mail.isConfigured()) {
+        this.log.warn(
+          `notifyStoreOfPaidOrder: mail provider off (MAIL_FROM + RESEND_API_KEY|SMTP ausentes) — in-app ainda pode ser criada (${opts.publicId})`,
+        );
+      }
       const recipients = await this.resolvePaidSaleEmailRecipients();
       for (const to of recipients) {
         emailsAttempted += 1;
-        await this.mail.notifyAdminOrderPaid(to, mailCtx);
+        const r = await this.mail.notifyAdminOrderPaid(to, mailCtx);
+        if (!r?.sent) {
+          this.log.warn(
+            `notifyStoreOfPaidOrder: e-mail não enviado to=*** reason=${r?.reason || 'unknown'} order=${opts.publicId}`,
+          );
+        }
       }
       if (recipients.length === 0) {
         this.log.warn(
