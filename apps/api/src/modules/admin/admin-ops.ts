@@ -244,6 +244,93 @@ export type OpsAlert = {
 /** Cap recent reconciliations embedded in ops snapshot (command center). */
 export const OPS_RECONCILIATIONS_RECENT_CAP = 10;
 
+/** Hours a paid order may wait before ops treats it as stuck awaiting organization. */
+export const PAID_STUCK_HOURS = 24;
+
+/** Cap stuck publicIds/ids embedded in ops alerts (command center evidence). */
+export const PAID_STUCK_IDS_CAP = 20;
+
+export type PaidAwaitingOrgOrderRef = {
+  id: string;
+  publicId: string;
+  /** Prefer statusHistory paid timestamp when available; else createdAt. */
+  since: string | Date;
+};
+
+export type PaidAwaitingOrgSummary = {
+  stuckHoursThreshold: number;
+  paidAwaitingCount: number;
+  stuckCount: number;
+  stuckPublicIds: string[];
+  stuckIds: string[];
+  /** Oldest stuck age in whole hours (floor); null when none stuck. */
+  oldestStuckHours: number | null;
+};
+
+/** Elapsed hours since `since` (non-negative; invalid dates → 0). */
+export function hoursSince(since: string | Date, now: Date = new Date()): number {
+  const t = since instanceof Date ? since.getTime() : new Date(since).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, (now.getTime() - t) / (1000 * 60 * 60));
+}
+
+export function isPaidStuck(
+  since: string | Date,
+  thresholdHours: number = PAID_STUCK_HOURS,
+  now: Date = new Date(),
+): boolean {
+  return hoursSince(since, now) >= thresholdHours;
+}
+
+/** Severity for stuck paid-awaiting-org: high at threshold, critical at 2× or many. */
+export function paidStuckSeverity(
+  stuckCount: number,
+  oldestStuckHours: number | null,
+  thresholdHours: number = PAID_STUCK_HOURS,
+): OpsAlertSeverity {
+  if (stuckCount <= 0) return 'info';
+  const oldest = oldestStuckHours ?? 0;
+  if (oldest >= thresholdHours * 2 || stuckCount >= 5) return 'critical';
+  if (oldest >= thresholdHours || stuckCount >= 1) return 'high';
+  return 'warn';
+}
+
+/**
+ * Summarize paid orders still awaiting organization (status === paid).
+ * Pure — no DB. `since` should be paidAt when known, else createdAt.
+ */
+export function summarizePaidAwaitingOrg(input: {
+  orders: PaidAwaitingOrgOrderRef[];
+  thresholdHours?: number;
+  now?: Date;
+  idsCap?: number;
+}): PaidAwaitingOrgSummary {
+  const thresholdHours = input.thresholdHours ?? PAID_STUCK_HOURS;
+  const now = input.now ?? new Date();
+  const idsCap = input.idsCap ?? PAID_STUCK_IDS_CAP;
+  const paidAwaitingCount = input.orders.length;
+  const stuck = input.orders
+    .map((o) => ({
+      ...o,
+      hours: hoursSince(o.since, now),
+    }))
+    .filter((o) => o.hours >= thresholdHours)
+    .sort((a, b) => b.hours - a.hours);
+  const stuckPublicIds = stuck.slice(0, idsCap).map((o) => String(o.publicId));
+  const stuckIds = stuck.slice(0, idsCap).map((o) => String(o.id));
+  const oldestStuckHours =
+    stuck.length === 0 ? null : Math.floor(stuck[0]!.hours);
+  return {
+    stuckHoursThreshold: thresholdHours,
+    paidAwaitingCount,
+    stuckCount: stuck.length,
+    stuckPublicIds,
+    stuckIds,
+    oldestStuckHours,
+  };
+}
+
+
 /** Normalize open reconciliation rows for ops snapshot — no secrets. */
 export function summarizeReconciliations(input: {
   openCount: number;
@@ -280,6 +367,8 @@ export function deriveOpsAlerts(input: {
   openReconciliationCount?: number;
   /** Optional sample for evidence (capped). */
   reconciliationRecent?: OpsReconciliationRecent[];
+  /** Paid (status=paid) still awaiting organization — stuck slice. */
+  paidAwaitingOrg?: PaidAwaitingOrgSummary;
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -330,9 +419,36 @@ export function deriveOpsAlerts(input: {
     alerts.push({
       code: 'paid_needs_organizing',
       severity: 'warn',
-      message: `${paid} pedido(s) pago(s) aguardando organizing`,
+      message: `${paid} pedido(s) pago(s) aguardando organização`,
       count: paid,
       queueBucket: 'paid',
+      recommendedAction:
+        'Abrir fila Pagos → Separar (Organizando). Pagamento não avança sozinho.',
+    });
+  }
+  const paidOrg = input.paidAwaitingOrg;
+  const stuckCount = Math.max(0, Number(paidOrg?.stuckCount) || 0);
+  if (stuckCount > 0 && paidOrg) {
+    const threshold = paidOrg.stuckHoursThreshold ?? PAID_STUCK_HOURS;
+    const oldest = paidOrg.oldestStuckHours;
+    const sev = paidStuckSeverity(stuckCount, oldest, threshold);
+    alerts.push({
+      code: 'paid_stuck_awaiting_org',
+      severity: sev,
+      message: `${stuckCount} pedido(s) pago(s) travado(s) há ≥${threshold}h sem organização${
+        oldest != null ? ` (mais antigo ~${oldest}h)` : ''
+      }`,
+      count: stuckCount,
+      queueBucket: 'paid',
+      evidence: {
+        reason: `paid_stuck_${threshold}h`,
+        ids: (paidOrg.stuckPublicIds?.length
+          ? paidOrg.stuckPublicIds
+          : paidOrg.stuckIds
+        ).slice(0, PAID_STUCK_IDS_CAP),
+      },
+      recommendedAction:
+        'Separar agora (Organizando). Se a loja não recebeu aviso de venda, use Reenviar e-mail de pago / confira STORE_NOTIFY_EMAIL.',
     });
   }
   if (problems > 0) {
@@ -405,6 +521,8 @@ export function summarizeOps(input: {
   salesLast30d?: OpsSalesWindow;
   /** Optional open PaymentReconciliation summary (real DB only). */
   reconciliations?: OpsReconciliationsSummary;
+  /** Optional paid-awaiting-org stuck summary (real DB rows only). */
+  paidAwaitingOrg?: PaidAwaitingOrgSummary;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -418,6 +536,9 @@ export function summarizeOps(input: {
   const reconciliations = input.reconciliations
     ? summarizeReconciliations(input.reconciliations)
     : summarizeReconciliations({ openCount: 0, recent: [] });
+  const paidAwaitingOrg =
+    input.paidAwaitingOrg ??
+    summarizePaidAwaitingOrg({ orders: [] });
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
     outOfStockCount: input.outOfStockCount,
@@ -427,6 +548,7 @@ export function summarizeOps(input: {
     orderBuckets: orders.buckets,
     openReconciliationCount: reconciliations.openCount,
     reconciliationRecent: reconciliations.recent,
+    paidAwaitingOrg,
   });
   return {
     ...base,
@@ -442,6 +564,7 @@ export function summarizeOps(input: {
       configured: mailConfigured,
     },
     orders,
+    paidAwaitingOrg,
     sales: {
       today: input.salesToday ?? null,
       last30d: input.salesLast30d ?? null,

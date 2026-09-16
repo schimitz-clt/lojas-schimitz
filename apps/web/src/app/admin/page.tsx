@@ -18,11 +18,15 @@ type AdminOrder = {
   publicId: string;
   status: string;
   total: number;
+  freight?: number | string | null;
   trackingCode?: string | null;
   carrier?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   items?: { name: string; qty: number }[];
   user?: { id: string; name: string; email: string; phone?: string | null } | null;
   addressSnap?: { city?: string; uf?: string; label?: string; phone?: string | null } | null;
+  freightSnap?: { label?: string; fee?: number; estimatedDays?: number } | null;
   /** Present on GET /admin/orders include — payment evidence only (no invent). */
   payments?: Array<{
     id: string;
@@ -31,6 +35,15 @@ type AdminOrder = {
     provider?: string;
     externalId?: string | null;
     amount?: number | string;
+  }> | null;
+  /** Status timeline from GET /admin/orders (capped). */
+  statusHistory?: Array<{
+    id: string;
+    fromStatus?: string | null;
+    toStatus: string;
+    note?: string | null;
+    createdAt: string;
+    actorId?: string | null;
   }> | null;
 };
 
@@ -386,6 +399,14 @@ type AdminOpsSnapshot = {
     problemsStatuses?: string[];
     total: number;
   };
+  paidAwaitingOrg?: {
+    stuckHoursThreshold: number;
+    paidAwaitingCount: number;
+    stuckCount: number;
+    stuckPublicIds: string[];
+    stuckIds?: string[];
+    oldestStuckHours: number | null;
+  };
   sales?: {
     today: AdminOpsSalesWindow | null;
     last30d: AdminOpsSalesWindow | null;
@@ -398,7 +419,14 @@ const ORDER_STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'Todos' },
   ...ADMIN_ORDER_QUEUE_BUCKETS.map((key) => ({
     key,
-    label: adminQueueBucketLabel(key),
+    label:
+      key === 'paid'
+        ? 'Pagos aguardando org.'
+        : key === 'organizing'
+          ? 'Organizando (Separar)'
+          : key === 'packing'
+            ? 'Embalagem (Separar)'
+            : adminQueueBucketLabel(key),
   })),
 ];
 
@@ -421,6 +449,45 @@ function customerHint(o: AdminOrder) {
 
 function customerPhone(o: AdminOrder) {
   return o.user?.phone || o.addressSnap?.phone || null;
+}
+
+/** Default matches API PAID_STUCK_HOURS — display only; server is source of truth. */
+const PAID_STUCK_HOURS_UI = 24;
+
+function paidSinceMs(o: AdminOrder): number | null {
+  const paidHist = (o.statusHistory || [])
+    .filter((h) => h.toStatus === 'paid')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const raw = paidHist[0]?.createdAt || o.createdAt;
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function hoursSincePaid(o: AdminOrder, now = Date.now()): number | null {
+  const t = paidSinceMs(o);
+  if (t == null) return null;
+  return Math.max(0, (now - t) / (1000 * 60 * 60));
+}
+
+function isPaidStuckOrder(o: AdminOrder, threshold = PAID_STUCK_HOURS_UI): boolean {
+  if (o.status !== 'paid') return false;
+  const h = hoursSincePaid(o);
+  return h != null && h >= threshold;
+}
+
+/** User "Separar" maps to organizing/packing labels only — no new enum. */
+function advanceButtonLabel(status: string, next: string): string {
+  if (status === 'paid' && next === 'organizing') return 'Separar (Organizando)';
+  if (status === 'organizing' && next === 'packing') return 'Separar (Embalagem)';
+  if (status === 'separating' && next === 'packing') return 'Separar (Embalagem)';
+  return `Marcar: ${orderStatusLabel(next)}`;
+}
+
+function formatStuckHours(hours: number | null): string {
+  if (hours == null) return '—';
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  return `${Math.floor(hours)}h`;
 }
 
 function orderWa(o: AdminOrder, kind: 'generic' | 'paid' | 'shipped') {
@@ -1787,6 +1854,41 @@ export default function AdminPage() {
               <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pag. pendentes</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.payments?.pendingCount ?? '—'}</div>
             </div>
+            <button
+              type="button"
+              onClick={() => selectOpsBucket('paid')}
+              style={{
+                background:
+                  (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
+                    ? '#3a1515'
+                    : (ops?.orders?.buckets?.paid ?? 0) > 0
+                      ? '#3a2f0a'
+                      : '#1a1a1a',
+                border: '1px solid #ffd100',
+                borderRadius: 8,
+                padding: '10px 12px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                color: 'inherit',
+              }}
+            >
+              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pagos p/ organizar</div>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color:
+                    (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
+                }}
+              >
+                {ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? '—'}
+              </div>
+              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+                {(ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
+                  ? `${ops!.paidAwaitingOrg!.stuckCount} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
+                  : `limite ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
+              </div>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -3728,10 +3830,49 @@ export default function AdminPage() {
       </div>
 
       <h3 id="admin-orders-queue">Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})</h3>
+      {(ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0) > 0 ? (
+        <div
+          className="card"
+          style={{
+            marginBottom: 14,
+            borderColor: (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
+            background: (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#3a1515' : '#3a2f0a',
+            color: '#f5f5f3',
+          }}
+        >
+          <div className="body" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <b style={{ color: '#ffd100', fontSize: 16 }}>Pagos aguardando organização</b>
+              <div style={{ fontSize: 13, marginTop: 4, color: '#f5e6a3' }}>
+                {ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0} pedido(s) em Pago
+                {(ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
+                  ? ` · ${ops!.paidAwaitingOrg!.stuckCount} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
+                  : ` · nenhum acima de ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
+                {ops?.paidAwaitingOrg?.oldestStuckHours != null
+                  ? ` · mais antigo ~${ops.paidAwaitingOrg.oldestStuckHours}h`
+                  : ''}
+              </div>
+              {ops?.paidAwaitingOrg?.stuckPublicIds?.length ? (
+                <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
+                  IDs travados: {ops.paidAwaitingOrg.stuckPublicIds.join(', ')}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => selectOpsBucket('paid')}
+              style={{ background: '#ffd100', color: '#0a0a0a', fontWeight: 700 }}
+            >
+              Abrir fila Pagos
+            </button>
+          </div>
+        </div>
+      ) : null}
       <p className="muted" style={{ fontSize: 14 }}>
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
-        Ao marcar Em trânsito, informe o código de rastreio manual (opcional). Sem integração de transportadora.
+        “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
         WhatsApp é wa.me — não envia sozinho.
       </p>
       <label style={{ display: 'block', maxWidth: 420, marginBottom: 12 }}>
@@ -3806,12 +3947,46 @@ export default function AdminPage() {
               <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <b>{o.publicId}</b>
+                  {o.status === 'paid' ? (
+                    <span
+                      className="badge"
+                      style={{
+                        marginLeft: 8,
+                        background: isPaidStuckOrder(o) ? '#3a1515' : '#3a2f0a',
+                        color: isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100',
+                        border: `1px solid ${isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100'}`,
+                      }}
+                    >
+                      {isPaidStuckOrder(o)
+                        ? `Travado ${formatStuckHours(hoursSincePaid(o))}`
+                        : `Aguardando org. · ${formatStuckHours(hoursSincePaid(o))}`}
+                    </span>
+                  ) : null}
                   <div className="muted">
                     {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
+                    {next ? (
+                      <span style={{ marginLeft: 6 }}>
+                        → próximo: <b style={{ color: 'var(--text)' }}>{orderStatusLabel(next)}</b>
+                      </span>
+                    ) : null}
                   </div>
                   <div className="muted" style={{ fontSize: 13 }}>
                     {brl(o.total)} · {customerHint(o)}
                     {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    Pagamento:{' '}
+                    {o.payments?.length
+                      ? o.payments.map((p) => `${p.status}${p.method ? `/${p.method}` : ''}`).join(', ')
+                      : '—'}
+                    {' · '}
+                    Frete:{' '}
+                    {o.freightSnap?.label ||
+                      (o.freight != null ? brl(Number(o.freight)) : '—')}
+                    {o.trackingCode ? ` · Rastreio ${o.trackingCode}` : ''}
+                    {o.createdAt
+                      ? ` · criado ${new Date(o.createdAt).toLocaleString('pt-BR')}`
+                      : ''}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -3828,8 +4003,13 @@ export default function AdminPage() {
                       disabled={busyId === o.id}
                       onClick={() => advance(o)}
                       title={`Avançar para ${orderStatusLabel(next)}`}
+                      style={
+                        o.status === 'paid' || isPaidStuckOrder(o)
+                          ? { background: '#ffd100', color: '#0a0a0a', fontWeight: 700 }
+                          : undefined
+                      }
                     >
-                      {busyId === o.id ? 'Salvando...' : `Marcar: ${orderStatusLabel(next)}`}
+                      {busyId === o.id ? 'Salvando...' : advanceButtonLabel(o.status, next)}
                     </button>
                   ) : (
                     <span className="badge">{orderStatusLabel(o.status)}</span>
@@ -3843,8 +4023,11 @@ export default function AdminPage() {
                   style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
                 >
                   <span>
-                    Cliente pagou — próximo ops: Marcar Organizando (não é automático). Avisar no WhatsApp
-                    (e-mail já cobre o cliente, se mail estiver ativo).
+                    Cliente pagou — próximo ops: Separar (Organizando) — não é automático.
+                    {o.status === 'paid' && isPaidStuckOrder(o)
+                      ? ` Pedido travado há ${formatStuckHours(hoursSincePaid(o))}.`
+                      : ''}{' '}
+                    Avisar no WhatsApp (e-mail já cobre o cliente, se mail estiver ativo).
                   </span>
                   <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
                     Cliente pagou — abrir WhatsApp
@@ -3908,6 +4091,49 @@ export default function AdminPage() {
                         <span> — (nenhum registro na API)</span>
                       )}
                     </div>
+                    <div style={{ marginTop: 6 }}>
+                      <b style={{ color: 'var(--text)' }}>Frete / envio:</b>{' '}
+                      {o.freightSnap?.label || '—'}
+                      {o.freight != null ? ` · ${brl(Number(o.freight))}` : ''}
+                      {o.freightSnap?.estimatedDays != null
+                        ? ` · ~${o.freightSnap.estimatedDays} dia(s)`
+                        : ''}
+                      {o.carrier ? ` · carrier ${o.carrier}` : ''}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      <b style={{ color: 'var(--text)' }}>Histórico:</b>
+                      {o.statusHistory?.length ? (
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                          {o.statusHistory.map((h) => (
+                            <li key={h.id}>
+                              {h.fromStatus ? `${h.fromStatus} → ` : ''}
+                              {h.toStatus}
+                              {' · '}
+                              {new Date(h.createdAt).toLocaleString('pt-BR')}
+                              {h.note ? ` · ${h.note}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span>
+                          {' '}
+                          — (sem histórico; criado{' '}
+                          {o.createdAt
+                            ? new Date(o.createdAt).toLocaleString('pt-BR')
+                            : '—'}
+                          )
+                        </span>
+                      )}
+                    </div>
+                    {o.status === 'paid' ? (
+                      <div style={{ marginTop: 8, color: isPaidStuckOrder(o) ? '#ffb4b4' : undefined }}>
+                        <b style={{ color: 'var(--text)' }}>Tempo em pago:</b>{' '}
+                        {formatStuckHours(hoursSincePaid(o))}
+                        {isPaidStuckOrder(o)
+                          ? ` — acima de ${PAID_STUCK_HOURS_UI}h (travado)`
+                          : ` (limite alerta ${PAID_STUCK_HOURS_UI}h)`}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : null}

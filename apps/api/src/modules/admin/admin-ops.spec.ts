@@ -1,16 +1,21 @@
 import assert from 'assert';
 import {
   DEFAULT_OPS_LOW_STOCK_THRESHOLD,
+  PAID_STUCK_HOURS,
   countPlaceholderProducts,
   deriveOpsAlerts,
+  hoursSince,
   isLowOnHand,
   isMissingOrPlaceholderImage,
+  isPaidStuck,
   isPlaceholderImageUrl,
   listPlaceholderProducts,
+  paidStuckSeverity,
   placeholderProductsCsv,
   summarizeInventoryOps,
   summarizeOps,
   summarizeOrderStatusCounts,
+  summarizePaidAwaitingOrg,
   summarizeReconciliations,
   summarizeSalesWindow,
 } from './admin-ops';
@@ -257,6 +262,86 @@ const noReconAlert = deriveOpsAlerts({
   openReconciliationCount: 0,
 });
 assert.equal(noReconAlert.some((a) => a.code === 'open_reconciliations'), false);
+
+
+assert.equal(PAID_STUCK_HOURS, 24);
+{
+  const now = new Date('2026-09-16T18:00:00.000Z');
+  assert.equal(hoursSince('2026-09-16T12:00:00.000Z', now), 6);
+  assert.equal(isPaidStuck('2026-09-15T17:00:00.000Z', 24, now), true); // 25h
+  assert.equal(isPaidStuck('2026-09-15T19:00:00.000Z', 24, now), false); // 23h
+  assert.equal(paidStuckSeverity(0, null), 'info');
+  assert.equal(paidStuckSeverity(1, 24), 'high');
+  assert.equal(paidStuckSeverity(1, 48), 'critical');
+  assert.equal(paidStuckSeverity(5, 24), 'critical');
+}
+
+{
+  const now = new Date('2026-09-16T18:00:00.000Z');
+  const sum = summarizePaidAwaitingOrg({
+    now,
+    orders: [
+      { id: '1', publicId: 'SCH-A', since: '2026-09-15T12:00:00.000Z' }, // 30h stuck
+      { id: '2', publicId: 'SCH-B', since: '2026-09-16T12:00:00.000Z' }, // 6h ok
+      { id: '3', publicId: 'SCH-C', since: '2026-09-14T18:00:00.000Z' }, // 48h stuck
+    ],
+  });
+  assert.equal(sum.paidAwaitingCount, 3);
+  assert.equal(sum.stuckCount, 2);
+  assert.equal(sum.stuckHoursThreshold, 24);
+  assert.equal(sum.oldestStuckHours, 48);
+  assert.deepEqual(sum.stuckPublicIds, ['SCH-C', 'SCH-A']); // oldest first
+}
+
+{
+  const stuckSum = summarizePaidAwaitingOrg({
+    now: new Date('2026-09-16T18:00:00.000Z'),
+    orders: [
+      { id: '1', publicId: 'SCH-STUCK', since: '2026-09-15T10:00:00.000Z' },
+    ],
+  });
+  const alerts = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderBuckets: { paid: 1 },
+    paidAwaitingOrg: stuckSum,
+  });
+  assert.equal(alerts.some((a) => a.code === 'paid_needs_organizing'), true);
+  const stuck = alerts.find((a) => a.code === 'paid_stuck_awaiting_org');
+  assert.ok(stuck);
+  assert.equal(stuck!.severity, 'high');
+  assert.equal(stuck!.queueBucket, 'paid');
+  assert.ok(stuck!.evidence?.ids?.includes('SCH-STUCK'));
+  assert.ok(stuck!.recommendedAction?.includes('Separar'));
+}
+
+{
+  const withStuck = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderStatusCounts: [{ status: 'paid', count: 2 }],
+    paidAwaitingOrg: summarizePaidAwaitingOrg({
+      now: new Date('2026-09-16T18:00:00.000Z'),
+      orders: [
+        { id: 'x', publicId: 'SCH-X', since: '2026-09-14T18:00:00.000Z' },
+        { id: 'y', publicId: 'SCH-Y', since: '2026-09-16T17:00:00.000Z' },
+      ],
+    }),
+  });
+  assert.equal(withStuck.paidAwaitingOrg.stuckCount, 1);
+  assert.equal(withStuck.paidAwaitingOrg.paidAwaitingCount, 2);
+  assert.equal(
+    withStuck.alerts.some((a) => a.code === 'paid_stuck_awaiting_org' && a.severity === 'critical'),
+    true,
+  ); // 48h → critical
+}
+
 
 console.log('admin-ops unit tests ok');
 

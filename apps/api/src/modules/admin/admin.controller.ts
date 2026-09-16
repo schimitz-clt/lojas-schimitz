@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  Logger,
   Controller,
   Delete,
   Get,
@@ -70,7 +71,7 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, summarizeOps, summarizeReconciliations, summarizeSalesWindow } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, PAID_STUCK_HOURS, summarizeOps, summarizePaidAwaitingOrg, summarizeReconciliations, summarizeSalesWindow } from './admin-ops';
 import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
@@ -82,6 +83,8 @@ import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminController {
+  private readonly log = new Logger(AdminController.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(OrdersService) private readonly orders: OrdersService,
@@ -185,6 +188,44 @@ export class AdminController {
       reconciliations = summarizeReconciliations({ openCount: 0, recent: [] });
     }
 
+    // Paid awaiting organization + stuck age (PAID_STUCK_HOURS) — real DB only.
+    let paidAwaitingOrg = summarizePaidAwaitingOrg({ orders: [] });
+    try {
+      const paidRows = await this.prisma.order.findMany({
+        where: { status: 'paid' },
+        select: {
+          id: true,
+          publicId: true,
+          createdAt: true,
+          updatedAt: true,
+          statusHistory: {
+            where: { toStatus: 'paid' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { createdAt: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 200,
+      });
+      paidAwaitingOrg = summarizePaidAwaitingOrg({
+        orders: paidRows.map((o) => ({
+          id: o.id,
+          publicId: o.publicId,
+          since: o.statusHistory[0]?.createdAt ?? o.createdAt,
+        })),
+        thresholdHours: PAID_STUCK_HOURS,
+      });
+      if (paidAwaitingOrg.stuckCount > 0) {
+        this.log.warn(
+          `ops paid_stuck_awaiting_org count=${paidAwaitingOrg.stuckCount} thresholdHours=${PAID_STUCK_HOURS} ids=${paidAwaitingOrg.stuckPublicIds.join(',') || '(none)'} mailConfigured=${mailConfiguredFromEnvPresence()} — STORE_NOTIFY: Separar (Organizando)`,
+        );
+      }
+    } catch (e: any) {
+      this.log.warn(`ops paidAwaitingOrg query failed: ${e?.message || e}`);
+      paidAwaitingOrg = summarizePaidAwaitingOrg({ orders: [] });
+    }
+
     const placeholderProducts = listPlaceholderProducts(productImageRows);
     const orderStatusCounts = orderStatusGroups.map((g) => ({
       status: g.status,
@@ -213,6 +254,7 @@ export class AdminController {
           revenue: Number(salesLast30Agg._sum.total ?? 0),
         }),
         reconciliations,
+        paidAwaitingOrg,
       }),
     );
   }
@@ -294,6 +336,18 @@ export class AdminController {
         items: true,
         payments: true,
         user: { select: { id: true, name: true, email: true, phone: true } },
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          take: 40,
+          select: {
+            id: true,
+            fromStatus: true,
+            toStatus: true,
+            note: true,
+            createdAt: true,
+            actorId: true,
+          },
+        },
       },
     });
     return ok(data);
