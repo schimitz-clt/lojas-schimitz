@@ -75,11 +75,22 @@ export function countPlaceholderProducts(
   return n;
 }
 
+export type PlaceholderPhotoReason = 'missing' | 'placeholder';
+
 export type PlaceholderProductRef = {
   id: string;
   name: string;
   /** Primary image URL as stored (may be empty string when missing). Never invents photos. */
   imageUrl: string;
+  /** missing = empty; placeholder = known demo host. Never invents photos. */
+  reason: PlaceholderPhotoReason;
+};
+
+/** Classify why a product needs a real store photo (no invented images). */
+export function placeholderPhotoReason(url?: string | null): PlaceholderPhotoReason {
+  const t = typeof url === 'string' ? url.trim() : '';
+  if (!t) return 'missing';
+  return 'placeholder';
 };
 
 /** Id + name + imageUrl — owner checklist to replace placehold.co / empty photos. */
@@ -95,7 +106,12 @@ export function listPlaceholderProducts(
     const raw = p.images?.[0]?.url;
     if (isMissingOrPlaceholderImage(raw)) {
       const imageUrl = typeof raw === 'string' ? raw.trim() : '';
-      out.push({ id: p.id, name: p.name, imageUrl });
+      out.push({
+        id: p.id,
+        name: p.name,
+        imageUrl,
+        reason: placeholderPhotoReason(imageUrl),
+      });
     }
   }
   return out;
@@ -107,14 +123,19 @@ function csvEscape(v: string | number | null | undefined): string {
   return s;
 }
 
-/** CSV (id,name,imageUrl) for products needing real photos — no fake images generated. */
+/** CSV (id,name,imageUrl,reason) for products needing real photos — no fake images generated. */
 export function placeholderProductsCsv(rows: PlaceholderProductRef[]): {
   filename: string;
   csv: string;
 } {
-  const header = 'id,name,imageUrl';
+  const header = 'id,name,imageUrl,reason';
   const lines = rows.map((r) =>
-    [csvEscape(r.id), csvEscape(r.name), csvEscape(r.imageUrl)].join(','),
+    [
+      csvEscape(r.id),
+      csvEscape(r.name),
+      csvEscape(r.imageUrl),
+      csvEscape(r.reason || placeholderPhotoReason(r.imageUrl)),
+    ].join(','),
   );
   return {
     filename: 'products-needing-photos.csv',

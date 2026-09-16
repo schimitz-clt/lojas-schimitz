@@ -11,6 +11,7 @@ import {
   isPlaceholderImageUrl,
   listPlaceholderProducts,
   paidStuckSeverity,
+  placeholderPhotoReason,
   placeholderProductsCsv,
   summarizeInventoryOps,
   summarizeOps,
@@ -78,15 +79,15 @@ const listed = listPlaceholderProducts([
   { id: 'c', name: 'Sem foto', images: [] },
 ]);
 assert.deepEqual(listed, [
-  { id: 'a', name: 'Roblox', imageUrl: 'https://placehold.co/1' },
-  { id: 'c', name: 'Sem foto', imageUrl: '' },
+  { id: 'a', name: 'Roblox', imageUrl: 'https://placehold.co/1', reason: 'placeholder' },
+  { id: 'c', name: 'Sem foto', imageUrl: '', reason: 'missing' },
 ]);
 
 const csv = placeholderProductsCsv(listed);
 assert.equal(csv.filename, 'products-needing-photos.csv');
-assert.ok(csv.csv.startsWith('id,name,imageUrl\n'));
-assert.ok(csv.csv.includes('a,Roblox,https://placehold.co/1'));
-assert.ok(csv.csv.includes('c,Sem foto,'));
+assert.ok(csv.csv.startsWith('id,name,imageUrl,reason\n'));
+assert.ok(csv.csv.includes('a,Roblox,https://placehold.co/1,placeholder'));
+assert.ok(csv.csv.includes('c,Sem foto,,missing'));
 assert.ok(!csv.csv.includes('fake-photo'));
 
 const withList = summarizeOps({
@@ -265,6 +266,9 @@ assert.equal(noReconAlert.some((a) => a.code === 'open_reconciliations'), false)
 
 
 assert.equal(PAID_STUCK_HOURS, 24);
+assert.equal(placeholderPhotoReason(''), 'missing');
+assert.equal(placeholderPhotoReason('https://placehold.co/1'), 'placeholder');
+
 {
   const now = new Date('2026-09-16T18:00:00.000Z');
   assert.equal(hoursSince('2026-09-16T12:00:00.000Z', now), 6);
