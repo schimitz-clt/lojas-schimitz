@@ -16,6 +16,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Request } from 'express';
@@ -76,6 +77,10 @@ import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence } from '../mail/mail.config';
+import {
+  buildAdminOrderWhere,
+  resolveAdminOrdersTake,
+} from './admin-orders-search';
 
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
@@ -316,23 +321,30 @@ export class AdminController {
   }
 
   @Get('orders')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({
+    summary:
+      'Listar pedidos (take 100) ou busca autenticada ?q= (publicId/email/nome, take≤50)',
+  })
   async ordersList(@Query() query: AdminOrdersQueryDto) {
-    let where: { status?: OrderStatus | { in: OrderStatus[] } } | undefined;
+    let statusWhere: { status?: OrderStatus | { in: OrderStatus[] } } | undefined;
     if (query.status) {
       if (query.status === 'problems' || isAdminOrderQueueBucket(query.status)) {
         const statuses = statusesForAdminQueueBucket(query.status) as OrderStatus[];
-        where =
+        statusWhere =
           statuses.length === 1
             ? { status: statuses[0] }
             : { status: { in: statuses } };
       } else {
-        where = { status: query.status as OrderStatus };
+        statusWhere = { status: query.status as OrderStatus };
       }
     }
+    const where = buildAdminOrderWhere(query.q, statusWhere);
+    const take = resolveAdminOrdersTake(query.q, query.take);
     const data = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take,
       include: {
         items: true,
         payments: true,

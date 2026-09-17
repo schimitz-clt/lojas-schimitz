@@ -145,7 +145,7 @@ export class AdminUpdateProductDto {
   badge?: string | null;
 }
 
-/** Query GET /admin/orders?status= */
+/** Query GET /admin/orders?status=&q=&take= */
 export class AdminOrdersQueryDto {
   @IsOptional()
   @IsString()
@@ -166,6 +166,19 @@ export class AdminOrdersQueryDto {
     'problems',
   ])
   status?: string;
+
+  /** Server search: publicId prefix, email, customer name (min 3 or SCH-…). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  /** Only applied when q triggers server search; capped at 50. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  take?: number;
 }
 
 /** Query GET /admin/products?lowStock=5 */

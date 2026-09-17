@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, apiUpload, brl, clearSession, currentUser, isUnauthorizedError } from '@/lib/api';
 import {
   nextFulfillmentStatus,
@@ -13,6 +13,10 @@ import {
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
 import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import {
+  buildAdminOrdersQueryPath,
+  shouldServerOrderSearch,
+} from '@/lib/admin-order-search';
 
 type AdminOrder = {
   id: string;
@@ -576,6 +580,10 @@ export default function AdminPage() {
   const [reconciliations, setReconciliations] = useState<AdminPaymentReconciliationItem[]>([]);
   const [reconBusy, setReconBusy] = useState(false);
   const [orderJumpQ, setOrderJumpQ] = useState('');
+  const [orderSearchBusy, setOrderSearchBusy] = useState(false);
+  /** True while last orders fetch used server ?q= (beyond take:100 window). */
+  const [orderServerSearchActive, setOrderServerSearchActive] = useState(false);
+  const orderServerSearchRef = useRef(false);
   /** ROI filters on loaded list only — no new public search. */
   const [orderRoiFilter, setOrderRoiFilter] = useState<'all' | 'stuck_paid' | 'no_shipping'>('all');
 
@@ -585,9 +593,12 @@ export default function AdminPage() {
       setErr('Acesso restrito a admin. Entre com a conta administrativa.');
       return Promise.resolve();
     }
-    const ordersPath = orderStatusFilter
-      ? `/admin/orders?status=${encodeURIComponent(orderStatusFilter)}`
-      : '/admin/orders';
+    const ordersPath = buildAdminOrdersQueryPath({
+      status: orderStatusFilter || undefined,
+      // Full reload keeps status bucket; server q handled by dedicated search effect.
+    });
+    setOrderServerSearchActive(false);
+    orderServerSearchRef.current = false;
     return Promise.all([
       api<AdminProduct[]>('/admin/products'),
       api<AdminOrder[]>(ordersPath),
@@ -803,6 +814,61 @@ export default function AdminPage() {
     void loadCustomers();
   }, [loadCustomers]);
 
+  /** Server order search when q ≥ 3 or SCH-…; clears back to status window. */
+  useEffect(() => {
+    const u = currentUser();
+    if (!u || u.role !== 'admin') return;
+    const q = orderJumpQ.trim();
+    if (!shouldServerOrderSearch(q)) {
+      if (orderServerSearchRef.current) {
+        orderServerSearchRef.current = false;
+        setOrderServerSearchActive(false);
+        const path = buildAdminOrdersQueryPath({
+          status: orderStatusFilter || undefined,
+        });
+        setOrderSearchBusy(true);
+        void api<AdminOrder[]>(path)
+          .then((o) => setOrders(o))
+          .catch((e: any) => {
+            if (isUnauthorizedError(e)) {
+              clearSession();
+              window.location.href = '/entrar?next=/admin';
+              return;
+            }
+            console.warn('admin orders reload', e?.message || e);
+          })
+          .finally(() => setOrderSearchBusy(false));
+      }
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      const path = buildAdminOrdersQueryPath({
+        status: orderStatusFilter || undefined,
+        q,
+      });
+      setOrderSearchBusy(true);
+      void api<AdminOrder[]>(path)
+        .then((o) => {
+          orderServerSearchRef.current = true;
+          setOrders(o);
+          setOrderServerSearchActive(true);
+        })
+        .catch((e: any) => {
+          if (isUnauthorizedError(e)) {
+            clearSession();
+            window.location.href = '/entrar?next=/admin';
+            return;
+          }
+          setErr(e?.message || 'Falha na busca de pedidos');
+        })
+        .finally(() => setOrderSearchBusy(false));
+    }, 320);
+    return () => window.clearTimeout(handle);
+  }, [orderJumpQ, orderStatusFilter]);
+
+
+
+
   useEffect(() => {
     void loadOps();
     void loadReconciliations();
@@ -819,9 +885,10 @@ export default function AdminPage() {
       .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
   }, [products, lowStockThreshold]);
 
-  /** Lightweight client jump + ROI filters (loaded list only — no public search). */
+  /** ROI filters always client-side; text: server when active, else loaded-list jump. */
   const filteredOrders = useMemo(() => {
     const q = orderJumpQ.trim().toLowerCase();
+    const serverQ = orderServerSearchActive && shouldServerOrderSearch(orderJumpQ);
     return orders.filter((o) => {
       if (orderRoiFilter === 'stuck_paid') {
         if (!isPaidStuckOrder(o)) return false;
@@ -838,7 +905,7 @@ export default function AdminPage() {
           o.status === 'ready_for_pickup';
         if (!inOps || hasShip) return false;
       }
-      if (!q) return true;
+      if (!q || serverQ) return true;
       return (
         o.publicId?.toLowerCase().includes(q) ||
         o.id?.toLowerCase().includes(q) ||
@@ -847,7 +914,7 @@ export default function AdminPage() {
         (o.trackingCode || '').toLowerCase().includes(q)
       );
     });
-  }, [orders, orderJumpQ, orderRoiFilter]);
+  }, [orders, orderJumpQ, orderRoiFilter, orderServerSearchActive]);
 
   const attentionAlerts = useMemo(() => {
     const list = ops?.alerts || [];
@@ -4032,13 +4099,15 @@ export default function AdminPage() {
       </p>
       <label style={{ display: 'block', maxWidth: 420, marginBottom: 8 }}>
         <span className="muted" style={{ fontSize: 13 }}>
-          Busca rápida (publicId / id / cliente / rastreio na lista carregada)
+          Busca pedidos (servidor se ≥3 caracteres ou SCH-…; senão na lista carregada)
+          {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — busca no servidor' : ''}
         </span>
         <input
           value={orderJumpQ}
           onChange={(e) => setOrderJumpQ(e.target.value)}
-          placeholder="Ex.: SCH-…, e-mail ou rastreio"
+          placeholder="Ex.: SCH-…, e-mail ou nome do cliente"
           style={{ width: '100%', minHeight: 44 }}
+          aria-label="Busca de pedidos"
         />
       </label>
       <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -4352,7 +4421,7 @@ export default function AdminPage() {
       {!filteredOrders.length ? (
         <p className="muted">
           {orderJumpQ.trim() || orderRoiFilter !== 'all'
-            ? 'Nenhum pedido na lista carregada corresponde à busca/filtro ROI.'
+            ? 'Nenhum pedido corresponde à busca/filtro ROI (servidor se ≥3 ou SCH-…).'
             : orderStatusFilter
               ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
               : 'Nenhum pedido ainda.'}

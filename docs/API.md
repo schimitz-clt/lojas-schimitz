@@ -45,7 +45,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/admin/reviews` | admin |
 | PATCH | `/admin/reviews/:id` body `{ status: "published"|"hidden" }` | admin |
 | DELETE | `/admin/reviews/:id` | admin |
-| GET | `/admin/orders` `?status=` (OrderStatus ou bucket virtual `problems`) — inclui `user.phone`; `/admin/products` `/admin/categories` | admin |
+| GET | `/admin/orders` `?status=` (OrderStatus ou bucket `problems`) `&q=` (publicId prefix / e-mail / nome; ≥3 ou SCH-…; take≤50, throttle) — sem `q` take 100; inclui `user.phone`; `/admin/products` `/admin/categories` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, byDay, bySeller, topProducts | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB; magic-bytes; erros `UPLOAD_*`) → `{ url, filename }` (url apex se SITE_URL/APP_URL) | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |
