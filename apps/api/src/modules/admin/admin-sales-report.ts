@@ -189,3 +189,43 @@ export function aggregateBySeller(
     );
 }
 
+export type ByPaymentMethodAgg = {
+  method: string;
+  orderCount: number;
+  revenue: number;
+};
+
+/**
+ * Agrupa pagamentos aprovados de pedidos pagos por método (pix/card/boleto/wallet).
+ * orderCount = pedidos distintos com pelo menos um pagamento daquele método.
+ */
+export function aggregateByPaymentMethod(
+  payments: { orderId: string; method: string; amount: number }[],
+): ByPaymentMethodAgg[] {
+  type Acc = ByPaymentMethodAgg & { orderIds: Set<string> };
+  const map = new Map<string, Acc>();
+  for (const p of payments) {
+    const method = String(p.method || '')
+      .trim()
+      .toLowerCase() || 'unknown';
+    let acc = map.get(method);
+    if (!acc) {
+      acc = { method, orderCount: 0, revenue: 0, orderIds: new Set() };
+      map.set(method, acc);
+    }
+    acc.orderIds.add(p.orderId);
+    acc.revenue = moneyRound(acc.revenue + (Number(p.amount) || 0));
+  }
+  return [...map.values()]
+    .map(({ orderIds, ...rest }) => ({
+      ...rest,
+      orderCount: orderIds.size,
+    }))
+    .sort(
+      (a, b) =>
+        b.revenue - a.revenue ||
+        b.orderCount - a.orderCount ||
+        a.method.localeCompare(b.method, 'pt-BR'),
+    );
+}
+

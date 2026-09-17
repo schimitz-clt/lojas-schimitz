@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma.service';
 import {
   PAID_REVENUE_STATUSES,
   aggregateByDay,
+  aggregateByPaymentMethod,
   aggregateBySeller,
   aggregateTopProducts,
   computeSalesSummary,
@@ -28,9 +29,11 @@ export class AdminSalesReportService {
 
     const paidStatuses = [...PAID_REVENUE_STATUSES] as OrderStatus[];
 
-    const [paidOrders, statusGroups, paidItems] = await Promise.all([
+    const paidOrderWhere = { ...createdInRange, status: { in: paidStatuses } };
+
+    const [paidOrders, statusGroups, paidItems, approvedPayments] = await Promise.all([
       this.prisma.order.findMany({
-        where: { ...createdInRange, status: { in: paidStatuses } },
+        where: paidOrderWhere,
         select: { id: true, total: true, createdAt: true },
       }),
       this.prisma.order.groupBy({
@@ -40,7 +43,7 @@ export class AdminSalesReportService {
       }),
       this.prisma.orderItem.findMany({
         where: {
-          order: { ...createdInRange, status: { in: paidStatuses } },
+          order: paidOrderWhere,
         },
         select: {
           orderId: true,
@@ -51,6 +54,13 @@ export class AdminSalesReportService {
           sellerId: true,
           seller: { select: { id: true, name: true } },
         },
+      }),
+      this.prisma.payment.findMany({
+        where: {
+          status: 'approved',
+          order: paidOrderWhere,
+        },
+        select: { orderId: true, method: true, amount: true },
       }),
     ]);
 
@@ -88,6 +98,14 @@ export class AdminSalesReportService {
       10,
     );
 
+    const byPaymentMethod = aggregateByPaymentMethod(
+      approvedPayments.map((p) => ({
+        orderId: p.orderId,
+        method: p.method,
+        amount: Number(p.amount),
+      })),
+    );
+
     return {
       from: range.from,
       to: range.to,
@@ -97,6 +115,7 @@ export class AdminSalesReportService {
       byDay,
       bySeller,
       topProducts,
+      byPaymentMethod,
     };
   }
 }
