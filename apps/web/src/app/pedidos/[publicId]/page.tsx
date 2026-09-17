@@ -12,6 +12,11 @@ import {
   orderStatusLabel,
 } from '@/lib/order-status';
 import { isPixPaidLikeOrder, PIX_APPROVED_COPY, showPixGate } from '@/lib/pix-payment-ui';
+import {
+  deliveryEtaCopy,
+  findDeliveredAt,
+  type FreightSnapLike,
+} from '@/lib/delivery-eta';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -52,6 +57,7 @@ type Order = {
   discount: number;
   trackingCode?: string | null;
   carrier?: string | null;
+  freightSnap?: FreightSnapLike;
   items: { id: string; qty: number; name: string; unitPrice: number; sellerId?: string | null }[];
   payments?: Payment[];
   statusHistory?: StatusHistory[];
@@ -100,11 +106,13 @@ function FulfillmentTimeline({
   history,
   trackingCode,
   carrier,
+  freightSnap,
 }: {
   status: string;
   history?: StatusHistory[];
   trackingCode?: string | null;
   carrier?: string | null;
+  freightSnap?: FreightSnapLike;
 }) {
   const current = fulfillmentStepIndex(status);
   if (current < 0 && status !== 'paid') {
@@ -132,6 +140,12 @@ function FulfillmentTimeline({
     return null;
   }
   const activeIdx = current < 0 ? 0 : current;
+  const etaCopy = deliveryEtaCopy({
+    status,
+    statusHistory: history,
+    freightSnap,
+    deliveredAt: findDeliveredAt(history),
+  });
   return (
     <div className="card" id="order-tracking" style={{ marginTop: 16 }}>
       <div className="body">
@@ -142,6 +156,22 @@ function FulfillmentTimeline({
           Entrega realizada pela Lojas Schimitz
           {carrier && carrier !== 'propria' ? ` · ${carrier}` : ''}.
         </p>
+        {etaCopy ? (
+          <p
+            style={{
+              marginTop: 12,
+              marginBottom: 0,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--line)',
+              background: 'rgba(245, 197, 24, 0.06)',
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            {etaCopy}
+          </p>
+        ) : null}
         {trackingCode ? (
           <div
             style={{
@@ -445,6 +475,7 @@ export default function PedidoPage() {
           history={o.statusHistory}
           trackingCode={o.trackingCode}
           carrier={o.carrier}
+          freightSnap={o.freightSnap}
         />
       ) : null}
 

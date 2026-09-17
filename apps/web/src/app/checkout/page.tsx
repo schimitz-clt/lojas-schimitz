@@ -12,6 +12,7 @@ import {
 } from '@/components/CheckoutAddressSection';
 import { TrustBadges } from '@/components/TrustBadges';
 import { persistLastOrderPublicId } from '@/lib/order-recovery';
+import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
 
 type CartItem = {
   id: string;
@@ -308,7 +309,7 @@ export default function CheckoutPage() {
                   {freight.price === 0 ? 'Frete grátis' : `Frete: ${brl(freight.price)}`}
                 </strong>
                 {' · '}
-                {freight.days} dia{freight.days === 1 ? '' : 's'}
+                {formatDaysAfterDispatch(freight.days)}
                 {freight.modality ? ` · ${freight.modality}` : ''}
               </p>
               <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
