@@ -177,6 +177,10 @@ assert.equal(richAlerts.some((a) => a.code === 'pending_payments' && a.queueBuck
 assert.equal(richAlerts.some((a) => a.code === 'paid_needs_organizing' && a.queueBucket === 'paid'), true);
 assert.equal(richAlerts.some((a) => a.code === 'order_problems' && a.severity === 'critical'), true);
 assert.equal(richAlerts.some((a) => a.code === 'placeholder_photos'), true);
+assert.equal(
+  richAlerts.find((a) => a.code === 'placeholder_photos')?.section,
+  'catalog',
+);
 assert.equal(richAlerts.some((a) => a.code === 'mail_not_configured'), true);
 assert.equal(richAlerts.some((a) => a.code === 'awaiting_payment_orders'), true);
 
