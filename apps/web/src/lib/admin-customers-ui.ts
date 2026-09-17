@@ -27,12 +27,12 @@ function paramFromSearch(
   }
 }
 
-/** Deep-link: /admin?section=clientes&customer=<uuid> */
+/** Deep-link: /admin/clientes?customer=<uuid> (legacy /admin?section=clientes&customer=) */
 export function customerIdFromSearch(search: string | null | undefined): string | null {
   return paramFromSearch(search, ['customer', 'cliente']);
 }
 
-/** Deep-link: /admin?section=pedidos&order=<uuid> */
+/** Deep-link: /admin/pedidos?order=<uuid> (legacy /admin?section=pedidos&order=) */
 export function orderIdFromSearch(search: string | null | undefined): string | null {
   return paramFromSearch(search, ['order', 'pedido']);
 }

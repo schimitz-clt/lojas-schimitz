@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   ADMIN_NAV_ITEMS,
@@ -43,6 +44,33 @@ function badgeFor(
   return n;
 }
 
+function NavItem({
+  item,
+  section,
+  badges,
+  onGo,
+}: {
+  item: (typeof ADMIN_NAV_ITEMS)[number];
+  section: AdminSectionId;
+  badges?: AdminShellBadges;
+  onGo: (id: AdminSectionId) => void;
+}) {
+  const b = badgeFor(item.badgeKey, badges);
+  return (
+    <Link
+      href={buildAdminSectionHref(item.id)}
+      className={`admin-nav-item${section === item.id ? ' is-active' : ''}`}
+      onClick={() => onGo(item.id)}
+    >
+      <span className="admin-nav-item__text">
+        <span className="admin-nav-item__label">{item.label}</span>
+        <span className="admin-nav-item__desc">{item.description}</span>
+      </span>
+      {b != null ? <span className="admin-nav-item__badge">{b > 99 ? '99+' : b}</span> : null}
+    </Link>
+  );
+}
+
 export function AdminShell({
   section,
   onSectionChange,
@@ -56,10 +84,6 @@ export function AdminShell({
     (id: AdminSectionId) => {
       onSectionChange(id);
       setDrawerOpen(false);
-      if (typeof window !== 'undefined') {
-        const href = buildAdminSectionHref(id);
-        window.history.replaceState(null, '', href);
-      }
     },
     [onSectionChange],
   );
@@ -123,41 +147,13 @@ export function AdminShell({
           aria-label="Navegação do admin"
         >
           <div className="admin-sidebar__label">Principal</div>
-          {ADMIN_NAV_ITEMS.slice(0, 5).map((item) => {
-            const b = badgeFor(item.badgeKey, badges);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`admin-nav-item${section === item.id ? ' is-active' : ''}`}
-                onClick={() => go(item.id)}
-              >
-                <span className="admin-nav-item__text">
-                  <span className="admin-nav-item__label">{item.label}</span>
-                  <span className="admin-nav-item__desc">{item.description}</span>
-                </span>
-                {b != null ? <span className="admin-nav-item__badge">{b > 99 ? '99+' : b}</span> : null}
-              </button>
-            );
-          })}
+          {ADMIN_NAV_ITEMS.slice(0, 5).map((item) => (
+            <NavItem key={item.id} item={item} section={section} badges={badges} onGo={go} />
+          ))}
           <div className="admin-sidebar__label">Loja</div>
-          {ADMIN_NAV_ITEMS.slice(5).map((item) => {
-            const b = badgeFor(item.badgeKey, badges);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`admin-nav-item${section === item.id ? ' is-active' : ''}`}
-                onClick={() => go(item.id)}
-              >
-                <span className="admin-nav-item__text">
-                  <span className="admin-nav-item__label">{item.label}</span>
-                  <span className="admin-nav-item__desc">{item.description}</span>
-                </span>
-                {b != null ? <span className="admin-nav-item__badge">{b > 99 ? '99+' : b}</span> : null}
-              </button>
-            );
-          })}
+          {ADMIN_NAV_ITEMS.slice(5).map((item) => (
+            <NavItem key={item.id} item={item} section={section} badges={badges} onGo={go} />
+          ))}
         </nav>
 
         <main className="admin-main">
@@ -174,15 +170,15 @@ export function AdminShell({
           const item = ADMIN_NAV_ITEMS.find((n) => n.id === id)!;
           const b = badgeFor(item.badgeKey, badges);
           return (
-            <button
+            <Link
               key={id}
-              type="button"
+              href={buildAdminSectionHref(id)}
               className={`admin-mobile-nav__btn${section === id ? ' is-active' : ''}`}
               onClick={() => go(id)}
             >
               {b != null ? <span className="admin-mobile-nav__dot" aria-hidden /> : null}
               <span>{item.label}</span>
-            </button>
+            </Link>
           );
         })}
         <button

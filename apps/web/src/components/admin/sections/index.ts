@@ -1,0 +1,11 @@
+export { AdminOpsSection } from './AdminOpsSection';
+export { AdminEquipeSection } from './AdminEquipeSection';
+export { AdminClientesSection } from './AdminClientesSection';
+export { AdminMarketplaceSection } from './AdminMarketplaceSection';
+export { AdminVitrineSection } from './AdminVitrineSection';
+export { AdminVendasSection } from './AdminVendasSection';
+export { AdminCatalogoSection } from './AdminCatalogoSection';
+export { AdminCuponsSection } from './AdminCuponsSection';
+export { AdminAvaliacoesSection } from './AdminAvaliacoesSection';
+export { AdminFreteSection } from './AdminFreteSection';
+export { AdminPedidosSection } from './AdminPedidosSection';
