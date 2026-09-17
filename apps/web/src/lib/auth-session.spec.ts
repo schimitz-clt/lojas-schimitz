@@ -1,5 +1,26 @@
 import assert from 'assert';
-import { refreshBodyFromStorage, shouldPersistRefreshInLocalStorage } from './auth-session';
+import {
+  AUTH_STORAGE_KEYS,
+  persistAuthSession,
+  refreshBodyFromStorage,
+  shouldPersistRefreshInLocalStorage,
+  wipeAuthSessionStorage,
+} from './auth-session';
+
+function mem(initial: Record<string, string> = {}) {
+  const m = new Map<string, string>(Object.entries(initial));
+  return {
+    getItem(key: string) {
+      return m.has(key) ? m.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      m.set(key, value);
+    },
+    removeItem(key: string) {
+      m.delete(key);
+    },
+  };
+}
 
 assert.equal(shouldPersistRefreshInLocalStorage('localhost'), true);
 assert.equal(shouldPersistRefreshInLocalStorage('127.0.0.1'), true);
@@ -14,5 +35,60 @@ assert.deepEqual(refreshBodyFromStorage(null), {});
 assert.deepEqual(refreshBodyFromStorage(undefined), {});
 assert.deepEqual(refreshBodyFromStorage(''), {});
 assert.deepEqual(refreshBodyFromStorage('   '), {});
+
+const user = { id: 'u1', email: 'a@b.c', role: 'customer', name: 'A' };
+
+// Cookie-first (prod / Android WebView): never persist body refresh even when JSON has it.
+const prod = mem({ [AUTH_STORAGE_KEYS.refresh]: 'legacy-rt' });
+persistAuthSession(prod, 'lojasschimitz.com.br', {
+  accessToken: 'acc-1',
+  refreshToken: 'rt-should-not-stick',
+  user,
+});
+assert.equal(prod.getItem(AUTH_STORAGE_KEYS.access), 'acc-1');
+assert.equal(prod.getItem(AUTH_STORAGE_KEYS.refresh), null);
+assert.ok(prod.getItem(AUTH_STORAGE_KEYS.user)?.includes('a@b.c'));
+
+// Localhost dual-mode: persist body refresh when API still returns it (default).
+const local = mem();
+persistAuthSession(local, 'localhost', {
+  accessToken: 'acc-2',
+  refreshToken: 'rt-local',
+  user,
+});
+assert.equal(local.getItem(AUTH_STORAGE_KEYS.refresh), 'rt-local');
+
+// REFRESH_JSON_TOKEN_ENABLED=false: payload omits refreshToken.
+// Prod still cookie-first (empty body on refresh/logout).
+const jsonOmitProd = mem({ [AUTH_STORAGE_KEYS.refresh]: 'stale' });
+persistAuthSession(jsonOmitProd, 'lojasschimitz.com.br', {
+  accessToken: 'acc-3',
+  user,
+});
+assert.equal(jsonOmitProd.getItem(AUTH_STORAGE_KEYS.access), 'acc-3');
+assert.equal(jsonOmitProd.getItem(AUTH_STORAGE_KEYS.refresh), null);
+assert.deepEqual(refreshBodyFromStorage(jsonOmitProd.getItem(AUTH_STORAGE_KEYS.refresh)), {});
+
+// Localhost + omitted JSON token: do not wipe a pre-existing body refresh (legacy fallback).
+const jsonOmitLocal = mem({ [AUTH_STORAGE_KEYS.refresh]: 'keep-legacy' });
+persistAuthSession(jsonOmitLocal, '127.0.0.1', { accessToken: 'acc-4', user });
+assert.equal(jsonOmitLocal.getItem(AUTH_STORAGE_KEYS.refresh), 'keep-legacy');
+
+// Logout: wipe local keys and expose prior tokens for /auth/logout (cookie + optional body).
+const toClear = mem({
+  [AUTH_STORAGE_KEYS.access]: 'acc-out',
+  [AUTH_STORAGE_KEYS.refresh]: 'rt-out',
+  [AUTH_STORAGE_KEYS.user]: JSON.stringify(user),
+});
+const wiped = wipeAuthSessionStorage(toClear);
+assert.deepEqual(wiped, { access: 'acc-out', refreshToken: 'rt-out' });
+assert.equal(toClear.getItem(AUTH_STORAGE_KEYS.access), null);
+assert.equal(toClear.getItem(AUTH_STORAGE_KEYS.refresh), null);
+assert.equal(toClear.getItem(AUTH_STORAGE_KEYS.user), null);
+assert.deepEqual(refreshBodyFromStorage(wiped.refreshToken), { refreshToken: 'rt-out' });
+
+const emptyWipe = wipeAuthSessionStorage(mem());
+assert.deepEqual(emptyWipe, { access: '', refreshToken: '' });
+assert.deepEqual(refreshBodyFromStorage(emptyWipe.refreshToken), {});
 
 console.log('auth-session unit tests ok');

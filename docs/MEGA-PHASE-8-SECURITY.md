@@ -49,7 +49,7 @@ Webhook null fraco / simulate payment **não** aceitos em prod (401). Swagger fe
 | M3 | Dual-mode: `refreshToken` ainda no JSON de login/register | Intencional (`SECURITY.md` SCH-006) | **Não alterar** (pedido explícito) |
 | M4 | Chat público (`POST /chat`) — abuso de custo LLM se chave ligada | Live 200 FAQ fallback `llm: false`; Throttle 20/min | Docs; custo depende de `OPENAI_API_KEY` no Railway |
 | M5 | Throttler / brute-force counters in-memory (multi-réplica) | `docs/SECURITY.md` | Docs — Redis compartilhado = fase futura |
-| M6 | Sem CSP no storefront (API tem CSP via Helmet) | Live HTML sem `content-security-policy` | Docs; baseline headers **sem** CSP estrito (Next App Router) |
+| M6 | Sem CSP no storefront (API tem CSP via Helmet) | Live HTML sem `content-security-policy` (2026-09-17 ainda ausente no apex) | **Phase A:** CSP gradual enforce em `storefront-csp.ts` (`'unsafe-inline'`/`'unsafe-eval'` + hosts MP Brick). Nonce-strict = fase futura. |
 
 ### BAIXA
 
@@ -77,7 +77,7 @@ Webhook null fraco / simulate payment **não** aceitos em prod (401). Swagger fe
 
 - Rotação de JWT / MP / Resend / DB secrets  
 - Remoção do dual-mode refresh (body + cookie)  
-- CSP estrito com nonces no Next  
+- CSP nonce-strict com nonces no Next (Phase A envia CSP gradual enforce, não nonce) 
 - Redis rate-limit compartilhado  
 - Cobrança Mercado Pago / Play publish / DB destrutivo  
 
@@ -99,4 +99,5 @@ GET  https://lojasschimitz.com.br/ → (pré-deploy) sem security headers; x-pow
 - `apps/api/src/common/filters/http-exception.filter.spec.ts`
 - `apps/web/next.config.ts`
 - `apps/web/src/lib/storefront-security-headers.ts`
+- `apps/web/src/lib/storefront-csp.ts` (Phase A)
 - `apps/web/src/lib/storefront-security-headers.spec.ts`

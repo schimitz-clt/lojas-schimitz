@@ -61,8 +61,8 @@
 
 Checklist + hardening seguro: ver `docs/MEGA-PHASE-8-SECURITY.md`.
 - Filtro global: em prod/staging, HTTP ≥500 sempre `Erro interno` (sem stack/details).
-- Storefront: headers baseline (HSTS/XFO/nosniff/…) + `poweredByHeader: false`.
-- Dual-mode refresh **mantido**.
+- Storefront: headers baseline (HSTS/XFO/nosniff/…) + `poweredByHeader: false` + **CSP gradual** (`storefront-csp.ts`: `'self'` + `'unsafe-inline'`/`'unsafe-eval'` para Next + hosts Mercado Pago Brick/SDK + `img-src https:` para uploads). **Não** é nonce-strict.
+- Dual-mode refresh **mantido**. `REFRESH_JSON_TOKEN_ENABLED` default **true** (não flipar em prod).
 
 
 ## MEGA Phase 9
@@ -88,5 +88,5 @@ Auditoria 2026-09-16: superfície já sólida — **sem mudança de código**.
 | Rate limit | OK (in-memory) | Global Throttler 100/min + `@Throttle` auth/admin/chat/payments; brute-force login in-process. **Sem Redis** (não inventar). Multi-réplica = limite por processo (já documentado Phase 8 M5). |
 | Admin `GET /orders?q=` | OK | Classe `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`; `@Throttle(30/min)`; `q` `@MaxLength(120)`; take≤50; source locks no spec |
 
-Residual aceito (fora do ROI deste lote): access JWT em localStorage (XSS), dual-mode JSON refresh, Throttler in-memory multi-réplica, CSP estrito no Next.
+Residual aceito: access JWT em localStorage (XSS mitigado em parte pelo CSP gradual + cookie HttpOnly), dual-mode JSON refresh (não flipado), Throttler in-memory multi-réplica, CSP nonce-strict no Next (fase futura).
 
