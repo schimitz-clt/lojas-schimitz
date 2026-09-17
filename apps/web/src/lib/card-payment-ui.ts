@@ -3,6 +3,8 @@
  * Never send PAN/CVV to our API; only Brick-issued cardToken.
  */
 
+import { MAX_INSTALLMENTS } from './pricing';
+
 export const CARD_UNAVAILABLE_COPY =
   'Pagamento com cartão indisponível no momento. Use PIX (5% OFF) ou tente mais tarde.';
 
@@ -10,6 +12,10 @@ export const CARD_APPROVED_COPY = 'Pagamento no cartão: Aprovado';
 
 export const CARD_PENDING_COPY =
   'Processando pagamento no cartão… Esta página atualiza automaticamente quando houver confirmação.';
+
+/** Soft copy under the Brick — options depend on card + MP account, not a hard "sempre 12x". */
+export const CARD_BRICK_INSTALLMENTS_HINT =
+  'As parcelas disponíveis dependem do cartão de crédito e das configurações da conta Mercado Pago. Débito costuma ser apenas 1x. Seus dados do cartão não passam pelos servidores da Lojas Schimitz.';
 
 /** Public key present → customer can use Card Payment Brick. */
 export function isCardBrickAvailable(publicKey?: string | null): boolean {
@@ -21,6 +27,21 @@ export type CardBrickSubmit = {
   installments: number;
   paymentMethodId?: string;
 };
+
+/**
+ * Card Payment Brick `customization.paymentMethods` — keep in sync with
+ * storefront MAX_INSTALLMENTS (vitrine). Actual options still depend on
+ * the card + Mercado Pago account installment settings.
+ */
+export function cardBrickPaymentMethodsCustomization(): {
+  minInstallments: number;
+  maxInstallments: number;
+} {
+  return {
+    minInstallments: 1,
+    maxInstallments: MAX_INSTALLMENTS,
+  };
+}
 
 /**
  * Body for POST /payments/intents (card). Requires token when Brick/public key is enabled.
