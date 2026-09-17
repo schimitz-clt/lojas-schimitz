@@ -13,10 +13,18 @@ import {
 } from '@/lib/order-status';
 import { isPixPaidLikeOrder, PIX_APPROVED_COPY, showPixGate } from '@/lib/pix-payment-ui';
 import {
+  buildCardIntentBody,
+  CARD_APPROVED_COPY,
+  CARD_PENDING_COPY,
+  CARD_UNAVAILABLE_COPY,
+  isCardBrickAvailable,
+} from '@/lib/card-payment-ui';
+import {
   deliveryEtaCopy,
   findDeliveredAt,
   type FreightSnapLike,
 } from '@/lib/delivery-eta';
+import MercadoPagoCardBrick from '@/components/MercadoPagoCardBrick';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -253,11 +261,9 @@ export default function PedidoPage() {
   const [o, setO] = useState<Order | null>(null);
   const [err, setErr] = useState('');
   const [method, setMethod] = useState<'pix' | 'card'>('pix');
-  const [installments, setInstallments] = useState(1);
   const [paying, setPaying] = useState(false);
   const [intent, setIntent] = useState<{ payment: Payment } | null>(null);
   const [simulating, setSimulating] = useState(false);
-  const [cardToken, setCardToken] = useState('');
   const [generatedQr, setGeneratedQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -301,7 +307,7 @@ export default function PedidoPage() {
 
   // Gate QR payload at the source so approved payments never keep showing pay UI
   // even if Mercado Pago payload still contains qrCode / qrCodeBase64.
-  const showPixUi = showPixGate(intent?.payment?.status, o?.status);
+  const showPixUi = showPixGate(intent?.payment?.status, o?.status, intent?.payment?.method);
   const qr = showPixUi ? intent?.payment?.payload?.qrCode || null : null;
   const qrFromMp = showPixUi ? pixQrImageSrc(intent?.payment?.payload?.qrCodeBase64) : null;
   const qrImgSrc = showPixUi ? qrFromMp || generatedQr : null;
@@ -328,34 +334,63 @@ export default function PedidoPage() {
     };
   }, [qr, qrFromMp]);
 
+  async function postPaymentIntent(body: Record<string, unknown>, persistKey: string) {
+    let key = sessionStorage.getItem(persistKey);
+    if (!key || key.length < 8) {
+      key = crypto.randomUUID();
+      sessionStorage.setItem(persistKey, key);
+    }
+    const data = await api<{ payment: Payment }>('/payments/intents', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': key },
+      body: JSON.stringify(body),
+    });
+    setIntent(data);
+    await reload();
+    return data;
+  }
+
+  /** PIX (or legacy) — card with public key goes through Brick onSubmit. */
   async function createIntent() {
     if (!o || paying) return;
+    if (method === 'card') {
+      setErr('Use o formulário de cartão abaixo para pagar.');
+      return;
+    }
     setPaying(true);
     setErr('');
     try {
-      const persistKey =
-        method === 'card'
-          ? `sch_idem_pay:${o.id}:${method}:${installments}`
-          : `sch_idem_pay:${o.id}:${method}`;
-      let key = sessionStorage.getItem(persistKey);
-      if (!key || key.length < 8) {
-        key = crypto.randomUUID();
-        sessionStorage.setItem(persistKey, key);
-      }
-      const body: Record<string, unknown> = { orderId: o.id, method };
-      if (method === 'card') {
-        body.installments = installments;
-        if (cardToken) body.cardToken = cardToken;
-      }
-      const data = await api<{ payment: Payment }>('/payments/intents', {
-        method: 'POST',
-        headers: { 'Idempotency-Key': key },
-        body: JSON.stringify(body),
-      });
-      setIntent(data);
-      await reload();
+      await postPaymentIntent({ orderId: o.id, method: 'pix' }, `sch_idem_pay:${o.id}:pix`);
     } catch (e: any) {
       setErr(e.message || 'Falha ao criar intenção de pagamento');
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  async function createCardIntentFromBrick(submit: {
+    cardToken: string;
+    installments: number;
+    paymentMethodId?: string;
+  }) {
+    if (!o || paying) {
+      throw new Error(paying ? 'Pagamento em andamento' : 'Pedido indisponível');
+    }
+    if (!isCardBrickAvailable(MP_PUBLIC_KEY)) {
+      const msg = CARD_UNAVAILABLE_COPY;
+      setErr(msg);
+      throw new Error(msg);
+    }
+    setPaying(true);
+    setErr('');
+    try {
+      const body = buildCardIntentBody(o.id, submit, { requireToken: true });
+      const persistKey = `sch_idem_pay:${o.id}:card:${body.installments}:${body.cardToken.slice(0, 12)}`;
+      await postPaymentIntent(body, persistKey);
+    } catch (e: any) {
+      const msg = e.message || 'Falha ao processar cartão';
+      setErr(msg);
+      throw e instanceof Error ? e : new Error(msg);
     } finally {
       setPaying(false);
     }
@@ -417,7 +452,7 @@ export default function PedidoPage() {
   const paidLike = isPixPaidLikeOrder(o.status);
   const pendingPay = awaiting || o.status === 'draft';
   // Recompute with definite order (after load) — same rule as showPixUi above.
-  const showPixPayUi = showPixGate(intent?.payment?.status, o.status);
+  const showPixPayUi = showPixGate(intent?.payment?.status, o.status, intent?.payment?.method);
   const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
 
   return (
@@ -488,56 +523,44 @@ export default function PedidoPage() {
               <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX (5% off → {brl(pixPrice(o.total))})
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
-              <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão
+              <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão (valor integral {brl(o.total)})
             </label>
             {method === 'card' ? (
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', marginBottom: 8 }}>
-                  Parcelas
-                  <select
-                    value={installments}
-                    onChange={(e) => setInstallments(Number(e.target.value))}
-                    style={{ display: 'block', width: '100%', marginTop: 6 }}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n === 1 ? '1x (à vista)' : `${n}x`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {MP_PUBLIC_KEY ? (
-                  <p className="muted" style={{ fontSize: 14 }}>
-                    Public key configurada. Monte o Checkout Bricks no cliente e cole o token abaixo
-                    (API nunca recebe PAN/CVV).
-                  </p>
-                ) : (
-                  <p className="muted" style={{ fontSize: 14 }}>
-                    Sem <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code>: em <code>PAYMENTS_PROVIDER=null</code>
-                    a intent de cartão funciona sem token. Com Mercado Pago real, informe o cardToken do Bricks.
-                  </p>
-                )}
-                <input
-                  placeholder="cardToken (Bricks) — opcional no provider null"
-                  value={cardToken}
-                  onChange={(e) => setCardToken(e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </div>
+              isCardBrickAvailable(MP_PUBLIC_KEY) ? (
+                <div style={{ marginBottom: 12 }}>
+                  <MercadoPagoCardBrick
+                    publicKey={MP_PUBLIC_KEY}
+                    amount={Number(o.total)}
+                    onSubmitPayment={createCardIntentFromBrick}
+                    onError={(msg) => setErr(msg)}
+                  />
+                  {paying ? (
+                    <p className="muted" style={{ fontSize: 14 }} aria-live="polite">
+                      Processando cartão…
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="alert" role="alert" style={{ marginBottom: 12 }}>
+                  {CARD_UNAVAILABLE_COPY}
+                  <br />
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    Falta <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code> no serviço web (Railway).
+                  </span>
+                </div>
+              )
             ) : null}
-            <button
-              className="btn checkout-confirm-btn"
-              disabled={paying}
-              onClick={createIntent}
-              style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
-              aria-busy={paying || undefined}
-            >
-              {paying
-                ? 'Gerando pagamento...'
-                : method === 'card'
-                  ? `Pagar no cartão (${installments}x)`
-                  : 'Pagar com PIX'}
-            </button>
+            {method === 'pix' ? (
+              <button
+                className="btn checkout-confirm-btn"
+                disabled={paying}
+                onClick={createIntent}
+                style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
+                aria-busy={paying || undefined}
+              >
+                {paying ? 'Gerando pagamento...' : 'Pagar com PIX'}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -604,6 +627,19 @@ export default function PedidoPage() {
             (intent.payment.status === 'approved' || paidLike) ? (
               <p className="ok" style={{ marginTop: 12, fontWeight: 700 }}>
                 {PIX_APPROVED_COPY}
+              </p>
+            ) : null}
+            {intent.payment.method === 'card' &&
+            (intent.payment.status === 'approved' || paidLike) ? (
+              <p className="ok" style={{ marginTop: 12, fontWeight: 700 }}>
+                {CARD_APPROVED_COPY}
+              </p>
+            ) : null}
+            {intent.payment.method === 'card' &&
+            intent.payment.status === 'pending' &&
+            pendingPay ? (
+              <p className="muted" style={{ marginTop: 12, fontSize: 14 }}>
+                {CARD_PENDING_COPY}
               </p>
             ) : null}
             {ALLOW_PAYMENT_SIMULATE && showPixPayUi ? (

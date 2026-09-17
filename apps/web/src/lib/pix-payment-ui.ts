@@ -38,7 +38,13 @@ export const PIX_APPROVED_COPY = 'Pagamento PIX: Aprovado';
  * - payment.status === 'pending'
  * - order.status === 'awaiting_payment' | 'draft'
  */
-export function showPixGate(paymentStatus?: string | null, orderStatus?: string | null): boolean {
+export function showPixGate(
+  paymentStatus?: string | null,
+  orderStatus?: string | null,
+  paymentMethod?: string | null,
+): boolean {
+  // Card (and other non-PIX) pending must not show QR / copia-e-cola.
+  if (paymentMethod != null && String(paymentMethod).toLowerCase() !== 'pix') return false;
   if (paymentStatus !== 'pending') return false;
   return (PIX_AWAITING_ORDER_STATUSES as readonly string[]).includes(String(orderStatus || ''));
 }

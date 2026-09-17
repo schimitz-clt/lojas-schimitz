@@ -22,6 +22,11 @@ assert.equal(showPixGate(null, 'awaiting_payment'), false);
 assert.equal(showPixGate('pending', null), false);
 assert.equal(showPixGate(undefined, undefined), false);
 
+// Non-PIX pending must never open the QR gate (card Brick path).
+assert.equal(showPixGate('pending', 'awaiting_payment', 'card'), false);
+assert.equal(showPixGate('pending', 'awaiting_payment', 'pix'), true);
+assert.equal(showPixGate('pending', 'awaiting_payment', undefined), true);
+
 for (const s of ['paid', 'organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered']) {
   assert.equal(isPixPaidLikeOrder(s), true, s);
   assert.equal(showPixGate('pending', s), false, `no QR while ${s}`);
