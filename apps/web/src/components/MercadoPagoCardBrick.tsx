@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { mapBrickFormDataToCardSubmit, type CardBrickSubmit } from '@/lib/card-payment-ui';
+import {
+  CARD_BRICK_INSTALLMENTS_HINT,
+  cardBrickPaymentMethodsCustomization,
+  mapBrickFormDataToCardSubmit,
+  type CardBrickSubmit,
+} from '@/lib/card-payment-ui';
 
 const MP_SDK_URL = 'https://sdk.mercadopago.com/js/v2';
 const CONTAINER_ID = 'mpCardPaymentBrick_container';
@@ -121,6 +126,9 @@ export default function MercadoPagoCardBrick({
 
         const controller = await bricksBuilder.create('cardPayment', CONTAINER_ID, {
           initialization: { amount: amountNum },
+          customization: {
+            paymentMethods: cardBrickPaymentMethodsCustomization(),
+          },
           localization: { locale: 'pt-BR' },
           callbacks: {
             onReady: () => {
@@ -210,8 +218,7 @@ export default function MercadoPagoCardBrick({
     >
       <p style={{ margin: '0 0 10px', fontWeight: 700, fontSize: 15 }}>Cartão de crédito</p>
       <p className="muted" style={{ margin: '0 0 12px', fontSize: 13 }}>
-        Parcelas conforme o emissor do cartão. Seus dados do cartão não passam pelos servidores da Lojas
-        Schimitz.
+        {CARD_BRICK_INSTALLMENTS_HINT}
       </p>
       {!ready && !loadError ? (
         <p className="muted" style={{ fontSize: 14, marginBottom: 8 }}>
