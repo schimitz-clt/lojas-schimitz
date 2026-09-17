@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, currentUser, userAccountLabel, waLink } from '@/lib/api';
+import { interestFreeInstallmentClaim } from '@/lib/pricing';
 
 const CEP_KEY = 'sch_cep';
 
@@ -82,7 +83,7 @@ export function Header() {
         <span className="topbar-sep" aria-hidden>
           ·
         </span>
-        <span>Até 12x sem juros</span>
+        <span>{interestFreeInstallmentClaim()}</span>
         <span className="topbar-sep" aria-hidden>
           ·
         </span>

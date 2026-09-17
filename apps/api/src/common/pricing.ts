@@ -2,6 +2,11 @@
 
 export const PIX_DISCOUNT_RATE = 0.05;
 
+/** Card Brick / checkout max installment options — not the interest-free marketing claim. */
+export const MAX_INSTALLMENTS = 12;
+/** Seller-absorbed Mercado Pago “Parcelado vendedor”. Only this many may be advertised as “sem juros”. */
+export const INTEREST_FREE_INSTALLMENTS = 3;
+
 /** Money comparison tolerance (R$ 0.01). */
 export const MONEY_EPS = 0.009;
 

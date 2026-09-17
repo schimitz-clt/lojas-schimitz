@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { interestFreeInstallmentClaim } from '@/lib/pricing';
 
 export const metadata: Metadata = {
   title: 'Marketplace',
@@ -22,7 +23,7 @@ export default function MarketplacePage() {
         <h2 style={{ marginTop: 0, fontSize: 20 }}>Catálogo</h2>
         <p className="muted" style={{ marginBottom: 14 }}>
           Eletro, celulares, informática, eletrodomésticos, casa e esporte. Ofertas no padrão das
-          grandes, com PIX 5% off e até 12x sem juros.
+          grandes, com PIX 5% off e {interestFreeInstallmentClaim().toLowerCase()}.
         </p>
         <div className="actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <Link className="btn" href="/produtos">

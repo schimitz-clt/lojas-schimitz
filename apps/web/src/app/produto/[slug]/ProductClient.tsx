@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import { api, brl, currentUser, getGuestToken, waLink } from '@/lib/api';
 import {
   installmentLine,
+  installmentSuffix,
+  installmentTableNote,
   installmentValue,
   MAX_INSTALLMENTS,
   pixPrice,
@@ -444,10 +446,13 @@ export default function ProductPage() {
                 {Array.from({ length: MAX_INSTALLMENTS }, (_, i) => i + 1).map((n) => (
                   <li key={n}>
                     {n}x de {brl(installmentValue(price, n))}
-                    {n === 1 ? ' à vista' : ' sem juros'}
+                    {installmentSuffix(n)}
                   </li>
                 ))}
               </ul>
+              <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                {installmentTableNote()}
+              </p>
             </details>
           </div>
 

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { ChatWidget } from '@/components/ChatWidget';
+import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
 
 /**
  * Storefront chrome (header/footer/bottom nav/chat) — skipped on /admin
@@ -83,7 +84,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
                 <li>Frete grátis em Porto Alegre</li>
                 <li>Troca em 7 dias</li>
                 <li>PIX 5% off</li>
-                <li>12x sem juros*</li>
+                <li>{INTEREST_FREE_INSTALLMENTS}x sem juros</li>
               </ul>
             </div>
           </div>

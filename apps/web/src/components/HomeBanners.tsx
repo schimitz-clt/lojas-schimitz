@@ -6,7 +6,7 @@ import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
-import { pixPrice, toNumber } from '@/lib/pricing';
+import { INTEREST_FREE_INSTALLMENTS, interestFreeInstallmentClaim, pixPrice, toNumber } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
 import {
   pickFeaturedHeroProduct,
@@ -77,7 +77,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
             </div>
           ) : (
             <p className="home-hero-sub">
-              Frete grátis em POA · PIX 5% off · até 12x sem juros · troca em 7 dias
+              Frete grátis em POA · PIX 5% off · {interestFreeInstallmentClaim().toLowerCase()} · troca em 7 dias
             </p>
           )}
           <div className="home-hero-actions">
@@ -93,7 +93,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
               <strong>PIX</strong> 5% off
             </li>
             <li>
-              <strong>12x</strong> sem juros
+              <strong>{INTEREST_FREE_INSTALLMENTS}x</strong> sem juros
             </li>
             <li>
               <strong>Frete</strong> grátis POA

@@ -42,11 +42,13 @@ assert.ok(faqShip && /porto alegre/i.test(faqShip));
 const faqCash = faqReply('o que é schimitz+?');
 assert.ok(faqCash && /1%|cashback/i.test(faqCash));
 const faqCard = faqReply('parcelamento');
-assert.ok(faqCard && /12x/i.test(faqCard), 'parcelamento FAQ');
+assert.ok(faqCard && /3x/i.test(faqCard) && /sem juros/i.test(faqCard), 'parcelamento FAQ interest-free');
+assert.ok(faqCard && /12x/i.test(faqCard), 'parcelamento FAQ still mentions max 12x');
+assert.ok(faqCard && /juros/i.test(faqCard), 'parcelamento FAQ honest about interest above 3x');
 const faqRet = faqReply('quero trocar um produto');
 assert.ok(faqRet && /7 dias/i.test(faqRet), 'troca FAQ');
 const faqHi = faqReply('olá');
-assert.ok(faqHi && /PIX|frete|12x/i.test(faqHi), 'greeting FAQ');
+assert.ok(faqHi && /PIX|frete|3x/i.test(faqHi), 'greeting FAQ');
 const faqHours = faqReply('qual o horario de funcionamento?');
 assert.ok(faqHours && /suporte|WhatsApp/i.test(faqHours), 'hours FAQ points to support');
 assert.equal(faqReply('asdf qwerty zxcv'), null);
@@ -71,7 +73,7 @@ assert.equal(parseLlmJson('texto solto sem json')?.reply, 'texto solto sem json'
 
 const fallbackNoKey = noLlmFallbackReply({ faq: null, hasProducts: false });
 assert.ok(/WhatsApp/i.test(fallbackNoKey));
-assert.ok(/Porto Alegre|PIX|12x|SCHIMITZ/i.test(fallbackNoKey));
+assert.ok(/Porto Alegre|PIX|3x|SCHIMITZ/i.test(fallbackNoKey));
 assert.ok(/\/suporte/i.test(fallbackNoKey), 'fallback points to /suporte');
 assert.ok(!/limitado/i.test(fallbackNoKey), 'no dead-end limitado copy');
 
@@ -118,6 +120,8 @@ assert.equal(extractCepFromMessage('meu cep é 91160-390'), '91160390');
 
 assert.equal(storePolicies().pixDiscountPct, 5);
 assert.equal(storePolicies().returnDays, 7);
+assert.equal(storePolicies().installments, 12);
+assert.equal(storePolicies().interestFreeInstallments, 3);
 
 assert.equal(resolveChatAiMode({ SCHIMITZ_AI_ENABLED: 'false' } as NodeJS.ProcessEnv), 'off');
 assert.equal(resolveChatAiMode({ CHAT_AI_MODE: 'faq' } as NodeJS.ProcessEnv), 'faq');
