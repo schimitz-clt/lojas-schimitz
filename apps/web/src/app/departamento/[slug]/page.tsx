@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import DepartamentoClient from './DepartamentoClient';
 import { JsonLd } from '@/components/JsonLd';
+import { ProductGridSkeleton } from '@/components/Skeleton';
 import { buildBreadcrumbList } from '@/lib/json-ld';
 import { fetchCategoryMeta, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
@@ -44,7 +46,9 @@ export default async function Page({ params }: Props) {
   return (
     <>
       <JsonLd data={breadcrumb} />
-      <DepartamentoClient />
+      <Suspense fallback={<ProductGridSkeleton count={6} />}>
+        <DepartamentoClient />
+      </Suspense>
     </>
   );
 }
