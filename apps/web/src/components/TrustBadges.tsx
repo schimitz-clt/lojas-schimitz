@@ -51,7 +51,7 @@ export function TrustBadges({ variant = 'home' }: Props) {
   const label = variant === 'checkout' ? 'Compra e pagamento' : 'Vantagens da loja';
 
   return (
-    <ul className={variant === 'checkout' ? 'trust-row trust-row-checkout' : 'trust-row'} aria-label={label}>
+    <ul className={variant === 'checkout' ? 'trust-row trust-row-checkout sf-pro-trust' : 'trust-row sf-pro-trust'} aria-label={label}>
       {items.map((item) => (
         <li key={item.title}>
           <span className="trust-icon" aria-hidden="true">
