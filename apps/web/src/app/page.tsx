@@ -146,7 +146,7 @@ function HomeInner() {
   }
 
   return (
-    <div className="home">
+    <div className="home sf-pro-home">
       {/* 1. Banner / hero */}
       <HomeBanners products={loading ? [] : products} />
 

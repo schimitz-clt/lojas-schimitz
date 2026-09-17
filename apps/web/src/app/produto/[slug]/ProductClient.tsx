@@ -12,6 +12,7 @@ import {
 } from '@/lib/pricing';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
+import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
 type Detail = {
@@ -300,7 +301,7 @@ export default function ProductPage() {
   const outOfStock = stock != null && stock <= 0;
 
   return (
-    <div className="pdp" style={{ padding: '24px 0' }}>
+    <div className="pdp sf-pro-pdp" style={{ padding: '24px 0' }}>
       <div className="pdp-grid">
         <div className="pdp-gallery">
           <div
@@ -433,6 +434,9 @@ export default function ProductPage() {
             <p className="pdp-pix">
               <strong>{brl(pix)}</strong> no PIX <span className="muted">· 5% de desconto</span>
             </p>
+            {pixHighlight(price).savings > 0 ? (
+              <span className="pdp-savings">{pixHighlight(price).savingsLine}</span>
+            ) : null}
             <p className="pdp-install muted">{installmentLine(price)}</p>
             <details className="pdp-install-table">
               <summary>Ver parcelas (1 a {MAX_INSTALLMENTS}x)</summary>
@@ -623,11 +627,11 @@ export default function ProductPage() {
         </div>
         {addedToBag && !outOfStock ? (
           <Link className="btn" href="/carrinho">
-            Ir para a sacola
+            {stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: true })}
           </Link>
         ) : (
           <button className="btn" onClick={add} disabled={outOfStock || adding}>
-            {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
+            {stickyBuyLabel({ outOfStock, adding, addedToBag: false })}
           </button>
         )}
       </div>

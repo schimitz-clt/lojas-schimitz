@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
-import { installmentLine, pixPrice, stockBadge, toNumber } from '@/lib/pricing';
+import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
+import { discountPercent } from '@/lib/storefront-pro';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
@@ -42,11 +43,6 @@ function resolveStock(p: Product): number | null {
   return null;
 }
 
-function discountPct(price: number, compareAt?: number | string | null): number | null {
-  const cmp = toNumber(compareAt);
-  if (!cmp || cmp <= price) return null;
-  return Math.round((1 - price / cmp) * 100);
-}
 
 function ProductImage({
   src,
@@ -95,7 +91,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
   const sb = stockBadge(stock);
   const price = Number(p.price);
   const pix = pixPrice(price);
-  const off = discountPct(price, p.compareAtPrice);
+  const off = discountPercent(price, p.compareAtPrice);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const out = sb?.tone === 'out';

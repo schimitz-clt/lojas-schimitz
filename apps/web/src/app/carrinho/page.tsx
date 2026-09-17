@@ -7,6 +7,7 @@ import {
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
 import { pixPrice, stockBadge } from '@/lib/pricing';
+import { cartCheckoutLabel, cartTrustItems, pixHighlight } from '@/lib/storefront-pro';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
@@ -143,7 +144,7 @@ export default function CartPage() {
   if (err) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!cart) {
     return (
-      <div className="cart-page" style={{ padding: '24px 0' }}>
+      <div className="cart-page sf-pro-cart" style={{ padding: '24px 0' }}>
         <h1 style={{ marginTop: 0 }}>Sacola</h1>
         <div className="card skel-card" aria-busy="true" aria-label="Carregando sacola">
           <div className="body" style={{ display: 'grid', gap: 10 }}>
@@ -160,7 +161,7 @@ export default function CartPage() {
   const pixSubtotal = pixPrice(cart.subtotal);
 
   return (
-    <div className="cart-page" style={{ padding: '24px 0' }}>
+    <div className="cart-page sf-pro-cart" style={{ padding: '24px 0' }}>
       <h1 style={{ marginTop: 0 }}>Sacola</h1>
       {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
       {!hasItems ? (
@@ -298,17 +299,29 @@ export default function CartPage() {
                 <h3 style={{ margin: 0 }}>Subtotal</h3>
                 <h3 style={{ margin: 0 }}>{brl(cart.subtotal)}</h3>
               </div>
-              <p className="cart-pix-hint muted">
-                No PIX: <strong style={{ color: 'var(--ink)' }}>{brl(pixSubtotal)}</strong> (5% OFF
-                aplicado no pagamento)
+              <p className="cart-pix-hint">
+                No PIX: <strong>{brl(pixSubtotal)}</strong>
+                {pixHighlight(cart.subtotal).savings > 0
+                  ? ` · ${pixHighlight(cart.subtotal).savingsLine}`
+                  : ' · 5% OFF aplicado no pagamento'}
               </p>
+              <ul className="cart-trust" aria-label="Por que comprar aqui">
+                {cartTrustItems().map((item) => (
+                  <li key={item.title}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span className="muted">{item.sub}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
               {loggedIn && !addressId ? (
                 <p className="muted" style={{ marginTop: 0, marginBottom: 12, fontSize: 13 }}>
                   Cadastre o endereço acima (ou no próximo passo) para calcular frete e pagar.
                 </p>
               ) : null}
               <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
-                {loggedIn ? 'Finalizar compra' : 'Entrar e finalizar'}
+                {cartCheckoutLabel(loggedIn)}
               </Link>
               <Link
                 className="btn ghost cart-keep-shopping"
@@ -334,7 +347,7 @@ export default function CartPage() {
               </div>
             </div>
             <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
-              {loggedIn ? 'Finalizar compra' : 'Entrar e finalizar'}
+              {cartCheckoutLabel(loggedIn)}
             </Link>
           </div>
         </>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import '@/components/storefront/storefront-theme.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 

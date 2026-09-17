@@ -7,6 +7,7 @@ import type { HomeBanner } from '@/lib/storefront';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { pixPrice, toNumber } from '@/lib/pricing';
+import { discountPercent } from '@/lib/storefront-pro';
 import {
   pickFeaturedHeroProduct,
   resolveRealProductImageUrl,
@@ -33,11 +34,6 @@ function bannerImageUrl(b: HomeBanner): string {
   return rewritePublicUploadUrl(raw) || raw;
 }
 
-function discountPct(price: number, compareAt?: number | string | null): number | null {
-  const cmp = toNumber(compareAt);
-  if (!cmp || cmp <= price) return null;
-  return Math.round((1 - price / cmp) * 100);
-}
 
 /** Hero promocional branco + produto real quando a API não tem banners. */
 function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
@@ -45,7 +41,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
   const price = featured?.price != null ? Number(featured.price) : NaN;
   const hasPrice = Number.isFinite(price) && price > 0;
   const pix = hasPrice ? pixPrice(price) : null;
-  const off = hasPrice ? discountPct(price, featured?.compareAtPrice) : null;
+  const off = hasPrice ? discountPercent(price, featured?.compareAtPrice) : null;
   const href = featured?.slug ? `/produto/${featured.slug}` : '/departamento/ofertas';
 
   return (
