@@ -9,11 +9,16 @@ Arquivo servido pelo Next em:
 Fonte no monorepo: `apps/web/public/.well-known/assetlinks.json`  
 (espelho de exemplo: `apps/mobile/assetlinks.example.json`)
 
-## Fingerprint atual
+## Fingerprints atuais
 
-O SHA-256 em `assetlinks.json` é o da **chave de upload** (upload key).
+O array `sha256_cert_fingerprints` inclui **os dois** SHA-256:
 
-Se o app usar **Play App Signing**, o certificado de assinatura do Play pode exigir um **segundo** fingerprint no array `sha256_cert_fingerprints`. Obtenha-o em Play Console → Integridade do app (App integrity) e adicione-o ao JSON sem remover o da upload key.
+1. **Chave de upload** (upload key) — manter:
+   `CA:9C:14:50:C2:B3:A7:81:15:33:4A:40:26:0D:B8:07:C1:77:05:9F:58:9C:5F:40:0E:64:7D:56:85:9C:3C:5A`
+2. **Play App Signing** (classic key / certificado de assinatura do app):
+   `48:B5:24:E8:11:0C:2D:10:AE:A8:0D:95:9C:9F:C3:F0:FE:E4:DE:38:99:48:BD:D6:6D:E5:DD:62:E3:61:0D:7C`
+
+Não remova o fingerprint da upload key ao atualizar o da Assinatura do app. Novos certificados vêm de Play Console → Integridade do app (App integrity).
 
 ## Antes de publicar / após mudar certificados
 
