@@ -162,7 +162,7 @@ export class AdminOrdersQueryDto {
     'delivered',
     'cancelled',
     'refunded',
-    /** Virtual ops bucket: cancelled|refunded|separating|shipped */
+    /** Virtual ops bucket: Pedidos filter = cancelled|refunded + legado stuck (separating|shipped). CRITICAL alerts use stuck only. */
     'problems',
   ])
   status?: string;

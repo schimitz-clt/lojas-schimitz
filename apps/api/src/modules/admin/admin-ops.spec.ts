@@ -119,7 +119,11 @@ assert.equal(orderCounts.byStatus.paid, 2);
 assert.equal(orderCounts.buckets.paid, 2);
 assert.equal(orderCounts.buckets.organizing, 1);
 assert.equal(orderCounts.buckets.awaiting_payment, 4);
-assert.equal(orderCounts.buckets.problems, 4); // cancelled 3 + shipped 1
+assert.equal(orderCounts.buckets.problems, 4); // cancelled 3 + shipped 1 (Pedidos filter)
+assert.equal(orderCounts.stuckCount, 1); // shipped only — CRITICAL source
+assert.equal(orderCounts.terminalHistoryCount, 3); // cancelled — not critical
+assert.deepEqual([...orderCounts.stuckStatuses], ['separating', 'shipped']);
+assert.deepEqual([...orderCounts.terminalHistoryStatuses], ['cancelled', 'refunded']);
 assert.equal(orderCounts.total, 11);
 
 const withOrders = summarizeOps({
@@ -165,6 +169,7 @@ const richAlerts = deriveOpsAlerts({
   pendingPaymentCount: 4,
   mailConfigured: false,
   orderBuckets: { paid: 5, problems: 2, awaiting_payment: 4 },
+  stuckOrderCount: 2,
 });
 assert.equal(richAlerts.some((a) => a.code === 'out_of_stock' && a.severity === 'critical'), true);
 assert.equal(richAlerts.some((a) => a.code === 'low_stock' && a.count === 3), true);
@@ -174,6 +179,24 @@ assert.equal(richAlerts.some((a) => a.code === 'order_problems' && a.severity ==
 assert.equal(richAlerts.some((a) => a.code === 'placeholder_photos'), true);
 assert.equal(richAlerts.some((a) => a.code === 'mail_not_configured'), true);
 assert.equal(richAlerts.some((a) => a.code === 'awaiting_payment_orders'), true);
+
+{
+  // buckets.problems includes cancelled/refunded — must NOT drive CRITICAL by itself
+  const problemsBucketOnly = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderBuckets: { problems: 22 },
+  });
+  assert.equal(
+    problemsBucketOnly.some((a) => a.code === 'order_problems'),
+    false,
+    'buckets.problems alone must not emit critical order_problems',
+  );
+  assert.equal(problemsBucketOnly.some((a) => a.severity === 'critical'), false);
+}
 
 const dash = summarizeOps({
   lowStockCount: 1,
@@ -469,4 +492,97 @@ console.log('admin-ops unit tests ok');
   assert.equal(opsOmit.alerts.some((a) => a.code === 'uploads_ephemeral'), false);
 
   console.log('admin-ops: uploads_ephemeral durability — PASSOU');
+}
+
+{
+  // Production 2026-09-17: 22 cancelled, zero stuck — no CRITICAL problemas
+  const cancelledOnly = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderStatusCounts: [
+      { status: 'cancelled', count: 22 },
+      { status: 'refunded', count: 0 },
+      { status: 'separating', count: 0 },
+      { status: 'shipped', count: 0 },
+    ],
+  });
+  assert.equal(cancelledOnly.orders.buckets.problems, 22);
+  assert.equal(cancelledOnly.orders.stuckCount, 0);
+  assert.equal(cancelledOnly.orders.terminalHistoryCount, 22);
+  assert.equal(
+    cancelledOnly.alerts.some((a) => a.code === 'order_problems'),
+    false,
+    'cancelled-only must not emit critical order_problems',
+  );
+  const hist = cancelledOnly.alerts.find((a) => a.code === 'order_terminal_history');
+  assert.ok(hist);
+  assert.equal(hist!.severity, 'info');
+  assert.equal(hist!.count, 22);
+  assert.equal(hist!.queueBucket, 'problems');
+  assert.equal(cancelledOnly.alerts.some((a) => a.severity === 'critical'), false);
+  assert.equal(cancelledOnly.alerts.some((a) => a.code === 'paid_needs_organizing'), false);
+
+  const refundedOnly = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderStatusCounts: [{ status: 'refunded', count: 4 }],
+  });
+  assert.equal(refundedOnly.orders.stuckCount, 0);
+  assert.equal(refundedOnly.alerts.some((a) => a.code === 'order_problems'), false);
+  assert.equal(
+    refundedOnly.alerts.some((a) => a.code === 'order_terminal_history' && a.severity === 'info' && a.count === 4),
+    true,
+  );
+
+  const stuckLive = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderStatusCounts: [
+      { status: 'separating', count: 1 },
+      { status: 'shipped', count: 2 },
+      { status: 'cancelled', count: 22 },
+    ],
+  });
+  const op = stuckLive.alerts.find((a) => a.code === 'order_problems');
+  assert.ok(op);
+  assert.equal(op!.severity, 'critical');
+  assert.equal(op!.count, 3, 'CRITICAL counts only separating+shipped');
+  assert.equal(op!.queueBucket, 'problems');
+  assert.ok(op!.message.includes('legado'));
+  assert.equal(stuckLive.orders.stuckCount, 3);
+  assert.equal(stuckLive.orders.terminalHistoryCount, 22);
+  assert.equal(stuckLive.orders.buckets.problems, 25);
+  assert.equal(
+    stuckLive.alerts.find((a) => a.code === 'order_terminal_history')?.count,
+    22,
+  );
+
+  const paidUnchanged = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    orderStatusCounts: [
+      { status: 'paid', count: 5 },
+      { status: 'cancelled', count: 22 },
+    ],
+  });
+  const paidAlert = paidUnchanged.alerts.find((a) => a.code === 'paid_needs_organizing');
+  assert.ok(paidAlert);
+  assert.equal(paidAlert!.severity, 'warn');
+  assert.equal(paidAlert!.count, 5);
+  assert.equal(paidAlert!.queueBucket, 'paid');
+  assert.equal(paidUnchanged.alerts.some((a) => a.code === 'order_problems'), false);
+
+  console.log('admin-ops: stuck vs terminal history order_problems — PASSOU');
 }

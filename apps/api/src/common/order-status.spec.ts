@@ -8,6 +8,10 @@ import {
   POST_PAYMENT_OPS_HINT,
   ADMIN_ORDER_QUEUE_BUCKETS,
   POST_PAID_STATUSES,
+  PROBLEM_ORDER_STATUSES,
+  STUCK_ORDER_STATUSES,
+  TERMINAL_HISTORY_ORDER_STATUSES,
+  countStatuses,
   assertValidTransition,
   InvalidOrderTransitionError,
 } from './order-status';
@@ -44,6 +48,19 @@ assert.equal(shouldRestockOnRefund('paid'), true);
 assert.equal(shouldRestockOnRefund('organizing'), true);
 assert.equal(shouldRestockOnRefund('in_transit'), false);
 
+assert.deepEqual([...STUCK_ORDER_STATUSES].sort(), ['separating', 'shipped'].sort());
+assert.deepEqual([...TERMINAL_HISTORY_ORDER_STATUSES].sort(), ['cancelled', 'refunded'].sort());
+assert.deepEqual(
+  [...PROBLEM_ORDER_STATUSES].sort(),
+  [...TERMINAL_HISTORY_ORDER_STATUSES, ...STUCK_ORDER_STATUSES].sort(),
+);
+assert.equal(
+  (STUCK_ORDER_STATUSES as readonly string[]).includes('cancelled'),
+  false,
+  'cancelled is terminal history, not stuck',
+);
+assert.equal((STUCK_ORDER_STATUSES as readonly string[]).includes('refunded'), false);
+
 assert.deepEqual(statusesForAdminQueueBucket('paid'), ['paid']);
 assert.deepEqual(statusesForAdminQueueBucket('problems').sort(), [
   'cancelled',
@@ -53,8 +70,14 @@ assert.deepEqual(statusesForAdminQueueBucket('problems').sort(), [
 ].sort());
 assert.equal(bucketForOrderStatus('paid'), 'paid');
 assert.equal(bucketForOrderStatus('cancelled'), 'problems');
+assert.equal(bucketForOrderStatus('refunded'), 'problems');
 assert.equal(bucketForOrderStatus('separating'), 'problems');
+assert.equal(bucketForOrderStatus('shipped'), 'problems');
 assert.equal(bucketForOrderStatus('draft'), 'draft');
+assert.equal(countStatuses({ cancelled: 22, refunded: 0, separating: 0, shipped: 0 }, STUCK_ORDER_STATUSES), 0);
+assert.equal(countStatuses({ cancelled: 22, shipped: 1 }, STUCK_ORDER_STATUSES), 1);
+assert.equal(countStatuses({ cancelled: 22, refunded: 3 }, TERMINAL_HISTORY_ORDER_STATUSES), 25);
+assert.equal(countStatuses(undefined, STUCK_ORDER_STATUSES), 0);
 assert.equal(nextFulfillmentStatus('paid'), 'organizing');
 assert.ok(POST_PAYMENT_OPS_HINT.includes('organizing'));
 assert.ok(ADMIN_ORDER_QUEUE_BUCKETS.includes('problems'));
