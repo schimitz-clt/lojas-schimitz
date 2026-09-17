@@ -31,7 +31,7 @@ export const IN_PROGRESS_ORDER_STATUSES = [
   'shipped',
 ] as const;
 
-export const PIX_APPROVED_COPY = 'Pagamento PIX: Aprovado — não pague de novo';
+export const PIX_APPROVED_COPY = 'Pagamento PIX: Aprovado';
 
 /**
  * Show QR / copia-e-cola / "escaneie/pague agora" ONLY when both are true:

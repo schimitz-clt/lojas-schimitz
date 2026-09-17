@@ -44,12 +44,11 @@ assert.equal(
 assert.equal(pickInProgressOrder([{ status: 'delivered' }, { status: 'cancelled' }]), null);
 assert.equal(pickInProgressOrder([]), null);
 
-assert.ok(PIX_APPROVED_COPY.includes('Aprovado'));
-assert.ok(PIX_APPROVED_COPY.includes('não pague'));
+assert.equal(PIX_APPROVED_COPY, 'Pagamento PIX: Aprovado');
 
 const pedido = readFileSync(join(__dirname, '../app/pedidos/[publicId]/page.tsx'), 'utf8');
 assert.ok(pedido.includes('showPixGate'), 'order page uses showPixGate');
-assert.ok(pedido.includes('PIX_APPROVED_COPY') || pedido.includes('não pague de novo'), 'approved copy');
+assert.ok(pedido.includes('PIX_APPROVED_COPY'), 'approved copy');
 assert.ok(!/isPixPending \|\| \(intent\.payment\.method === 'pix' && \(qr \|\| qrImgSrc\)\)/.test(pedido), 'old QR OR-payload gate removed');
 
 const conta = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');
