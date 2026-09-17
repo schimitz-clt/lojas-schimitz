@@ -40,11 +40,28 @@ import {
   AdminStatusChip,
 } from '@/components/admin/AdminStatusChip';
 import {
+  adminUserStatusLabel,
+  adminUserStatusTone,
+  bannerActiveLabel,
   catalogNeedsPhotoSummary,
+  commissionStatusLabel,
+  commissionStatusTone,
+  couponIsExhausted,
+  couponIsExpired,
+  couponListStats,
+  customerAccountLabel,
+  customerAccountTone,
   paidQueueBannerClass,
   paidQueueBannerTone,
   productPhotoBadgeKind,
   productPhotoBadgeLabel,
+  reviewStars,
+  reviewStatusLabel,
+  reviewStatusTone,
+  salesPresetActive,
+  sellerStatusLabel,
+  sellerStatusTone,
+  shippingZoneActiveLabel,
   shouldStickyOrderActions,
 } from '@/lib/admin-pro-ui';
 
@@ -2324,14 +2341,14 @@ export default function AdminPage() {
 
       {adminSection === 'equipe' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <p className="admin-section-intro">
+        Crie contas extras para a equipe. Todas têm o mesmo acesso ao painel. Desativar impede o login
+        (não apaga o cadastro). Você não pode desativar a si mesmo nem o último admin ativo.
+      </p>
+      <section className="admin-card-pro">
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Administradores</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Crie contas extras para a equipe. Todas têm o mesmo acesso ao painel. Desativar impede o login
-            (não apaga o cadastro). Você não pode desativar a si mesmo nem o último admin ativo.
-          </p>
-          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveAdmin}>
+          <h2>Novo administrador</h2>
+          <form className="form admin-form-pro" style={{ marginTop: 12, marginBottom: 0 }} onSubmit={saveAdmin}>
             <label>
               Nome *
               <input
@@ -2363,11 +2380,14 @@ export default function AdminPage() {
                 autoComplete="new-password"
               />
             </label>
-            <button className="btn" type="submit" disabled={savingAdmin}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingAdmin}>
               {savingAdmin ? 'Salvando...' : 'Criar administrador'}
             </button>
           </form>
-          <div style={{ display: 'grid', gap: 8 }}>
+        </div>
+      </section>
+      <h3 className="admin-section-heading">Equipe ({admins.length})</h3>
+      <div className="admin-dense-list">
             {admins.map((a) => {
               const me = currentUser();
               const isMe = me?.id === a.id;
@@ -2375,80 +2395,67 @@ export default function AdminPage() {
               return (
                 <div
                   key={a.id}
-                  className="row"
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--line)',
-                    flexWrap: 'wrap',
-                    opacity: active ? 1 : 0.7,
-                  }}
+                  className={`admin-dense-row${active ? '' : ' admin-dense-row--muted'}`}
                 >
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <b>{a.name}</b>{' '}
-                    {isMe ? <span className="badge">Você</span> : null}
-                    {!active ? <span className="badge">Desativado</span> : null}
-                    <div className="muted" style={{ fontSize: 13 }}>
+                  <div className="admin-dense-row__main">
+                    <div className="admin-dense-row__title">
+                      <b>{a.name}</b>
+                      {isMe ? <AdminStatusChip label="Você" tone="accent" /> : null}
+                      <AdminStatusChip label={adminUserStatusLabel(a.status)} tone={adminUserStatusTone(a.status)} />
+                    </div>
+                    <div className="admin-dense-row__meta">
                       {a.email}
                       {' · '}
                       desde {new Date(a.createdAt).toLocaleDateString('pt-BR')}
                     </div>
                   </div>
+                  <div className="admin-dense-row__actions">
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={adminBusyId === a.id || (isMe && active)}
                     onClick={() => void toggleAdminStatus(a)}
                     title={isMe && active ? 'Você não pode desativar a si mesmo' : undefined}
                   >
                     {adminBusyId === a.id ? '...' : active ? 'Desativar' : 'Reativar'}
                   </button>
+                  </div>
                 </div>
               );
             })}
             {!admins.length ? (
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhum administrador listado.
-              </p>
+              <p className="admin-empty">Nenhum administrador listado.</p>
             ) : null}
-          </div>
-        </div>
-      </section>
-
-
+      </div>
       </div>
       ) : null}
 
       {adminSection === 'clientes' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Clientes (CRM)</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Lista somente leitura: clientes com pedidos, total pago e histórico recente. Sem edição/exclusão.
-          </p>
+      <p className="admin-section-intro">
+        Lista somente leitura: clientes com pedidos, total pago e histórico recente. Sem edição/exclusão.
+      </p>
+      <div className="admin-toolbar">
           <form
-            className="row"
-            style={{ gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-end' }}
+            className="admin-toolbar__row"
             onSubmit={(e) => {
               e.preventDefault();
               void loadCustomers(customerQ);
             }}
           >
-            <label style={{ flex: 1, minWidth: 200 }}>
-              Buscar (nome, e-mail ou telefone)
+            <label className="admin-search-field" style={{ flex: 1, minWidth: 200, maxWidth: 'none' }}>
+              <span>Buscar (nome, e-mail ou telefone)</span>
               <input
                 value={customerQ}
                 onChange={(e) => setCustomerQ(e.target.value)}
                 placeholder="Ex.: Maria ou 5199…"
               />
             </label>
-            <button className="btn" type="submit" disabled={customerBusy}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={customerBusy}>
               {customerBusy ? 'Buscando…' : 'Buscar'}
             </button>
             <button
-              className="btn ghost"
+              className="btn ghost admin-btn-ghost-pro"
               type="button"
               disabled={customerBusy}
               onClick={() => {
@@ -2459,120 +2466,102 @@ export default function AdminPage() {
               Limpar
             </button>
           </form>
-          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          <div className="admin-dense-row__meta">
             {customersTotal} cliente(s) · mostrando {customers.length}
-          </p>
-          <div style={{ display: 'grid', gap: 8 }}>
+          </div>
+      </div>
+      <div className="admin-dense-list">
             {customers.map((c) => (
-              <div
-                key={c.id}
-                className="row"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <b>{c.name}</b>{' '}
-                  {c.status !== 'active' ? <span className="badge">Bloqueado</span> : null}
-                  <div className="muted" style={{ fontSize: 13 }}>
+              <div key={c.id} className="admin-dense-row">
+                <div className="admin-dense-row__main">
+                  <div className="admin-dense-row__title">
+                    <b>{c.name}</b>
+                    <AdminStatusChip
+                      label={customerAccountLabel(c.status)}
+                      tone={customerAccountTone(c.status)}
+                    />
+                  </div>
+                  <div className="admin-dense-row__meta">
                     {c.email}
                     {c.phone ? ` · ${c.phone}` : ''}
                   </div>
-                  <div className="muted" style={{ fontSize: 13 }}>
+                  <div className="admin-dense-row__meta">
                     {c.ordersCount} pedido(s) · pagos {c.paidOrdersCount} · {brl(c.paidTotal)}
                     {c.lastPaidAt
                       ? ` · último ${new Date(c.lastPaidAt).toLocaleDateString('pt-BR')}`
                       : ''}
                   </div>
                 </div>
+                <div className="admin-dense-row__actions">
                 <button
                   type="button"
-                  className="btn ghost"
+                  className="btn ghost admin-btn-ghost-pro"
                   disabled={customerDetailBusy}
                   onClick={() => void openCustomer(c.id)}
                 >
                   Ver pedidos
                 </button>
+                </div>
               </div>
             ))}
             {!customers.length ? (
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhum cliente encontrado.
-              </p>
+              <p className="admin-empty">Nenhum cliente encontrado.</p>
             ) : null}
-          </div>
+      </div>
           {customerDetail ? (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 12,
-                borderRadius: 10,
-                border: '1px solid var(--line)',
-                background: 'var(--card, var(--bg))',
-              }}
-            >
-              <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>
+            <div className="admin-detail-panel">
+              <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>
                   {customerDetail.name}{' '}
-                  <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+                  <span className="admin-dense-row__meta" style={{ fontWeight: 400 }}>
                     {customerDetail.email}
                   </span>
                 </h3>
-                <button type="button" className="btn ghost" onClick={() => setCustomerDetail(null)}>
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => setCustomerDetail(null)}>
                   Fechar
                 </button>
               </div>
-              <p className="muted" style={{ fontSize: 13 }}>
+              <p className="admin-dense-row__meta" style={{ marginTop: 0 }}>
                 SCHIMITZ+ {brl(customerDetail.cashbackBalance)} · {customerDetail.addressesCount}{' '}
                 endereço(s) · total pago {brl(customerDetail.paidTotal)}
               </p>
-              <div style={{ display: 'grid', gap: 8 }}>
+              <div className="admin-dense-list">
                 {customerDetail.orders.map((o) => (
-                  <div
-                    key={o.id}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      border: '1px solid var(--line)',
-                      fontSize: 13,
-                    }}
-                  >
-                    <b>{o.publicId}</b> · {orderStatusLabel(o.status)} · {brl(o.total)} ·{' '}
-                    {new Date(o.createdAt).toLocaleString('pt-BR')}
-                    <div className="muted">
-                      {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ')}
+                  <div key={o.id} className="admin-dense-row">
+                    <div className="admin-dense-row__main">
+                      <div className="admin-dense-row__title">
+                        <span className="admin-dense-row__code">{o.publicId}</span>
+                        <AdminOrderStatusChip status={o.status} label={orderStatusLabel(o.status)} />
+                      </div>
+                      <div className="admin-dense-row__meta">
+                        {brl(o.total)} · {new Date(o.createdAt).toLocaleString('pt-BR')}
+                      </div>
+                      <div className="admin-dense-row__meta">
+                        {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ')}
+                      </div>
                     </div>
                   </div>
                 ))}
                 {!customerDetail.orders.length ? (
-                  <p className="muted" style={{ margin: 0 }}>
-                    Sem pedidos.
-                  </p>
+                  <p className="admin-empty">Sem pedidos.</p>
                 ) : null}
               </div>
             </div>
           ) : null}
-        </div>
-      </section>
 
       </div>
       ) : null}
 
       {adminSection === 'marketplace' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <p className="admin-section-intro">
+        Fundação multi-seller. Checkout único continua igual. Repasse v1: ledger + PIX manual
+        (sem split MP) — ver docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
+      </p>
+      <section className="admin-card-pro">
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Vendedores (Marketplace v1)</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Fundação multi-seller. Checkout único continua igual. Repasse v1: ledger + PIX manual
-            (sem split MP) — ver docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
-          </p>
-          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveSeller}>
+          <h2>Novo vendedor</h2>
+          <form className="form admin-form-pro" style={{ marginTop: 12, marginBottom: 0 }} onSubmit={saveSeller}>
             <label>
               Nome *
               <input
@@ -2601,63 +2590,33 @@ export default function AdminPage() {
                   })
                 }
               >
-                <option value="pending">pending</option>
-                <option value="active">active</option>
-                <option value="suspended">suspended</option>
+                <option value="pending">Pendente</option>
+                <option value="active">Ativo</option>
+                <option value="suspended">Suspenso</option>
               </select>
             </label>
-            <button className="btn" type="submit" disabled={savingSeller}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeller}>
               {savingSeller ? 'Salvando...' : 'Criar vendedor'}
             </button>
           </form>
-          <div style={{ display: 'grid', gap: 8 }}>
+        </div>
+      </section>
+      <h3 className="admin-section-heading">Vendedores ({sellers.length})</h3>
+      <div className="admin-dense-list">
             {sellers.map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  display: 'grid',
-                  gap: 8,
-                }}
-              >
-                <div className="row" style={{ flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <b>{s.name}</b>{' '}
-                    <span className="badge">{s.status}</span>
-                    <div className="muted" style={{ fontSize: 13 }}>
+              <div key={s.id} className={`admin-dense-row${s.status === 'suspended' ? ' admin-dense-row--muted' : ''}`}>
+                <div className="admin-dense-row__main">
+                    <div className="admin-dense-row__title">
+                    <b>{s.name}</b>
+                    <AdminStatusChip label={sellerStatusLabel(s.status)} tone={sellerStatusTone(s.status)} />
+                    </div>
+                    <div className="admin-dense-row__meta">
                       /{s.slug}
                       {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
                       {s.owner?.email ? ` · dono ${s.owner.email}` : ' · sem dono'}
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {s.status !== 'active' ? (
-                      <button
-                        type="button"
-                        className="btn"
-                        disabled={sellerBusyId === s.id}
-                        onClick={() => void setSellerStatus(s, 'active')}
-                      >
-                        Ativar
-                      </button>
-                    ) : null}
-                    {s.status !== 'suspended' ? (
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        disabled={sellerBusyId === s.id}
-                        onClick={() => void setSellerStatus(s, 'suspended')}
-                      >
-                        Suspender
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                  <label style={{ margin: 0, flex: 1, minWidth: 200 }}>
+                  <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
+                  <label className="admin-owner-field">
                     E-mail do dono (portal /vendedor)
                     <input
                       type="email"
@@ -2668,50 +2627,71 @@ export default function AdminPage() {
                   </label>
                   <button
                     type="button"
-                    className="btn"
+                    className="btn admin-btn-primary-accent"
                     disabled={ownerBusyId === s.id}
                     onClick={() => void setSellerOwner(s)}
                   >
                     {ownerBusyId === s.id ? '...' : 'Vincular dono'}
                   </button>
+                  </div>
                 </div>
+                  <div className="admin-dense-row__actions">
+                    {s.status !== 'active' ? (
+                      <button
+                        type="button"
+                        className="btn admin-btn-primary-accent"
+                        disabled={sellerBusyId === s.id}
+                        onClick={() => void setSellerStatus(s, 'active')}
+                      >
+                        Ativar
+                      </button>
+                    ) : null}
+                    {s.status !== 'suspended' ? (
+                      <button
+                        type="button"
+                        className="btn ghost admin-btn-ghost-pro"
+                        disabled={sellerBusyId === s.id}
+                        onClick={() => void setSellerStatus(s, 'suspended')}
+                      >
+                        Suspender
+                      </button>
+                    ) : null}
+                  </div>
               </div>
             ))}
             {!sellers.length ? (
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhum vendedor ainda (rode a migration SCH-008).
-              </p>
+              <p className="admin-empty">Nenhum vendedor ainda (rode a migration SCH-008).</p>
             ) : null}
-          </div>
-        </div>
-      </section>
+      </div>
 
-
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <section className="admin-card-pro" style={{ marginTop: 16 }}>
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Comissões / Repasse (v1)</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <h2>Comissões / Repasse (v1)</h2>
+          <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
             Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> (use a
             referência E2E ao marcar pago). Sem split Mercado Pago — ver docs/MARKETPLACE.md.
           </p>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 10, marginBottom: 14, alignItems: 'flex-end' }}>
-            <label style={{ margin: 0, minWidth: 140 }}>
+          <div className="admin-toolbar" style={{ marginBottom: 12 }}>
+          <div className="admin-toolbar__row">
+            <label className="admin-date-field" style={{ minWidth: 140 }}>
               Status
               <select
+                className="admin-filter-select"
                 value={commissionStatusFilter}
                 onChange={(e) =>
                   setCommissionStatusFilter(e.target.value as 'pending' | 'approved' | 'paid' | 'all')
                 }
               >
-                <option value="pending">pending</option>
-                <option value="approved">approved</option>
-                <option value="paid">paid</option>
-                <option value="all">all</option>
+                <option value="pending">Pendente</option>
+                <option value="approved">Aprovada</option>
+                <option value="paid">Paga</option>
+                <option value="all">Todas</option>
               </select>
             </label>
-            <label style={{ margin: 0, minWidth: 200, flex: 1 }}>
+            <label className="admin-date-field" style={{ minWidth: 200, flex: 1 }}>
               Vendedor
               <select
+                className="admin-filter-select"
                 value={commissionSellerFilter}
                 onChange={(e) => setCommissionSellerFilter(e.target.value)}
               >
@@ -2725,7 +2705,7 @@ export default function AdminPage() {
             </label>
             <button
               type="button"
-              className="btn ghost"
+              className="btn ghost admin-btn-ghost-pro"
               disabled={!commissionSellerFilter}
               onClick={() => void exportCommissionsCsv()}
               title={!commissionSellerFilter ? 'Selecione um vendedor' : 'Exportar CSV'}
@@ -2733,35 +2713,27 @@ export default function AdminPage() {
               Exportar CSV
             </button>
           </div>
-          <div style={{ display: 'grid', gap: 8 }}>
+          </div>
+          <div className="admin-dense-list">
             {commissions.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  display: 'grid',
-                  gap: 8,
-                  fontSize: 14,
-                }}
-              >
-                <div className="row" style={{ flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
+              <div key={c.id} className="admin-dense-row">
+                <div className="admin-dense-row__main">
+                    <div className="admin-dense-row__title">
                     <b>{c.seller.name}</b>
-                    <div className="muted" style={{ fontSize: 13 }}>
+                    <AdminStatusChip
+                      label={commissionStatusLabel(c.status)}
+                      tone={commissionStatusTone(c.status)}
+                    />
+                    <AdminStatusChip label={brl(c.amount)} tone="accent" />
+                    <AdminStatusChip label={`${c.percent}%`} tone="neutral" />
+                    </div>
+                    <div className="admin-dense-row__meta">
                       {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
                       {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
                     </div>
-                  </div>
-                  <span className="badge">{c.status}</span>
-                  <b>{brl(c.amount)}</b>
-                  <span className="muted">{c.percent}%</span>
-                </div>
                 {c.status === 'pending' || c.status === 'approved' ? (
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                    <label style={{ margin: 0, flex: 1, minWidth: 180 }}>
+                  <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
+                    <label className="admin-owner-field">
                       Ref. PIX / nota
                       <input
                         value={payoutDraft[c.id] ?? ''}
@@ -2774,7 +2746,7 @@ export default function AdminPage() {
                     {c.status === 'pending' ? (
                       <button
                         type="button"
-                        className="btn ghost"
+                        className="btn ghost admin-btn-ghost-pro"
                         disabled={commissionBusyId === c.id}
                         onClick={() => void approveCommission(c)}
                       >
@@ -2783,7 +2755,7 @@ export default function AdminPage() {
                     ) : null}
                     <button
                       type="button"
-                      className="btn"
+                      className="btn admin-btn-primary-accent"
                       disabled={commissionBusyId === c.id}
                       onClick={() => void markCommissionPaid(c)}
                     >
@@ -2791,12 +2763,11 @@ export default function AdminPage() {
                     </button>
                   </div>
                 ) : null}
+                </div>
               </div>
             ))}
             {!commissions.length ? (
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhuma comissão neste filtro.
-              </p>
+              <p className="admin-empty">Nenhuma comissão neste filtro.</p>
             ) : null}
           </div>
         </div>
@@ -2807,13 +2778,13 @@ export default function AdminPage() {
 
       {adminSection === 'vitrine' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <section className="admin-card-pro">
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>SEO da loja</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <h2>SEO da loja</h2>
+          <p className="admin-section-intro" style={{ marginTop: 8 }}>
             Título e descrição usados nas abas do navegador e no compartilhamento (Open Graph).
           </p>
-          <form className="form" style={{ maxWidth: 560 }} onSubmit={saveSeo}>
+          <form className="form admin-form-pro" onSubmit={saveSeo}>
             <label>
               Título do site *
               <input
@@ -2840,29 +2811,29 @@ export default function AdminPage() {
                 placeholder="https://... (ou use upload de banner e cole a URL)"
               />
             </label>
-            <button className="btn" type="submit" disabled={savingSeo}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeo}>
               {savingSeo ? 'Salvando...' : 'Salvar SEO'}
             </button>
           </form>
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: 28 }}>
+      <section className="admin-card-pro">
         <div className="body">
           <div className="row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 20 }}>
+            <h2>
               {editingBannerId ? 'Editar banner' : 'Banners da home'}
             </h2>
             {editingBannerId ? (
-              <button type="button" className="btn ghost" onClick={resetBannerForm}>
+              <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={resetBannerForm}>
                 Cancelar edição
               </button>
             ) : null}
           </div>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <p className="admin-section-intro">
             Imagem + link opcional. Só banners ativos aparecem na vitrine (carrossel).
           </p>
-          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveBanner}>
+          <form className="form admin-form-pro" style={{ marginBottom: 20 }} onSubmit={saveBanner}>
             <label>
               Título (opcional)
               <input
@@ -2882,7 +2853,7 @@ export default function AdminPage() {
             <div>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Imagem do banner</div>
               <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <label className="btn ghost" style={{ cursor: uploadingBanner ? 'wait' : 'pointer', margin: 0 }}>
+                <label className="btn ghost admin-btn-ghost-pro" style={{ cursor: uploadingBanner ? 'wait' : 'pointer', margin: 0 }}>
                   {uploadingBanner ? 'Enviando...' : 'Enviar imagem'}
                   <input
                     type="file"
@@ -2901,13 +2872,7 @@ export default function AdminPage() {
                   <img
                     src={bannerForm.imageUrl}
                     alt="Prévia banner"
-                    style={{
-                      width: 120,
-                      height: 48,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                      background: '#111',
-                    }}
+                    className="admin-banner-preview"
                   />
                 ) : null}
               </div>
@@ -2929,7 +2894,7 @@ export default function AdminPage() {
                 placeholder="/departamento/ofertas ou https://..."
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+            <label className="admin-checkbox">
               <input
                 type="checkbox"
                 checked={bannerForm.active}
@@ -2937,43 +2902,40 @@ export default function AdminPage() {
               />
               Banner ativo (aparece na home)
             </label>
-            <button className="btn" type="submit" disabled={savingBanner}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingBanner}>
               {savingBanner ? 'Salvando...' : editingBannerId ? 'Salvar banner' : 'Criar banner'}
             </button>
           </form>
 
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="admin-dense-list">
             {banners.map((b, i) => (
               <div
                 key={b.id}
-                className="row"
-                style={{
-                  flexWrap: 'wrap',
-                  gap: 10,
-                  padding: 10,
-                  borderRadius: 10,
-                  border: '1px solid var(--line)',
-                  background: 'var(--bg)',
-                  opacity: b.active ? 1 : 0.65,
-                }}
+                className={`admin-dense-row${b.active ? '' : ' admin-dense-row--muted'}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={b.imageUrl}
                   alt={b.alt || b.title || 'Banner'}
-                  style={{ width: 96, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                  className="admin-banner-thumb"
                 />
-                <div style={{ flex: 1, minWidth: 140 }}>
-                  <div style={{ fontWeight: 600 }}>{b.title || '(sem título)'}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    {b.active ? 'Ativo' : 'Inativo'} · ordem {i + 1}
+                <div className="admin-dense-row__main">
+                  <div className="admin-dense-row__title">
+                    <b>{b.title || '(sem título)'}</b>
+                    <AdminStatusChip
+                      label={bannerActiveLabel(b.active)}
+                      tone={b.active ? 'ok' : 'neutral'}
+                    />
+                  </div>
+                  <div className="admin-dense-row__meta">
+                    ordem {i + 1}
                     {b.linkUrl ? ` · ${b.linkUrl}` : ''}
                   </div>
                 </div>
-                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                <div className="admin-dense-row__actions">
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={bannerBusyId === b.id || i === 0}
                     onClick={() => void moveBanner(b, -1)}
                     title="Subir"
@@ -2982,19 +2944,19 @@ export default function AdminPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={bannerBusyId === b.id || i === banners.length - 1}
                     onClick={() => void moveBanner(b, 1)}
                     title="Descer"
                   >
                     ↓
                   </button>
-                  <button type="button" className="btn ghost" onClick={() => startEditBanner(b)}>
+                  <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEditBanner(b)}>
                     Editar
                   </button>
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={bannerBusyId === b.id}
                     onClick={() => void toggleBannerActive(b)}
                   >
@@ -3002,7 +2964,7 @@ export default function AdminPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={bannerBusyId === b.id}
                     onClick={() => void deleteBanner(b)}
                   >
@@ -3012,9 +2974,7 @@ export default function AdminPage() {
               </div>
             ))}
             {!banners.length ? (
-              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Nenhum banner ainda. Crie o primeiro acima.
-              </p>
+              <p className="admin-empty">Nenhum banner ainda. Crie o primeiro acima.</p>
             ) : null}
           </div>
         </div>
@@ -3025,13 +2985,11 @@ export default function AdminPage() {
 
       {adminSection === 'vendas' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Relatório de vendas</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Pedidos pagos no período (pago, separando, saiu para entrega, entregue). Horário de Brasília.
-          </p>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+      <p className="admin-section-intro">
+        Pedidos pagos no período (pago, separando, saiu para entrega, entregue). Horário de Brasília.
+      </p>
+      <div className="admin-toolbar">
+          <div className="admin-filter-row">
             {[
               { label: 'Hoje', from: saoPauloYmd(), to: saoPauloYmd() },
               { label: '7 dias', from: addDaysYmd(saoPauloYmd(), -6), to: saoPauloYmd() },
@@ -3040,9 +2998,7 @@ export default function AdminPage() {
               <button
                 key={preset.label}
                 type="button"
-                className={
-                  salesFrom === preset.from && salesTo === preset.to ? 'btn' : 'btn ghost'
-                }
+                className={`admin-filter-chip${salesPresetActive(salesFrom, salesTo, preset.from, preset.to) ? ' is-active' : ''}`}
                 disabled={salesBusy}
                 onClick={() => {
                   setSalesFrom(preset.from);
@@ -3055,14 +3011,13 @@ export default function AdminPage() {
             ))}
           </div>
           <form
-            className="row"
-            style={{ flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}
+            className="admin-toolbar__row"
             onSubmit={(e) => {
               e.preventDefault();
               void loadSalesReport(salesFrom, salesTo);
             }}
           >
-            <label style={{ margin: 0 }}>
+            <label className="admin-date-field">
               De
               <input
                 type="date"
@@ -3071,7 +3026,7 @@ export default function AdminPage() {
                 required
               />
             </label>
-            <label style={{ margin: 0 }}>
+            <label className="admin-date-field">
               Até
               <input
                 type="date"
@@ -3080,123 +3035,117 @@ export default function AdminPage() {
                 required
               />
             </label>
-            <button className="btn" type="submit" disabled={salesBusy}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={salesBusy}>
               {salesBusy ? 'Carregando...' : 'Atualizar'}
             </button>
           </form>
+      </div>
           {salesReport ? (
             <>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: 10,
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>Pedidos pagos</div>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>{salesReport.summary.orderCount}</div>
+              <div className="admin-kpi-lite-grid">
+                <div className="admin-kpi-lite">
+                  <div className="admin-kpi-lite__label">Pedidos pagos</div>
+                  <div className="admin-kpi-lite__value">{salesReport.summary.orderCount}</div>
                 </div>
-                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>Receita</div>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>{brl(salesReport.summary.revenue)}</div>
+                <div className="admin-kpi-lite">
+                  <div className="admin-kpi-lite__label">Receita</div>
+                  <div className="admin-kpi-lite__value">{brl(salesReport.summary.revenue)}</div>
                 </div>
-                <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>Ticket médio</div>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>{brl(salesReport.summary.averageTicket)}</div>
+                <div className="admin-kpi-lite">
+                  <div className="admin-kpi-lite__label">Ticket médio</div>
+                  <div className="admin-kpi-lite__value">{brl(salesReport.summary.averageTicket)}</div>
                 </div>
               </div>
-              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por status</h3>
+              <div className="admin-split">
+                <section className="admin-card-pro" style={{ marginBottom: 0 }}>
+                  <div className="body">
+                  <h3>Por status</h3>
                   {Object.keys(salesReport.byStatus).length ? (
-                    <div style={{ display: 'grid', gap: 6 }}>
+                    <div className="admin-stat-list">
                       {Object.entries(salesReport.byStatus)
                         .sort((a, b) => b[1] - a[1])
                         .map(([st, count]) => (
-                          <div key={st} className="row" style={{ fontSize: 14 }}>
+                          <div key={st} className="admin-stat-row">
                             <span>{orderStatusLabel(st)}</span>
                             <b>{count}</b>
                           </div>
                         ))}
                     </div>
                   ) : (
-                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nenhum pedido no período.</p>
+                    <p className="admin-empty">Nenhum pedido no período.</p>
                   )}
-                </div>
-                <div style={{ flex: 1.4, minWidth: 220 }}>
-                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Mais vendidos</h3>
+                  </div>
+                </section>
+                <section className="admin-card-pro" style={{ marginBottom: 0 }}>
+                  <div className="body">
+                  <h3>Mais vendidos</h3>
                   {salesReport.topProducts.length ? (
-                    <div style={{ display: 'grid', gap: 6 }}>
+                    <div className="admin-stat-list">
                       {salesReport.topProducts.map((tp) => (
-                        <div key={tp.productId} className="row" style={{ fontSize: 14, flexWrap: 'wrap' }}>
+                        <div key={tp.productId} className="admin-stat-row">
                           <span style={{ flex: 1, minWidth: 120 }}>{tp.name}</span>
-                          <span className="muted">{tp.qty} un.</span>
+                          <span className="admin-dense-row__meta">{tp.qty} un.</span>
                           <b>{brl(tp.revenue)}</b>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Sem vendas pagas no período.</p>
+                    <p className="admin-empty">Sem vendas pagas no período.</p>
                   )}
-                </div>
+                  </div>
+                </section>
               </div>
-              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
-                <div style={{ flex: 1.2, minWidth: 220 }}>
-                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por dia</h3>
+              <div className="admin-split" style={{ marginTop: 16 }}>
+                <section className="admin-card-pro" style={{ marginBottom: 0 }}>
+                  <div className="body">
+                  <h3>Por dia</h3>
                   {(salesReport.byDay?.length ?? 0) ? (
-                    <div style={{ display: 'grid', gap: 6, maxHeight: 260, overflow: 'auto' }}>
+                    <div className="admin-stat-list" style={{ maxHeight: 260, overflow: 'auto' }}>
                       {salesReport.byDay!.map((d) => (
-                        <div key={d.date} className="row" style={{ fontSize: 14, flexWrap: 'wrap' }}>
+                        <div key={d.date} className="admin-stat-row">
                           <span style={{ flex: 1, minWidth: 100 }}>
                             {new Date(`${d.date}T12:00:00-03:00`).toLocaleDateString('pt-BR')}
                           </span>
-                          <span className="muted">{d.orderCount} ped.</span>
+                          <span className="admin-dense-row__meta">{d.orderCount} ped.</span>
                           <b>{brl(d.revenue)}</b>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>Sem vendas pagas no período.</p>
+                    <p className="admin-empty">Sem vendas pagas no período.</p>
                   )}
-                </div>
-                <div style={{ flex: 1.2, minWidth: 220 }}>
-                  <h3 style={{ fontSize: 15, margin: '0 0 8px' }}>Por vendedor</h3>
+                  </div>
+                </section>
+                <section className="admin-card-pro" style={{ marginBottom: 0 }}>
+                  <div className="body">
+                  <h3>Por vendedor</h3>
                   {(salesReport.bySeller?.length ?? 0) ? (
-                    <div style={{ display: 'grid', gap: 6 }}>
+                    <div className="admin-stat-list">
                       {salesReport.bySeller!.map((s) => (
-                        <div
-                          key={s.sellerId ?? 'loja'}
-                          className="row"
-                          style={{ fontSize: 14, flexWrap: 'wrap' }}
-                        >
+                        <div key={s.sellerId ?? 'loja'} className="admin-stat-row">
                           <span style={{ flex: 1, minWidth: 120 }}>
                             {s.sellerName}
                             {!s.sellerId ? (
-                              <span className="badge" style={{ marginLeft: 6 }}>
-                                própria
-                              </span>
+                              <AdminStatusChip label="própria" tone="accent" />
                             ) : null}
                           </span>
-                          <span className="muted">{s.itemQty} un. · {s.orderCount} ped.</span>
+                          <span className="admin-dense-row__meta">{s.itemQty} un. · {s.orderCount} ped.</span>
                           <b>{brl(s.revenue)}</b>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                    <p className="admin-empty">
                       Sem itens de vendas pagas (marketplace) no período.
                     </p>
                   )}
-                </div>
+                  </div>
+                </section>
               </div>
             </>
           ) : salesBusy ? (
-            <p className="muted">Carregando relatório…</p>
+            <p className="admin-empty">Carregando relatório…</p>
           ) : null}
-        </div>
-      </section>
 
       </div>
       ) : null}
@@ -3467,35 +3416,25 @@ export default function AdminPage() {
 
       {adminSection === 'cupons' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginBottom: 28 }}>
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Cupons de desconto</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
+      <p className="admin-section-intro">
             Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout. Use cupons ativos
             para campanhas (ex.: BEMVINDO10) mesmo sem banner na home.
-          </p>
-          <div
-            className="row"
-            style={{
-              flexWrap: 'wrap',
-              gap: 8,
-              marginBottom: 14,
-            }}
-          >
-            <span className="badge">
-              {coupons.filter((c) => c.active).length} ativo(s)
-            </span>
-            <span className="badge">
-              {coupons.filter((c) => !c.active).length} inativo(s)
-            </span>
-            <span className="badge">
-              {coupons.reduce((s, c) => s + (c.usedCount || 0), 0)} uso(s) total
-            </span>
-            <span className="badge">
-              {coupons.reduce((s, c) => s + (c.reservedCount || 0), 0)} reservado(s)
-            </span>
+      </p>
+      {(() => {
+        const couponStats = couponListStats(coupons);
+        return (
+          <div className="admin-stat-pills">
+            <AdminStatusChip label={`${couponStats.active} ativo(s)`} tone="ok" />
+            <AdminStatusChip label={`${couponStats.inactive} inativo(s)`} tone="neutral" />
+            <AdminStatusChip label={`${couponStats.uses} uso(s) total`} tone="info" />
+            <AdminStatusChip label={`${couponStats.reserved} reservado(s)`} tone="warn" />
           </div>
-          <form className="form" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={saveCoupon}>
+        );
+      })()}
+      <section className="admin-card-pro">
+        <div className="body">
+          <h2>Novo cupom</h2>
+          <form className="form admin-form-pro" style={{ marginTop: 12, marginBottom: 0 }} onSubmit={saveCoupon}>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
                 Código *
@@ -3557,7 +3496,7 @@ export default function AdminPage() {
                 />
               </label>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+            <label className="admin-checkbox">
               <input
                 type="checkbox"
                 checked={couponForm.active}
@@ -3565,98 +3504,97 @@ export default function AdminPage() {
               />
               Cupom ativo
             </label>
-            <button className="btn" type="submit" disabled={savingCoupon}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingCoupon}>
               {savingCoupon ? 'Salvando...' : 'Criar cupom'}
             </button>
           </form>
-          <div style={{ display: 'grid', gap: 8 }}>
+        </div>
+      </section>
+      <h3 className="admin-section-heading">Cupons ({coupons.length})</h3>
+          <div className="admin-dense-list">
             {coupons.map((c) => {
-              const expired = c.endsAt ? new Date(c.endsAt).getTime() < Date.now() : false;
-              const exhausted = c.maxUses != null && c.usedCount >= c.maxUses;
+              const expired = couponIsExpired(c.endsAt);
+              const exhausted = couponIsExhausted(c.maxUses, c.usedCount);
               return (
-              <div key={c.id} className="row" style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--bg)', border: c.active ? '1px solid var(--gold, #D4AF37)' : '1px solid var(--line)', flexWrap: 'wrap', opacity: c.active ? 1 : 0.75 }}>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                    <b style={{ fontSize: 16, letterSpacing: 0.4 }}>{c.code}</b>
-                    <span className="badge">{c.type === 'percent' ? `${c.value}%` : brl(c.value)}</span>
-                    {c.active ? <span className="badge">Ativo</span> : <span className="badge">Inativo</span>}
-                    {expired ? <span className="badge">Expirado</span> : null}
-                    {exhausted ? <span className="badge">Esgotado</span> : null}
+              <div
+                key={c.id}
+                className={`admin-dense-row${c.active ? ' admin-dense-row--accent' : ' admin-dense-row--muted'}`}
+              >
+                <div className="admin-dense-row__main">
+                  <div className="admin-dense-row__title">
+                    <span className="admin-dense-row__code">{c.code}</span>
+                    <AdminStatusChip
+                      label={c.type === 'percent' ? `${c.value}%` : brl(c.value)}
+                      tone="accent"
+                    />
+                    <AdminStatusChip
+                      label={c.active ? 'Ativo' : 'Inativo'}
+                      tone={c.active ? 'ok' : 'neutral'}
+                    />
+                    {expired ? <AdminStatusChip label="Expirado" tone="danger" /> : null}
+                    {exhausted ? <AdminStatusChip label="Esgotado" tone="warn" /> : null}
                   </div>
-                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  <div className="admin-dense-row__meta">
                     {c.minSubtotal != null ? `Mín. ${brl(c.minSubtotal)} · ` : ''}
                     {c.endsAt ? `válido até ${new Date(c.endsAt).toLocaleDateString('pt-BR')} · ` : 'sem validade · '}
                     usos {c.usedCount}{c.maxUses != null ? `/${c.maxUses}` : ''}
                     {c.reservedCount ? ` · ${c.reservedCount} em pedidos abertos` : ''}
                   </div>
                 </div>
-                <button type="button" className="btn ghost" onClick={() => toggleCoupon(c)}>
+                <div className="admin-dense-row__actions">
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => toggleCoupon(c)}>
                   {c.active ? 'Desativar' : 'Ativar'}
                 </button>
+                </div>
               </div>
               );
             })}
             {!coupons.length ? (
-              <p className="muted" style={{ margin: 0 }}>
+              <p className="admin-empty">
                 Nenhum cupom ainda. Crie o primeiro acima — ele aparece no checkout mesmo sem banner.
               </p>
             ) : null}
           </div>
-        </div>
-      </section>
-
-
 
       </div>
       ) : null}
 
       {adminSection === 'avaliacoes' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginBottom: 28 }}>
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Avaliações</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+      <p className="admin-section-intro">
             Publicadas automaticamente. Você pode ocultar ou excluir se precisar.
-          </p>
-          <div style={{ display: 'grid', gap: 8 }}>
+      </p>
+          <div className="admin-dense-list">
             {reviews.map((r) => (
-              <div
-                key={r.id}
-                className="row"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  flexWrap: 'wrap',
-                  alignItems: 'flex-start',
-                  gap: 10,
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div>
-                    <b>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</b>{' '}
-                    {r.status === 'hidden' ? <span className="badge">Oculta</span> : <span className="badge">Publicada</span>}
+              <div key={r.id} className={`admin-dense-row${r.status === 'hidden' ? ' admin-dense-row--muted' : ''}`}>
+                <div className="admin-dense-row__main">
+                  <div className="admin-dense-row__title">
+                    <b aria-label={`${r.rating} de 5`}>{reviewStars(r.rating)}</b>
+                    <AdminStatusChip
+                      label={reviewStatusLabel(r.status)}
+                      tone={reviewStatusTone(r.status)}
+                    />
                   </div>
-                  <div style={{ marginTop: 4 }}>
-                    <b>{r.user?.name || '—'}</b>{' '}
-                    <span className="muted" style={{ fontSize: 13 }}>({r.user.email})</span>
+                  <div className="admin-dense-row__meta" style={{ marginTop: 4 }}>
+                    <b style={{ color: 'var(--admin-ink)' }}>{r.user?.name || '—'}</b>
+                    {' '}
+                    ({r.user.email})
                   </div>
-                  <div className="muted" style={{ fontSize: 13 }}>
+                  <div className="admin-dense-row__meta">
                     Produto:{' '}
                     <Link href={`/produto/${r.product.slug}`}>{r.product.name}</Link>
                     {' · '}
                     {new Date(r.createdAt).toLocaleDateString('pt-BR')}
                   </div>
-                  {r.body ? <p style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p> : (
-                    <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>Sem comentário</p>
+                  {r.body ? <p className="admin-dense-row__body">{r.body}</p> : (
+                    <p className="admin-dense-row__meta" style={{ marginTop: 6 }}>Sem comentário</p>
                   )}
                 </div>
-                <div className="row" style={{ gap: 8 }}>
+                <div className="admin-dense-row__actions">
                   {r.status === 'published' ? (
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="btn ghost admin-btn-ghost-pro"
                       disabled={reviewBusyId === r.id}
                       onClick={() => setReviewStatus(r, 'hidden')}
                     >
@@ -3665,7 +3603,7 @@ export default function AdminPage() {
                   ) : (
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="btn ghost admin-btn-ghost-pro"
                       disabled={reviewBusyId === r.id}
                       onClick={() => setReviewStatus(r, 'published')}
                     >
@@ -3674,7 +3612,7 @@ export default function AdminPage() {
                   )}
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={reviewBusyId === r.id}
                     onClick={() => deleteReview(r)}
                   >
@@ -3683,25 +3621,22 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
-            {!reviews.length ? <p className="muted">Nenhuma avaliação ainda.</p> : null}
+            {!reviews.length ? <p className="admin-empty">Nenhuma avaliação ainda.</p> : null}
           </div>
-        </div>
-      </section>
-
 
       </div>
       ) : null}
 
       {adminSection === 'frete' ? (
       <div className="admin-section-panel">
-      <section className="card" style={{ marginBottom: 28 }}>
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 20 }}>Frete — entrega própria</h2>
-          <p className="muted" style={{ fontSize: 14 }}>
+      <p className="admin-section-intro">
             Sem Melhor Envio/Correios. Defina frete grátis, taxa padrão e zonas por prefixo de CEP
             (ex.: 890 = região; 89010 = mais específico). O prefixo mais longo vence.
-          </p>
-          <form onSubmit={saveShippingSettings} style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
+      </p>
+      <section className="admin-card-pro">
+        <div className="body">
+          <h2>Configuração padrão</h2>
+          <form className="form admin-form-pro" onSubmit={saveShippingSettings} style={{ marginTop: 12, marginBottom: 0 }}>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
                 Frete grátis a partir de (R$) *
@@ -3734,19 +3669,23 @@ export default function AdminPage() {
                 />
               </label>
             </div>
-            <button className="btn" type="submit" disabled={savingShipping}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingShipping}>
               {savingShipping ? 'Salvando...' : 'Salvar configuração de frete'}
             </button>
             {shippingSettings ? (
-              <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+              <p className="admin-dense-row__meta" style={{ margin: 0 }}>
                 Atual: grátis ≥ {brl(shippingSettings.freeAbove)} · padrão {brl(shippingSettings.defaultFee)} ·{' '}
                 {shippingSettings.defaultDays} dias
               </p>
             ) : null}
           </form>
+        </div>
+      </section>
 
-          <h3 style={{ fontSize: 16, marginBottom: 8 }}>Zonas por CEP</h3>
-          <form onSubmit={saveCepRule} style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+      <section className="admin-card-pro">
+        <div className="body">
+          <h2>Zonas por CEP</h2>
+          <form className="form admin-form-pro" onSubmit={saveCepRule} style={{ marginTop: 12, marginBottom: 14 }}>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
                 Prefixo CEP *
@@ -3786,7 +3725,7 @@ export default function AdminPage() {
                 placeholder="Ex.: Grande Florianópolis"
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+            <label className="admin-checkbox">
               <input
                 type="checkbox"
                 checked={cepRuleForm.active}
@@ -3794,35 +3733,41 @@ export default function AdminPage() {
               />
               Zona ativa
             </label>
-            <button className="btn" type="submit" disabled={savingCepRule}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingCepRule}>
               {savingCepRule ? 'Salvando...' : 'Adicionar zona'}
             </button>
           </form>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div className="admin-dense-list">
             {shippingRules.map((r) => (
               <div
                 key={r.id}
-                className="row"
-                style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--line)', flexWrap: 'wrap' }}
+                className={`admin-dense-row${r.active ? '' : ' admin-dense-row--muted'}`}
               >
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <b>CEP {r.cepPrefix}…</b>{' '}
-                  {!r.active ? <span className="badge">Inativa</span> : null}
-                  <div className="muted" style={{ fontSize: 13 }}>
+                <div className="admin-dense-row__main">
+                  <div className="admin-dense-row__title">
+                    <b>CEP {r.cepPrefix}…</b>
+                    <AdminStatusChip
+                      label={shippingZoneActiveLabel(r.active)}
+                      tone={r.active ? 'ok' : 'neutral'}
+                    />
+                  </div>
+                  <div className="admin-dense-row__meta">
                     {brl(r.fee)} · {r.estimatedDays} dia{r.estimatedDays === 1 ? '' : 's'}
                     {r.label ? ` · ${r.label}` : ''}
                   </div>
                 </div>
-                <button type="button" className="btn ghost" onClick={() => toggleCepRule(r)}>
+                <div className="admin-dense-row__actions">
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => toggleCepRule(r)}>
                   {r.active ? 'Desativar' : 'Ativar'}
                 </button>
-                <button type="button" className="btn ghost" onClick={() => removeCepRule(r)}>
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => removeCepRule(r)}>
                   Remover
                 </button>
+                </div>
               </div>
             ))}
             {!shippingRules.length ? (
-              <p className="muted">Nenhuma zona ainda. Sem zonas, vale a taxa padrão para todos os CEPs.</p>
+              <p className="admin-empty">Nenhuma zona ainda. Sem zonas, vale a taxa padrão para todos os CEPs.</p>
             ) : null}
           </div>
         </div>

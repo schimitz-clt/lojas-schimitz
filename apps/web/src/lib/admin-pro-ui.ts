@@ -1,5 +1,5 @@
 /**
- * Admin PROFESSIONAL Phase 2 — pure display helpers for Pedidos + Catálogo.
+ * Admin PROFESSIONAL — pure display helpers (Phase 2 Pedidos/Catálogo + Phase 3 remaining).
  * No network, no DOM. Reuses Phase 1 tokens via CSS class names only.
  */
 
@@ -107,4 +107,132 @@ export function catalogNeedsPhotoSummary(count: number): string {
 /** Dense table density hint — used by CSS hook class only. */
 export function adminTableDensityClass(dense = true): string {
   return dense ? 'admin-table admin-table--dense' : 'admin-table';
+}
+
+/* —— Phase 3: remaining sections (display only) —— */
+
+function normStatus(status: string | null | undefined): string {
+  return String(status || '').trim().toLowerCase();
+}
+
+export function customerAccountTone(status: string): AdminChipTone {
+  const s = normStatus(status);
+  if (s === 'blocked' || s === 'inactive' || s === 'disabled') return 'danger';
+  if (s === 'active') return 'ok';
+  return 'neutral';
+}
+
+export function customerAccountLabel(status: string): string {
+  const s = normStatus(status);
+  if (s === 'blocked') return 'Bloqueado';
+  if (s === 'inactive' || s === 'disabled') return 'Inativo';
+  if (s === 'active') return 'Ativo';
+  return status || '—';
+}
+
+export function sellerStatusTone(status: string): AdminChipTone {
+  const s = normStatus(status);
+  if (s === 'active') return 'ok';
+  if (s === 'pending') return 'warn';
+  if (s === 'suspended') return 'danger';
+  return 'neutral';
+}
+
+export function sellerStatusLabel(status: string): string {
+  const s = normStatus(status);
+  if (s === 'active') return 'Ativo';
+  if (s === 'pending') return 'Pendente';
+  if (s === 'suspended') return 'Suspenso';
+  return status || '—';
+}
+
+export function commissionStatusTone(status: string): AdminChipTone {
+  const s = normStatus(status);
+  if (s === 'paid') return 'ok';
+  if (s === 'approved') return 'info';
+  if (s === 'pending') return 'warn';
+  return 'neutral';
+}
+
+export function commissionStatusLabel(status: string): string {
+  const s = normStatus(status);
+  if (s === 'paid') return 'Paga';
+  if (s === 'approved') return 'Aprovada';
+  if (s === 'pending') return 'Pendente';
+  return status || '—';
+}
+
+export function couponIsExpired(endsAt: string | null | undefined, now = Date.now()): boolean {
+  if (!endsAt) return false;
+  const t = new Date(endsAt).getTime();
+  return Number.isFinite(t) && t < now;
+}
+
+export function couponIsExhausted(
+  maxUses: number | null | undefined,
+  usedCount: number | null | undefined,
+): boolean {
+  if (maxUses == null) return false;
+  const max = Number(maxUses);
+  const used = Number(usedCount) || 0;
+  return Number.isFinite(max) && used >= max;
+}
+
+export function couponListStats(
+  coupons: Array<{ active?: boolean; usedCount?: number; reservedCount?: number }>,
+): { active: number; inactive: number; uses: number; reserved: number } {
+  let active = 0;
+  let uses = 0;
+  let reserved = 0;
+  for (const c of coupons) {
+    if (c.active) active += 1;
+    uses += Number(c.usedCount) || 0;
+    reserved += Number(c.reservedCount) || 0;
+  }
+  return { active, inactive: coupons.length - active, uses, reserved };
+}
+
+export function reviewStatusTone(status: string): AdminChipTone {
+  const s = normStatus(status);
+  if (s === 'hidden') return 'neutral';
+  if (s === 'published') return 'ok';
+  return 'warn';
+}
+
+export function reviewStatusLabel(status: string): string {
+  const s = normStatus(status);
+  if (s === 'hidden') return 'Oculta';
+  if (s === 'published') return 'Publicada';
+  return status || '—';
+}
+
+/** 1–5 star glyphs for moderation rows (clamped). */
+export function reviewStars(rating: number): string {
+  const n = Math.max(0, Math.min(5, Math.floor(Number(rating) || 0)));
+  return `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
+}
+
+export function adminUserStatusTone(status: string): AdminChipTone {
+  return normStatus(status) === 'active' ? 'ok' : 'neutral';
+}
+
+export function adminUserStatusLabel(status: string): string {
+  return normStatus(status) === 'active' ? 'Ativo' : 'Desativado';
+}
+
+export function bannerActiveLabel(active: boolean): string {
+  return active ? 'Ativo' : 'Inativo';
+}
+
+export function shippingZoneActiveLabel(active: boolean): string {
+  return active ? 'Ativa' : 'Inativa';
+}
+
+export function salesPresetActive(
+  from: string,
+  to: string,
+  presetFrom: string,
+  presetTo: string,
+): boolean {
+  return from === presetFrom && to === presetTo;
 }
