@@ -74,6 +74,18 @@ async function main() {
       passwordHash,
       role: 'customer',
       status: 'active',
+      addresses: {
+        create: {
+          label: 'Casa',
+          cep: '90000000',
+          street: 'Rua CRM',
+          number: '10',
+          district: 'Centro',
+          city: 'Porto Alegre',
+          uf: 'RS',
+          isDefault: true,
+        },
+      },
     },
   });
 
@@ -96,6 +108,16 @@ async function main() {
           },
         ],
       },
+      payments: {
+        create: [
+          {
+            provider: 'null',
+            method: 'pix',
+            status: 'approved',
+            amount: 110,
+          },
+        ],
+      },
     },
   });
 
@@ -109,6 +131,9 @@ async function main() {
     assert.equal(row!.paidOrdersCount, 1);
     assert.equal(row!.paidTotal, 110);
     assert.ok(row!.lastPaidAt);
+    assert.ok(row!.lastOrderAt);
+    assert.equal(row!.city, 'Porto Alegre');
+    assert.equal(row!.uf, 'RS');
 
     const byPhone = await customers.list({ q: '5198888' });
     assert.ok(byPhone.items.some((i) => i.id === user.id));
@@ -118,6 +143,11 @@ async function main() {
     assert.equal(detail.orders.length, 1);
     assert.equal(detail.orders[0].publicId, order.publicId);
     assert.equal(detail.paidTotal, 110);
+    assert.equal(detail.orders[0].paymentMethod, 'pix');
+    assert.equal(detail.orders[0].paymentStatus, 'approved');
+    assert.equal(detail.addresses.length, 1);
+    assert.equal(detail.addresses[0].city, 'Porto Alegre');
+    assert.equal(detail.lastOrderAt && new Date(detail.lastOrderAt).getTime(), new Date(order.createdAt).getTime());
     assert.equal((detail as any).passwordHash, undefined);
 
     const admin = await prisma.user.create({
@@ -139,8 +169,10 @@ async function main() {
 
     console.log('admin-customers.db.spec PASS');
   } finally {
+    await prisma.payment.deleteMany({ where: { orderId: order.id } }).catch(() => undefined);
     await prisma.orderItem.deleteMany({ where: { orderId: order.id } }).catch(() => undefined);
     await prisma.order.delete({ where: { id: order.id } }).catch(() => undefined);
+    await prisma.address.deleteMany({ where: { userId: user.id } }).catch(() => undefined);
     await prisma.inventory.deleteMany({ where: { productId: product.id } }).catch(() => undefined);
     await prisma.product.delete({ where: { id: product.id } }).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);

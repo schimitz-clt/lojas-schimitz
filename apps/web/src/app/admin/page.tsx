@@ -94,6 +94,21 @@ import {
   salesCsvWithBom,
   salesExportFilename,
 } from '@/lib/admin-sales-ui';
+import {
+  buildAdminCustomerHref,
+  buildAdminPedidoHref,
+  customerHistoryEmptyMessage,
+  customerIdFromSearch,
+  customerOrderPaymentLabel,
+  customerOrdersEmptyMessage,
+  customerVerClienteLabel,
+  formatAdminDate,
+  formatAdminDateTime,
+  formatCustomerAddressLine,
+  formatCustomerCityUf,
+  isAdminRecordId,
+  orderIdFromSearch,
+} from '@/lib/admin-customers-ui';
 
 type AdminOrder = {
   id: string;
@@ -165,11 +180,28 @@ type AdminCustomerListItem = {
   paidOrdersCount: number;
   paidTotal: number;
   lastPaidAt?: string | null;
+  lastOrderAt?: string | null;
+  city?: string | null;
+  uf?: string | null;
+};
+
+type AdminCustomerAddress = {
+  id?: string | null;
+  label: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement?: string | null;
+  district: string;
+  city: string;
+  uf: string;
+  isDefault: boolean;
 };
 
 type AdminCustomerDetail = AdminCustomerListItem & {
   cashbackBalance: number;
   addressesCount: number;
+  addresses?: AdminCustomerAddress[];
   orders: {
     id: string;
     publicId: string;
@@ -178,6 +210,8 @@ type AdminCustomerDetail = AdminCustomerListItem & {
     discount: number;
     freight: number;
     createdAt: string;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
     items: { name: string; qty: number; unitPrice: number }[];
   }[];
 };
@@ -682,6 +716,7 @@ export default function AdminPage() {
 
   const goAdminSection = useCallback((next: AdminSectionId) => {
     setAdminSection(next);
+    setCustomerDetail(null);
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', buildAdminSectionHref(next));
     }
@@ -889,18 +924,56 @@ export default function AdminPage() {
     }
   }
 
-  async function openCustomer(id: string) {
+  const openCustomer = useCallback(async (id: string) => {
+    if (!isAdminRecordId(id)) return;
+    setAdminSection('clientes');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminCustomerHref(id));
+    }
     setCustomerDetailBusy(true);
     setErr('');
     try {
       const data = await api<AdminCustomerDetail>(`/admin/customers/${id}`);
       setCustomerDetail(data);
+      requestAnimationFrame(() => {
+        document.getElementById('admin-customer-detail')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      });
     } catch (e: any) {
+      if (isUnauthorizedError(e)) {
+        clearSession();
+        window.location.href = '/entrar?next=/admin';
+        return;
+      }
       setErr(e.message || 'Falha ao abrir cliente');
     } finally {
       setCustomerDetailBusy(false);
     }
-  }
+  }, []);
+
+  const closeCustomer = useCallback(() => {
+    setCustomerDetail(null);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminSectionHref('clientes'));
+    }
+  }, []);
+
+  const openPedidoFromCustomer = useCallback((orderId: string) => {
+    if (!isAdminRecordId(orderId)) return;
+    setOpenOrderId(orderId);
+    setAdminSection('pedidos');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminPedidoHref(orderId));
+    }
+    requestAnimationFrame(() => {
+      document.getElementById('admin-orders-queue')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, []);
 
 
   const loadSalesReport = useCallback(async (from = salesFrom, to = salesTo) => {
@@ -962,6 +1035,15 @@ export default function AdminPage() {
   useEffect(() => {
     void loadCustomers();
   }, [loadCustomers]);
+
+  /** Deep-link ?section=clientes&customer= / ?section=pedidos&order= */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const cid = customerIdFromSearch(window.location.search);
+    if (cid) void openCustomer(cid);
+    const oid = orderIdFromSearch(window.location.search);
+    if (oid) setOpenOrderId(oid);
+  }, [openCustomer]);
 
   /** Server order search when q ≥ 3 or SCH-…; clears back to status window. */
   useEffect(() => {
@@ -2661,11 +2743,12 @@ export default function AdminPage() {
       ) : null}
 
       {adminSection === 'clientes' ? (
-      <div className="admin-section-panel">
+      <div className="admin-section-panel admin-crm-panel">
       <p className="admin-section-intro">
-        Lista somente leitura: clientes com pedidos, total pago e histórico recente. Sem edição/exclusão.
+        CRM leve, somente leitura: cadastro, endereço, total pago e histórico real de pedidos.
+        Sem edição, exclusão ou automação de marketing.
       </p>
-      <div className="admin-toolbar">
+      <div className="admin-toolbar admin-crm-toolbar">
           <form
             className="admin-toolbar__row"
             onSubmit={(e) => {
@@ -2698,11 +2781,20 @@ export default function AdminPage() {
           </form>
           <div className="admin-dense-row__meta">
             {customersTotal} cliente(s) · mostrando {customers.length}
+            {customerDetail ? ` · aberto: ${customerDetail.name}` : ''}
           </div>
       </div>
+      <div className="admin-crm-layout">
+      <div className="admin-crm-list">
       <div className="admin-dense-list">
-            {customers.map((c) => (
-              <div key={c.id} className="admin-dense-row">
+            {customers.map((c) => {
+              const selected = customerDetail?.id === c.id;
+              const cityUf = formatCustomerCityUf(c);
+              return (
+              <div
+                key={c.id}
+                className={`admin-dense-row${selected ? ' is-selected' : ''}`}
+              >
                 <div className="admin-dense-row__main">
                   <div className="admin-dense-row__title">
                     <b>{c.name}</b>
@@ -2714,11 +2806,12 @@ export default function AdminPage() {
                   <div className="admin-dense-row__meta">
                     {c.email}
                     {c.phone ? ` · ${c.phone}` : ''}
+                    {cityUf ? ` · ${cityUf}` : ''}
                   </div>
                   <div className="admin-dense-row__meta">
                     {c.ordersCount} pedido(s) · pagos {c.paidOrdersCount} · {brl(c.paidTotal)}
-                    {c.lastPaidAt
-                      ? ` · último ${new Date(c.lastPaidAt).toLocaleDateString('pt-BR')}`
+                    {c.lastOrderAt
+                      ? ` · último ${formatAdminDate(c.lastOrderAt)}`
                       : ''}
                   </div>
                 </div>
@@ -2729,55 +2822,151 @@ export default function AdminPage() {
                   disabled={customerDetailBusy}
                   onClick={() => void openCustomer(c.id)}
                 >
-                  Ver pedidos
+                  {selected ? 'Atualizar' : 'Ver histórico'}
                 </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {!customers.length ? (
-              <p className="admin-empty">Nenhum cliente encontrado.</p>
+              <p className="admin-empty">{customerHistoryEmptyMessage(Boolean(customerQ.trim()))}</p>
             ) : null}
       </div>
+      </div>
           {customerDetail ? (
-            <div className="admin-detail-panel">
-              <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 8 }}>
+            <div id="admin-customer-detail" className="admin-detail-panel admin-crm-detail">
+              <div className="admin-crm-detail__head">
                 <h3 style={{ margin: 0 }}>
                   {customerDetail.name}{' '}
-                  <span className="admin-dense-row__meta" style={{ fontWeight: 400 }}>
-                    {customerDetail.email}
-                  </span>
+                  <AdminStatusChip
+                    label={customerAccountLabel(customerDetail.status)}
+                    tone={customerAccountTone(customerDetail.status)}
+                  />
                 </h3>
-                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => setCustomerDetail(null)}>
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={closeCustomer}>
                   Fechar
                 </button>
               </div>
-              <p className="admin-dense-row__meta" style={{ marginTop: 0 }}>
-                SCHIMITZ+ {brl(customerDetail.cashbackBalance)} · {customerDetail.addressesCount}{' '}
-                endereço(s) · total pago {brl(customerDetail.paidTotal)}
-              </p>
-              <div className="admin-dense-list">
+              <div className="admin-crm-fields">
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">E-mail</span>
+                  <span className="admin-crm-field__value">{customerDetail.email || '—'}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Telefone</span>
+                  <span className="admin-crm-field__value">{customerDetail.phone || '—'}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Cliente desde</span>
+                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.createdAt)}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Pedidos</span>
+                  <span className="admin-crm-field__value">{customerDetail.ordersCount}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Pagos</span>
+                  <span className="admin-crm-field__value">{customerDetail.paidOrdersCount}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Total pago</span>
+                  <span className="admin-crm-field__value">{brl(customerDetail.paidTotal)}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Último pedido</span>
+                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.lastOrderAt)}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">Último pago</span>
+                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.lastPaidAt)}</span>
+                </div>
+                <div className="admin-crm-field">
+                  <span className="admin-crm-field__label">SCHIMITZ+</span>
+                  <span className="admin-crm-field__value">{brl(customerDetail.cashbackBalance)}</span>
+                </div>
+              </div>
+              <div className="admin-crm-addresses">
+                <h4 className="admin-crm-subhead">Endereço</h4>
+                {(customerDetail.addresses || []).length ? (
+                  <ul className="admin-crm-address-list">
+                    {(customerDetail.addresses || []).map((a, idx) => (
+                      <li key={a.id || `${a.cep}-${idx}`}>
+                        {a.isDefault ? <AdminStatusChip label="Padrão" tone="accent" /> : null}
+                        {a.label ? <b>{a.label}</b> : null}
+                        {' '}
+                        {formatCustomerAddressLine(a) || '—'}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="admin-dense-row__meta" style={{ marginTop: 0 }}>
+                    Nenhum endereço cadastrado
+                    {formatCustomerCityUf(customerDetail)
+                      ? ` · cidade no pedido: ${formatCustomerCityUf(customerDetail)}`
+                      : '.'}
+                  </p>
+                )}
+              </div>
+              <h4 className="admin-crm-subhead">
+                Histórico de pedidos
+                {customerDetail.orders.length
+                  ? ` (${customerDetail.orders.length}${
+                      customerDetail.ordersCount > customerDetail.orders.length
+                        ? ` de ${customerDetail.ordersCount}`
+                        : ''
+                    })`
+                  : ''}
+              </h4>
+              <div className="admin-dense-list admin-crm-history">
                 {customerDetail.orders.map((o) => (
-                  <div key={o.id} className="admin-dense-row">
+                  <div key={o.id} className="admin-dense-row admin-crm-order">
                     <div className="admin-dense-row__main">
                       <div className="admin-dense-row__title">
                         <span className="admin-dense-row__code">{o.publicId}</span>
                         <AdminOrderStatusChip status={o.status} label={orderStatusLabel(o.status)} />
+                        {o.paymentMethod ? (
+                          <AdminStatusChip
+                            label={customerOrderPaymentLabel(o.paymentMethod)}
+                            tone={o.paymentMethod === 'pix' ? 'ok' : 'info'}
+                            title={o.paymentStatus ? `status ${o.paymentStatus}` : undefined}
+                          />
+                        ) : null}
                       </div>
                       <div className="admin-dense-row__meta">
-                        {brl(o.total)} · {new Date(o.createdAt).toLocaleString('pt-BR')}
+                        {brl(o.total)}
+                        {o.freight ? ` · frete ${brl(o.freight)}` : ''}
+                        {o.discount ? ` · desc. ${brl(o.discount)}` : ''}
+                        {' · '}
+                        {formatAdminDateTime(o.createdAt)}
                       </div>
                       <div className="admin-dense-row__meta">
                         {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ')}
                       </div>
                     </div>
+                    <div className="admin-dense-row__actions">
+                      <button
+                        type="button"
+                        className="btn ghost admin-btn-ghost-pro"
+                        onClick={() => openPedidoFromCustomer(o.id)}
+                      >
+                        Ver pedido
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {!customerDetail.orders.length ? (
-                  <p className="admin-empty">Sem pedidos.</p>
+                  <p className="admin-empty">{customerOrdersEmptyMessage()}</p>
                 ) : null}
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="admin-detail-panel admin-crm-detail admin-crm-detail--empty">
+              <p className="admin-empty" style={{ margin: 0 }}>
+                Selecione um cliente para ver cadastro, endereço e histórico real de pedidos.
+              </p>
+            </div>
+          )}
+      </div>
 
       </div>
       ) : null}
@@ -4541,6 +4730,18 @@ export default function AdminPage() {
                   <div className="admin-order-card__meta">
                     {brl(o.total)} · {customerHint(o)}
                     {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
+                    {o.user?.id ? (
+                      <>
+                        {' · '}
+                        <button
+                          type="button"
+                          className="admin-link-btn"
+                          onClick={() => void openCustomer(o.user!.id)}
+                        >
+                          {customerVerClienteLabel(true)}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                   <div className="admin-order-card__meta" style={{ fontSize: 12, marginTop: 2 }}>
                     Pagamento:{' '}
@@ -4670,6 +4871,15 @@ export default function AdminPage() {
                   <div><b>Cliente:</b> {o.user?.name || '—'}</div>
                   <div><b>E-mail:</b> {o.user?.email || '—'}</div>
                   <div><b>WhatsApp:</b> {phone || 'não cadastrado'}</div>
+                  {o.user?.id ? (
+                    <button
+                      type="button"
+                      className="btn ghost admin-btn-ghost-pro"
+                      onClick={() => void openCustomer(o.user!.id)}
+                    >
+                      {customerVerClienteLabel(true)}
+                    </button>
+                  ) : null}
                   {o.addressSnap?.city ? (
                     <div>
                       <b>Entrega:</b>{' '}
