@@ -17,6 +17,15 @@ import {
   buildAdminOrdersQueryPath,
   shouldServerOrderSearch,
 } from '@/lib/admin-order-search';
+import {
+  advanceSuccessMessage,
+  copySuccessMessage,
+  copyTextToClipboard,
+  emptyOrdersQueueMessage,
+  paymentMethodBadge,
+  separarPrimaryLabel,
+  whatsAppOpsButtonLabel,
+} from '@/lib/admin-ops-ui';
 
 type AdminOrder = {
   id: string;
@@ -488,9 +497,8 @@ function isPaidStuckOrder(o: AdminOrder, threshold = PAID_STUCK_HOURS_UI): boole
 
 /** User "Separar" maps to organizing/packing labels only — no new enum. */
 function advanceButtonLabel(status: string, next: string): string {
-  if (status === 'paid' && next === 'organizing') return 'Separar (Organizando)';
-  if (status === 'organizing' && next === 'packing') return 'Separar (Embalagem)';
-  if (status === 'separating' && next === 'packing') return 'Separar (Embalagem)';
+  const primary = separarPrimaryLabel(status, next);
+  if (primary) return primary;
   return `Marcar: ${orderStatusLabel(next)}`;
 }
 
@@ -1447,11 +1455,13 @@ export default function AdminPage() {
     }
     setBusyId(order.id);
     setErr('');
+    setMsg('');
     try {
       await api(`/admin/orders/${order.id}/status`, {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
+      setMsg(advanceSuccessMessage(order.publicId, orderStatusLabel(next)));
       await load();
       void loadOps();
     } catch (e: any) {
@@ -1486,6 +1496,18 @@ export default function AdminPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function copyOrderField(kind: 'publicId' | 'tracking', value: string) {
+    const v = (value || '').trim();
+    if (!v) {
+      setErr(kind === 'tracking' ? 'Sem rastreio para copiar.' : 'Sem publicId.');
+      return;
+    }
+    setErr('');
+    const ok = await copyTextToClipboard(v);
+    if (ok) setMsg(copySuccessMessage(kind, v));
+    else setErr('Não foi possível copiar — copie manualmente.');
   }
 
   async function saveSeller(e: React.FormEvent) {
@@ -1866,6 +1888,8 @@ export default function AdminPage() {
             borderRadius: 10,
             color: '#f5f5f3',
             boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            overflowWrap: 'anywhere',
+            maxWidth: '100%',
           }}
         >
           <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
@@ -1964,7 +1988,7 @@ export default function AdminPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
               gap: 10,
               marginBottom: 14,
             }}
@@ -2017,6 +2041,7 @@ export default function AdminPage() {
                 textAlign: 'left',
                 cursor: 'pointer',
                 color: 'inherit',
+                minHeight: 44,
               }}
             >
               <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pagos p/ organizar</div>
@@ -4084,13 +4109,49 @@ export default function AdminPage() {
               type="button"
               className="btn"
               onClick={() => selectOpsBucket('paid')}
-              style={{ background: '#ffd100', color: '#0a0a0a', fontWeight: 700 }}
+              style={{
+                background: '#ffd100',
+                color: '#0a0a0a',
+                fontWeight: 700,
+                minHeight: 44,
+                minWidth: 44,
+              }}
             >
               Abrir fila Pagos
             </button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div
+          className="card"
+          style={{
+            marginBottom: 14,
+            borderColor: '#333',
+            background: '#121212',
+            color: '#b0b0a8',
+          }}
+        >
+          <div className="body" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <b style={{ color: '#ffd100', fontSize: 15 }}>Fila Pagos</b>
+              <div style={{ fontSize: 13, marginTop: 4 }}>
+                Nenhum pedido em Pago aguardando Separar agora. Quando um PIX/cartão confirmar, aparece aqui.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                void loadOps();
+                selectOpsBucket('paid');
+              }}
+              style={{ minHeight: 44, borderColor: '#ffd100', color: '#ffd100' }}
+            >
+              Atualizar / ver Pagos
+            </button>
+          </div>
+        </div>
+      )}
       <p className="muted" style={{ fontSize: 14 }}>
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
@@ -4127,8 +4188,9 @@ export default function AdminPage() {
               if (f.key === 'stuck_paid') selectOpsBucket('paid');
             }}
             style={{
-              padding: '6px 10px',
+              padding: '10px 12px',
               fontSize: 12,
+              minHeight: 44,
               borderColor: orderRoiFilter === f.key ? '#ffd100' : undefined,
               background: orderRoiFilter === f.key ? '#0a0a0a' : undefined,
               color: orderRoiFilter === f.key ? '#ffd100' : undefined,
@@ -4176,8 +4238,9 @@ export default function AdminPage() {
               className={active ? 'btn' : 'btn ghost'}
               onClick={() => selectOpsBucket(tab.key)}
               style={{
-                padding: '8px 12px',
+                padding: '10px 14px',
                 fontSize: 13,
+                minHeight: 44,
                 opacity: active ? 1 : 0.9,
                 borderColor: active ? '#ffd100' : undefined,
                 background: active ? '#0a0a0a' : undefined,
@@ -4206,22 +4269,51 @@ export default function AdminPage() {
             <div className="body">
               <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <b>{o.publicId}</b>
-                  {o.status === 'paid' ? (
-                    <span
-                      className="badge"
-                      style={{
-                        marginLeft: 8,
-                        background: isPaidStuckOrder(o) ? '#3a1515' : '#3a2f0a',
-                        color: isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100',
-                        border: `1px solid ${isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100'}`,
-                      }}
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                    <b style={{ fontSize: 16 }}>{o.publicId}</b>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => void copyOrderField('publicId', o.publicId)}
+                      title="Copiar publicId"
+                      aria-label={`Copiar ${o.publicId}`}
+                      style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
                     >
-                      {isPaidStuckOrder(o)
-                        ? `Travado ${formatStuckHours(hoursSincePaid(o))}`
-                        : `Aguardando org. · ${formatStuckHours(hoursSincePaid(o))}`}
-                    </span>
-                  ) : null}
+                      Copiar ID
+                    </button>
+                    {(() => {
+                      const payBadge = paymentMethodBadge(o.payments);
+                      if (!payBadge) return null;
+                      return (
+                        <span
+                          className="badge"
+                          style={{
+                            background: payBadge.kind === 'pix' ? '#0a2a1a' : '#1a1a2a',
+                            color: payBadge.kind === 'pix' ? '#7dffa0' : '#a8c4ff',
+                            border: `1px solid ${payBadge.kind === 'pix' ? '#7dffa0' : '#a8c4ff'}`,
+                          }}
+                          title={payBadge.status ? `status ${payBadge.status}` : undefined}
+                        >
+                          {payBadge.label}
+                          {payBadge.amount != null ? ` · ${brl(payBadge.amount)}` : ''}
+                        </span>
+                      );
+                    })()}
+                    {o.status === 'paid' ? (
+                      <span
+                        className="badge"
+                        style={{
+                          background: isPaidStuckOrder(o) ? '#3a1515' : '#3a2f0a',
+                          color: isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100',
+                          border: `1px solid ${isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100'}`,
+                        }}
+                      >
+                        {isPaidStuckOrder(o)
+                          ? `Travado ${formatStuckHours(hoursSincePaid(o))}`
+                          : `Aguardando org. · ${formatStuckHours(hoursSincePaid(o))}`}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="muted">
                     {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
                     {next ? (
@@ -4254,6 +4346,7 @@ export default function AdminPage() {
                     type="button"
                     className="btn ghost"
                     onClick={() => setOpenOrderId(open ? null : o.id)}
+                    style={{ minHeight: 44, minWidth: 44 }}
                   >
                     {open ? 'Fechar' : 'Detalhe'}
                   </button>
@@ -4263,11 +4356,22 @@ export default function AdminPage() {
                       disabled={busyId === o.id}
                       onClick={() => advance(o)}
                       title={`Avançar para ${orderStatusLabel(next)}`}
-                      style={
-                        o.status === 'paid' || isPaidStuckOrder(o)
-                          ? { background: '#ffd100', color: '#0a0a0a', fontWeight: 700 }
-                          : undefined
-                      }
+                      style={{
+                        minHeight: 44,
+                        minWidth: 44,
+                        ...(o.status === 'paid' ||
+                        o.status === 'organizing' ||
+                        o.status === 'separating' ||
+                        isPaidStuckOrder(o)
+                          ? {
+                              background: '#ffd100',
+                              color: '#0a0a0a',
+                              fontWeight: 800,
+                              fontSize: 15,
+                              boxShadow: '0 2px 0 #b89a00',
+                            }
+                          : {}),
+                      }}
                     >
                       {busyId === o.id ? 'Salvando...' : advanceButtonLabel(o.status, next)}
                     </button>
@@ -4296,8 +4400,15 @@ export default function AdminPage() {
                     </span>
                   )}
                   {showEarlyPaidOps ? (
-                    <a className="btn wa" href={waPaid.url} target="_blank" rel="noreferrer">
-                      Cliente pagou — abrir WhatsApp
+                    <a
+                      className="btn wa"
+                      href={waPaid.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+                      title={waPaid.toCustomer ? 'Abre wa.me com o cliente' : 'Cliente sem telefone — wa.me da loja'}
+                    >
+                      {whatsAppOpsButtonLabel(waPaid.toCustomer, 'paid')}
                     </a>
                   ) : null}
                   <button
@@ -4306,6 +4417,7 @@ export default function AdminPage() {
                     disabled={busyId === o.id}
                     onClick={() => void resendStorePaidNotify(o)}
                     title="POST /admin/orders/:id/notify-paid"
+                    style={{ minHeight: 44 }}
                   >
                     Reenviar aviso loja
                   </button>
@@ -4313,12 +4425,25 @@ export default function AdminPage() {
               ) : null}
 
               <div className="row" style={{ marginTop: 12, flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' }}>
-                <a className="btn wa" href={wa.url} target="_blank" rel="noreferrer">
-                  Avisar no WhatsApp
+                <a
+                  className="btn wa"
+                  href={wa.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+                  title={wa.toCustomer ? 'Abre wa.me com o cliente' : 'Cliente sem telefone — wa.me da loja'}
+                >
+                  {whatsAppOpsButtonLabel(wa.toCustomer, 'generic')}
                 </a>
                 {o.status === 'in_transit' || o.status === 'shipped' ? (
-                  <a className="btn wa" href={waShipped.url} target="_blank" rel="noreferrer">
-                    Pedido saiu — abrir WhatsApp
+                  <a
+                    className="btn wa"
+                    href={waShipped.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    {whatsAppOpsButtonLabel(waShipped.toCustomer, 'shipped')}
                   </a>
                 ) : null}
               </div>
@@ -4331,9 +4456,19 @@ export default function AdminPage() {
               {open ? (
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                   <div className="muted" style={{ fontSize: 13, display: 'grid', gap: 4 }}>
-                    <div>
-                      <b style={{ color: 'var(--text)' }}>publicId:</b> {o.publicId}{' '}
-                      <span style={{ opacity: 0.7 }}>(id {o.id})</span>
+                    <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      <span>
+                        <b style={{ color: 'var(--text)' }}>publicId:</b> {o.publicId}{' '}
+                        <span style={{ opacity: 0.7 }}>(id {o.id})</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => void copyOrderField('publicId', o.publicId)}
+                        style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
+                      >
+                        Copiar ID
+                      </button>
                     </div>
                     <div><b style={{ color: 'var(--text)' }}>Cliente:</b> {o.user?.name || '—'}</div>
                     <div><b style={{ color: 'var(--text)' }}>E-mail:</b> {o.user?.email || '—'}</div>
@@ -4345,10 +4480,22 @@ export default function AdminPage() {
                         {o.addressSnap.city}/{o.addressSnap.uf}
                       </div>
                     ) : null}
-                    <div>
-                      <b style={{ color: 'var(--text)' }}>Rastreio:</b>{' '}
-                      {o.trackingCode || '—'}
-                      {o.carrier ? ` · ${o.carrier}` : ''}
+                    <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      <span>
+                        <b style={{ color: 'var(--text)' }}>Rastreio:</b>{' '}
+                        {o.trackingCode || '—'}
+                        {o.carrier ? ` · ${o.carrier}` : ''}
+                      </span>
+                      {o.trackingCode?.trim() ? (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => void copyOrderField('tracking', o.trackingCode || '')}
+                          style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
+                        >
+                          Copiar rastreio
+                        </button>
+                      ) : null}
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <b style={{ color: 'var(--text)' }}>Pagamento(s):</b>
@@ -4420,11 +4567,14 @@ export default function AdminPage() {
       })}
       {!filteredOrders.length ? (
         <p className="muted">
-          {orderJumpQ.trim() || orderRoiFilter !== 'all'
-            ? 'Nenhum pedido corresponde à busca/filtro ROI (servidor se ≥3 ou SCH-…).'
-            : orderStatusFilter
-              ? `Nenhum pedido no bucket “${adminQueueBucketLabel(orderStatusFilter)}”.`
-              : 'Nenhum pedido ainda.'}
+          {emptyOrdersQueueMessage({
+            hasSearch: Boolean(orderJumpQ.trim()),
+            roiFilter: orderRoiFilter,
+            statusFilter: orderStatusFilter,
+            paidBucketLabel: orderStatusFilter
+              ? adminQueueBucketLabel(orderStatusFilter)
+              : undefined,
+          })}
         </p>
       ) : null}
     </div>
