@@ -33,6 +33,20 @@ import {
 } from '@/lib/admin-sections';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
+import {
+  AdminOrderStatusChip,
+  AdminProductActiveChip,
+  AdminProductStockChip,
+  AdminStatusChip,
+} from '@/components/admin/AdminStatusChip';
+import {
+  catalogNeedsPhotoSummary,
+  paidQueueBannerClass,
+  paidQueueBannerTone,
+  productPhotoBadgeKind,
+  productPhotoBadgeLabel,
+  shouldStickyOrderActions,
+} from '@/lib/admin-pro-ui';
 
 type AdminOrder = {
   id: string;
@@ -3188,18 +3202,18 @@ export default function AdminPage() {
       ) : null}
 
       {adminSection === 'catalogo' ? (
-      <div className="admin-section-panel">
-      <section id="admin-product-form" className="card" style={{ marginTop: 16, marginBottom: 28 }}>
+      <div className="admin-section-panel admin-catalog">
+      <section id="admin-product-form" className="admin-card-pro admin-catalog-form" style={{ marginTop: 0, marginBottom: 0 }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 20 }}>{editingLabel}</h2>
+            <h2>{editingLabel}</h2>
             {editingId ? (
               <button type="button" className="btn ghost" onClick={resetForm}>
                 Cancelar edição
               </button>
             ) : null}
           </div>
-          <form className="form" style={{ maxWidth: 560 }} onSubmit={saveProduct}>
+          <form className="form admin-form-pro" style={{ maxWidth: 560 }} onSubmit={saveProduct}>
             <label>
               Nome do produto *
               <input
@@ -3322,22 +3336,11 @@ export default function AdminPage() {
                 </label>
               </div>
               {formImages.length ? (
-                <div
-                  style={{
-                    display: 'grid',
-                    gap: 10,
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                  }}
-                >
+                <div className="admin-photo-grid">
                   {formImages.map((img, i) => (
                     <div
                       key={img.id || `${img.url}-${i}`}
-                      style={{
-                        border: i === 0 ? '2px solid #ffd100' : '1px solid #333',
-                        borderRadius: 10,
-                        padding: 8,
-                        background: '#111',
-                      }}
+                      className={`admin-photo-tile${i === 0 ? ' admin-photo-tile--cover' : ''}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -3401,35 +3404,13 @@ export default function AdminPage() {
                   ))}
                 </div>
               ) : (
-                <p
-                  role="status"
-                  style={{
-                    margin: '0',
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    background: '#2a2208',
-                    border: '1px solid #6b5a12',
-                    color: '#f5e6a3',
-                    fontSize: 13,
-                  }}
-                >
+                <p role="status" className="admin-catalog-alert">
                   Sem foto — a vitrine fica sem imagem. Envie JPG/PNG/WebP ou cole uma URL abaixo
                   (capa).
                 </p>
               )}
               {formImages.some((img) => isPlaceholderImageUrl(img.url)) ? (
-                <p
-                  role="status"
-                  style={{
-                    margin: '10px 0 0',
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    background: '#2a2208',
-                    border: '1px solid #6b5a12',
-                    color: '#f5e6a3',
-                    fontSize: 13,
-                  }}
-                >
+                <p role="status" className="admin-catalog-alert" style={{ marginTop: 10 }}>
                   Há imagem placeholder (placehold.co) — troque por foto real antes de vender.
                 </p>
               ) : null}
@@ -3473,7 +3454,7 @@ export default function AdminPage() {
               />
               Produto ativo (aparece na loja)
             </label>
-            <button className="btn" type="submit" disabled={saving}>
+            <button className="btn admin-btn-primary-accent" type="submit" disabled={saving}>
               {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Cadastrar produto'}
             </button>
           </form>
@@ -3851,17 +3832,18 @@ export default function AdminPage() {
       ) : null}
 
       {adminSection === 'catalogo' ? (
-      <div className="admin-section-panel">
-<section className="card" style={{ marginBottom: 28, borderColor: lowStockProducts.length ? 'var(--danger)' : undefined }}>
+      <div className="admin-section-panel admin-catalog">
+<section className={`admin-card-pro admin-catalog-panel${lowStockProducts.length ? ' admin-catalog-panel--low' : ''}`} style={{ marginBottom: 0, borderColor: lowStockProducts.length ? 'var(--admin-danger)' : undefined }}>
         <div className="body">
-          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 20 }}>
+          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <h2>
               Estoque baixo{' '}
-              <span className="badge" style={{ marginBottom: 0, background: lowStockProducts.length ? '#3a1515' : undefined, color: lowStockProducts.length ? '#ffb4b4' : undefined }}>
-                {lowStockProducts.length}
-              </span>
+              <AdminStatusChip
+                label={String(lowStockProducts.length)}
+                tone={lowStockProducts.length ? 'danger' : 'ok'}
+              />
             </h2>
-            <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, color: 'var(--text)' }}>
+            <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, color: 'var(--admin-text)', fontSize: 13 }}>
               Limite ≤
               <input
                 type="number"
@@ -3871,30 +3853,20 @@ export default function AdminPage() {
                   const n = Number.parseInt(e.target.value, 10);
                   setLowStockThreshold(Number.isNaN(n) || n < 0 ? DEFAULT_LOW_STOCK : n);
                 }}
-                style={{ width: 72 }}
+                style={{ width: 72, minHeight: 36 }}
               />
             </label>
           </div>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
             Produtos com estoque em mãos igual ou abaixo do limite. Clique em Editar para repor.
           </p>
           {lowStockProducts.length ? (
             <div style={{ display: 'grid', gap: 8 }}>
               {lowStockProducts.map((p) => (
-                <div
-                  key={p.id}
-                  className="row"
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    background: '#2a1515',
-                    border: '1px solid #5a2a2a',
-                    flexWrap: 'wrap',
-                  }}
-                >
+                <div key={p.id} className="admin-low-stock-row">
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <b>{p.name}</b>
-                    <div className="muted" style={{ fontSize: 13, color: '#ffb4b4' }}>
+                    <div className="muted">
                       Estoque: {p.inventory?.qtyOnHand ?? 0}
                       {(p.inventory?.qtyReserved ?? 0) > 0
                         ? ` · ${availableStock(p)} disponível`
@@ -3902,7 +3874,7 @@ export default function AdminPage() {
                       {!p.active ? ' · Inativo' : ''}
                     </div>
                   </div>
-                  <button type="button" className="btn ghost" onClick={() => startEdit(p)}>
+                  <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
                     Editar
                   </button>
                 </div>
@@ -3916,7 +3888,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <h3>Produtos ({products.length})</h3>
+      <h3 className="admin-section-heading">Produtos ({products.length})</h3>
       {(() => {
         const placeholderCount = products.filter((p) => {
           const url = p.images?.[0]?.url;
@@ -3924,24 +3896,12 @@ export default function AdminPage() {
         }).length;
         if (!placeholderCount) return null;
         return (
-          <p
-            role="status"
-            style={{
-              margin: '0 0 12px',
-              padding: '10px 12px',
-              borderRadius: 8,
-              background: '#2a2208',
-              border: '1px solid #6b5a12',
-              color: '#f5e6a3',
-              fontSize: 14,
-            }}
-          >
-            {placeholderCount} produto(s) precisam de foto da loja (vazia ou placeholder). Use
-            Trocar foto / Editar — sem inventar imagem.{' '}
+          <p role="status" className="admin-catalog-alert">
+            {catalogNeedsPhotoSummary(placeholderCount)}{' '}
             <button
               type="button"
               className="btn ghost"
-              style={{ marginLeft: 8, minHeight: 32, borderColor: '#ffd100', color: '#ffd100' }}
+              style={{ marginLeft: 8, minHeight: 32, borderColor: 'var(--admin-accent)', color: 'var(--admin-warn)' }}
               onClick={() => void downloadProductsNeedingPhotosCsv()}
             >
               Baixar CSV
@@ -3949,92 +3909,76 @@ export default function AdminPage() {
           </p>
         );
       })()}
-      <div style={{ display: 'grid', gap: 10, marginBottom: 28 }}>
+      <div className="admin-product-list" style={{ marginBottom: 8 }}>
         {products.map((p) => {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
           const isLow = onHand <= lowStockThreshold;
           const imgUrl = rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url;
           const isPlaceholderImg = isMissingOrPlaceholderImage(imgUrl);
+          const photoKind = productPhotoBadgeKind({
+            hasUrl: Boolean(imgUrl),
+            isPlaceholderOrMissing: isPlaceholderImg,
+          });
+          const photoLabel = productPhotoBadgeLabel(photoKind);
           return (
             <div
               key={p.id}
-              className="card"
-              style={isLow ? { borderColor: '#5a2a2a', boxShadow: 'inset 3px 0 0 #ff6b6b' } : undefined}
+              className={`admin-product-row${isLow ? ' admin-product-row--low' : ''}`}
             >
-              <div className="body row" style={{ alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                  {imgUrl && !isPlaceholderImg ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imgUrl}
-                      alt=""
-                      style={{
-                        width: 56,
-                        height: 56,
-                        objectFit: 'cover',
-                        borderRadius: 8,
-                        background: '#111',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 8,
-                        background: 'var(--bg)',
-                        border: '1px solid var(--line)',
-                      }}
-                    />
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <div>
-                      <b>{p.name}</b>{' '}
-                      {!p.active ? <span className="badge">Inativo</span> : null}
-                      {isPlaceholderImg ? (
-                        <span className="badge" style={{ background: '#3a2f0a', color: '#f5e6a3' }}>
-                          {!imgUrl ? 'Sem foto' : 'Foto placeholder'}
-                        </span>
-                      ) : null}
-                      {isLow ? (
-                        <span className="badge" style={{ background: '#3a1515', color: '#ffb4b4' }}>
-                          Estoque baixo
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="muted" style={{ fontSize: 13 }}>
-                      {p.sku} · {brl(p.price)}
-                      {p.category ? ` · ${p.category.name}` : ''}
-                    </div>
-                    <div className="muted" style={{ fontSize: 13, color: isLow ? '#ffb4b4' : undefined }}>
-                      Estoque: {onHand}
-                      {(p.inventory?.qtyReserved ?? 0) > 0
-                        ? ` (${avail} disponível, ${p.inventory?.qtyReserved} reservado)`
-                        : null}
-                    </div>
-                  </div>
+              {imgUrl && !isPlaceholderImg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imgUrl} alt="" className="admin-product-row__thumb" />
+              ) : (
+                <div className="admin-product-row__ph" aria-hidden>
+                  {photoLabel || 'Sem foto'}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {isPlaceholderImg ? (
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{ background: '#ffd100', color: '#111', minHeight: 36 }}
-                      onClick={() => startEdit(p)}
-                    >
-                      Trocar foto
-                    </button>
+              )}
+              <div className="admin-product-row__main">
+                <div className="admin-product-row__title">
+                  <b>{p.name}</b>
+                  <AdminProductActiveChip active={Boolean(p.active)} />
+                  {photoLabel ? (
+                    <AdminStatusChip label={photoLabel} tone="warn" />
                   ) : null}
-                  <button type="button" className="btn ghost" onClick={() => startEdit(p)}>
-                    Editar
+                  {isLow ? (
+                    <AdminProductStockChip
+                      onHand={onHand}
+                      threshold={lowStockThreshold}
+                      active={Boolean(p.active)}
+                      label="Estoque baixo"
+                    />
+                  ) : null}
+                </div>
+                <div className="admin-product-row__meta">
+                  {p.sku} · {brl(p.price)}
+                  {p.category ? ` · ${p.category.name}` : ''}
+                </div>
+                <div className="admin-product-row__meta" style={{ color: isLow ? 'var(--admin-danger)' : undefined }}>
+                  Estoque: {onHand}
+                  {(p.inventory?.qtyReserved ?? 0) > 0
+                    ? ` (${avail} disponível, ${p.inventory?.qtyReserved} reservado)`
+                    : null}
+                </div>
+              </div>
+              <div className="admin-product-row__actions">
+                {isPlaceholderImg ? (
+                  <button
+                    type="button"
+                    className="btn admin-btn-photo"
+                    onClick={() => startEdit(p)}
+                  >
+                    Trocar foto
                   </button>
-                  {p.active ? (
-                    <Link className="btn ghost" href={`/produto/${p.slug}`} target="_blank">
-                      Ver na loja
-                    </Link>
-                  ) : null}
-                </div>
+                ) : null}
+                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
+                  Editar
+                </button>
+                {p.active ? (
+                  <Link className="btn ghost admin-btn-ghost-pro" href={`/produto/${p.slug}`} target="_blank">
+                    Ver na loja
+                  </Link>
+                ) : null}
               </div>
             </div>
           );
@@ -4046,91 +3990,84 @@ export default function AdminPage() {
       ) : null}
 
       {adminSection === 'pedidos' ? (
-      <div className="admin-section-panel">
-      <h3 id="admin-orders-queue">Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})</h3>
-      {(ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0) > 0 ? (
-        <div
-          className="card"
-          style={{
-            marginBottom: 14,
-            borderColor: (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
-            background: (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#3a1515' : '#3a2f0a',
-            color: '#f5f5f3',
-          }}
-        >
-          <div className="body" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <b style={{ color: '#ffd100', fontSize: 16 }}>Pagos aguardando organização</b>
-              <div style={{ fontSize: 13, marginTop: 4, color: '#f5e6a3' }}>
-                {ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0} pedido(s) em Pago
-                {(ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
-                  ? ` · ${ops!.paidAwaitingOrg!.stuckCount} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
-                  : ` · nenhum acima de ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
-                {ops?.paidAwaitingOrg?.oldestStuckHours != null
-                  ? ` · mais antigo ~${ops.paidAwaitingOrg.oldestStuckHours}h`
-                  : ''}
-              </div>
-              {ops?.paidAwaitingOrg?.stuckPublicIds?.length ? (
-                <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
-                  IDs travados: {ops.paidAwaitingOrg.stuckPublicIds.join(', ')}
+      <div className="admin-section-panel admin-pedidos">
+      <h3 id="admin-orders-queue" className="admin-section-heading">
+        Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})
+      </h3>
+      {(() => {
+        const awaiting =
+          ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0;
+        const stuck = ops?.paidAwaitingOrg?.stuckCount ?? 0;
+        const tone = paidQueueBannerTone({
+          paidAwaitingCount: awaiting,
+          stuckCount: stuck,
+        });
+        return (
+          <div className={paidQueueBannerClass(tone)}>
+            <div className="body">
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <span className="admin-queue-banner__title">
+                  {tone === 'empty' ? 'Fila Pagos' : 'Pagos aguardando organização'}
+                </span>
+                <div className="admin-queue-banner__meta">
+                  {tone === 'empty' ? (
+                    <>
+                      Nenhum pedido em Pago aguardando Separar agora. Quando um PIX/cartão confirmar,
+                      aparece aqui.
+                    </>
+                  ) : (
+                    <>
+                      {awaiting} pedido(s) em Pago
+                      {stuck > 0
+                        ? ` · ${stuck} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
+                        : ` · nenhum acima de ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
+                      {ops?.paidAwaitingOrg?.oldestStuckHours != null
+                        ? ` · mais antigo ~${ops.paidAwaitingOrg.oldestStuckHours}h`
+                        : ''}
+                    </>
+                  )}
                 </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => selectOpsBucket('paid')}
-              style={{
-                background: '#ffd100',
-                color: '#0a0a0a',
-                fontWeight: 700,
-                minHeight: 44,
-                minWidth: 44,
-              }}
-            >
-              Abrir fila Pagos
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div
-          className="card"
-          style={{
-            marginBottom: 14,
-            borderColor: '#333',
-            background: '#121212',
-            color: '#b0b0a8',
-          }}
-        >
-          <div className="body" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <b style={{ color: '#ffd100', fontSize: 15 }}>Fila Pagos</b>
-              <div style={{ fontSize: 13, marginTop: 4 }}>
-                Nenhum pedido em Pago aguardando Separar agora. Quando um PIX/cartão confirmar, aparece aqui.
+                {ops?.paidAwaitingOrg?.stuckPublicIds?.length ? (
+                  <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
+                    IDs travados: {ops.paidAwaitingOrg.stuckPublicIds.join(', ')}
+                  </div>
+                ) : null}
               </div>
+              {tone === 'empty' ? (
+                <button
+                  type="button"
+                  className="btn ghost admin-btn-accent"
+                  onClick={() => {
+                    void loadOps();
+                    selectOpsBucket('paid');
+                  }}
+                  style={{ minHeight: 44 }}
+                >
+                  Atualizar / ver Pagos
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn admin-btn-primary-accent"
+                  onClick={() => selectOpsBucket('paid')}
+                  style={{ minHeight: 44, minWidth: 44 }}
+                >
+                  Abrir fila Pagos
+                </button>
+              )}
             </div>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => {
-                void loadOps();
-                selectOpsBucket('paid');
-              }}
-              style={{ minHeight: 44, borderColor: '#ffd100', color: '#ffd100' }}
-            >
-              Atualizar / ver Pagos
-            </button>
           </div>
-        </div>
-      )}
-      <p className="muted" style={{ fontSize: 14 }}>
+        );
+      })()}
+      <p className="admin-pedidos__intro">
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
         “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
         WhatsApp é wa.me — não envia sozinho.
       </p>
-      <label style={{ display: 'block', maxWidth: 420, marginBottom: 8 }}>
-        <span className="muted" style={{ fontSize: 13 }}>
+      <div className="admin-pedidos__toolbar">
+      <label className="admin-search-field">
+        <span>
           Busca pedidos (servidor se ≥3 caracteres ou SCH-…; senão na lista carregada)
           {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — busca no servidor' : ''}
         </span>
@@ -4138,11 +4075,10 @@ export default function AdminPage() {
           value={orderJumpQ}
           onChange={(e) => setOrderJumpQ(e.target.value)}
           placeholder="Ex.: SCH-…, e-mail ou nome do cliente"
-          style={{ width: '100%', minHeight: 44 }}
           aria-label="Busca de pedidos"
         />
       </label>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+      <div className="admin-filter-row">
         {(
           [
             { key: 'all', label: 'Filtro ROI: todos' },
@@ -4153,18 +4089,10 @@ export default function AdminPage() {
           <button
             key={f.key}
             type="button"
-            className={orderRoiFilter === f.key ? 'btn' : 'btn ghost'}
+            className={`admin-filter-chip${orderRoiFilter === f.key ? ' is-active' : ''}`}
             onClick={() => {
               setOrderRoiFilter(f.key);
               if (f.key === 'stuck_paid') selectOpsBucket('paid');
-            }}
-            style={{
-              padding: '10px 12px',
-              fontSize: 12,
-              minHeight: 44,
-              borderColor: orderRoiFilter === f.key ? '#ffd100' : undefined,
-              background: orderRoiFilter === f.key ? '#0a0a0a' : undefined,
-              color: orderRoiFilter === f.key ? '#ffd100' : undefined,
             }}
           >
             {f.label}
@@ -4174,17 +4102,10 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      <p className="ok" style={{ fontSize: 13, marginTop: 0 }}>
+      <p className="ok" style={{ fontSize: 13, margin: 0 }}>
         {POST_PAYMENT_OPS_HINT}
       </p>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 8,
-          marginBottom: 14,
-        }}
-      >
+      <div className="admin-filter-row">
         {ORDER_STATUS_TABS.map((tab) => {
           const active = orderStatusFilter === tab.key;
           const opsCount =
@@ -4206,17 +4127,8 @@ export default function AdminPage() {
             <button
               key={tab.key || 'all'}
               type="button"
-              className={active ? 'btn' : 'btn ghost'}
+              className={`admin-filter-chip${active ? ' is-active' : ''}`}
               onClick={() => selectOpsBucket(tab.key)}
-              style={{
-                padding: '10px 14px',
-                fontSize: 13,
-                minHeight: 44,
-                opacity: active ? 1 : 0.9,
-                borderColor: active ? '#ffd100' : undefined,
-                background: active ? '#0a0a0a' : undefined,
-                color: active ? '#ffd100' : undefined,
-              }}
             >
               {tab.label}
               {count != null ? ` (${count})` : ''}
@@ -4224,80 +4136,85 @@ export default function AdminPage() {
           );
         })}
       </div>
+      </div>
+      <div className="admin-order-list">
       {filteredOrders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
         const waShipped = orderWa(o, 'shipped');
-        // Early ops banner (Separar / WA pago). Resend button aligns with API POST_PAID_STATUSES.
         const showEarlyPaidOps =
           o.status === 'paid' || o.status === 'organizing' || o.status === 'separating';
         const canResendStorePaidNotify = isPostPaidStatus(o.status);
         const open = openOrderId === o.id;
         const phone = customerPhone(o);
+        const stuck = isPaidStuckOrder(o);
+        const sticky = shouldStickyOrderActions(o.status);
+        const cardMod =
+          stuck ? ' admin-order-card--stuck' : o.status === 'paid' ? ' admin-order-card--paid' : '';
+        const payBadge = paymentMethodBadge(o.payments);
+        const needsSepararStyle =
+          o.status === 'paid' ||
+          o.status === 'organizing' ||
+          o.status === 'separating' ||
+          stuck;
         return (
-          <div key={o.id} className="card" style={{ marginBottom: 10 }}>
-            <div className="body">
-              <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                    <b style={{ fontSize: 16 }}>{o.publicId}</b>
+          <div key={o.id} className={`admin-order-card${cardMod}`}>
+            <div className="admin-order-card__body">
+              <div className="admin-order-card__top">
+                <div className="admin-order-card__main">
+                  <div className="admin-order-card__id-row">
+                    <span className="admin-order-card__public-id">{o.publicId}</span>
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="btn ghost admin-btn-ghost-pro"
                       onClick={() => void copyOrderField('publicId', o.publicId)}
                       title="Copiar publicId"
                       aria-label={`Copiar ${o.publicId}`}
-                      style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
+                      style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
                     >
                       Copiar ID
                     </button>
-                    {(() => {
-                      const payBadge = paymentMethodBadge(o.payments);
-                      if (!payBadge) return null;
-                      return (
-                        <span
-                          className="badge"
-                          style={{
-                            background: payBadge.kind === 'pix' ? '#0a2a1a' : '#1a1a2a',
-                            color: payBadge.kind === 'pix' ? '#7dffa0' : '#a8c4ff',
-                            border: `1px solid ${payBadge.kind === 'pix' ? '#7dffa0' : '#a8c4ff'}`,
-                          }}
-                          title={payBadge.status ? `status ${payBadge.status}` : undefined}
-                        >
-                          {payBadge.label}
-                          {payBadge.amount != null ? ` · ${brl(payBadge.amount)}` : ''}
-                        </span>
-                      );
-                    })()}
+                    {payBadge ? (
+                      <AdminStatusChip
+                        label={`${payBadge.label}${payBadge.amount != null ? ` · ${brl(payBadge.amount)}` : ''}`}
+                        tone={payBadge.kind === 'pix' ? 'ok' : 'info'}
+                        title={payBadge.status ? `status ${payBadge.status}` : undefined}
+                        className={
+                          payBadge.kind === 'pix'
+                            ? 'admin-chip-status--pay-pix'
+                            : payBadge.kind === 'card'
+                              ? 'admin-chip-status--pay-card'
+                              : undefined
+                        }
+                      />
+                    ) : null}
+                    <AdminOrderStatusChip status={o.status} label={orderStatusLabel(o.status)} />
                     {o.status === 'paid' ? (
-                      <span
-                        className="badge"
-                        style={{
-                          background: isPaidStuckOrder(o) ? '#3a1515' : '#3a2f0a',
-                          color: isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100',
-                          border: `1px solid ${isPaidStuckOrder(o) ? '#ffb4b4' : '#ffd100'}`,
-                        }}
-                      >
-                        {isPaidStuckOrder(o)
-                          ? `Travado ${formatStuckHours(hoursSincePaid(o))}`
-                          : `Aguardando org. · ${formatStuckHours(hoursSincePaid(o))}`}
-                      </span>
+                      <AdminStatusChip
+                        label={
+                          stuck
+                            ? `Travado ${formatStuckHours(hoursSincePaid(o))}`
+                            : `Aguardando org. · ${formatStuckHours(hoursSincePaid(o))}`
+                        }
+                        tone={stuck ? 'danger' : 'accent'}
+                      />
                     ) : null}
                   </div>
-                  <div className="muted">
-                    {orderStatusLabel(o.status)} <span style={{ opacity: 0.6 }}>({o.status})</span>
+                  <div className="admin-order-card__meta">
+                    {orderStatusLabel(o.status)}{' '}
+                    <span style={{ opacity: 0.6 }}>({o.status})</span>
                     {next ? (
                       <span style={{ marginLeft: 6 }}>
-                        → próximo: <b style={{ color: 'var(--text)' }}>{orderStatusLabel(next)}</b>
+                        → próximo: <b>{orderStatusLabel(next)}</b>
                       </span>
                     ) : null}
                   </div>
-                  <div className="muted" style={{ fontSize: 13 }}>
+                  <div className="admin-order-card__meta">
                     {brl(o.total)} · {customerHint(o)}
                     {o.items?.length ? ` · ${o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}` : ''}
                   </div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  <div className="admin-order-card__meta" style={{ fontSize: 12, marginTop: 2 }}>
                     Pagamento:{' '}
                     {o.payments?.length
                       ? o.payments.map((p) => `${p.status}${p.method ? `/${p.method}` : ''}`).join(', ')
@@ -4312,55 +4229,38 @@ export default function AdminPage() {
                       : ''}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div
+                  className={`admin-order-card__actions${sticky ? ' is-sticky' : ''}`}
+                >
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     onClick={() => setOpenOrderId(open ? null : o.id)}
-                    style={{ minHeight: 44, minWidth: 44 }}
                   >
                     {open ? 'Fechar' : 'Detalhe'}
                   </button>
                   {next ? (
                     <button
-                      className="btn"
+                      className={`btn${needsSepararStyle ? ' admin-btn-separar' : ''}`}
                       disabled={busyId === o.id}
                       onClick={() => advance(o)}
                       title={`Avançar para ${orderStatusLabel(next)}`}
-                      style={{
-                        minHeight: 44,
-                        minWidth: 44,
-                        ...(o.status === 'paid' ||
-                        o.status === 'organizing' ||
-                        o.status === 'separating' ||
-                        isPaidStuckOrder(o)
-                          ? {
-                              background: '#ffd100',
-                              color: '#0a0a0a',
-                              fontWeight: 800,
-                              fontSize: 15,
-                              boxShadow: '0 2px 0 #b89a00',
-                            }
-                          : {}),
-                      }}
+                      style={needsSepararStyle ? undefined : { minHeight: 44, minWidth: 44 }}
                     >
                       {busyId === o.id ? 'Salvando...' : advanceButtonLabel(o.status, next)}
                     </button>
                   ) : (
-                    <span className="badge">{orderStatusLabel(o.status)}</span>
+                    <AdminOrderStatusChip status={o.status} label={orderStatusLabel(o.status)} />
                   )}
                 </div>
               </div>
 
               {canResendStorePaidNotify ? (
-                <div
-                  className="ok"
-                  style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
-                >
+                <div className="admin-order-card__ops ok">
                   {showEarlyPaidOps ? (
                     <span>
                       Cliente pagou — próximo ops: Separar (Organizando) — não é automático.
-                      {o.status === 'paid' && isPaidStuckOrder(o)
+                      {o.status === 'paid' && stuck
                         ? ` Pedido travado há ${formatStuckHours(hoursSincePaid(o))}.`
                         : ''}{' '}
                       Avisar no WhatsApp (e-mail já cobre o cliente, se mail estiver ativo).
@@ -4384,18 +4284,17 @@ export default function AdminPage() {
                   ) : null}
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn ghost admin-btn-ghost-pro"
                     disabled={busyId === o.id}
                     onClick={() => void resendStorePaidNotify(o)}
                     title="POST /admin/orders/:id/notify-paid"
-                    style={{ minHeight: 44 }}
                   >
                     Reenviar aviso loja
                   </button>
                 </div>
               ) : null}
 
-              <div className="row" style={{ marginTop: 12, flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' }}>
+              <div className="admin-order-card__wa-row">
                 <a
                   className="btn wa"
                   href={wa.url}
@@ -4425,111 +4324,109 @@ export default function AdminPage() {
               </p>
 
               {open ? (
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-                  <div className="muted" style={{ fontSize: 13, display: 'grid', gap: 4 }}>
-                    <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                      <span>
-                        <b style={{ color: 'var(--text)' }}>publicId:</b> {o.publicId}{' '}
-                        <span style={{ opacity: 0.7 }}>(id {o.id})</span>
-                      </span>
+                <div className="admin-order-card__detail">
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                    <span>
+                      <b>publicId:</b> {o.publicId}{' '}
+                      <span style={{ opacity: 0.7 }}>(id {o.id})</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn ghost admin-btn-ghost-pro"
+                      onClick={() => void copyOrderField('publicId', o.publicId)}
+                      style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
+                    >
+                      Copiar ID
+                    </button>
+                  </div>
+                  <div><b>Cliente:</b> {o.user?.name || '—'}</div>
+                  <div><b>E-mail:</b> {o.user?.email || '—'}</div>
+                  <div><b>WhatsApp:</b> {phone || 'não cadastrado'}</div>
+                  {o.addressSnap?.city ? (
+                    <div>
+                      <b>Entrega:</b>{' '}
+                      {o.addressSnap.label ? `${o.addressSnap.label} · ` : ''}
+                      {o.addressSnap.city}/{o.addressSnap.uf}
+                    </div>
+                  ) : null}
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                    <span>
+                      <b>Rastreio:</b>{' '}
+                      {o.trackingCode || '—'}
+                      {o.carrier ? ` · ${o.carrier}` : ''}
+                    </span>
+                    {o.trackingCode?.trim() ? (
                       <button
                         type="button"
-                        className="btn ghost"
-                        onClick={() => void copyOrderField('publicId', o.publicId)}
-                        style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
+                        className="btn ghost admin-btn-ghost-pro"
+                        onClick={() => void copyOrderField('tracking', o.trackingCode || '')}
+                        style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
                       >
-                        Copiar ID
+                        Copiar rastreio
                       </button>
-                    </div>
-                    <div><b style={{ color: 'var(--text)' }}>Cliente:</b> {o.user?.name || '—'}</div>
-                    <div><b style={{ color: 'var(--text)' }}>E-mail:</b> {o.user?.email || '—'}</div>
-                    <div><b style={{ color: 'var(--text)' }}>WhatsApp:</b> {phone || 'não cadastrado'}</div>
-                    {o.addressSnap?.city ? (
-                      <div>
-                        <b style={{ color: 'var(--text)' }}>Entrega:</b>{' '}
-                        {o.addressSnap.label ? `${o.addressSnap.label} · ` : ''}
-                        {o.addressSnap.city}/{o.addressSnap.uf}
-                      </div>
-                    ) : null}
-                    <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                      <span>
-                        <b style={{ color: 'var(--text)' }}>Rastreio:</b>{' '}
-                        {o.trackingCode || '—'}
-                        {o.carrier ? ` · ${o.carrier}` : ''}
-                      </span>
-                      {o.trackingCode?.trim() ? (
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          onClick={() => void copyOrderField('tracking', o.trackingCode || '')}
-                          style={{ padding: '6px 10px', minHeight: 44, fontSize: 12 }}
-                        >
-                          Copiar rastreio
-                        </button>
-                      ) : null}
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <b style={{ color: 'var(--text)' }}>Pagamento(s):</b>
-                      {o.payments?.length ? (
-                        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                          {o.payments.map((pay) => (
-                            <li key={pay.id}>
-                              {pay.status}
-                              {pay.method ? ` · ${pay.method}` : ''}
-                              {pay.provider ? ` · ${pay.provider}` : ''}
-                              {pay.externalId ? ` · ext ${pay.externalId}` : ''}
-                              {pay.amount != null ? ` · ${brl(Number(pay.amount))}` : ''}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span> — (nenhum registro na API)</span>
-                      )}
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <b style={{ color: 'var(--text)' }}>Frete / envio:</b>{' '}
-                      {o.freightSnap?.label || '—'}
-                      {o.freight != null ? ` · ${brl(Number(o.freight))}` : ''}
-                      {o.freightSnap?.estimatedDays != null
-                        ? ` · ~${o.freightSnap.estimatedDays} dia(s)`
-                        : ''}
-                      {o.carrier ? ` · carrier ${o.carrier}` : ''}
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <b style={{ color: 'var(--text)' }}>Histórico:</b>
-                      {o.statusHistory?.length ? (
-                        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                          {o.statusHistory.map((h) => (
-                            <li key={h.id}>
-                              {h.fromStatus ? `${h.fromStatus} → ` : ''}
-                              {h.toStatus}
-                              {' · '}
-                              {new Date(h.createdAt).toLocaleString('pt-BR')}
-                              {h.note ? ` · ${h.note}` : ''}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span>
-                          {' '}
-                          — (sem histórico; criado{' '}
-                          {o.createdAt
-                            ? new Date(o.createdAt).toLocaleString('pt-BR')
-                            : '—'}
-                          )
-                        </span>
-                      )}
-                    </div>
-                    {o.status === 'paid' ? (
-                      <div style={{ marginTop: 8, color: isPaidStuckOrder(o) ? '#ffb4b4' : undefined }}>
-                        <b style={{ color: 'var(--text)' }}>Tempo em pago:</b>{' '}
-                        {formatStuckHours(hoursSincePaid(o))}
-                        {isPaidStuckOrder(o)
-                          ? ` — acima de ${PAID_STUCK_HOURS_UI}h (travado)`
-                          : ` (limite alerta ${PAID_STUCK_HOURS_UI}h)`}
-                      </div>
                     ) : null}
                   </div>
+                  <div style={{ marginTop: 6 }}>
+                    <b>Pagamento(s):</b>
+                    {o.payments?.length ? (
+                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                        {o.payments.map((pay) => (
+                          <li key={pay.id}>
+                            {pay.status}
+                            {pay.method ? ` · ${pay.method}` : ''}
+                            {pay.provider ? ` · ${pay.provider}` : ''}
+                            {pay.externalId ? ` · ext ${pay.externalId}` : ''}
+                            {pay.amount != null ? ` · ${brl(Number(pay.amount))}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span> — (nenhum registro na API)</span>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <b>Frete / envio:</b>{' '}
+                    {o.freightSnap?.label || '—'}
+                    {o.freight != null ? ` · ${brl(Number(o.freight))}` : ''}
+                    {o.freightSnap?.estimatedDays != null
+                      ? ` · ~${o.freightSnap.estimatedDays} dia(s)`
+                      : ''}
+                    {o.carrier ? ` · carrier ${o.carrier}` : ''}
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <b>Histórico:</b>
+                    {o.statusHistory?.length ? (
+                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                        {o.statusHistory.map((h) => (
+                          <li key={h.id}>
+                            {h.fromStatus ? `${h.fromStatus} → ` : ''}
+                            {h.toStatus}
+                            {' · '}
+                            {new Date(h.createdAt).toLocaleString('pt-BR')}
+                            {h.note ? ` · ${h.note}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span>
+                        {' '}
+                        — (sem histórico; criado{' '}
+                        {o.createdAt
+                          ? new Date(o.createdAt).toLocaleString('pt-BR')
+                          : '—'}
+                        )
+                      </span>
+                    )}
+                  </div>
+                  {o.status === 'paid' ? (
+                    <div style={{ marginTop: 8, color: stuck ? 'var(--admin-danger)' : undefined }}>
+                      <b>Tempo em pago:</b>{' '}
+                      {formatStuckHours(hoursSincePaid(o))}
+                      {stuck
+                        ? ` — acima de ${PAID_STUCK_HOURS_UI}h (travado)`
+                        : ` (limite alerta ${PAID_STUCK_HOURS_UI}h)`}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -4549,7 +4446,9 @@ export default function AdminPage() {
         </p>
       ) : null}
       </div>
+      </div>
       ) : null}
+
     </AdminShell>
   );
 }
