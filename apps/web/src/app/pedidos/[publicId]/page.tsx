@@ -11,6 +11,7 @@ import {
   fulfillmentTimelineLabel,
   orderStatusLabel,
 } from '@/lib/order-status';
+import { isPixPaidLikeOrder, PIX_APPROVED_COPY, showPixGate } from '@/lib/pix-payment-ui';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -268,9 +269,12 @@ export default function PedidoPage() {
     return () => window.clearInterval(id);
   }, [o?.status, intent?.payment?.status, reload]);
 
-  const qr = intent?.payment?.payload?.qrCode || null;
-  const qrFromMp = pixQrImageSrc(intent?.payment?.payload?.qrCodeBase64);
-  const qrImgSrc = qrFromMp || generatedQr;
+  // Gate QR payload at the source so approved payments never keep showing pay UI
+  // even if Mercado Pago payload still contains qrCode / qrCodeBase64.
+  const showPixUi = showPixGate(intent?.payment?.status, o?.status);
+  const qr = showPixUi ? intent?.payment?.payload?.qrCode || null : null;
+  const qrFromMp = showPixUi ? pixQrImageSrc(intent?.payment?.payload?.qrCodeBase64) : null;
+  const qrImgSrc = showPixUi ? qrFromMp || generatedQr : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -379,12 +383,11 @@ export default function PedidoPage() {
   if (!o) return <p className="muted">Carregando...</p>;
 
   const awaiting = o.status === 'awaiting_payment';
-  const showTimeline = ['paid', 'organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'].includes(o.status);
-  const isPixPending =
-    intent?.payment?.method === 'pix' && intent.payment.status === 'pending';
-
-  const paidLike = ['paid', 'organizing', 'packing', 'ready_for_pickup', 'in_transit', 'delivered', 'separating', 'shipped'].includes(o.status);
+  const showTimeline = isPixPaidLikeOrder(o.status);
+  const paidLike = isPixPaidLikeOrder(o.status);
   const pendingPay = awaiting || o.status === 'draft';
+  // Recompute with definite order (after load) — same rule as showPixUi above.
+  const showPixPayUi = showPixGate(intent?.payment?.status, o.status);
   const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
 
   return (
@@ -515,12 +518,12 @@ export default function PedidoPage() {
             <p>
               Status pagamento: <b>{paymentStatusLabel(intent.payment.status)}</b>
             </p>
-            {intent.payment.status === 'pending' ? (
+            {showPixPayUi ? (
               <p className="muted" style={{ fontSize: 14 }}>
                 {PIX_LEAVE_COPY}
               </p>
             ) : null}
-            {isPixPending || (intent.payment.method === 'pix' && (qr || qrImgSrc)) ? (
+            {showPixPayUi ? (
               <div style={{ marginTop: 8 }}>
                 {qrImgSrc ? (
                   <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -565,7 +568,14 @@ export default function PedidoPage() {
                 ) : null}
               </div>
             ) : null}
-            {ALLOW_PAYMENT_SIMULATE && awaiting && intent.payment.status === 'pending' ? (
+            {!showPixPayUi &&
+            intent.payment.method === 'pix' &&
+            (intent.payment.status === 'approved' || paidLike) ? (
+              <p className="ok" style={{ marginTop: 12, fontWeight: 700 }}>
+                {PIX_APPROVED_COPY}
+              </p>
+            ) : null}
+            {ALLOW_PAYMENT_SIMULATE && showPixPayUi ? (
               <button className="btn" style={{ marginTop: 12 }} disabled={simulating} onClick={simulateApprove}>
                 {simulating ? 'Confirmando...' : 'Simular aprovação (dev / provider null)'}
               </button>

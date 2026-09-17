@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, clearSession, currentUser } from '@/lib/api';
+import { orderStatusLabel } from '@/lib/order-status';
+import { orderRecoveryPaths } from '@/lib/order-recovery';
+import { pickInProgressOrder } from '@/lib/pix-payment-ui';
 
 type Address = { id: string; label: string; street: string; number: string; city: string; uf: string; cep: string; isDefault: boolean };
 type Loyalty = {
@@ -9,6 +12,13 @@ type Loyalty = {
   label: string;
   rate: number;
   recent: { id: string; kind: string; amount: number; note: string | null; createdAt: string }[];
+};
+type CustomerOrder = {
+  id: string;
+  publicId: string;
+  status: string;
+  total: number;
+  payments?: { status: string; method: string }[];
 };
 
 const kindLabel: Record<string, string> = {
@@ -21,6 +31,7 @@ export default function ContaPage() {
   const [user, setUser] = useState(currentUser());
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
+  const [orders, setOrders] = useState<CustomerOrder[] | null>(null);
   const [form, setForm] = useState({ label: 'Casa', cep: '', street: '', number: '', district: '', city: '', uf: 'RS' });
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -37,6 +48,9 @@ export default function ContaPage() {
     api<{ phone?: string | null }>('/me').then((me) => setPhone(me.phone || '')).catch(() => {});
     api<Address[]>('/me/addresses').then(setAddresses).catch((e) => setErr(e.message));
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
+    api<CustomerOrder[]>('/orders')
+      .then(setOrders)
+      .catch(() => setOrders([]));
   }, []);
 
   async function addAddress(e: React.FormEvent) {
@@ -50,6 +64,11 @@ export default function ContaPage() {
       setErr(e.message);
     }
   }
+
+  const activeOrder = orders ? pickInProgressOrder(orders) : null;
+  const activePaths = activeOrder ? orderRecoveryPaths(activeOrder.publicId) : null;
+  const activePay = activeOrder?.payments?.find((p) => p.status === 'approved')
+    || activeOrder?.payments?.find((p) => p.status === 'pending');
 
   return (
     <div style={{ padding: '24px 0' }}>
@@ -68,6 +87,50 @@ export default function ContaPage() {
         {user?.role === 'admin' ? <Link href="/admin">Admin da loja</Link> : null}
         {user?.role === 'seller' || user?.role === 'admin' ? <Link href="/vendedor">Portal do vendedor</Link> : null}
       </nav>
+
+      <section className="card" style={{ marginBottom: 24 }} aria-labelledby="conta-pedido-andamento">
+        <div className="body">
+          <h2 id="conta-pedido-andamento" style={{ marginTop: 0, fontSize: 20 }}>
+            Pedido em andamento
+          </h2>
+          {orders === null ? (
+            <p className="muted" style={{ marginBottom: 0 }}>Carregando pedidos...</p>
+          ) : activeOrder && activePaths ? (
+            <>
+              <p style={{ margin: '8px 0 4px' }}>
+                Código: <b>{activeOrder.publicId}</b>
+              </p>
+              <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+                {orderStatusLabel(activeOrder.status)}
+                {activePay?.method === 'pix' && activePay.status === 'approved'
+                  ? ' · PIX aprovado'
+                  : activePay?.method === 'pix' && activePay.status === 'pending'
+                    ? ' · Aguardando PIX'
+                    : ''}
+                {' · '}
+                {brl(activeOrder.total)}
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                <Link className="btn" href={activePaths.verMeuPedido} style={{ minHeight: 44 }}>
+                  Acompanhar
+                </Link>
+                <Link className="btn ghost" href={activePaths.meusPedidos} style={{ minHeight: 44 }}>
+                  Meus pedidos
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div>
+              <p className="muted" style={{ margin: '8px 0 12px' }}>
+                Nenhum pedido em andamento no momento.
+              </p>
+              <Link className="btn ghost" href="/pedidos" style={{ minHeight: 44 }}>
+                Meus pedidos
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="card loyalty-card" style={{ marginBottom: 24 }}>
         <div className="body">
