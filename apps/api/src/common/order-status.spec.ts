@@ -7,6 +7,7 @@ import {
   bucketForOrderStatus,
   POST_PAYMENT_OPS_HINT,
   ADMIN_ORDER_QUEUE_BUCKETS,
+  POST_PAID_STATUSES,
   assertValidTransition,
   InvalidOrderTransitionError,
 } from './order-status';
@@ -72,5 +73,19 @@ try {
   assert.equal(e.code, 'INVALID_TRANSITION');
 }
 assert.ok(threw);
+
+
+// Admin notify-paid allowlist (API POST_PAID_STATUSES) — packing etc. must be included
+assert.ok(POST_PAID_STATUSES.includes('paid'));
+assert.ok(POST_PAID_STATUSES.includes('organizing'));
+assert.ok(POST_PAID_STATUSES.includes('packing'));
+assert.ok(POST_PAID_STATUSES.includes('ready_for_pickup'));
+assert.ok(POST_PAID_STATUSES.includes('in_transit'));
+assert.ok(POST_PAID_STATUSES.includes('delivered'));
+assert.ok(POST_PAID_STATUSES.includes('separating'));
+assert.ok(POST_PAID_STATUSES.includes('shipped'));
+assert.equal((POST_PAID_STATUSES as readonly string[]).includes('awaiting_payment'), false);
+assert.equal((POST_PAID_STATUSES as readonly string[]).includes('cancelled'), false);
+assert.equal((POST_PAID_STATUSES as readonly string[]).includes('refunded'), false);
 
 console.log('order-status tests ok');

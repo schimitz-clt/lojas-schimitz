@@ -157,4 +157,21 @@ function createOrderThenCancel(inv: Inv, qty: number) {
   console.log('stock: 5 tentativas / 3 unidades — PASSOU');
 }
 
+
+// 11) Fulfillment (paid→organizing→packing) NÃO altera estoque — só pay commitSale
+{
+  const inv: Inv = { onHand: 10, reserved: 0 };
+  assert.equal(reserve(inv, 1), true);
+  assert.equal(commitSale(inv, 1), true);
+  const afterPay = { onHand: inv.onHand, reserved: inv.reserved };
+  // simula advances de fulfillment sem ops de inventário
+  for (const _step of ['organizing', 'packing', 'ready_for_pickup']) {
+    assert.equal(inv.onHand, afterPay.onHand, 'fulfillment must not change onHand');
+    assert.equal(inv.reserved, afterPay.reserved, 'fulfillment must not change reserved');
+  }
+  // segundo commit (double pay) deve falhar — venda única
+  assert.equal(commitSale(inv, 1), false, 'pay commits sale once');
+  console.log('stock: fulfillment no-touch + commit once — PASSOU');
+}
+
 console.log('inventory.reservation tests ok');

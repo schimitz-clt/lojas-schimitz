@@ -32,4 +32,26 @@ assert.ok(pay.includes('RECONCILIATION_REQUIRED'), 'orphan path logs RECONCILIAT
 assert.ok(pay.includes("reason: 'reconciliation_required'"), 'orphan 2xx reason is reconciliation_required');
 assert.equal(pay.includes("return { ok: true, applied: false, reason: 'orphan' }"), false, 'orphan must not 2xx without durable reconciliation');
 
-console.log('customer-visible list/get + expiry/webhook source tests ok');
+
+// --- MASTER LOTE 1: critical funnel source locks ---
+assert.ok(svc.includes('inventory.reserve') || svc.includes('this.inventory.reserve'), 'create reserves stock');
+assert.ok(svc.includes('commitSale'), 'pay path commits sale');
+assert.ok(svc.includes("status = 'awaiting_payment'") || svc.includes('awaiting_payment'), 'CAS from awaiting_payment');
+assert.ok(svc.includes('adminResendStorePaidNotify'), 'admin notify-paid exists');
+assert.ok(svc.includes('POST_PAID_STATUSES'), 'notify-paid gated by POST_PAID_STATUSES');
+assert.ok(svc.includes('ORDER_NOT_PAID'), 'notify-paid rejects non post-paid');
+
+const fulfillStart = svc.indexOf('async adminUpdateFulfillmentStatus');
+assert.ok(fulfillStart >= 0, 'fulfillment method exists');
+const fulfillEnd = svc.indexOf('\n  private async notifyCustomerInApp', fulfillStart);
+const fulfillBody = fulfillEnd > fulfillStart ? svc.slice(fulfillStart, fulfillEnd) : svc.slice(fulfillStart, fulfillStart + 3500);
+assert.ok(fulfillBody.includes('Sem side-effects de estoque') || fulfillBody.includes('admin_fulfillment'), 'fulfillment documented');
+assert.equal(fulfillBody.includes('commitSale'), false, 'fulfillment must NOT commitSale');
+assert.equal(fulfillBody.includes('inventory.reserve'), false, 'fulfillment must NOT reserve');
+assert.equal(fulfillBody.includes('inventory.release'), false, 'fulfillment must NOT release');
+assert.equal(fulfillBody.includes('this.inventory.'), false, 'fulfillment must NOT touch inventory service');
+
+assert.ok(pay.includes('WEBHOOK_APPLY_FAILED') || pay.includes('WEBHOOK_FETCH_FAILED'), 'webhook failure structured logs');
+assert.ok(pay.includes("structuredLog('error'"), 'webhook errors use structuredLog error');
+
+console.log('customer-visible list/get + expiry/webhook + funnel locks ok');
