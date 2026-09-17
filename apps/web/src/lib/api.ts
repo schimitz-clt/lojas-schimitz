@@ -1,6 +1,6 @@
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
 import { getBrowserApiBase } from './api-proxy';
-import { refreshBodyFromStorage, shouldPersistRefreshInLocalStorage } from './auth-session';
+import { persistAuthSession, refreshBodyFromStorage, wipeAuthSessionStorage } from './auth-session';
 
 /** Browser: same-origin /api/v1 in prod; localhost API for local. Dual refresh body kept. */
 function API() {
@@ -181,25 +181,13 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
  * Read path dual-mode: se `sch_refresh` existir no storage, o body ainda é enviado.
  */
 export function saveSession(data: { accessToken: string; refreshToken?: string; user: unknown }) {
-  localStorage.setItem('sch_access', data.accessToken);
-  localStorage.setItem('sch_user', JSON.stringify(data.user));
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  if (shouldPersistRefreshInLocalStorage(host)) {
-    // Localhost cross-origin: body refresh still needed when API returns it.
-    if (data.refreshToken) localStorage.setItem('sch_refresh', data.refreshToken);
-  } else {
-    // Same-origin / production / Android WebView: never persist refresh (cookie-first).
-    localStorage.removeItem('sch_refresh');
-  }
+  persistAuthSession(localStorage, host, data);
 }
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
-  const refreshToken = localStorage.getItem('sch_refresh') || '';
-  const access = localStorage.getItem('sch_access') || '';
-  localStorage.removeItem('sch_access');
-  localStorage.removeItem('sch_refresh');
-  localStorage.removeItem('sch_user');
+  const { access, refreshToken } = wipeAuthSessionStorage(localStorage);
   // Best-effort: revoga cookie e/ou body (sempre tenta limpar HttpOnly via credentials).
   void fetch(`${API()}/auth/logout`, {
     method: 'POST',

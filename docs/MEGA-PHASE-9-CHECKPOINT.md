@@ -47,7 +47,7 @@ Push `main` → Railway redeploy automático esperado (API + web). Sem migration
 - Ativar `REFRESH_JSON_TOKEN_ENABLED=false` só após e2e Set-Cookie (login→refresh→logout) web prod + Android WebView.
 - Opcional futuro: Origin check em `/auth/refresh` alinhado a `CORS_ORIGINS` se API for chamada cross-site com `SameSite=None`.
 - Redis throttler multi-réplica (Phase 8 M5).
-- CSP estrito Next (Phase 8 M6).
+- CSP nonce-strict Next (Phase 8 M6; Phase A = CSP gradual, não nonce).
 
 ## BLOQUEIOS
 - Cloud Agents indisponíveis → trabalho local.

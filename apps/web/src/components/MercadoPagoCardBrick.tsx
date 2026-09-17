@@ -8,6 +8,7 @@ import {
   type CardBrickSubmit,
 } from '@/lib/card-payment-ui';
 
+/** Official SDK v2. CSP allowlist: apps/web/src/lib/storefront-csp.ts */
 const MP_SDK_URL = 'https://sdk.mercadopago.com/js/v2';
 const CONTAINER_ID = 'mpCardPaymentBrick_container';
 

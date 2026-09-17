@@ -112,7 +112,7 @@ try {
   setRefreshCookie(resOff, 'x');
   assert.equal(resOff.getHeader('Set-Cookie'), undefined);
 
-  // JSON omit deprecation path (opt-in only)
+  // JSON omit deprecation path (opt-in only). Default MUST stay true (Phase A: no prod flip).
   delete process.env.REFRESH_JSON_TOKEN_ENABLED;
   process.env.REFRESH_COOKIE_ENABLED = 'true';
   assert.equal(refreshJsonTokenEnabled(), true);
@@ -124,6 +124,19 @@ try {
   });
   assert.equal((full as any).refreshToken, 'r');
 
+  for (const keep of ['true', '1', 'on', 'TRUE', '']) {
+    process.env.REFRESH_JSON_TOKEN_ENABLED = keep;
+    assert.equal(refreshJsonTokenEnabled(), true, `json enabled for ${JSON.stringify(keep)}`);
+    assert.equal(shouldOmitRefreshTokenInJson(), false, `must not omit for ${JSON.stringify(keep)}`);
+  }
+
+  for (const off of ['false', '0', 'off', 'FALSE']) {
+    process.env.REFRESH_JSON_TOKEN_ENABLED = off;
+    process.env.REFRESH_COOKIE_ENABLED = 'true';
+    assert.equal(refreshJsonTokenEnabled(), false, `json disabled for ${off}`);
+    assert.equal(shouldOmitRefreshTokenInJson(), true, `omit when cookie on + ${off}`);
+  }
+
   process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
   assert.equal(refreshJsonTokenEnabled(), false);
   assert.equal(shouldOmitRefreshTokenInJson(), true);
@@ -134,11 +147,44 @@ try {
   }) as any;
   assert.equal(omitted.refreshToken, undefined);
   assert.equal(omitted.accessToken, 'a');
+  assert.equal(omitted.user.id, '1');
 
-  // Cookie off → never omit (body-only clients)
+  // Cookie still preferred over body when JSON omit is active (dual-mode read).
+  process.env.REFRESH_COOKIE_ENABLED = 'true';
+  process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
+  assert.equal(resolveRefreshToken(req, 'body-token'), 'abc/def');
+  assert.equal(resolveRefreshToken(reqNoCookie, 'body-only'), 'body-only');
+
+  // Set-Cookie still issued on login/refresh path when JSON omits refreshToken.
+  process.env.REFRESH_COOKIE_SAMESITE = 'lax';
+  delete process.env.REFRESH_COOKIE_SECURE;
+  process.env.APP_ENV = 'development';
+  const resJsonOff = mockRes();
+  setRefreshCookie(resJsonOff, 'rt-cookie-only');
+  const cookieOnly = String(resJsonOff.getHeader('Set-Cookie'));
+  assert.ok(cookieOnly.includes('sch_refresh='), cookieOnly);
+  assert.ok(cookieOnly.includes('HttpOnly'), cookieOnly);
+  assert.ok(cookieOnly.includes('rt-cookie-only'), cookieOnly);
+
+  // Logout must still clear HttpOnly cookie when JSON flag is false.
+  clearRefreshCookie(resJsonOff);
+  const cleared = resJsonOff.getHeader('Set-Cookie');
+  const clearedLast = Array.isArray(cleared) ? cleared[cleared.length - 1] : String(cleared);
+  assert.ok(String(clearedLast).includes('Max-Age=0'), String(clearedLast));
+  assert.ok(String(clearedLast).includes('HttpOnly'), String(clearedLast));
+  assert.ok(/Expires=Thu, 01 Jan 1970/i.test(String(clearedLast)), String(clearedLast));
+  assert.ok(String(clearedLast).includes('sch_refresh='), String(clearedLast));
+
+  // Cookie off → never omit (body-only clients), even if JSON flag is false.
   process.env.REFRESH_COOKIE_ENABLED = 'false';
   process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
   assert.equal(shouldOmitRefreshTokenInJson(), false);
+  const stillBody = shapeAuthSessionPayload({
+    accessToken: 'a',
+    refreshToken: 'r',
+    user: { id: '1' },
+  }) as any;
+  assert.equal(stillBody.refreshToken, 'r');
 
   console.log('refresh-cookie unit tests ok');
 } finally {
