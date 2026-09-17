@@ -29,8 +29,9 @@ export type CardBrickSubmit = {
 };
 
 /**
- * Card Payment Brick `customization.paymentMethods` — keep in sync with
- * storefront MAX_INSTALLMENTS (vitrine). Actual options still depend on
+ * Card Payment Brick `customization.paymentMethods` — max options (12).
+ * Interest-free vitrine copy uses INTEREST_FREE_INSTALLMENTS (3); do not
+ * treat this max as a “sem juros” claim. Actual options still depend on
  * the card + Mercado Pago account installment settings.
  */
 export function cardBrickPaymentMethodsCustomization(): {

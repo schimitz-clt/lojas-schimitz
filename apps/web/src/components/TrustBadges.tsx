@@ -1,4 +1,7 @@
+import { interestFreeInstallmentClaim } from '@/lib/pricing';
+
 /** Benefícios reais da loja — home. */
+
 const HOME_ITEMS = [
   {
     ico: '🚚',
@@ -12,8 +15,8 @@ const HOME_ITEMS = [
   },
   {
     ico: '💳',
-    title: 'Até 12x sem juros',
-    sub: 'Via Mercado Pago',
+    title: interestFreeInstallmentClaim(),
+    sub: 'Loja absorve o financiamento',
   },
   {
     ico: '🔁',

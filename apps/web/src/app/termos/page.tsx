@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { INTEREST_FREE_INSTALLMENTS, MAX_INSTALLMENTS } from '@/lib/pricing';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso',
@@ -80,7 +81,9 @@ export default function TermosPage() {
         <ul style={{ lineHeight: 1.8, paddingLeft: 18 }}>
           <li>
             Aceitamos <strong>PIX</strong> (com desconto à vista quando a promoção estiver ativa —
-            hoje 5%) e <strong>cartão</strong> em até 12x via <strong>Mercado Pago</strong>.
+            hoje 5%) e <strong>cartão</strong> em até {INTEREST_FREE_INSTALLMENTS}x sem juros, ou
+            até {MAX_INSTALLMENTS}x via <strong>Mercado Pago</strong> (parcelas acima de{' '}
+            {INTEREST_FREE_INSTALLMENTS}x podem incluir juros).
           </li>
           <li>
             O pagamento é processado pelo Mercado Pago. A confirmação do pedido depende da

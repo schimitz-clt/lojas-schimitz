@@ -1,5 +1,7 @@
 /** Detecção de intenção e FAQ (puro, sem I/O). */
 
+import { INSTALLMENTS, INTEREST_FREE, INSTALLMENTS_PROVIDER } from './chat.facts';
+
 const HANDOFF_RE = new RegExp(
   [
     '\\b(atendente|humano|pessoa real|falar com (algu[eé]m|voc[eê]s|a loja|um humano|um atendente))\\b',
@@ -85,7 +87,7 @@ export function faqReply(message: string): string | null {
   );
   const pix = /\b(pix|5%|cinco por cento|desconto a vista|desconto à vista|a vista|à vista)\b/.test(t);
   // parcelamento / parcela / cartao — sem \b no fim de "parcel"
-  const card = /(12x|\bparcel|\bcartao|mercado pago|mercadopago|\bjuros|\bcredito)/.test(t);
+  const card = /(12x|3x|\bparcel|\bcartao|mercado pago|mercadopago|\bjuros|\bcredito)/.test(t);
   const ship = /\b(frete|entrega|cep|envio|prazo de entrega|prazo)\b/.test(t);
   const cash = /(cupom|cupons|cashback|schimitz\+|schimitz plus|fidelidade|\bpontos\b)/.test(t);
   const track = /\b(rastre|status do pedido|onde esta meu pedido|onde está meu pedido|separando|saiu para|meu pedido)\b/.test(t);
@@ -99,13 +101,18 @@ export function faqReply(message: string): string | null {
   const bits: string[] = [];
   if (greet) {
     bits.push(
-      'Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcelamento em até 12x, troca em 7 dias e produtos do catálogo.',
+      `Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcelamento em até ${INTEREST_FREE}x sem juros, troca em 7 dias e produtos do catálogo.`,
     );
   }
   if (pix) bits.push('No PIX você tem 5% de desconto à vista.');
-  if (card) bits.push('Dá para parcelar em até 12x pelo Mercado Pago.');
+  if (card)
+    bits.push(
+      `Dá para parcelar em até ${INTEREST_FREE}x sem juros (a loja absorve o financiamento). Parcelas de ${INTEREST_FREE + 1} a ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER} podem incluir juros.`,
+    );
   if (pay && !pix && !card) {
-    bits.push('Aceitamos PIX (5% off à vista) e cartão em até 12x pelo Mercado Pago.');
+    bits.push(
+      `Aceitamos PIX (5% off à vista) e cartão em até ${INTEREST_FREE}x sem juros; até ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER} (acima de ${INTEREST_FREE}x podem incluir juros).`,
+    );
   }
   if (ship) {
     bits.push(
@@ -129,7 +136,7 @@ export function faqReply(message: string): string | null {
   }
   if (support && !bits.length) {
     bits.push(
-      'Estou aqui para políticas da loja (frete, PIX, 12x, troca) e busca no catálogo. Também tem a página /suporte e o WhatsApp (51) 99625-3766.',
+      `Estou aqui para políticas da loja (frete, PIX, ${INTEREST_FREE}x sem juros, troca) e busca no catálogo. Também tem a página /suporte e o WhatsApp (51) 99625-3766.`,
     );
   }
 
@@ -148,7 +155,7 @@ export function noLlmFallbackReply(opts: { faq: string | null; hasProducts: bool
     return 'Encontrei estes itens no catálogo atual. Os preços são os da loja — não invento produto que não esteja listado. Quer que eu detalhe algum, ou prefere falar no WhatsApp (51) 99625-3766?';
   }
   return [
-    'Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, até 12x no Mercado Pago, troca em 7 dias e SCHIMITZ+.',
+    `Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, até ${INTEREST_FREE}x sem juros no ${INSTALLMENTS_PROVIDER} (até ${INSTALLMENTS}x com juros possíveis), troca em 7 dias e SCHIMITZ+.`,
     'Para atendimento humano ou horários, use /suporte ou o WhatsApp (51) 99625-3766.',
     'Se estiver buscando um produto, diga o nome ou modelo que eu consulto o catálogo.',
   ].join(' ');
