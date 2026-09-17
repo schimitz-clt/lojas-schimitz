@@ -542,6 +542,9 @@ export function deriveOpsAlerts(input: {
       severity: 'info',
       message: `${placeholders} produto(s) com foto placeholder/ausente`,
       count: placeholders,
+      section: 'catalog',
+      recommendedAction:
+        'Abrir Catálogo → fila Sem foto / placeholder. Envie foto real na lista (não inventar imagem).',
     });
   }
   if (openRecon > 0) {

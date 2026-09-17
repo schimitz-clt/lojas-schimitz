@@ -79,6 +79,7 @@ assert.ok(productActiveChipClass(true).includes('--ok'));
 assert.ok(productStockChipClass(2, 5).includes('--warn'));
 
 assert.ok(catalogNeedsPhotoSummary(2).includes('2 produto'));
+assert.ok(catalogNeedsPhotoSummary(2).includes('Enviar foto'));
 assert.equal(catalogNeedsPhotoSummary(0), '');
 assert.ok(adminTableDensityClass(true).includes('admin-table--dense'));
 

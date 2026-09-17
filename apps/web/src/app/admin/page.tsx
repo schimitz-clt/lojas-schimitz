@@ -11,7 +11,7 @@ import {
   isPostPaidStatus,
 } from '@/lib/order-status';
 import { resolveOrderWhatsApp } from '@/lib/whatsapp';
-import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from '@/lib/placeholder-image';
+import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
   buildAdminOrdersQueryPath,
@@ -43,7 +43,6 @@ import {
   adminUserStatusLabel,
   adminUserStatusTone,
   bannerActiveLabel,
-  catalogNeedsPhotoSummary,
   commissionStatusLabel,
   commissionStatusTone,
   couponIsExhausted,
@@ -64,6 +63,31 @@ import {
   shippingZoneActiveLabel,
   shouldStickyOrderActions,
 } from '@/lib/admin-pro-ui';
+import {
+  type BulkAdvanceResult,
+  type CatalogPhotoFilter,
+  bulkConfirmMessage,
+  bulkProgressLabel,
+  catalogPhotoQueueCount,
+  emptyPhotoQueueMessage,
+  filterCatalogProducts,
+  formatBulkAdvanceFeedback,
+  isBulkAdvanceEligible,
+  isBulkSepararEligible,
+  listPhotoUploadSuccessMessage,
+  nextOneClickFulfillmentStatus,
+  orderedIdsWithNewCover,
+  partitionBulkAdvance,
+  partitionBulkSeparar,
+  photoQueueAlignmentNote,
+  productCoverUrl,
+  productNeedsStorePhoto,
+  pruneSelectedIds,
+  selectVisibleEligibleIds,
+  shouldPromoteUploadedImageToCover,
+  toggleIdInList,
+  validateProductPhotoFile,
+} from '@/lib/admin-daily-ops';
 
 type AdminOrder = {
   id: string;
@@ -636,6 +660,13 @@ export default function AdminPage() {
   const orderServerSearchRef = useRef(false);
   /** ROI filters on loaded list only — no new public search. */
   const [orderRoiFilter, setOrderRoiFilter] = useState<'all' | 'stuck_paid' | 'no_shipping'>('all');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState('');
+  const [catalogPhotoFilter, setCatalogPhotoFilter] = useState<CatalogPhotoFilter>('all');
+  const [listPhotoBusyId, setListPhotoBusyId] = useState<string | null>(null);
+  const listPhotoInputRef = useRef<HTMLInputElement>(null);
+  const listPhotoProductIdRef = useRef<string | null>(null);
   const [adminSection, setAdminSection] = useState<AdminSectionId>(() => {
     if (typeof window === 'undefined') return 'ops';
     return sectionFromSearch(window.location.search);
@@ -786,6 +817,18 @@ export default function AdminPage() {
     }
   }, []);
 
+  const openCatalogPhotoQueue = useCallback(() => {
+    setCatalogPhotoFilter('needs_photo');
+    setAdminSection('catalogo');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminSectionHref('catalogo'));
+    }
+    requestAnimationFrame(() => {
+      const el = document.getElementById('admin-photo-queue');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
   /** Deep-link alert → section or order queue (review only). */
   const selectOpsAlert = useCallback(
     (a: AdminOpsAlert) => {
@@ -801,9 +844,13 @@ export default function AdminPage() {
         void loadReconciliations();
         return;
       }
+      if (a.section === 'catalog' || a.code === 'placeholder_photos') {
+        openCatalogPhotoQueue();
+        return;
+      }
       if (a.queueBucket) selectOpsBucket(a.queueBucket);
     },
-    [loadReconciliations, selectOpsBucket],
+    [loadReconciliations, selectOpsBucket, openCatalogPhotoQueue],
   );
 
 
@@ -985,6 +1032,36 @@ export default function AdminPage() {
     });
   }, [orders, orderJumpQ, orderRoiFilter, orderServerSearchActive]);
 
+  const selectedVisibleOrders = useMemo(
+    () => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)),
+    [filteredOrders, selectedOrderIds],
+  );
+
+  const bulkSepararEligibleCount = useMemo(
+    () => selectedVisibleOrders.filter((o) => isBulkSepararEligible(o.status)).length,
+    [selectedVisibleOrders],
+  );
+
+  const bulkAdvanceEligibleCount = useMemo(
+    () => selectedVisibleOrders.filter((o) => isBulkAdvanceEligible(o.status)).length,
+    [selectedVisibleOrders],
+  );
+
+  const photoQueueCount = useMemo(() => catalogPhotoQueueCount(products), [products]);
+
+  const visibleCatalogProducts = useMemo(
+    () => filterCatalogProducts(products, catalogPhotoFilter),
+    [products, catalogPhotoFilter],
+  );
+
+  useEffect(() => {
+    setSelectedOrderIds((prev) => {
+      const next = pruneSelectedIds(prev, filteredOrders.map((o) => o.id));
+      if (next.length === prev.length && next.every((id, i) => id === prev[i])) return prev;
+      return next;
+    });
+  }, [filteredOrders]);
+
   const attentionAlerts = useMemo(() => {
     const list = ops?.alerts || [];
     return list.filter((a) => a.severity === 'critical' || a.severity === 'high' || a.severity === 'warn');
@@ -1065,17 +1142,9 @@ export default function AdminPage() {
   }
 
   async function uploadOnePhoto(file: File, currentCount: number): Promise<boolean> {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      setErr('Use uma imagem JPG, PNG ou WebP.');
-      return false;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      setErr('A foto deve ter no máximo 15 MB.');
-      return false;
-    }
-    if (currentCount >= MAX_PRODUCT_IMAGES) {
-      setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+    const invalid = validateProductPhotoFile(file, currentCount, MAX_PRODUCT_IMAGES);
+    if (invalid) {
+      setErr(invalid);
       return false;
     }
     const fd = new FormData();
@@ -1536,6 +1605,123 @@ export default function AdminPage() {
     }
   }
 
+  async function runBulkFulfillment(mode: 'separar' | 'advance') {
+    const selected = filteredOrders.filter((o) => selectedOrderIds.includes(o.id));
+    const part = mode === 'separar' ? partitionBulkSeparar(selected) : partitionBulkAdvance(selected);
+    const skipped = part.skipped.map((s) => ({
+      publicId: s.item.publicId,
+      reason: s.reason,
+    }));
+    if (!part.eligible.length) {
+      const fb = formatBulkAdvanceFeedback({ ok: [], failed: [], skipped }, mode);
+      setMsg(fb.msg);
+      setErr(fb.err || 'Nenhum pedido elegível na seleção.');
+      return;
+    }
+    const confirmText = bulkConfirmMessage(mode, part.eligible.length);
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBulkBusy(true);
+    setBusyId('bulk');
+    setErr('');
+    setMsg('');
+    const result: BulkAdvanceResult = { ok: [], failed: [], skipped };
+    let i = 0;
+    for (const order of part.eligible) {
+      i += 1;
+      setBulkProgress(bulkProgressLabel(i, part.eligible.length, mode));
+      const next = nextOneClickFulfillmentStatus(order.status);
+      if (!next) {
+        result.skipped.push({ publicId: order.publicId, reason: 'no_transition' });
+        continue;
+      }
+      try {
+        await api(`/admin/orders/${order.id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: next }),
+        });
+        result.ok.push({ publicId: order.publicId, from: order.status, to: next });
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Falha ao atualizar status';
+        result.failed.push({ publicId: order.publicId, message });
+      }
+    }
+    const fb = formatBulkAdvanceFeedback(result, mode);
+    setMsg(fb.msg);
+    setErr(fb.err);
+    setSelectedOrderIds([]);
+    setBulkBusy(false);
+    setBulkProgress('');
+    setBusyId(null);
+    await load();
+    void loadOps();
+  }
+
+  function pickListPhoto(productId: string) {
+    listPhotoProductIdRef.current = productId;
+    const input = listPhotoInputRef.current;
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+  }
+
+  async function uploadListCoverPhoto(productId: string, file: File | null) {
+    if (!file) return;
+    const product = products.find((p) => p.id === productId);
+    if (!product) {
+      setErr('Produto não encontrado na lista carregada. Atualize e tente de novo.');
+      return;
+    }
+    const coverUrl = productCoverUrl(product);
+    const currentCount = product.images?.length ?? 0;
+    const invalid = validateProductPhotoFile(file, currentCount, MAX_PRODUCT_IMAGES);
+    if (invalid) {
+      setErr(invalid);
+      return;
+    }
+    setListPhotoBusyId(productId);
+    setErr('');
+    setMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
+      const url = data.url;
+      const updated = await api<AdminProduct>(`/admin/products/${productId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+      let finalProduct = updated;
+      const promote = shouldPromoteUploadedImageToCover(coverUrl);
+      const ids = (updated.images || []).map((img) => img.id).filter(Boolean);
+      const added =
+        (updated.images || []).find((img) => img.url === url) ||
+        [...(updated.images || [])].sort((a, b) => (b.position ?? 0) - (a.position ?? 0))[0];
+      if (promote && added?.id && ids.length > 1) {
+        const ordered = orderedIdsWithNewCover(ids, added.id);
+        finalProduct = await api<AdminProduct>(`/admin/products/${productId}/images/reorder`, {
+          method: 'PATCH',
+          body: JSON.stringify({ orderedIds: ordered }),
+        });
+      }
+      setProducts((prev) =>
+        prev.map((p) => (p.id === finalProduct.id ? { ...p, ...finalProduct } : p)),
+      );
+      if (editingId === productId) {
+        const imgs = mapProductImages(finalProduct.images);
+        setFormImages(imgs);
+        syncCoverUrl(imgs);
+      }
+      setMsg(listPhotoUploadSuccessMessage(product.name, promote));
+      void loadOps();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Falha ao enviar foto';
+      setErr(message);
+    } finally {
+      setListPhotoBusyId(null);
+    }
+  }
+
 
   async function resendStorePaidNotify(order: AdminOrder) {
     if (
@@ -1967,9 +2153,11 @@ export default function AdminPage() {
           ctaHint:
             a.section === 'reconciliations'
               ? '→ Reconciliações'
-              : a.queueBucket
-                ? '→ abrir fila'
-                : null,
+              : a.section === 'catalog'
+                ? '→ Catálogo (fotos)'
+                : a.queueBucket
+                  ? '→ abrir fila'
+                  : null,
         }))}
         onSelect={(code) => {
           const a = attentionAlerts.find((x) => x.code === code);
@@ -2072,14 +2260,11 @@ export default function AdminPage() {
             <button
               type="button"
               className={`admin-kpi${(ops?.catalog?.placeholderProductCount ?? 0) > 0 ? ' admin-kpi--warn' : ' admin-kpi--accent'}`}
-              onClick={() => {
-                const el = document.getElementById('admin-photos-checklist');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+              onClick={() => openCatalogPhotoQueue()}
             >
               <div className="admin-kpi__label">Foto p/ trocar</div>
               <div className="admin-kpi__value">{ops?.catalog?.placeholderProductCount ?? '—'}</div>
-              <div className="admin-kpi__hint">checklist + CSV</div>
+              <div className="admin-kpi__hint">fila Catálogo + CSV</div>
             </button>
             <div className={`admin-kpi${ops?.mail?.configured ? ' admin-kpi--accent' : ' admin-kpi--danger'}`}>
               <div className="admin-kpi__label">E-mail (env)</div>
@@ -2180,6 +2365,14 @@ export default function AdminPage() {
                   Checklist — produtos que precisam de foto da loja (sem inventar imagem).
                   Motivo: sem foto ou host placeholder (placehold.co etc.).
                 </p>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => openCatalogPhotoQueue()}
+                  style={{ borderColor: '#ffd100', color: '#ffd100', minHeight: 36 }}
+                >
+                  Abrir fila no Catálogo
+                </button>
                 <button
                   type="button"
                   className="btn ghost"
@@ -3837,43 +4030,83 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <h3 className="admin-section-heading">Produtos ({products.length})</h3>
-      {(() => {
-        const placeholderCount = products.filter((p) => {
-          const url = p.images?.[0]?.url;
-          return isMissingOrPlaceholderImage(url);
-        }).length;
-        if (!placeholderCount) return null;
-        return (
-          <p role="status" className="admin-catalog-alert">
-            {catalogNeedsPhotoSummary(placeholderCount)}{' '}
-            <button
-              type="button"
-              className="btn ghost"
-              style={{ marginLeft: 8, minHeight: 32, borderColor: 'var(--admin-accent)', color: 'var(--admin-warn)' }}
-              onClick={() => void downloadProductsNeedingPhotosCsv()}
-            >
-              Baixar CSV
-            </button>
-          </p>
-        );
-      })()}
+      <h3 id="admin-photo-queue" className="admin-section-heading">
+        Produtos (
+        {catalogPhotoFilter === 'needs_photo'
+          ? `${visibleCatalogProducts.length} / ${products.length}`
+          : products.length}
+        )
+      </h3>
+      <div className="admin-catalog-toolbar">
+        <button
+          type="button"
+          className={`admin-filter-chip${catalogPhotoFilter === 'all' ? ' is-active' : ''}`}
+          onClick={() => setCatalogPhotoFilter('all')}
+        >
+          Todos ({products.length})
+        </button>
+        <button
+          type="button"
+          className={`admin-filter-chip${catalogPhotoFilter === 'needs_photo' ? ' is-active' : ''}`}
+          onClick={() => setCatalogPhotoFilter('needs_photo')}
+        >
+          Sem foto / placeholder ({photoQueueCount})
+        </button>
+        {ops?.catalog?.placeholderProductCount != null ? (
+          <AdminStatusChip
+            label={`Ops: ${ops.catalog.placeholderProductCount}`}
+            tone={photoQueueCount > 0 ? 'warn' : 'ok'}
+            title="Contagem do snapshot GET /admin/ops — Foto p/ trocar"
+          />
+        ) : null}
+        <button
+          type="button"
+          className="btn ghost admin-btn-ghost-pro"
+          onClick={() => void downloadProductsNeedingPhotosCsv()}
+        >
+          Baixar CSV
+        </button>
+      </div>
+      {photoQueueCount ? (
+        <p role="status" className="admin-catalog-alert">
+          {photoQueueAlignmentNote(ops?.catalog?.placeholderProductCount, photoQueueCount)}
+        </p>
+      ) : catalogPhotoFilter === 'needs_photo' ? (
+        <p role="status" className="admin-catalog-alert" style={{ background: 'var(--admin-ok-soft)', borderColor: '#86efac', color: 'var(--admin-ok)' }}>
+          {emptyPhotoQueueMessage('needs_photo')}
+        </p>
+      ) : null}
+      <input
+        ref={listPhotoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="admin-file-hidden"
+        aria-label="Enviar foto real pela lista do catálogo"
+        onChange={(e) => {
+          const file = e.target.files?.[0] || null;
+          e.target.value = '';
+          const productId = listPhotoProductIdRef.current;
+          listPhotoProductIdRef.current = null;
+          if (productId) void uploadListCoverPhoto(productId, file);
+        }}
+      />
       <div className="admin-product-list" style={{ marginBottom: 8 }}>
-        {products.map((p) => {
+        {visibleCatalogProducts.map((p) => {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
           const isLow = onHand <= lowStockThreshold;
           const imgUrl = rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url;
-          const isPlaceholderImg = isMissingOrPlaceholderImage(imgUrl);
+          const isPlaceholderImg = productNeedsStorePhoto(imgUrl);
           const photoKind = productPhotoBadgeKind({
-            hasUrl: Boolean(imgUrl),
+            hasUrl: Boolean(imgUrl && String(imgUrl).trim()),
             isPlaceholderOrMissing: isPlaceholderImg,
           });
           const photoLabel = productPhotoBadgeLabel(photoKind);
+          const listBusy = listPhotoBusyId === p.id;
           return (
             <div
               key={p.id}
-              className={`admin-product-row${isLow ? ' admin-product-row--low' : ''}`}
+              className={`admin-product-row${isLow ? ' admin-product-row--low' : ''}${isPlaceholderImg ? ' admin-product-row--needs-photo' : ''}`}
             >
               {imgUrl && !isPlaceholderImg ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -3915,14 +4148,25 @@ export default function AdminPage() {
                   <button
                     type="button"
                     className="btn admin-btn-photo"
-                    onClick={() => startEdit(p)}
+                    disabled={listBusy || uploading}
+                    onClick={() => pickListPhoto(p.id)}
                   >
-                    Trocar foto
+                    {listBusy ? 'Enviando…' : 'Enviar foto'}
                   </button>
                 ) : null}
-                <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
-                  Editar
-                </button>
+                {isPlaceholderImg ? (
+                  <button
+                    type="button"
+                    className="btn ghost admin-btn-ghost-pro"
+                    onClick={() => startEdit(p)}
+                  >
+                    Editar / galeria
+                  </button>
+                ) : (
+                  <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
+                    Editar
+                  </button>
+                )}
                 {p.active ? (
                   <Link className="btn ghost admin-btn-ghost-pro" href={`/produto/${p.slug}`} target="_blank">
                     Ver na loja
@@ -3932,7 +4176,9 @@ export default function AdminPage() {
             </div>
           );
         })}
-        {!products.length ? <p className="muted">Nenhum produto ainda. Cadastre o primeiro acima.</p> : null}
+        {!visibleCatalogProducts.length ? (
+          <p className="muted">{emptyPhotoQueueMessage(catalogPhotoFilter)}</p>
+        ) : null}
       </div>
 
       </div>
@@ -4013,7 +4259,8 @@ export default function AdminPage() {
         Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = histórico (cancelado/reembolsado)
         + legado stuck (separando/saiu). Alerta crítico do Ops conta só o legado travado.
         “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
-        WhatsApp é wa.me — não envia sozinho.
+        Seleção em lote: Separar agora (Pago → Organizando) e Avançar só nas transições de um clique já existentes.
+        Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp é wa.me — não envia sozinho.
       </p>
       <div className="admin-pedidos__toolbar">
       <label className="admin-search-field">
@@ -4086,7 +4333,77 @@ export default function AdminPage() {
           );
         })}
       </div>
+      <div className="admin-filter-row">
+        <button
+          type="button"
+          className="admin-filter-chip"
+          disabled={bulkBusy || !filteredOrders.length}
+          onClick={() =>
+            setSelectedOrderIds(
+              filteredOrders.every((o) => selectedOrderIds.includes(o.id))
+                ? []
+                : filteredOrders.map((o) => o.id),
+            )
+          }
+        >
+          {filteredOrders.length && filteredOrders.every((o) => selectedOrderIds.includes(o.id))
+            ? 'Limpar visíveis'
+            : `Selecionar visíveis (${filteredOrders.length})`}
+        </button>
+        <button
+          type="button"
+          className="admin-filter-chip"
+          disabled={bulkBusy || !filteredOrders.some((o) => isBulkSepararEligible(o.status))}
+          onClick={() => setSelectedOrderIds(selectVisibleEligibleIds(filteredOrders, 'separar'))}
+        >
+          Selecionar pagos ({filteredOrders.filter((o) => isBulkSepararEligible(o.status)).length})
+        </button>
+        <button
+          type="button"
+          className="admin-filter-chip"
+          disabled={bulkBusy || !filteredOrders.some((o) => isBulkAdvanceEligible(o.status))}
+          onClick={() => setSelectedOrderIds(selectVisibleEligibleIds(filteredOrders, 'advance'))}
+        >
+          Selecionar avançáveis ({filteredOrders.filter((o) => isBulkAdvanceEligible(o.status)).length})
+        </button>
       </div>
+      </div>
+      {selectedOrderIds.length ? (
+        <div className="admin-bulk-bar" role="region" aria-label="Ações em lote">
+          <span className="admin-bulk-bar__count">{selectedOrderIds.length} selecionado(s)</span>
+          <span className="admin-bulk-bar__hint">
+            {bulkProgress ||
+              `Separar agora: ${bulkSepararEligibleCount} · Avançar (um clique): ${bulkAdvanceEligibleCount}. Falhas aparecem aqui — nada silencioso.`}
+          </span>
+          <button
+            type="button"
+            className="btn admin-btn-separar"
+            disabled={bulkBusy || bulkSepararEligibleCount === 0}
+            onClick={() => void runBulkFulfillment('separar')}
+            title="Pago → Organizando, mesma transição do botão da linha"
+          >
+            {bulkBusy ? bulkProgress || 'Separando…' : `Separar agora (${bulkSepararEligibleCount})`}
+          </button>
+          <button
+            type="button"
+            className="btn admin-btn-primary-accent"
+            disabled={bulkBusy || bulkAdvanceEligibleCount === 0}
+            onClick={() => void runBulkFulfillment('advance')}
+            title="Avança cada pedido ao próximo status de um clique (sem rastreio)"
+          >
+            Avançar status ({bulkAdvanceEligibleCount})
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={bulkBusy}
+            onClick={() => setSelectedOrderIds([])}
+            style={{ borderColor: '#ffd100', color: '#ffd100' }}
+          >
+            Limpar
+          </button>
+        </div>
+      ) : null}
       <div className="admin-order-list">
       {filteredOrders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
@@ -4100,6 +4417,7 @@ export default function AdminPage() {
         const phone = customerPhone(o);
         const stuck = isPaidStuckOrder(o);
         const sticky = shouldStickyOrderActions(o.status);
+        const selected = selectedOrderIds.includes(o.id);
         const cardMod =
           stuck ? ' admin-order-card--stuck' : o.status === 'paid' ? ' admin-order-card--paid' : '';
         const payBadge = paymentMethodBadge(o.payments);
@@ -4109,11 +4427,20 @@ export default function AdminPage() {
           o.status === 'separating' ||
           stuck;
         return (
-          <div key={o.id} className={`admin-order-card${cardMod}`}>
+          <div key={o.id} className={`admin-order-card${cardMod}${selected ? ' is-selected' : ''}`}>
             <div className="admin-order-card__body">
               <div className="admin-order-card__top">
                 <div className="admin-order-card__main">
                   <div className="admin-order-card__id-row">
+                    <label className="admin-select-hit">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={bulkBusy}
+                        onChange={() => setSelectedOrderIds((prev) => toggleIdInList(prev, o.id))}
+                        aria-label={`Selecionar ${o.publicId}`}
+                      />
+                    </label>
                     <span className="admin-order-card__public-id">{o.publicId}</span>
                     <button
                       type="button"
@@ -4192,7 +4519,7 @@ export default function AdminPage() {
                   {next ? (
                     <button
                       className={`btn${needsSepararStyle ? ' admin-btn-separar' : ''}`}
-                      disabled={busyId === o.id}
+                      disabled={busyId === o.id || bulkBusy}
                       onClick={() => advance(o)}
                       title={`Avançar para ${orderStatusLabel(next)}`}
                       style={needsSepararStyle ? undefined : { minHeight: 44, minWidth: 44 }}
@@ -4235,7 +4562,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     className="btn ghost admin-btn-ghost-pro"
-                    disabled={busyId === o.id}
+                    disabled={busyId === o.id || bulkBusy}
                     onClick={() => void resendStorePaidNotify(o)}
                     title="POST /admin/orders/:id/notify-paid"
                   >

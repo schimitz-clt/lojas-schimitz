@@ -101,7 +101,7 @@ export function productStockChipClass(
 export function catalogNeedsPhotoSummary(count: number): string {
   const n = Math.max(0, Math.floor(Number(count) || 0));
   if (n <= 0) return '';
-  return `${n} produto(s) precisam de foto da loja (vazia ou placeholder). Use Trocar foto / Editar — sem inventar imagem.`;
+  return `${n} produto(s) precisam de foto da loja (vazia ou placeholder). Use Enviar foto na lista / Editar — sem inventar imagem.`;
 }
 
 /** Dense table density hint — used by CSS hook class only. */
