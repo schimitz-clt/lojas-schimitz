@@ -3,6 +3,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ok } from '../../common/http';
 import { PrismaService } from '../../prisma.service';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
+import {
+  isUploadsDirPersistent,
+  resolveUploadsDir,
+} from '../uploads/uploads-durability';
 
 @ApiTags('health')
 @Controller('health')
@@ -12,12 +16,15 @@ export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Liveness healthcheck (no DB)' })
   check() {
+    const uploadsDir = resolveUploadsDir(process.env.UPLOADS_DIR);
     return ok({
       service: 'lojas-schimitz-api',
       env: process.env.APP_ENV || 'development',
       time: new Date().toISOString(),
       /** Env names only (MAIL_FROM + RESEND_API_KEY|SMTP_HOST) — never secret values. */
       mailConfigured: mailConfiguredFromEnvPresence(),
+      /** Real path check: UPLOADS_DIR under /data (DEPLOY.md Volume). No path leaked. */
+      uploadsPersistent: isUploadsDirPersistent(uploadsDir),
     });
   }
 
@@ -27,6 +34,7 @@ export class HealthController {
     const time = new Date().toISOString();
     try {
       await this.prisma.$queryRaw`SELECT 1`;
+      const uploadsDir = resolveUploadsDir(process.env.UPLOADS_DIR);
       return ok({
         service: 'lojas-schimitz-api',
         ready: true,
@@ -34,6 +42,8 @@ export class HealthController {
         env: process.env.APP_ENV || 'development',
         time,
         mailConfigured: mailConfiguredFromEnvPresence(),
+        /** Real path check: UPLOADS_DIR under /data (DEPLOY.md Volume). No path leaked. */
+        uploadsPersistent: isUploadsDirPersistent(uploadsDir),
       });
     } catch {
       throw new ServiceUnavailableException({

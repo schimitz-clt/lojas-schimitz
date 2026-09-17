@@ -19,6 +19,10 @@ import {
   summarizePaidAwaitingOrg,
   summarizeReconciliations,
   summarizeSalesWindow,
+  summarizeUploadsDurability,
+  resolveUploadsDir,
+  isUploadsDirPersistent,
+  UPLOADS_PERSISTENT_ROOT,
 } from './admin-ops';
 
 assert.equal(DEFAULT_OPS_LOW_STOCK_THRESHOLD, 5);
@@ -375,3 +379,94 @@ console.log('admin-ops unit tests ok');
   console.log('admin-ops: mail_off_with_store_notify — PASSOU');
 }
 
+
+{
+  assert.equal(UPLOADS_PERSISTENT_ROOT, '/data');
+  assert.equal(isUploadsDirPersistent('/data/uploads'), true);
+  assert.equal(isUploadsDirPersistent('/data'), true);
+  assert.equal(isUploadsDirPersistent('/data/uploads/'), true);
+  assert.equal(isUploadsDirPersistent('/datafoo'), false);
+  assert.equal(isUploadsDirPersistent('/tmp/uploads'), false);
+  assert.equal(isUploadsDirPersistent('uploads'), false);
+  assert.equal(isUploadsDirPersistent(''), false);
+  assert.equal(resolveUploadsDir('/data/uploads'), '/data/uploads');
+  assert.equal(resolveUploadsDir(undefined, '/app'), '/app/uploads');
+  assert.equal(resolveUploadsDir('', '/workspace/api'), '/workspace/api/uploads');
+  assert.equal(resolveUploadsDir('  /data/uploads  '), '/data/uploads');
+
+  const durable = summarizeUploadsDurability({ envDir: '/data/uploads' });
+  assert.equal(durable.persistent, true);
+  assert.equal(durable.dir, '/data/uploads');
+
+  const ephemeral = summarizeUploadsDurability({ envDir: null, cwd: '/app' });
+  assert.equal(ephemeral.persistent, false);
+  assert.equal(ephemeral.dir, '/app/uploads');
+
+  const noAlert = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    uploadsPersistent: true,
+  });
+  assert.equal(noAlert.some((a) => a.code === 'uploads_ephemeral'), false);
+
+  const skipUnset = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+  });
+  assert.equal(skipUnset.some((a) => a.code === 'uploads_ephemeral'), false, 'undefined uploadsPersistent must not invent alert');
+
+  const ephAlert = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    uploadsPersistent: false,
+    uploadsDir: '/app/uploads',
+  });
+  const ua = ephAlert.find((a) => a.code === 'uploads_ephemeral');
+  assert.ok(ua);
+  assert.equal(ua!.severity, 'warn');
+  assert.ok(ua!.message.includes('/data'));
+  assert.ok(ua!.recommendedAction?.includes('Volume'));
+
+  const opsEph = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    uploads: ephemeral,
+  });
+  assert.equal(opsEph.uploads?.persistent, false);
+  assert.equal(opsEph.alerts.some((a) => a.code === 'uploads_ephemeral' && a.severity === 'warn'), true);
+
+  const opsOk = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    uploads: durable,
+  });
+  assert.equal(opsOk.uploads?.persistent, true);
+  assert.equal(opsOk.alerts.some((a) => a.code === 'uploads_ephemeral'), false);
+
+  const opsOmit = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+  });
+  assert.equal(opsOmit.uploads, null);
+  assert.equal(opsOmit.alerts.some((a) => a.code === 'uploads_ephemeral'), false);
+
+  console.log('admin-ops: uploads_ephemeral durability — PASSOU');
+}

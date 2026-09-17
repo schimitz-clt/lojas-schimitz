@@ -5,11 +5,29 @@ import {
   type AdminOrderQueueBucket,
 } from '../../common/order-status';
 
+import {
+  UPLOADS_PERSISTENT_ROOT,
+  isUploadsDirPersistent,
+  resolveUploadsDir,
+  summarizeUploadsDurability,
+  type UploadsDurabilitySummary,
+} from '../uploads/uploads-durability';
+
+export {
+  UPLOADS_PERSISTENT_ROOT,
+  isUploadsDirPersistent,
+  resolveUploadsDir,
+  summarizeUploadsDurability,
+};
+export type { UploadsDurabilitySummary };
+
+
 /**
  * Health-adjacent admin ops helpers.
  * Counts + id/name checklist for owner photo replacement.
  * No product/payment dump. Default threshold matches admin UI (5).
  */
+
 
 export const DEFAULT_OPS_LOW_STOCK_THRESHOLD = 5;
 
@@ -392,6 +410,13 @@ export function deriveOpsAlerts(input: {
   reconciliationRecent?: OpsReconciliationRecent[];
   /** Paid (status=paid) still awaiting organization — stuck slice. */
   paidAwaitingOrg?: PaidAwaitingOrgSummary;
+  /**
+   * Uploads durability — pass only when known.
+   * Alert fires solely when explicitly false (ephemeral); undefined skips (no fake metric).
+   */
+  uploadsPersistent?: boolean;
+  /** Optional resolved dir for evidence (ops). */
+  uploadsDir?: string;
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -534,6 +559,20 @@ export function deriveOpsAlerts(input: {
       count: 0,
     });
   }
+  if (input.uploadsPersistent === false) {
+    const dirHint = input.uploadsDir ? ` (${input.uploadsDir})` : '';
+    alerts.push({
+      code: 'uploads_ephemeral',
+      severity: 'warn',
+      message: `UPLOADS_DIR fora de /data${dirHint} — disco efêmero; fotos somem no redeploy sem Volume Railway`,
+      count: 0,
+      evidence: {
+        reason: 'uploads_dir_not_under_/data',
+      },
+      recommendedAction:
+        'Montar Volume em /data/uploads e definir UPLOADS_DIR=/data/uploads (OWNER/ops). Não movemos arquivos neste poll.',
+    });
+  }
   return alerts;
 }
 
@@ -558,6 +597,8 @@ export function summarizeOps(input: {
   reconciliations?: OpsReconciliationsSummary;
   /** Optional paid-awaiting-org stuck summary (real DB rows only). */
   paidAwaitingOrg?: PaidAwaitingOrgSummary;
+  /** Uploads durability snapshot (real path check only). */
+  uploads?: UploadsDurabilitySummary;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -575,6 +616,7 @@ export function summarizeOps(input: {
     input.paidAwaitingOrg ??
     summarizePaidAwaitingOrg({ orders: [] });
   const storeNotifyConfigured = Boolean(input.storeNotifyConfigured);
+  const uploads = input.uploads;
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
     outOfStockCount: input.outOfStockCount,
@@ -586,6 +628,8 @@ export function summarizeOps(input: {
     openReconciliationCount: reconciliations.openCount,
     reconciliationRecent: reconciliations.recent,
     paidAwaitingOrg,
+    uploadsPersistent: uploads ? uploads.persistent : undefined,
+    uploadsDir: uploads?.dir,
   });
   return {
     ...base,
@@ -603,6 +647,8 @@ export function summarizeOps(input: {
       /** Real env mismatch hint — not an invented counter; no e-mail on ops poll. */
       providerOffWithStoreNotify: mailConfigured === false && storeNotifyConfigured === true,
     },
+    /** Real UPLOADS_DIR path check — null when caller omitted (no invented durability). */
+    uploads: uploads ?? null,
     orders,
     paidAwaitingOrg,
     sales: {

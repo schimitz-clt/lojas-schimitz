@@ -30,6 +30,10 @@ servidos em `GET /api/v1/uploads/:filename`.
 **Railway (recomendado):** adicione um Volume montado em `/data/uploads` no
 serviço da API. Sem volume, as fotos somem no redeploy (disco efêmero).
 
+**Ops signal:** `GET /admin/ops` emite alerta `uploads_ephemeral` (severity `warn`)
+quando `UPLOADS_DIR` não está sob `/data`; `GET /health` expõe `uploadsPersistent`
+(boolean). O check é só o prefixo do path — não cria Volume nem move arquivos.
+
 Variáveis:
 - `UPLOADS_DIR=/data/uploads`
 - `SITE_URL=https://lojasschimitz.com.br` (ou `APP_URL` / `NEXT_PUBLIC_SITE_URL`) — uploads novos gravam URL no apex

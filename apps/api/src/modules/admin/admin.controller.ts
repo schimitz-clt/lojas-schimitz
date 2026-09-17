@@ -72,7 +72,7 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, PAID_STUCK_HOURS, summarizeOps, summarizePaidAwaitingOrg, summarizeReconciliations, summarizeSalesWindow } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, PAID_STUCK_HOURS, summarizeOps, summarizePaidAwaitingOrg, summarizeReconciliations, summarizeSalesWindow, summarizeUploadsDurability } from './admin-ops';
 import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
@@ -236,6 +236,14 @@ export class AdminController {
       status: g.status,
       count: g._count._all,
     }));
+    const uploads = summarizeUploadsDurability({
+      envDir: process.env.UPLOADS_DIR,
+    });
+    if (!uploads.persistent) {
+      this.log.warn(
+        `ops uploads_ephemeral dir=${uploads.dir} — mount Volume /data/uploads (OWNER); UPLOADS_DIR should be under /data`,
+      );
+    }
     return ok(
       summarizeOps({
         lowStockCount,
@@ -261,6 +269,7 @@ export class AdminController {
         }),
         reconciliations,
         paidAwaitingOrg,
+        uploads,
       }),
     );
   }
