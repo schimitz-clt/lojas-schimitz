@@ -89,8 +89,8 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 | PATCH | `/admin/commissions/:id/paid` body `{ payoutReference?, note? }` | admin (pending/approved → paid; PIX ref manual) |
 | GET | `/admin/commissions/export` `?sellerId=&status=` → `{ csv, filename, count }` | admin |
 
-| GET | `/admin/customers` `?q=&take=&skip=` → `{ items, total, take, skip }` (CRM read-only) | admin |
-| GET | `/admin/customers/:id` → cliente + pedidos recentes (sem passwordHash) | admin |
+| GET | `/admin/customers` `?q=&take=&skip=` → `{ items, total, take, skip }` CRM read-only; `q` nome/e-mail/telefone; item: `ordersCount`, `paidOrdersCount`, `paidTotal`, `lastPaidAt`, `lastOrderAt`, `city`, `uf` | admin |
+| GET | `/admin/customers/:id` → cliente + endereços + até 50 pedidos (`publicId`, status, totais, data, `paymentMethod`/`paymentStatus`) sem `passwordHash` | admin |
 
 ## OpenAPI / Swagger
 

@@ -313,13 +313,19 @@ export class AdminController {
   }
 
   @Get('customers')
-  @ApiOperation({ summary: 'Listar clientes (CRM read-only) com contagem/total pago' })
+  @ApiOperation({
+    summary:
+      'Listar clientes (CRM read-only): busca nome/e-mail/telefone + pedidos, total pago, último pedido, cidade',
+  })
   async listCustomers(@Query() query: AdminCustomersQueryDto) {
     return ok(await this.adminCustomers.list(query));
   }
 
   @Get('customers/:id')
-  @ApiOperation({ summary: 'Detalhe do cliente + pedidos recentes (read-only)' })
+  @ApiOperation({
+    summary:
+      'Detalhe do cliente + endereços + até 50 pedidos (publicId, status, totais, data, pagamento) — sem passwordHash',
+  })
   async getCustomer(@Param('id') id: string) {
     return ok(await this.adminCustomers.getById(id));
   }
