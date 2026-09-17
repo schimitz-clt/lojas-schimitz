@@ -40,7 +40,7 @@
 - **Modo dual (intencional):** a API continua devolvendo `refreshToken` no JSON (mobile TWA,
   clientes legados, fallback cross-origin). Em paralelo, seta cookie HttpOnly `sch_refresh`
   (`Path=/`, `SameSite` configurável, `Secure` em prod/staging).
-- `POST /auth/refresh` aceita body **ou** cookie (body tem precedência).
+- `POST /auth/refresh` aceita cookie HttpOnly **ou** body (cookie tem precedência — Phase 9; body é fallback).
 - `POST /auth/logout` limpa o cookie e revoga o refresh; access JWT é opcional (se expirado, ainda revoga via cookie/body).
 - Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage;
   refresh em localStorage fica como fallback se o cookie cross-site não for enviado.
@@ -74,3 +74,19 @@ IDOR/BOLA + refresh cookie-prefer: ver `docs/MEGA-PHASE-9-CHECKPOINT.md`.
 - Refresh: cookie HttpOnly tem precedência; body fallback; JSON `refreshToken` dual (default).
 - Opt-out JSON: `REFRESH_JSON_TOKEN_ENABLED=false` (só com cookie enabled; não ativar sem e2e).
 - CSRF: SameSite=Lax via proxy mitiga POST cross-site; residual se `SameSite=None` direto na API.
+
+## MASTER LOTE 4 — residual security audit (P0/P1)
+
+Auditoria 2026-09-16: superfície já sólida — **sem mudança de código**.
+
+| Controle | Status | Evidência |
+|----------|--------|-----------|
+| Helmet (API) | OK | `main.ts` — Helmet default + CORP `cross-origin` (uploads); CSP off só se Swagger on |
+| Storefront headers | OK | `storefront-security-headers.ts` + `next.config.ts` (`poweredByHeader: false`) |
+| CORS allowlist | OK | `CORS_ORIGINS` split → `enableCors({ origin, credentials: true })`; sem `*` |
+| Cookie `sch_refresh` | OK | HttpOnly, Path=/, SameSite, Secure em prod/staging (ou se SameSite=None), Domain opcional |
+| Rate limit | OK (in-memory) | Global Throttler 100/min + `@Throttle` auth/admin/chat/payments; brute-force login in-process. **Sem Redis** (não inventar). Multi-réplica = limite por processo (já documentado Phase 8 M5). |
+| Admin `GET /orders?q=` | OK | Classe `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`; `@Throttle(30/min)`; `q` `@MaxLength(120)`; take≤50; source locks no spec |
+
+Residual aceito (fora do ROI deste lote): access JWT em localStorage (XSS), dual-mode JSON refresh, Throttler in-memory multi-réplica, CSP estrito no Next.
+
