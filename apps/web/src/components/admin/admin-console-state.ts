@@ -11,6 +11,7 @@ import {
   isPostPaidStatus,
 } from '@/lib/order-status';
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
+import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
   buildAdminOrdersQueryPath,
   shouldServerOrderSearch,
@@ -43,6 +44,7 @@ import {
   listPhotoUploadSuccessMessage,
   nextOneClickFulfillmentStatus,
   orderedIdsWithNewCover,
+  productCoverUrl,
   partitionBulkAdvance,
   partitionBulkSeparar,
   pruneSelectedIds,
@@ -65,6 +67,7 @@ import {
 } from '@/lib/admin-customers-ui';
 import {
   DEFAULT_LOW_STOCK,
+  MAX_PRODUCT_IMAGES,
   ORDER_STATUS_TABS,
   addDaysYmd,
   emptyAdminUserForm,

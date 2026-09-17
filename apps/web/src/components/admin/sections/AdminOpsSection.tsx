@@ -7,6 +7,7 @@ import {
   adminQueueBucketLabel,
   POST_PAYMENT_OPS_HINT,
   isPostPaidStatus,
+  ADMIN_ORDER_QUEUE_BUCKETS,
 } from '@/lib/order-status';
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
@@ -71,6 +72,7 @@ import { useAdminConsole } from '@/components/admin/admin-console-context';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
+  PAID_STUCK_HOURS_UI,
   availableStock,
   customerHint,
   formatStuckHours,
