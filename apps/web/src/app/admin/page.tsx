@@ -26,6 +26,13 @@ import {
   separarPrimaryLabel,
   whatsAppOpsButtonLabel,
 } from '@/lib/admin-ops-ui';
+import {
+  type AdminSectionId,
+  buildAdminSectionHref,
+  sectionFromSearch,
+} from '@/lib/admin-sections';
+import { AdminShell } from '@/components/admin/AdminShell';
+import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
 
 type AdminOrder = {
   id: string;
@@ -594,6 +601,17 @@ export default function AdminPage() {
   const orderServerSearchRef = useRef(false);
   /** ROI filters on loaded list only — no new public search. */
   const [orderRoiFilter, setOrderRoiFilter] = useState<'all' | 'stuck_paid' | 'no_shipping'>('all');
+  const [adminSection, setAdminSection] = useState<AdminSectionId>(() => {
+    if (typeof window === 'undefined') return 'ops';
+    return sectionFromSearch(window.location.search);
+  });
+
+  const goAdminSection = useCallback((next: AdminSectionId) => {
+    setAdminSection(next);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminSectionHref(next));
+    }
+  }, []);
 
   const load = useCallback(() => {
     const u = currentUser();
@@ -702,6 +720,10 @@ export default function AdminPage() {
   /** Click ops bucket/alert → filter orders queue and scroll into view. */
   const selectOpsBucket = useCallback((bucket: string) => {
     setOrderStatusFilter(bucket);
+    setAdminSection('pedidos');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminSectionHref('pedidos'));
+    }
     requestAnimationFrame(() => {
       const el = document.getElementById('admin-orders-queue');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -733,6 +755,10 @@ export default function AdminPage() {
   const selectOpsAlert = useCallback(
     (a: AdminOpsAlert) => {
       if (a.section === 'reconciliations') {
+        setAdminSection('ops');
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', buildAdminSectionHref('ops'));
+        }
         requestAnimationFrame(() => {
           const el = document.getElementById('admin-reconciliations');
           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -964,6 +990,10 @@ export default function AdminPage() {
       imageUrl: imgs[0]?.url || '',
       badge: p.badge || '',
     });
+    setAdminSection('catalogo');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', buildAdminSectionHref('catalogo'));
+    }
     window.requestAnimationFrame(() => {
       const el = document.getElementById('admin-product-form');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1866,196 +1896,125 @@ export default function AdminPage() {
   }
 
 
+  const shellBadges = {
+    paid: ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0,
+    recon: ops?.reconciliations?.openCount ?? 0,
+    lowStock: ops?.inventory?.lowStockCount ?? 0,
+    alerts: attentionAlerts.length || (ops?.alerts?.length ?? 0),
+  };
+
   return (
-    <div style={{ padding: '24px 0' }}>
-      <h1>Admin Schimitz</h1>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Cadastre produtos, ajuste estoque e avance a entrega dos pedidos. Sem termos técnicos.
-      </p>
+    <AdminShell
+      section={adminSection}
+      onSectionChange={goAdminSection}
+      badges={shellBadges}
+    >
       {err ? <div className="alert">{err}</div> : null}
       {msg ? <div className="ok">{msg}</div> : null}
 
-      {attentionAlerts.length ? (
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 40,
-            marginBottom: 12,
-            padding: '10px 12px',
-            background: '#0a0a0a',
-            border: '2px solid #ffd100',
-            borderRadius: 10,
-            color: '#f5f5f3',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-            overflowWrap: 'anywhere',
-            maxWidth: '100%',
-          }}
-        >
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-            <strong style={{ color: '#ffd100', letterSpacing: 0.4, fontSize: 13 }}>
-              ATENÇÃO AGORA
-            </strong>
-            <span className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>
-              Revisar · sem execução automática
-            </span>
-          </div>
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-            {attentionAlerts.slice(0, 6).map((a) => {
-              const bg =
-                a.severity === 'critical' || a.severity === 'high'
-                  ? '#3a1515'
-                  : '#3a2f0a';
-              const fg =
-                a.severity === 'critical' || a.severity === 'high' ? '#ffb4b4' : '#ffd100';
-              return (
-                <li key={`attn-${a.code}`}>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => selectOpsAlert(a)}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 10px',
-                      background: bg,
-                      color: fg,
-                      borderColor: fg,
-                      minHeight: 44,
-                    }}
-                  >
-                    <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8 }}>
-                      {a.severity}
-                    </span>
-                    {a.message}
-                    {a.section === 'reconciliations'
-                      ? ' → Reconciliações'
-                      : a.queueBucket
-                        ? ' → abrir fila'
-                        : ''}
-                    {a.evidence?.reason ? (
-                      <span style={{ display: 'block', fontSize: 11, opacity: 0.85, marginTop: 4 }}>
-                        Evidência: {a.evidence.reason}
-                        {a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''}
-                        {a.evidence.externalReference
-                          ? ` · ref ${a.evidence.externalReference}`
-                          : ''}
-                      </span>
-                    ) : null}
-                    {a.recommendedAction ? (
-                      <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-                        Ação: {a.recommendedAction}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-
-      <section
-        className="card"
-        style={{
-          marginTop: 16,
-          marginBottom: 28,
-          borderColor: '#1a1a1a',
-          background: '#0a0a0a',
-          color: '#f5f5f3',
+      {adminSection === 'ops' ? (
+      <div className="admin-section-panel">
+      <AdminAttentionStrip
+        items={attentionAlerts.map((a) => ({
+          code: a.code,
+          severity: a.severity,
+          message: a.message,
+          recommendedAction: a.recommendedAction,
+          evidenceLine: a.evidence?.reason
+            ? `Evidência: ${a.evidence.reason}${
+                a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''
+              }${
+                a.evidence.externalReference
+                  ? ` · ref ${a.evidence.externalReference}`
+                  : ''
+              }`
+            : null,
+          ctaHint:
+            a.section === 'reconciliations'
+              ? '→ Reconciliações'
+              : a.queueBucket
+                ? '→ abrir fila'
+                : null,
+        }))}
+        onSelect={(code) => {
+          const a = attentionAlerts.find((x) => x.code === code);
+          if (a) selectOpsAlert(a);
         }}
-      >
-        <div className="body">
-          <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Centro de comando (ops)</h2>
+      />
+
+      <section className="admin-ops" aria-label="Centro de comando">
+        <div className="admin-ops__body">
+          <div className="admin-ops__head">
+            <h2 className="admin-ops__title">Centro de comando</h2>
             <button
               type="button"
-              className="btn ghost"
+              className="btn ghost admin-btn-accent"
               disabled={opsBusy}
               onClick={() => {
                 void loadOps();
                 void loadReconciliations();
               }}
-              style={{ borderColor: '#ffd100', color: '#ffd100' }}
             >
               {opsBusy ? 'Atualizando…' : 'Atualizar'}
             </button>
           </div>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
-            Dados reais de `GET /admin/ops` e reconciliações. Sem métricas inventadas. Alertas = revisão humana.
+          <p className="admin-ops__intro">
+            Dados reais de GET /admin/ops e reconciliações. Sem métricas inventadas. Alertas = revisão humana.
           </p>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: 10,
-              marginBottom: 14,
-            }}
-          >
-            <div style={{ background: '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Receita hoje</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>
+          <div className="admin-kpi-grid">
+            <div className="admin-kpi admin-kpi--accent">
+              <div className="admin-kpi__label">Receita hoje</div>
+              <div className="admin-kpi__value">
                 {ops?.sales?.today ? brl(ops.sales.today.revenue) : '—'}
               </div>
-              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+              <div className="admin-kpi__hint">
                 {ops?.sales?.today ? `${ops.sales.today.orderCount} pedido(s) pagos` : 'aguardando snapshot'}
               </div>
             </div>
-            <div style={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Receita 30 dias</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>
+            <div className="admin-kpi">
+              <div className="admin-kpi__label">Receita 30 dias</div>
+              <div className="admin-kpi__value">
                 {ops?.sales?.last30d ? brl(ops.sales.last30d.revenue) : '—'}
               </div>
-              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+              <div className="admin-kpi__hint">
                 {ops?.sales?.last30d ? `${ops.sales.last30d.orderCount} pedido(s) pagos` : 'aguardando snapshot'}
               </div>
             </div>
-            <div style={{ background: (ops?.inventory.lowStockCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Estoque baixo</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.inventory.lowStockCount ?? '—'}</div>
+            <div className={`admin-kpi${(ops?.inventory.lowStockCount ?? 0) > 0 ? ' admin-kpi--warn' : ' admin-kpi--accent'}`}>
+              <div className="admin-kpi__label">Estoque baixo</div>
+              <div className="admin-kpi__value">{ops?.inventory.lowStockCount ?? '—'}</div>
             </div>
-            <div style={{ background: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a', border: '1px solid #666', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Zerados</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: (ops?.inventory.outOfStockCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100' }}>
+            <div className={`admin-kpi${(ops?.inventory.outOfStockCount ?? 0) > 0 ? ' admin-kpi--danger' : ''}`}>
+              <div className="admin-kpi__label">Zerados</div>
+              <div className={`admin-kpi__value${(ops?.inventory.outOfStockCount ?? 0) > 0 ? ' admin-kpi__value--danger' : ''}`}>
                 {ops?.inventory.outOfStockCount ?? '—'}
               </div>
             </div>
-            <div style={{ background: (ops?.payments?.pendingCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a', border: '1px solid #ffd100', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pag. pendentes</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.payments?.pendingCount ?? '—'}</div>
+            <div className={`admin-kpi${(ops?.payments?.pendingCount ?? 0) > 0 ? ' admin-kpi--warn' : ' admin-kpi--accent'}`}>
+              <div className="admin-kpi__label">Pag. pendentes</div>
+              <div className="admin-kpi__value">{ops?.payments?.pendingCount ?? '—'}</div>
             </div>
             <button
               type="button"
+              className={`admin-kpi${
+                (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
+                  ? ' admin-kpi--danger'
+                  : (ops?.orders?.buckets?.paid ?? 0) > 0
+                    ? ' admin-kpi--warn'
+                    : ' admin-kpi--accent'
+              }`}
               onClick={() => selectOpsBucket('paid')}
-              style={{
-                background:
-                  (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
-                    ? '#3a1515'
-                    : (ops?.orders?.buckets?.paid ?? 0) > 0
-                      ? '#3a2f0a'
-                      : '#1a1a1a',
-                border: '1px solid #ffd100',
-                borderRadius: 8,
-                padding: '10px 12px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                color: 'inherit',
-                minHeight: 44,
-              }}
             >
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pagos p/ organizar</div>
+              <div className="admin-kpi__label">Pagos p/ organizar</div>
               <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color:
-                    (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100',
-                }}
+                className={`admin-kpi__value${
+                  (ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0 ? ' admin-kpi__value--danger' : ''
+                }`}
               >
                 {ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? '—'}
               </div>
-              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
+              <div className="admin-kpi__hint">
                 {(ops?.paidAwaitingOrg?.stuckCount ?? 0) > 0
                   ? `${ops!.paidAwaitingOrg!.stuckCount} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
                   : `limite ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
@@ -2063,55 +2022,39 @@ export default function AdminPage() {
             </button>
             <button
               type="button"
+              className={`admin-kpi${(ops?.reconciliations?.openCount ?? 0) > 0 ? ' admin-kpi--danger' : ' admin-kpi--accent'}`}
               onClick={() => {
                 const el = document.getElementById('admin-reconciliations');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 void loadReconciliations();
               }}
-              style={{
-                background: (ops?.reconciliations?.openCount ?? 0) > 0 ? '#3a1515' : '#1a1a1a',
-                border: '1px solid #ffd100',
-                borderRadius: 8,
-                padding: '10px 12px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
             >
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Reconciliações</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: (ops?.reconciliations?.openCount ?? 0) > 0 ? '#ffb4b4' : '#ffd100' }}>
+              <div className="admin-kpi__label">Reconciliações</div>
+              <div className={`admin-kpi__value${(ops?.reconciliations?.openCount ?? 0) > 0 ? ' admin-kpi__value--danger' : ''}`}>
                 {ops?.reconciliations?.openCount ?? '—'}
               </div>
             </button>
             <button
               type="button"
+              className={`admin-kpi${(ops?.catalog?.placeholderProductCount ?? 0) > 0 ? ' admin-kpi--warn' : ' admin-kpi--accent'}`}
               onClick={() => {
                 const el = document.getElementById('admin-photos-checklist');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              style={{
-                background: (ops?.catalog?.placeholderProductCount ?? 0) > 0 ? '#3a2f0a' : '#1a1a1a',
-                border: '1px solid #ffd100',
-                borderRadius: 8,
-                padding: '10px 12px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
             >
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Foto p/ trocar</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.catalog?.placeholderProductCount ?? '—'}</div>
-              <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>checklist + CSV</div>
+              <div className="admin-kpi__label">Foto p/ trocar</div>
+              <div className="admin-kpi__value">{ops?.catalog?.placeholderProductCount ?? '—'}</div>
+              <div className="admin-kpi__hint">checklist + CSV</div>
             </button>
-            <div style={{ background: '#1a1a1a', border: `1px solid ${ops?.mail?.configured ? '#ffd100' : '#666'}`, borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>E-mail (env)</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: ops?.mail?.configured ? '#ffd100' : '#ffb4b4' }}>
+            <div className={`admin-kpi${ops?.mail?.configured ? ' admin-kpi--accent' : ' admin-kpi--danger'}`}>
+              <div className="admin-kpi__label">E-mail (env)</div>
+              <div className={`admin-kpi__value${ops == null || ops.mail?.configured ? '' : ' admin-kpi__value--danger'}`} style={{ fontSize: 16 }}>
                 {ops == null ? '—' : ops.mail?.configured ? 'Configurado' : 'Ausente'}
               </div>
             </div>
-            <div style={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 8, padding: '10px 12px' }}>
-              <div className="muted" style={{ fontSize: 12, color: '#b0b0a8' }}>Pedidos (total)</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd100' }}>{ops?.orders?.total ?? '—'}</div>
+            <div className="admin-kpi">
+              <div className="admin-kpi__label">Pedidos (total)</div>
+              <div className="admin-kpi__value">{ops?.orders?.total ?? '—'}</div>
             </div>
           </div>
 
@@ -2123,28 +2066,20 @@ export default function AdminPage() {
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
                 {ops.alerts.map((a) => {
                   const clickable = Boolean(a.queueBucket || a.section);
-                  const bg =
+                  const tone =
                     a.severity === 'critical' || a.severity === 'high'
-                      ? '#3a1515'
+                      ? 'high'
                       : a.severity === 'warn'
-                        ? '#3a2f0a'
-                        : '#1a1a1a';
-                  const fg =
-                    a.severity === 'critical' || a.severity === 'high' ? '#ffb4b4' : '#ffd100';
+                        ? 'warn'
+                        : 'info';
                   return (
                     <li key={a.code}>
                       <button
                         type="button"
-                        className="btn ghost"
+                        className={`admin-alert-btn admin-alert-btn--${tone}`}
                         onClick={() => selectOpsAlert(a)}
                         disabled={!clickable}
                         style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '8px 12px',
-                          background: bg,
-                          color: fg,
-                          borderColor: fg,
                           opacity: clickable ? 1 : 0.95,
                           cursor: clickable ? 'pointer' : 'default',
                         }}
@@ -2179,18 +2114,11 @@ export default function AdminPage() {
             <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
               Fila operacional — clique no bucket para filtrar pedidos
             </p>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+            <div className="admin-chip-row">
               <button
                 type="button"
-                className="btn ghost"
+                className={`admin-chip${orderStatusFilter === '' ? ' is-active' : ''}`}
                 onClick={() => selectOpsBucket('')}
-                style={{
-                  padding: '6px 10px',
-                  fontSize: 12,
-                  borderColor: orderStatusFilter === '' ? '#ffd100' : '#444',
-                  color: '#ffd100',
-                  background: orderStatusFilter === '' ? '#3a2f0a' : 'transparent',
-                }}
               >
                 Todos: {ops?.orders?.total ?? '—'}
               </button>
@@ -2198,15 +2126,8 @@ export default function AdminPage() {
                 <button
                   key={key}
                   type="button"
-                  className="btn ghost"
+                  className={`admin-chip${orderStatusFilter === key ? ' is-active' : ''}`}
                   onClick={() => selectOpsBucket(key)}
-                  style={{
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    borderColor: orderStatusFilter === key ? '#ffd100' : '#444',
-                    color: '#ffd100',
-                    background: orderStatusFilter === key ? '#3a2f0a' : 'transparent',
-                  }}
                 >
                   {adminQueueBucketLabel(key)}: {ops?.orders?.buckets?.[key] ?? 0}
                 </button>
@@ -2306,18 +2227,13 @@ export default function AdminPage() {
 
       <section
         id="admin-reconciliations"
-        className="card"
-        style={{
-          marginTop: 16,
-          marginBottom: 28,
-          borderColor: '#1a1a1a',
-          background: '#0a0a0a',
-          color: '#f5f5f3',
-        }}
+        className="admin-ops"
+        style={{ marginTop: 16 }}
+        aria-label="Reconciliações"
       >
-        <div className="body">
+        <div className="admin-ops__body">
           <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 20, color: '#ffd100' }}>Reconciliações</h2>
+            <h2 className="admin-ops__title">Reconciliações</h2>
             <button
               type="button"
               className="btn ghost"
@@ -2389,6 +2305,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'equipe' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Administradores</h2>
@@ -2482,6 +2403,11 @@ export default function AdminPage() {
       </section>
 
 
+      </div>
+      ) : null}
+
+      {adminSection === 'clientes' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Clientes (CRM)</h2>
@@ -2620,6 +2546,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'marketplace' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Vendedores (Marketplace v1)</h2>
@@ -2857,6 +2788,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'vitrine' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>SEO da loja</h2>
@@ -3070,6 +3006,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'vendas' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Relatório de vendas</h2>
@@ -3243,6 +3184,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'catalogo' ? (
+      <div className="admin-section-panel">
       <section id="admin-product-form" className="card" style={{ marginTop: 16, marginBottom: 28 }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 12 }}>
@@ -3535,6 +3481,11 @@ export default function AdminPage() {
       </section>
 
       
+      </div>
+      ) : null}
+
+      {adminSection === 'cupons' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Cupons de desconto</h2>
@@ -3675,6 +3626,11 @@ export default function AdminPage() {
 
 
 
+      </div>
+      ) : null}
+
+      {adminSection === 'avaliacoes' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Avaliações</h2>
@@ -3752,6 +3708,11 @@ export default function AdminPage() {
       </section>
 
 
+      </div>
+      ) : null}
+
+      {adminSection === 'frete' ? (
+      <div className="admin-section-panel">
       <section className="card" style={{ marginBottom: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Frete — entrega própria</h2>
@@ -3886,6 +3847,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'catalogo' ? (
+      <div className="admin-section-panel">
 <section className="card" style={{ marginBottom: 28, borderColor: lowStockProducts.length ? 'var(--danger)' : undefined }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
@@ -4076,6 +4042,11 @@ export default function AdminPage() {
         {!products.length ? <p className="muted">Nenhum produto ainda. Cadastre o primeiro acima.</p> : null}
       </div>
 
+      </div>
+      ) : null}
+
+      {adminSection === 'pedidos' ? (
+      <div className="admin-section-panel">
       <h3 id="admin-orders-queue">Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})</h3>
       {(ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0) > 0 ? (
         <div
@@ -4577,6 +4548,8 @@ export default function AdminPage() {
           })}
         </p>
       ) : null}
-    </div>
+      </div>
+      ) : null}
+    </AdminShell>
   );
 }
