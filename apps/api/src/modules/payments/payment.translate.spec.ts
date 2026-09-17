@@ -36,4 +36,13 @@ assert.equal(
 assert.equal(buildMercadoPagoNotificationUrl(''), null);
 assert.equal(buildMercadoPagoNotificationUrl('   '), null);
 
+// Contract: card intent must accept issuerId from Checkout Bricks
+import { readFileSync } from 'fs';
+import { join } from 'path';
+const providerSrc = readFileSync(join(__dirname, 'payment.provider.ts'), 'utf8');
+assert.match(providerSrc, /issuerId\?:/);
+assert.match(providerSrc, /body\.issuer_id = input\.issuerId/);
+const dtoSrc = readFileSync(join(__dirname, 'dto.ts'), 'utf8');
+assert.match(dtoSrc, /issuerId\?:/);
+
 console.log('payment.translate static tests ok');

@@ -31,4 +31,11 @@ export class CreatePaymentIntentDto {
   @IsString()
   @MaxLength(40)
   paymentMethodId?: string;
+
+  /** Issuer id do Checkout Bricks (somente card). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  issuerId?: string;
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { pixPrice } from '@/lib/pricing';
 import { api, brl, currentUser, isUnauthorizedError, waLink } from '@/lib/api';
@@ -12,6 +13,12 @@ import {
   orderStatusLabel,
 } from '@/lib/order-status';
 import Link from 'next/link';
+import type { CardBrickSubmit } from '@/components/MercadoPagoCardBrick';
+
+const MercadoPagoCardBrick = dynamic(
+  () => import('@/components/MercadoPagoCardBrick').then((m) => m.MercadoPagoCardBrick),
+  { ssr: false, loading: () => <p className="muted">Carregando formulário de cartão…</p> },
+);
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
@@ -294,24 +301,38 @@ export default function PedidoPage() {
     };
   }, [qr, qrFromMp]);
 
-  async function createIntent() {
-    if (!o || paying) return;
+  async function createIntent(opts?: {
+    method?: 'pix' | 'card';
+    installments?: number;
+    cardToken?: string;
+    paymentMethodId?: string;
+    issuerId?: string;
+  }) {
+    if (!o) return;
+    if (paying) {
+      throw new Error('Pagamento em andamento');
+    }
+    const payMethod = opts?.method ?? method;
+    const payInstallments = opts?.installments ?? installments;
+    const payToken = opts?.cardToken ?? cardToken;
     setPaying(true);
     setErr('');
     try {
       const persistKey =
-        method === 'card'
-          ? `sch_idem_pay:${o.id}:${method}:${installments}`
-          : `sch_idem_pay:${o.id}:${method}`;
+        payMethod === 'card'
+          ? `sch_idem_pay:${o.id}:${payMethod}:${payInstallments}`
+          : `sch_idem_pay:${o.id}:${payMethod}`;
       let key = sessionStorage.getItem(persistKey);
       if (!key || key.length < 8) {
         key = crypto.randomUUID();
         sessionStorage.setItem(persistKey, key);
       }
-      const body: Record<string, unknown> = { orderId: o.id, method };
-      if (method === 'card') {
-        body.installments = installments;
-        if (cardToken) body.cardToken = cardToken;
+      const body: Record<string, unknown> = { orderId: o.id, method: payMethod };
+      if (payMethod === 'card') {
+        body.installments = payInstallments;
+        if (payToken) body.cardToken = payToken;
+        if (opts?.paymentMethodId) body.paymentMethodId = opts.paymentMethodId;
+        if (opts?.issuerId) body.issuerId = opts.issuerId;
       }
       const data = await api<{ payment: Payment }>('/payments/intents', {
         method: 'POST',
@@ -322,9 +343,23 @@ export default function PedidoPage() {
       await reload();
     } catch (e: any) {
       setErr(e.message || 'Falha ao criar intenção de pagamento');
+      throw e;
     } finally {
       setPaying(false);
     }
+  }
+
+  async function onCardBrickSubmit(data: CardBrickSubmit) {
+    setMethod('card');
+    setInstallments(data.installments);
+    setCardToken(data.cardToken);
+    await createIntent({
+      method: 'card',
+      installments: data.installments,
+      cardToken: data.cardToken,
+      paymentMethodId: data.paymentMethodId,
+      issuerId: data.issuerId,
+    });
   }
 
   async function simulateApprove() {
@@ -454,56 +489,77 @@ export default function PedidoPage() {
               <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX (5% off → {brl(pixPrice(o.total))})
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
-              <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão
+              <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão (Mercado Pago)
             </label>
             {method === 'card' ? (
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', marginBottom: 8 }}>
-                  Parcelas
-                  <select
-                    value={installments}
-                    onChange={(e) => setInstallments(Number(e.target.value))}
-                    style={{ display: 'block', width: '100%', marginTop: 6 }}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n === 1 ? '1x (à vista)' : `${n}x`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 {MP_PUBLIC_KEY ? (
-                  <p className="muted" style={{ fontSize: 14 }}>
-                    Public key configurada. Monte o Checkout Bricks no cliente e cole o token abaixo
-                    (API nunca recebe PAN/CVV).
-                  </p>
+                  <>
+                    <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+                      Pagamento seguro via Mercado Pago. Dados do cartão não passam pelos servidores da loja.
+                    </p>
+                    <MercadoPagoCardBrick
+                      publicKey={MP_PUBLIC_KEY}
+                      amount={Number(o.total)}
+                      onSubmit={onCardBrickSubmit}
+                      onError={(message) => setErr(message)}
+                    />
+                    {paying ? (
+                      <p className="muted" style={{ fontSize: 14, marginTop: 8 }}>
+                        Processando pagamento…
+                      </p>
+                    ) : null}
+                  </>
                 ) : (
-                  <p className="muted" style={{ fontSize: 14 }}>
-                    Sem <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code>: em <code>PAYMENTS_PROVIDER=null</code>
-                    a intent de cartão funciona sem token. Com Mercado Pago real, informe o cardToken do Bricks.
-                  </p>
+                  <>
+                    <p className="muted" style={{ fontSize: 14 }}>
+                      Sem <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code>: em{' '}
+                      <code>PAYMENTS_PROVIDER=null</code> a intent de cartão funciona sem token. Com Mercado
+                      Pago real, configure a public key para o Checkout Bricks.
+                    </p>
+                    <label style={{ display: 'block', marginBottom: 8 }}>
+                      Parcelas
+                      <select
+                        value={installments}
+                        onChange={(e) => setInstallments(Number(e.target.value))}
+                        style={{ display: 'block', width: '100%', marginTop: 6 }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>
+                            {n === 1 ? '1x (à vista)' : `${n}x`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <input
+                      placeholder="cardToken (dev / provider null)"
+                      value={cardToken}
+                      onChange={(e) => setCardToken(e.target.value)}
+                      style={{ width: '100%', marginBottom: 12 }}
+                    />
+                    <button
+                      className="btn checkout-confirm-btn"
+                      disabled={paying}
+                      onClick={() => createIntent({ method: 'card' }).catch(() => undefined)}
+                      style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
+                      aria-busy={paying || undefined}
+                    >
+                      {paying ? 'Gerando pagamento...' : `Pagar no cartão (${installments}x)`}
+                    </button>
+                  </>
                 )}
-                <input
-                  placeholder="cardToken (Bricks) — opcional no provider null"
-                  value={cardToken}
-                  onChange={(e) => setCardToken(e.target.value)}
-                  style={{ width: '100%' }}
-                />
               </div>
-            ) : null}
-            <button
-              className="btn checkout-confirm-btn"
-              disabled={paying}
-              onClick={createIntent}
-              style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
-              aria-busy={paying || undefined}
-            >
-              {paying
-                ? 'Gerando pagamento...'
-                : method === 'card'
-                  ? `Pagar no cartão (${installments}x)`
-                  : 'Pagar com PIX'}
-            </button>
+            ) : (
+              <button
+                className="btn checkout-confirm-btn"
+                disabled={paying}
+                onClick={() => createIntent({ method: 'pix' }).catch(() => undefined)}
+                style={{ width: '100%', maxWidth: 420, minHeight: 48 }}
+                aria-busy={paying || undefined}
+              >
+                {paying ? 'Gerando pagamento...' : 'Pagar com PIX'}
+              </button>
+            )}
           </div>
         </div>
       ) : null}

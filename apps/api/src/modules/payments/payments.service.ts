@@ -271,6 +271,7 @@ export class PaymentsService {
         cardToken: dto.cardToken,
         installments: dto.installments,
         paymentMethodId: dto.paymentMethodId,
+        issuerId: dto.issuerId,
         expiresInSeconds,
         providerIdempotencyKey: `sch-${payment.id}`,
       });

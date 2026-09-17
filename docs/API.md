@@ -65,7 +65,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTERNO). Sem token → `NOT_CONFIGURED`. Nunca fake tracking.
 | GET/POST | `/admin/sellers` | admin |
 | PATCH | `/admin/sellers/:id/status` body `{ status: "pending"|"active"|"suspended" }` | admin |
-| POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
+| POST | `/payments/intents` body `{ orderId, method, installments?, cardToken?, paymentMethodId?, issuerId? }` | user |
 | GET | `/store/settings` | público (SEO) |
 | GET | `/store/banners` | público (banners ativos) |
 | GET/PATCH | `/admin/store/settings` body `{ siteTitle, siteDescription, ogImageUrl? }` | admin |

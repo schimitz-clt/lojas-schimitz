@@ -914,6 +914,13 @@ textarea { resize: vertical; min-height: 72px; }
 .cart-checkout-btn:hover { background: var(--yellow-deep); color: var(--ink); }
 .cart-sticky-checkout { display: none; }
 .checkout-confirm-btn { background: var(--yellow); color: var(--ink); }
+.mp-card-brick {
+  margin-top: 4px;
+  min-height: 140px;
+}
+.mp-card-brick iframe {
+  max-width: 100%;
+}
 .checkout-address { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
 .checkout-address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .order-card, .loyalty-card, .account-nav { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }

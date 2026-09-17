@@ -87,5 +87,13 @@ Env só dev: ALLOW_NULL_PAYMENT_SIMULATE, NULL_WEBHOOK_SECRET, NEXT_PUBLIC_ALLOW
 
 Liquidação bancária do PIX até approved: NÃO EXECUTADO.
 
-### Próximo passo
-Password reset → guest cart merge → PIX 5% backend → OpenAPI.
+## H) CHECKOUT BRICKS (cartão na loja)
+
+Complemento UX no fluxo pós-checkout (`/pedidos/:publicId`):
+
+- `@mercadopago/sdk-react` Card Payment Brick (tokenização no cliente)
+- `issuerId` + `paymentMethodId` enviados em `POST /payments/intents`
+- PIX permanece no fluxo custom (QR + 5% off)
+- Sem public key: fallback dev (provider null / token manual)
+
+Env web: `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`

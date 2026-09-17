@@ -21,6 +21,8 @@ export type CreateIntentInput = {
   cardToken?: string;
   installments?: number;
   paymentMethodId?: string;
+  /** Issuer do cartão (Checkout Bricks). */
+  issuerId?: string;
   /** Segundos até reservationExpiresAt — adapter não deve pedir validade maior. */
   expiresInSeconds?: number;
   /** Idempotency key HTTP do provedor (não misturar com header da loja). */
@@ -327,6 +329,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       body.token = input.cardToken;
       body.installments = input.installments || 1;
       if (input.paymentMethodId) body.payment_method_id = input.paymentMethodId;
+      if (input.issuerId) body.issuer_id = input.issuerId;
     }
 
     const json = await this.mpFetch('/v1/payments', {
