@@ -21,6 +21,15 @@ export function Header() {
   const [cepDraft, setCepDraft] = useState('');
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = (params.get('q') || '').trim();
+      if (fromUrl && window.location.pathname.startsWith('/produtos')) {
+        setQ(fromUrl);
+      }
+    } catch {
+      /* ignore */
+    }
     const u = currentUser();
     setUser(u);
     try {
