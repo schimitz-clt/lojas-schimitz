@@ -1,7 +1,17 @@
 import assert from 'assert';
 import {
   adminTableDensityClass,
+  adminUserStatusLabel,
+  adminUserStatusTone,
+  bannerActiveLabel,
   catalogNeedsPhotoSummary,
+  commissionStatusLabel,
+  commissionStatusTone,
+  couponIsExhausted,
+  couponIsExpired,
+  couponListStats,
+  customerAccountLabel,
+  customerAccountTone,
   orderStatusChipClass,
   orderStatusChipTone,
   paidQueueBannerClass,
@@ -12,6 +22,13 @@ import {
   productPhotoBadgeLabel,
   productStockChipClass,
   productStockTone,
+  reviewStars,
+  reviewStatusLabel,
+  reviewStatusTone,
+  salesPresetActive,
+  sellerStatusLabel,
+  sellerStatusTone,
+  shippingZoneActiveLabel,
   shouldStickyOrderActions,
 } from './admin-pro-ui';
 
@@ -64,5 +81,61 @@ assert.ok(productStockChipClass(2, 5).includes('--warn'));
 assert.ok(catalogNeedsPhotoSummary(2).includes('2 produto'));
 assert.equal(catalogNeedsPhotoSummary(0), '');
 assert.ok(adminTableDensityClass(true).includes('admin-table--dense'));
+
+assert.equal(customerAccountTone('active'), 'ok');
+assert.equal(customerAccountTone('blocked'), 'danger');
+assert.equal(customerAccountLabel('blocked'), 'Bloqueado');
+assert.equal(customerAccountLabel('active'), 'Ativo');
+
+assert.equal(sellerStatusTone('pending'), 'warn');
+assert.equal(sellerStatusTone('active'), 'ok');
+assert.equal(sellerStatusTone('suspended'), 'danger');
+assert.equal(sellerStatusLabel('pending'), 'Pendente');
+assert.equal(sellerStatusLabel('active'), 'Ativo');
+assert.equal(sellerStatusLabel('suspended'), 'Suspenso');
+
+assert.equal(commissionStatusTone('pending'), 'warn');
+assert.equal(commissionStatusTone('approved'), 'info');
+assert.equal(commissionStatusTone('paid'), 'ok');
+assert.equal(commissionStatusLabel('pending'), 'Pendente');
+assert.equal(commissionStatusLabel('approved'), 'Aprovada');
+assert.equal(commissionStatusLabel('paid'), 'Paga');
+
+assert.equal(couponIsExpired(null), false);
+assert.equal(couponIsExpired('2099-01-01T00:00:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')), false);
+assert.equal(couponIsExpired('2020-01-01T00:00:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')), true);
+assert.equal(couponIsExhausted(null, 10), false);
+assert.equal(couponIsExhausted(10, 9), false);
+assert.equal(couponIsExhausted(10, 10), true);
+
+const stats = couponListStats([
+  { active: true, usedCount: 2, reservedCount: 1 },
+  { active: false, usedCount: 3, reservedCount: 0 },
+  { active: true, usedCount: 0, reservedCount: 4 },
+]);
+assert.equal(stats.active, 2);
+assert.equal(stats.inactive, 1);
+assert.equal(stats.uses, 5);
+assert.equal(stats.reserved, 5);
+
+assert.equal(reviewStatusTone('published'), 'ok');
+assert.equal(reviewStatusTone('hidden'), 'neutral');
+assert.equal(reviewStatusLabel('published'), 'Publicada');
+assert.equal(reviewStatusLabel('hidden'), 'Oculta');
+assert.equal(reviewStars(5), '★★★★★');
+assert.equal(reviewStars(3), '★★★☆☆');
+assert.equal(reviewStars(0), '☆☆☆☆☆');
+assert.equal(reviewStars(9), '★★★★★');
+
+assert.equal(adminUserStatusTone('active'), 'ok');
+assert.equal(adminUserStatusTone('blocked'), 'neutral');
+assert.equal(adminUserStatusLabel('active'), 'Ativo');
+assert.equal(adminUserStatusLabel('blocked'), 'Desativado');
+assert.equal(bannerActiveLabel(true), 'Ativo');
+assert.equal(bannerActiveLabel(false), 'Inativo');
+assert.equal(shippingZoneActiveLabel(true), 'Ativa');
+assert.equal(shippingZoneActiveLabel(false), 'Inativa');
+assert.equal(salesPresetActive('2026-09-17', '2026-09-17', '2026-09-17', '2026-09-17'), true);
+assert.equal(salesPresetActive('2026-09-01', '2026-09-17', '2026-09-17', '2026-09-17'), false);
 
 console.log('admin-pro-ui web unit ok');

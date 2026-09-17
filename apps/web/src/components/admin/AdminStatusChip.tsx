@@ -15,7 +15,7 @@ type Props = {
   className?: string;
 };
 
-/** Compact professional status/meta chip for Pedidos + Catálogo. */
+/** Compact professional status/meta chip for Pedidos, Catálogo e seções Phase 3. */
 export function AdminStatusChip({ label, tone, title, className }: Props): ReactNode {
   const toneClass = tone ? `admin-chip-status admin-chip-status--${tone}` : 'admin-chip-status';
   return (
