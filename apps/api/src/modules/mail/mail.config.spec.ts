@@ -1,7 +1,7 @@
 import assert from 'assert';
 import {
   buildMailIdempotencyKey,
-  mailConfiguredFromEnvPresence,
+  mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence,
   normalizeMailRecipient,
   resolveMailProviderMode,
 } from './mail.config';
@@ -148,3 +148,11 @@ import {
 }
 
 console.log('mail.config tests ok');
+
+{
+  assert.equal(storeNotifyConfiguredFromEnvPresence({} as NodeJS.ProcessEnv), false);
+  assert.equal(storeNotifyConfiguredFromEnvPresence({ STORE_NOTIFY_EMAIL: '  ' } as NodeJS.ProcessEnv), false);
+  assert.equal(storeNotifyConfiguredFromEnvPresence({ STORE_NOTIFY_EMAIL: 'loja@example.com' } as NodeJS.ProcessEnv), true);
+  console.log('mail.config: storeNotifyConfiguredFromEnvPresence — PASSOU');
+}
+

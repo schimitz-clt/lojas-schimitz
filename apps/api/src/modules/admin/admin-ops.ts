@@ -383,6 +383,8 @@ export function deriveOpsAlerts(input: {
   placeholderProductCount: number;
   pendingPaymentCount: number;
   mailConfigured?: boolean;
+  /** STORE_NOTIFY_EMAIL env present (name only) — never secret values. */
+  storeNotifyConfigured?: boolean;
   orderBuckets?: Partial<Record<AdminOrderQueueBucket, number>>;
   /** Open PaymentReconciliation rows — real DB count only. */
   openReconciliationCount?: number;
@@ -514,7 +516,17 @@ export function deriveOpsAlerts(input: {
         'Revisar lista Reconciliações: conferir externalReference/publicId no provedor. Não estornar/cancelar automaticamente.',
     });
   }
-  if (input.mailConfigured === false) {
+  if (input.mailConfigured === false && input.storeNotifyConfigured === true) {
+    alerts.push({
+      code: 'mail_off_with_store_notify',
+      severity: 'warn',
+      message:
+        'STORE_NOTIFY_EMAIL configurado mas provider de e-mail off (MAIL_FROM + RESEND_API_KEY|SMTP) — avisos de venda não saem por e-mail',
+      count: 0,
+      recommendedAction:
+        'Configure MAIL_FROM + RESEND_API_KEY (ou SMTP). Não disparamos e-mail neste poll.',
+    });
+  } else if (input.mailConfigured === false) {
     alerts.push({
       code: 'mail_not_configured',
       severity: 'info',
@@ -535,6 +547,8 @@ export function summarizeOps(input: {
   time?: string;
   /** Env-name presence only — never secret values. */
   mailConfigured?: boolean;
+  /** STORE_NOTIFY_EMAIL env present (name only). */
+  storeNotifyConfigured?: boolean;
   /** Cheap groupBy Order.status — optional for backward-compatible callers. */
   orderStatusCounts?: OrderStatusCountRow[];
   /** Optional sales windows already aggregated from DB (no fake numbers). */
@@ -560,12 +574,14 @@ export function summarizeOps(input: {
   const paidAwaitingOrg =
     input.paidAwaitingOrg ??
     summarizePaidAwaitingOrg({ orders: [] });
+  const storeNotifyConfigured = Boolean(input.storeNotifyConfigured);
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
     outOfStockCount: input.outOfStockCount,
     placeholderProductCount: input.placeholderProductCount,
     pendingPaymentCount: input.pendingPaymentCount,
     mailConfigured,
+    storeNotifyConfigured,
     orderBuckets: orders.buckets,
     openReconciliationCount: reconciliations.openCount,
     reconciliationRecent: reconciliations.recent,
@@ -583,6 +599,9 @@ export function summarizeOps(input: {
     reconciliations,
     mail: {
       configured: mailConfigured,
+      storeNotifyConfigured,
+      /** Real env mismatch hint — not an invented counter; no e-mail on ops poll. */
+      providerOffWithStoreNotify: mailConfigured === false && storeNotifyConfigured === true,
     },
     orders,
     paidAwaitingOrg,

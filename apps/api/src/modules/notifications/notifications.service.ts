@@ -8,6 +8,7 @@ import {
   waMeUrl,
 } from '../../common/whatsapp';
 import { buildInAppDedupeWhere, inAppDedupeKey } from './notification-dedupe';
+import { structuredLog } from '../../common/structured-log';
 
 export type CreateNotificationInput = {
   userId: string;
@@ -301,10 +302,25 @@ export class NotificationsService implements OnModuleInit {
 
     let emailsAttempted = 0;
     try {
+      const storeNotifyConfigured = resolveStoreNotifyEmailsFromEnv().length > 0;
       if (!this.mail.isConfigured()) {
         this.log.warn(
           `notifyStoreOfPaidOrder: mail provider off (MAIL_FROM + RESEND_API_KEY|SMTP ausentes) — in-app ainda pode ser criada (${opts.publicId})`,
         );
+        if (storeNotifyConfigured) {
+          structuredLog('warn', 'MAIL_PROVIDER_OFF_STORE_NOTIFY', {
+            publicId: opts.publicId,
+            orderId: opts.orderId || null,
+            storeNotifyConfigured: true,
+            mailConfigured: false,
+          });
+        } else {
+          structuredLog('warn', 'MAIL_PROVIDER_OFF', {
+            publicId: opts.publicId,
+            orderId: opts.orderId || null,
+            mailConfigured: false,
+          });
+        }
       }
       const recipients = await this.resolvePaidSaleEmailRecipients();
       for (const to of recipients) {
@@ -314,12 +330,23 @@ export class NotificationsService implements OnModuleInit {
           this.log.warn(
             `notifyStoreOfPaidOrder: e-mail não enviado to=*** reason=${r?.reason || 'unknown'} order=${opts.publicId}`,
           );
+          structuredLog('warn', 'STORE_EMAIL_SEND_FAILED', {
+            publicId: opts.publicId,
+            orderId: opts.orderId || null,
+            reason: r?.reason || 'unknown',
+            mode: r?.mode || null,
+          });
         }
       }
       if (recipients.length === 0) {
         this.log.warn(
           `notifyStoreOfPaidOrder: nenhum destinatário de e-mail (DB admin + ADMIN_EMAIL/STORE_NOTIFY_EMAIL) (${opts.publicId})`,
         );
+        structuredLog('warn', 'STORE_EMAIL_NO_RECIPIENTS', {
+          publicId: opts.publicId,
+          orderId: opts.orderId || null,
+          storeNotifyConfigured,
+        });
       } else {
         this.log.log(
           `notifyStoreOfPaidOrder mail recipients=${recipients.length} order=${opts.publicId}`,
@@ -327,6 +354,11 @@ export class NotificationsService implements OnModuleInit {
       }
     } catch (e: any) {
       this.log.error(`notifyStoreOfPaidOrder e-mail falhou: ${e?.message || e}`);
+      structuredLog('error', 'STORE_EMAIL_SEND_FAILED', {
+        publicId: opts.publicId,
+        orderId: opts.orderId || null,
+        error: String(e?.message || e).slice(0, 200),
+      });
     }
 
     this.log.log(

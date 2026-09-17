@@ -349,3 +349,29 @@ assert.equal(placeholderPhotoReason('https://placehold.co/1'), 'placeholder');
 
 console.log('admin-ops unit tests ok');
 
+{
+  const mismatch = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: false,
+    storeNotifyConfigured: true,
+  });
+  assert.equal(mismatch.some((a) => a.code === 'mail_off_with_store_notify'), true);
+  assert.equal(mismatch.some((a) => a.code === 'mail_not_configured'), false, 'prefer mismatch warn over generic info');
+
+  const ops = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: false,
+    storeNotifyConfigured: true,
+  });
+  assert.equal(ops.mail.configured, false);
+  assert.equal(ops.mail.storeNotifyConfigured, true);
+  assert.equal(ops.mail.providerOffWithStoreNotify, true);
+  console.log('admin-ops: mail_off_with_store_notify — PASSOU');
+}
+

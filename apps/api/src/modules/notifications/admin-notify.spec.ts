@@ -228,4 +228,18 @@ function fanOutAdmins(
   console.log('admin-notify: Phase 15 wiring audit — PASSOU');
 }
 
+
+{
+  const notifSrc = readFileSync(join(__dirname, 'notifications.service.ts'), 'utf8');
+  assert.ok(notifSrc.includes("structuredLog('warn', 'MAIL_PROVIDER_OFF_STORE_NOTIFY'"), 'mail off + STORE_NOTIFY structured warn');
+  assert.ok(notifSrc.includes("structuredLog('warn', 'STORE_EMAIL_SEND_FAILED'") || notifSrc.includes("structuredLog('error', 'STORE_EMAIL_SEND_FAILED'"), 'store email failure structured log');
+  assert.ok(notifSrc.includes('STORE_EMAIL_NO_RECIPIENTS') || notifSrc.includes('STORE_EMAIL_SEND_FAILED'), 'store email observability events');
+
+  const paySrc = readFileSync(join(__dirname, '../payments/payments.service.ts'), 'utf8');
+  assert.ok(paySrc.includes("structuredLog('error', 'WEBHOOK_APPLY_FAILED'"), 'webhook apply failure structured error');
+  assert.ok(paySrc.includes("structuredLog('error', 'WEBHOOK_FETCH_FAILED'"), 'webhook fetch failure structured error');
+  assert.ok(paySrc.includes("structuredLog('warn', 'RECONCILIATION_REQUIRED'"), 'orphan reconciliation structured warn');
+  console.log('admin-notify: observability structured signals — PASSOU');
+}
+
 console.log('admin-notify tests ok');

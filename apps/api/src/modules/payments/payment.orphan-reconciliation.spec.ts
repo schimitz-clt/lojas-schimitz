@@ -19,6 +19,8 @@ assert.ok(schema.includes('@@unique([provider, externalId])'), 'idempotent uniqu
 assert.ok(svc.includes('paymentReconciliation.upsert') || svc.includes('paymentReconciliation'), 'service upserts reconciliation');
 assert.ok(svc.includes('payment.reconciliation_required'), 'audit reconciliation_required');
 assert.ok(svc.includes('RECONCILIATION_REQUIRED'), 'structuredLog + status');
+assert.ok(svc.includes('WEBHOOK_APPLY_FAILED'), 'apply failure structured error');
+assert.ok(svc.includes('WEBHOOK_FETCH_FAILED'), 'fetch failure structured error');
 assert.ok(svc.includes("reason: 'reconciliation_required'"), '2xx reason after durable record');
 assert.ok(svc.includes('orphanReconciliationReason') || svc.includes('reconciliation'), 'uses helper');
 

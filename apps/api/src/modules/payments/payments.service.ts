@@ -474,8 +474,13 @@ export class PaymentsService {
     let fetched;
     try {
       fetched = await this.provider.fetchPayment(verified.externalId);
-    } catch (e) {
+    } catch (e: any) {
       this.log.error(`fetchPayment falhou para ${verified.externalId}`);
+      structuredLog('error', 'WEBHOOK_FETCH_FAILED', {
+        eventId: event.id,
+        externalId: verified.externalId,
+        error: String(e?.message || e).slice(0, 200),
+      });
       throw e; // 5xx → retry do provedor
     }
 
@@ -613,13 +618,25 @@ export class PaymentsService {
       data: { paymentId: local.id },
     }).catch(() => undefined);
 
-    await this.applyProviderStatus(local.id, {
-      status: fetched.status,
-      amount: fetched.amount,
-      externalReference: fetched.externalReference,
-      externalId: fetched.externalId,
-      payload: fetched.payload,
-    });
+    try {
+      await this.applyProviderStatus(local.id, {
+        status: fetched.status,
+        amount: fetched.amount,
+        externalReference: fetched.externalReference,
+        externalId: fetched.externalId,
+        payload: fetched.payload,
+      });
+    } catch (e: any) {
+      structuredLog('error', 'WEBHOOK_APPLY_FAILED', {
+        eventId: event.id,
+        paymentId: local.id,
+        orderId: local.orderId,
+        publicId: local.order?.publicId || null,
+        providerStatus: fetched.status,
+        error: String(e?.message || e).slice(0, 200),
+      });
+      throw e; // 5xx → MP retry; durable PaymentEvent already persisted
+    }
 
     await this.prisma.paymentEvent.update({
       where: { id: event.id },

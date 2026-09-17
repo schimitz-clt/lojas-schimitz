@@ -27,6 +27,13 @@ export function mailConfiguredFromEnvPresence(
   return false;
 }
 
+/** True when STORE_NOTIFY_EMAIL env name is present (destinatário loja). Never logs the value. */
+export function storeNotifyConfiguredFromEnvPresence(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return Boolean(String(env.STORE_NOTIFY_EMAIL || '').trim());
+}
+
 /**
  * Resolve runtime provider mode (mirrors MailService boot).
  * May inspect SMTP_PASS prefix for Resend dual-use — never return the value.
