@@ -33,19 +33,21 @@ assert.equal(orderIdFromSearch(`?section=pedidos&order=${ORDER}`), ORDER);
 assert.equal(orderIdFromSearch(`?pedido=${ORDER}`), ORDER);
 assert.equal(orderIdFromSearch('?order=SCH-1'), null);
 
-assert.equal(buildAdminCustomerHref(), '/admin?section=clientes');
-assert.equal(buildAdminCustomerHref('nope'), '/admin?section=clientes');
+assert.equal(buildAdminCustomerHref(), '/admin/clientes');
+assert.equal(buildAdminCustomerHref('nope'), '/admin/clientes');
 {
   const href = buildAdminCustomerHref(ID);
+  assert.ok(href.startsWith('/admin/clientes?'));
   const qs = new URLSearchParams(href.split('?')[1] || '');
-  assert.equal(qs.get('section'), 'clientes');
+  assert.equal(qs.get('section'), null);
   assert.equal(qs.get('customer'), ID);
 }
-assert.equal(buildAdminPedidoHref(), '/admin?section=pedidos');
+assert.equal(buildAdminPedidoHref(), '/admin/pedidos');
 {
   const href = buildAdminPedidoHref(ORDER);
+  assert.ok(href.startsWith('/admin/pedidos?'));
   const qs = new URLSearchParams(href.split('?')[1] || '');
-  assert.equal(qs.get('section'), 'pedidos');
+  assert.equal(qs.get('section'), null);
   assert.equal(qs.get('order'), ORDER);
 }
 
