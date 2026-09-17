@@ -199,15 +199,38 @@ export const ADMIN_ORDER_QUEUE_BUCKETS = [
 export type AdminOrderQueueBucket = (typeof ADMIN_ORDER_QUEUE_BUCKETS)[number];
 
 /**
- * "Problemas": cancelados/reembolsados + legado stuck (separating/shipped)
- * que ainda precisam de atenção do admin (avançar ou fechar).
+ * Legado stuck: ainda na máquina antiga e precisam de ação admin
+ * (avançar fulfillment ou fechar). Única fonte do alerta CRITICAL order_problems.
+ */
+export const STUCK_ORDER_STATUSES = ['separating', 'shipped'] as const;
+
+/**
+ * Histórico terminal — descobertos no bucket Pedidos "Problemas",
+ * mas NÃO contam como fila crítica / ATENÇÃO AGORA.
+ */
+export const TERMINAL_HISTORY_ORDER_STATUSES = ['cancelled', 'refunded'] as const;
+
+/**
+ * Bucket virtual "problems" da fila Pedidos: histórico terminal + legado stuck.
+ * Alertas CRITICAL usam só STUCK_ORDER_STATUSES — não este union.
  */
 export const PROBLEM_ORDER_STATUSES = [
-  'cancelled',
-  'refunded',
-  'separating',
-  'shipped',
+  ...TERMINAL_HISTORY_ORDER_STATUSES,
+  ...STUCK_ORDER_STATUSES,
 ] as const;
+
+/** Soma contagens de um groupBy status para uma lista de status. */
+export function countStatuses(
+  byStatus: Record<string, number> | undefined | null,
+  statuses: readonly string[],
+): number {
+  if (!byStatus) return 0;
+  let n = 0;
+  for (const st of statuses) {
+    n += Math.max(0, Number(byStatus[st]) || 0);
+  }
+  return n;
+}
 
 /** Status reais do enum cobertos por um bucket da fila (problems é virtual). */
 export function statusesForAdminQueueBucket(bucket: string): string[] {

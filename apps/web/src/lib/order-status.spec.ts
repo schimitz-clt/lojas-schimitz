@@ -6,6 +6,9 @@ import {
   fulfillmentStepIndex,
   FULFILLMENT_STEPS,
   POST_PAID_STATUSES,
+  PROBLEM_ORDER_STATUSES,
+  STUCK_ORDER_STATUSES,
+  TERMINAL_HISTORY_ORDER_STATUSES,
   isPostPaidStatus,
 } from './order-status';
 
@@ -45,5 +48,12 @@ assert.equal(isPostPaidStatus('awaiting_payment'), false);
 assert.equal(isPostPaidStatus('cancelled'), false);
 assert.equal(isPostPaidStatus('refunded'), false);
 assert.ok(POST_PAID_STATUSES.includes('packing'));
+
+assert.deepEqual([...STUCK_ORDER_STATUSES].sort(), ['separating', 'shipped'].sort());
+assert.deepEqual([...TERMINAL_HISTORY_ORDER_STATUSES].sort(), ['cancelled', 'refunded'].sort());
+assert.equal((STUCK_ORDER_STATUSES as readonly string[]).includes('cancelled'), false);
+assert.equal((STUCK_ORDER_STATUSES as readonly string[]).includes('refunded'), false);
+assert.ok((PROBLEM_ORDER_STATUSES as readonly string[]).includes('cancelled'));
+assert.ok((PROBLEM_ORDER_STATUSES as readonly string[]).includes('separating'));
 
 console.log('order-status label mapping ok');

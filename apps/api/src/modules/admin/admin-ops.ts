@@ -1,6 +1,9 @@
 import {
   ADMIN_ORDER_QUEUE_BUCKETS,
   PROBLEM_ORDER_STATUSES,
+  STUCK_ORDER_STATUSES,
+  TERMINAL_HISTORY_ORDER_STATUSES,
+  countStatuses,
   statusesForAdminQueueBucket,
   type AdminOrderQueueBucket,
 } from '../../common/order-status';
@@ -210,6 +213,12 @@ export function summarizeOrderStatusCounts(rows: OrderStatusCountRow[]) {
     byStatus,
     buckets,
     problemsStatuses: [...PROBLEM_ORDER_STATUSES],
+    stuckStatuses: [...STUCK_ORDER_STATUSES],
+    terminalHistoryStatuses: [...TERMINAL_HISTORY_ORDER_STATUSES],
+    /** Legado stuck only — fonte do alerta CRITICAL order_problems. */
+    stuckCount: countStatuses(byStatus, STUCK_ORDER_STATUSES),
+    /** Cancelado/reembolsado — histórico; não gera alerta crítico. */
+    terminalHistoryCount: countStatuses(byStatus, TERMINAL_HISTORY_ORDER_STATUSES),
     total,
   };
 }
@@ -404,6 +413,13 @@ export function deriveOpsAlerts(input: {
   /** STORE_NOTIFY_EMAIL env present (name only) — never secret values. */
   storeNotifyConfigured?: boolean;
   orderBuckets?: Partial<Record<AdminOrderQueueBucket, number>>;
+  /**
+   * Legado stuck (separating/shipped) — ONLY this count drives CRITICAL order_problems.
+   * Do not pass buckets.problems here: that bucket also includes cancelled/refunded history.
+   */
+  stuckOrderCount?: number;
+  /** Cancelled+refunded history — info only; never critical. */
+  terminalHistoryCount?: number;
   /** Open PaymentReconciliation rows — real DB count only. */
   openReconciliationCount?: number;
   /** Optional sample for evidence (capped). */
@@ -424,7 +440,8 @@ export function deriveOpsAlerts(input: {
   const placeholders = Math.max(0, Number(input.placeholderProductCount) || 0);
   const pending = Math.max(0, Number(input.pendingPaymentCount) || 0);
   const buckets = input.orderBuckets || {};
-  const problems = Math.max(0, Number(buckets.problems) || 0);
+  const stuck = Math.max(0, Number(input.stuckOrderCount) || 0);
+  const terminalHistory = Math.max(0, Number(input.terminalHistoryCount) || 0);
   const paid = Math.max(0, Number(buckets.paid) || 0);
   const awaiting = Math.max(0, Number(buckets.awaiting_payment) || 0);
   const openRecon = Math.max(0, Number(input.openReconciliationCount) || 0);
@@ -499,12 +516,23 @@ export function deriveOpsAlerts(input: {
         'Separar agora (Organizando). Se a loja não recebeu aviso de venda, use Reenviar e-mail de pago / confira STORE_NOTIFY_EMAIL.',
     });
   }
-  if (problems > 0) {
+  if (stuck > 0) {
     alerts.push({
       code: 'order_problems',
       severity: 'critical',
-      message: `${problems} pedido(s) no bucket problemas`,
-      count: problems,
+      message: `${stuck} pedido(s) legado(s) travado(s) (separando/saiu para entrega)`,
+      count: stuck,
+      queueBucket: 'problems',
+      recommendedAction:
+        'Avançar fulfillment (Embalagem / Entregue) ou fechar o pedido legado. Cancelados/reembolsados não entram neste alerta.',
+    });
+  }
+  if (terminalHistory > 0) {
+    alerts.push({
+      code: 'order_terminal_history',
+      severity: 'info',
+      message: `${terminalHistory} pedido(s) cancelado(s)/reembolsado(s) (histórico — não é fila crítica)`,
+      count: terminalHistory,
       queueBucket: 'problems',
     });
   }
@@ -625,6 +653,8 @@ export function summarizeOps(input: {
     mailConfigured,
     storeNotifyConfigured,
     orderBuckets: orders.buckets,
+    stuckOrderCount: orders.stuckCount,
+    terminalHistoryCount: orders.terminalHistoryCount,
     openReconciliationCount: reconciliations.openCount,
     reconciliationRecent: reconciliations.recent,
     paidAwaitingOrg,

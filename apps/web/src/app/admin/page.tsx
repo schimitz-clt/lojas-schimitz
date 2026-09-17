@@ -454,6 +454,10 @@ type AdminOpsSnapshot = {
     byStatus: Record<string, number>;
     buckets: Record<string, number>;
     problemsStatuses?: string[];
+    stuckStatuses?: string[];
+    terminalHistoryStatuses?: string[];
+    stuckCount?: number;
+    terminalHistoryCount?: number;
     total: number;
   };
   paidAwaitingOrg?: {
@@ -4006,7 +4010,8 @@ export default function AdminPage() {
       })()}
       <p className="admin-pedidos__intro">
         Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
-        Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = cancelado/reembolsado/legado stuck.
+        Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = histórico (cancelado/reembolsado)
+        + legado stuck (separando/saiu). Alerta crítico do Ops conta só o legado travado.
         “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
         WhatsApp é wa.me — não envia sozinho.
       </p>

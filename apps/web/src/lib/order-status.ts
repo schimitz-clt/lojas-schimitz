@@ -96,11 +96,16 @@ export const ADMIN_ORDER_QUEUE_BUCKETS = [
   'problems',
 ] as const;
 
+/** Legado stuck — única fonte do alerta CRITICAL order_problems no Ops. */
+export const STUCK_ORDER_STATUSES = ['separating', 'shipped'] as const;
+
+/** Histórico terminal — filtro Pedidos "Problemas"; não é fila crítica. */
+export const TERMINAL_HISTORY_ORDER_STATUSES = ['cancelled', 'refunded'] as const;
+
+/** Bucket Pedidos "Problemas": histórico + legado stuck. Alertas CRITICAL usam só STUCK. */
 export const PROBLEM_ORDER_STATUSES = [
-  'cancelled',
-  'refunded',
-  'separating',
-  'shipped',
+  ...TERMINAL_HISTORY_ORDER_STATUSES,
+  ...STUCK_ORDER_STATUSES,
 ] as const;
 
 export const ADMIN_QUEUE_BUCKET_LABEL: Record<string, string> = {
