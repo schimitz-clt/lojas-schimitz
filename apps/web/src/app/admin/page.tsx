@@ -33,6 +33,7 @@ import {
 } from '@/lib/admin-sections';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
+import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
 import {
   AdminOrderStatusChip,
   AdminProductActiveChip,
@@ -88,6 +89,11 @@ import {
   toggleIdInList,
   validateProductPhotoFile,
 } from '@/lib/admin-daily-ops';
+import {
+  buildSalesReportCsv,
+  salesCsvWithBom,
+  salesExportFilename,
+} from '@/lib/admin-sales-ui';
 
 type AdminOrder = {
   id: string;
@@ -288,6 +294,7 @@ type SalesReport = {
     revenue: number;
   }[];
   topProducts: { productId: string; name: string; qty: number; revenue: number }[];
+  byPaymentMethod?: { method: string; orderCount: number; revenue: number }[];
 };
 
 
@@ -617,6 +624,7 @@ export default function AdminPage() {
   const [salesFrom, setSalesFrom] = useState(() => addDaysYmd(saoPauloYmd(), -29));
   const [salesTo, setSalesTo] = useState(() => saoPauloYmd());
   const [salesBusy, setSalesBusy] = useState(false);
+  const [salesExportBusy, setSalesExportBusy] = useState(false);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
@@ -916,6 +924,31 @@ export default function AdminPage() {
       setSalesBusy(false);
     }
   }, [salesFrom, salesTo]);
+
+  function exportSalesCsv() {
+    if (!salesReport) {
+      setErr('Carregue o relatório antes de exportar.');
+      return;
+    }
+    setSalesExportBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const csv = buildSalesReportCsv(salesReport, orderStatusLabel);
+      const blob = new Blob([salesCsvWithBom(csv)], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = salesExportFilename(salesReport.from, salesReport.to);
+      a.click();
+      URL.revokeObjectURL(url);
+      setMsg(`CSV de vendas exportado (${salesReport.from} a ${salesReport.to}).`);
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao exportar CSV de vendas');
+    } finally {
+      setSalesExportBusy(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -3183,7 +3216,8 @@ export default function AdminPage() {
       {adminSection === 'vendas' ? (
       <div className="admin-section-panel">
       <p className="admin-section-intro">
-        Pedidos pagos no período (pago, separando, saiu para entrega, entregue). Horário de Brasília.
+        Pedidos pagos no período (pago, organizando, saiu para entrega, entregue). Horário de Brasília.
+        Exportar CSV usa o mesmo recorte (filtros acima; padrão 30 dias).
       </p>
       <div className="admin-toolbar">
           <div className="admin-filter-row">
@@ -3208,7 +3242,7 @@ export default function AdminPage() {
             ))}
           </div>
           <form
-            className="admin-toolbar__row"
+            className="admin-toolbar__row admin-sales-toolbar"
             onSubmit={(e) => {
               e.preventDefault();
               void loadSalesReport(salesFrom, salesTo);
@@ -3232,9 +3266,19 @@ export default function AdminPage() {
                 required
               />
             </label>
-            <button className="btn admin-btn-primary-accent" type="submit" disabled={salesBusy}>
-              {salesBusy ? 'Carregando...' : 'Atualizar'}
-            </button>
+            <div className="admin-sales-toolbar__actions">
+              <button className="btn admin-btn-primary-accent" type="submit" disabled={salesBusy}>
+                {salesBusy ? 'Carregando...' : 'Atualizar'}
+              </button>
+              <button
+                className="btn admin-btn-ghost-pro"
+                type="button"
+                disabled={salesBusy || salesExportBusy || !salesReport}
+                onClick={() => exportSalesCsv()}
+              >
+                {salesExportBusy ? 'Exportando...' : 'Exportar CSV'}
+              </button>
+            </div>
           </form>
       </div>
           {salesReport ? (
@@ -3253,6 +3297,13 @@ export default function AdminPage() {
                   <div className="admin-kpi-lite__value">{brl(salesReport.summary.averageTicket)}</div>
                 </div>
               </div>
+              <AdminSalesCharts
+                from={salesReport.from}
+                to={salesReport.to}
+                byDay={salesReport.byDay}
+                topProducts={salesReport.topProducts}
+                byPaymentMethod={salesReport.byPaymentMethod}
+              />
               <div className="admin-split">
                 <section className="admin-card-pro" style={{ marginBottom: 0 }}>
                   <div className="body">

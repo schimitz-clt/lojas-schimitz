@@ -1,5 +1,6 @@
 import {
   aggregateByDay,
+  aggregateByPaymentMethod,
   aggregateBySeller,
   aggregateTopProducts,
   computeSalesSummary,
@@ -72,5 +73,15 @@ assert(
   !!store && store.sellerName === 'Loja própria' && store.revenue === 35 && store.orderCount === 2,
   'store bucket',
 );
+
+const byPay = aggregateByPaymentMethod([
+  { orderId: 'o1', method: 'pix', amount: 100 },
+  { orderId: 'o1', method: 'pix', amount: 10 },
+  { orderId: 'o2', method: 'card', amount: 80 },
+  { orderId: 'o3', method: 'PIX', amount: 20 },
+]);
+assert(byPay[0].method === 'pix' && byPay[0].orderCount === 2 && byPay[0].revenue === 130, 'pix mix');
+assert(byPay[1].method === 'card' && byPay[1].orderCount === 1 && byPay[1].revenue === 80, 'card mix');
+assert(aggregateByPaymentMethod([]).length === 0, 'empty pay mix');
 
 console.log('admin-sales-report.spec.ts OK');

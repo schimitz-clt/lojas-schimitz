@@ -1698,3 +1698,199 @@ button.admin-kpi:active {
     height: 48px;
   }
 }
+
+/* —— Ciclo B (P1): Vendas export + gráficos —— */
+
+.admin-sales-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.admin-sales-toolbar__actions .btn {
+  min-height: 44px;
+}
+
+.admin-sales-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-sales-chart-card {
+  margin: 0;
+  min-width: 0;
+}
+
+.admin-sales-chart-wrap {
+  overflow: hidden;
+}
+
+.admin-sales-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+}
+
+.admin-sales-chart__grid {
+  stroke: var(--admin-line);
+  stroke-width: 1;
+}
+
+.admin-sales-chart__tick {
+  fill: var(--admin-muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.admin-sales-chart__area {
+  fill: rgba(255, 209, 0, 0.38);
+}
+
+.admin-sales-chart__line {
+  stroke: var(--admin-ink);
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.admin-sales-chart__bar {
+  fill: var(--admin-ink);
+}
+
+.admin-sales-donut {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.admin-sales-donut__svg {
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+}
+
+.admin-sales-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.admin-sales-legend li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.admin-sales-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.admin-sales-legend__label {
+  font-weight: 700;
+  color: var(--admin-ink);
+}
+
+.admin-sales-legend b {
+  margin-left: auto;
+  color: var(--admin-ink);
+}
+
+.admin-sales-hbars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-sales-hbars__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.admin-sales-hbars__name {
+  flex: 1 1 120px;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--admin-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-sales-hbars__meta b {
+  color: var(--admin-ink);
+}
+
+.admin-sales-hbars__track {
+  height: 10px;
+  border-radius: 99px;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-line);
+  overflow: hidden;
+}
+
+.admin-sales-hbars__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--admin-accent);
+  min-width: 4px;
+}
+
+@media (max-width: 800px) {
+  .admin-sales-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-sales-toolbar__actions {
+    width: 100%;
+  }
+
+  .admin-sales-toolbar__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .admin-toolbar__row.admin-sales-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-sales-toolbar .admin-date-field {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 430px) {
+  .admin-sales-chart__tick {
+    font-size: 8px;
+  }
+
+  .admin-sales-donut__svg {
+    width: 96px;
+    height: 96px;
+  }
+
+  .admin-sales-hbars__name {
+    white-space: normal;
+  }
+}
