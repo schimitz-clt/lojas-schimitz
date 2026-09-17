@@ -85,12 +85,14 @@ export function formatCustomerAddressLine(
   return [street, extra, city, cep].filter(Boolean).join(' — ');
 }
 
-export function pickPrimaryCustomerAddress<T extends { isDefault?: boolean }>(
-  addresses: T[] | null | undefined,
-): T | null {
+export function pickPrimaryCustomerAddress<T>(addresses: T[] | null | undefined): T | null {
   const list = addresses || [];
   if (!list.length) return null;
-  return list.find((x) => x.isDefault) || list[0];
+  const flagged = list.find((x) => {
+    if (x == null || typeof x !== 'object') return false;
+    return Boolean((x as { isDefault?: boolean }).isDefault);
+  });
+  return flagged ?? list[0];
 }
 
 export function customerOrderPaymentLabel(method?: string | null): string {

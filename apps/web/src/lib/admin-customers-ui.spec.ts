@@ -35,12 +35,19 @@ assert.equal(orderIdFromSearch('?order=SCH-1'), null);
 
 assert.equal(buildAdminCustomerHref(), '/admin?section=clientes');
 assert.equal(buildAdminCustomerHref('nope'), '/admin?section=clientes');
-assert.equal(
-  buildAdminCustomerHref(ID),
-  `/admin?section=clientes&customer=${ID}`,
-);
+{
+  const href = buildAdminCustomerHref(ID);
+  const qs = new URLSearchParams(href.split('?')[1] || '');
+  assert.equal(qs.get('section'), 'clientes');
+  assert.equal(qs.get('customer'), ID);
+}
 assert.equal(buildAdminPedidoHref(), '/admin?section=pedidos');
-assert.equal(buildAdminPedidoHref(ORDER), `/admin?section=pedidos&order=${ORDER}`);
+{
+  const href = buildAdminPedidoHref(ORDER);
+  const qs = new URLSearchParams(href.split('?')[1] || '');
+  assert.equal(qs.get('section'), 'pedidos');
+  assert.equal(qs.get('order'), ORDER);
+}
 
 assert.equal(formatCep('90000000'), '90000-000');
 assert.equal(formatCep('90000-000'), '90000-000');

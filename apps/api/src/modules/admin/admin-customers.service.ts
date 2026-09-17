@@ -152,12 +152,14 @@ export function serializeCustomerAddress(a: CustomerAddressLike) {
   };
 }
 
-export function pickDefaultAddress<T extends { isDefault?: boolean }>(
-  addresses: T[] | null | undefined,
-): T | null {
+export function pickDefaultAddress<T>(addresses: T[] | null | undefined): T | null {
   const list = addresses || [];
   if (!list.length) return null;
-  return list.find((a) => a.isDefault) || list[0];
+  const flagged = list.find((a) => {
+    if (a == null || typeof a !== 'object') return false;
+    return Boolean((a as { isDefault?: boolean }).isDefault);
+  });
+  return flagged ?? list[0];
 }
 
 @Injectable()
