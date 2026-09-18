@@ -68,10 +68,10 @@ export default function PrivacidadePage() {
             loja.
           </li>
           <li>
-            <strong>Sessão e cookies</strong> — usamos cookie HttpOnly de atualização de sessão (
-            <code>sch_refresh</code>) e um token de acesso de curta duração no navegador/app para
-            manter você logado. Também usamos armazenamento local do navegador para o token de
-            acesso e, em alguns casos, fallback de sessão.
+            <strong>Sessão e cookies</strong> — usamos cookies HttpOnly de sessão (
+            <code>sch_refresh</code> e <code>sch_access</code>) para manter você logado. O perfil da
+            conta (nome e e-mail, sem senha e sem token) pode ficar no armazenamento local só para a
+            interface. Não guardamos JWT de acesso ou refresh no <code>localStorage</code>.
           </li>
           <li>
             <strong>Chat do site</strong> — mensagens enviadas no assistente do site para FAQ,

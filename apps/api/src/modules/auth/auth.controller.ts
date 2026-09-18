@@ -7,8 +7,9 @@ import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
 import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
 import {
-  clearRefreshCookie,
+  clearAuthCookies,
   issueAuthSession,
+  resolveAccessToken,
   resolveRefreshToken,
 } from './refresh-cookie';
 
@@ -40,18 +41,19 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiOperation({ summary: 'Registrar cliente' })
+  @ApiOperation({
+    summary: 'Registrar cliente',
+    description:
+      'Resposta genérica (anti-enumeração): o mesmo sucesso se o e-mail é novo ou já existe. Sem sessão — faça login em seguida. Merge de carrinho guest ocorre no login.',
+  })
   @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
     @Headers('x-guest-token') guestToken?: string,
   ) {
-    const tokens = await this.auth.register(dto, clientIp(req), guestToken);
-    await this.mergeGuest(tokens.user.id, guestToken);
-    return ok(issueAuthSession(res, tokens));
+    return ok(await this.auth.register(dto, clientIp(req), guestToken));
   }
 
   @Post('login')
@@ -83,7 +85,7 @@ export class AuthController {
   ) {
     const refreshToken = resolveRefreshToken(req, dto?.refreshToken);
     if (!refreshToken) {
-      clearRefreshCookie(res);
+      clearAuthCookies(res);
       throw new UnauthorizedException('Refresh token inválido');
     }
     const tokens = await this.auth.refresh({ refreshToken });
@@ -95,7 +97,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout / revogar refresh',
     description:
-      'Bearer access opcional. Sem access válido, ainda revoga via cookie/body `refreshToken`. Sempre limpa `sch_refresh`.',
+      'Bearer access opcional. Sem access válido, ainda revoga via cookie/body `refreshToken`. Sempre limpa `sch_refresh` e `sch_access`.',
   })
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   async logout(
@@ -104,10 +106,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const refreshToken = resolveRefreshToken(req, body?.refreshToken);
-    const auth = String(req.headers.authorization || '');
-    const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-    const result = await this.auth.logoutFlexible(bearer || undefined, refreshToken);
-    clearRefreshCookie(res);
+    const access = resolveAccessToken(req);
+    const result = await this.auth.logoutFlexible(access || undefined, refreshToken);
+    clearAuthCookies(res);
     return ok(result);
   }
 

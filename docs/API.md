@@ -103,9 +103,10 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 
 ## Sessão / cookies (SCH-006)
 
-- Login/register/refresh: `Set-Cookie: sch_refresh=...; HttpOnly; Path=/; SameSite=...`
+- Login/refresh: `Set-Cookie: sch_refresh=...` e `Set-Cookie: sch_access=...` (ambos HttpOnly).
+- `POST /auth/register` — resposta genérica `{ accepted, message }` (não enumerar e-mail; sem sessão).
 - Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
-- Access token continua no header `Authorization: Bearer`.
+- Access token: cookie HttpOnly `sch_access` **ou** header `Authorization: Bearer` (Bearer tem precedência).
 - JSON inclui `refreshToken` **por default** (`REFRESH_JSON_TOKEN_ENABLED` unset/true).
   Com cookie enabled + `REFRESH_JSON_TOKEN_ENABLED=false` o campo é **omitido** (cookie-only).
   Body `{ refreshToken }` ainda é aceito no refresh/logout como fallback (cookie tem precedência).

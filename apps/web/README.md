@@ -39,18 +39,19 @@ Variáveis:
 
 Webhooks Mercado Pago permanecem na URL Railway da API (não passam por este proxy).
 
-## Auth cookie-first (refresh)
+## Auth cookie-first (refresh + access)
 
 Em hosts **não-locais** (ex.: `lojasschimitz.com.br`, WebView Android):
 
 - Todo `fetch` da API usa `credentials: 'include'`.
-- Refresh fica no cookie HttpOnly `sch_refresh` (proxy same-origin); **não** grava refresh em `localStorage`.
-- Body de `/auth/refresh` e `/auth/logout` é `{}` nestes hosts — leftover `sch_refresh` no `localStorage` **não** é enviado (a API prefere cookie; o cliente cookie-first nem manda body).
+- Refresh e access ficam nos cookies HttpOnly `sch_refresh` / `sch_access` (proxy same-origin); **não** grava JWTs em `localStorage`/`sessionStorage`.
+- Body de `/auth/refresh` e `/auth/logout` é `{}` nestes hosts.
 - JSON sem `refreshToken` (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é válido: a sessão segue no cookie.
+- Cadastro (`POST /auth/register`) devolve mensagem genérica (anti-enumeração) e **não** abre sessão — o cliente faz login em seguida.
 
-Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): o refresh ainda é persistido em `localStorage` e enviado no body.
+Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): access/refresh ficam só na memória da aba e o refresh pode ir no body. Recarregar a página no localhost pede login de novo se o cookie não colar.
 
-Access JWT curto e dados de usuário continuam em `localStorage` em todos os ambientes.
+O perfil `sch_user` (id/nome/e-mail/role, não é JWT) continua em `localStorage` para a UI.
 
 
 ## www → apex

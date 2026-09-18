@@ -1,14 +1,19 @@
 import assert from 'assert';
 import type { Request, Response } from 'express';
 import {
+  ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
+  accessCookieMaxAgeSec,
+  clearAuthCookies,
   clearRefreshCookie,
   issueAuthSession,
+  readAccessFromRequest,
   readRefreshFromRequest,
   refreshCookieEnabled,
   refreshCookieSameSite,
   refreshCookieSecure,
   refreshJsonTokenEnabled,
+  resolveAccessToken,
   resolveRefreshToken,
   setRefreshCookie,
   shapeAuthSessionPayload,
@@ -28,6 +33,9 @@ function resetEnv() {
     'REFRESH_COOKIE_NAME',
     'REFRESH_COOKIE_DOMAIN',
     'REFRESH_JSON_TOKEN_ENABLED',
+    'JWT_ACCESS_EXPIRES',
+    'ACCESS_COOKIE_MAX_AGE_SEC',
+    'ACCESS_COOKIE_NAME',
   ]) {
     if (k in saved) process.env[k] = saved[k]!;
     else delete process.env[k];
@@ -76,11 +84,39 @@ try {
   process.env.REFRESH_COOKIE_NAME = 'my_rt';
   assert.equal(REFRESH_COOKIE_NAME(), 'my_rt');
   delete process.env.REFRESH_COOKIE_NAME;
+  delete process.env.ACCESS_COOKIE_NAME;
+  assert.equal(ACCESS_COOKIE_NAME(), 'sch_access');
+
+  delete process.env.ACCESS_COOKIE_MAX_AGE_SEC;
+  delete process.env.JWT_ACCESS_EXPIRES;
+  assert.equal(accessCookieMaxAgeSec(), 900);
+  process.env.JWT_ACCESS_EXPIRES = '15m';
+  assert.equal(accessCookieMaxAgeSec(), 900);
+  process.env.JWT_ACCESS_EXPIRES = '1h';
+  assert.equal(accessCookieMaxAgeSec(), 3600);
+  process.env.ACCESS_COOKIE_MAX_AGE_SEC = '1200';
+  assert.equal(accessCookieMaxAgeSec(), 1200);
+  delete process.env.ACCESS_COOKIE_MAX_AGE_SEC;
+  delete process.env.JWT_ACCESS_EXPIRES;
 
   const req = {
     headers: { cookie: 'sch_refresh=abc%2Fdef; other=1' },
   } as unknown as Request;
   assert.equal(readRefreshFromRequest(req), 'abc/def');
+
+  const reqAccess = {
+    headers: {
+      authorization: 'Bearer hdr-acc',
+      cookie: 'sch_access=cookie-acc; sch_refresh=rt',
+    },
+  } as unknown as Request;
+  assert.equal(readAccessFromRequest(reqAccess), 'cookie-acc');
+  assert.equal(resolveAccessToken(reqAccess), 'hdr-acc', 'Bearer wins over access cookie');
+  const reqCookieOnly = {
+    headers: { cookie: 'sch_access=cookie-only' },
+  } as unknown as Request;
+  assert.equal(resolveAccessToken(reqCookieOnly), 'cookie-only');
+  assert.equal(resolveAccessToken({ headers: {} } as unknown as Request), undefined);
 
   // Phase 9: cookie preferred over body
   assert.equal(resolveRefreshToken(req, 'body-token'), 'abc/def');
@@ -136,7 +172,10 @@ try {
     user: { id: '1' },
   }) as any;
   assert.equal(dualIssued.refreshToken, 'r');
-  assert.ok(String(dualRes.getHeader('Set-Cookie')).includes('sch_refresh='));
+  const dualCookies = dualRes.getHeader('Set-Cookie');
+  const dualCookieStr = Array.isArray(dualCookies) ? dualCookies.join('\n') : String(dualCookies);
+  assert.ok(dualCookieStr.includes('sch_refresh='), dualCookieStr);
+  assert.ok(dualCookieStr.includes('sch_access='), dualCookieStr);
   assert.ok(JSON.stringify(ok(dualIssued)).includes('refreshToken'));
 
   for (const keep of ['true', '1', 'on', 'TRUE', '']) {
@@ -200,10 +239,13 @@ try {
     refreshToken: 'rt-cookie-only',
     user: { id: '1', role: 'customer' },
   }) as any;
-  const issuedCookie = String(issuedRes.getHeader('Set-Cookie'));
+  const issuedCookieRaw = issuedRes.getHeader('Set-Cookie');
+  const issuedCookie = Array.isArray(issuedCookieRaw) ? issuedCookieRaw.join('\n') : String(issuedCookieRaw);
   assert.ok(issuedCookie.includes('sch_refresh='), issuedCookie);
+  assert.ok(issuedCookie.includes('sch_access='), issuedCookie);
   assert.ok(issuedCookie.includes('HttpOnly'), issuedCookie);
   assert.ok(issuedCookie.includes(encodeURIComponent('rt-cookie-only')) || issuedCookie.includes('rt-cookie-only'), issuedCookie);
+  assert.ok(issuedCookie.includes('acc-login') || issuedCookie.includes(encodeURIComponent('acc-login')), issuedCookie);
   assert.equal(issued.refreshToken, undefined);
   assert.equal('refreshToken' in issued, false);
   assert.equal(issued.accessToken, 'acc-login');
@@ -240,14 +282,14 @@ try {
   assert.ok(cookieOnly.includes('HttpOnly'), cookieOnly);
   assert.ok(cookieOnly.includes('rt-cookie-only'), cookieOnly);
 
-  // Logout must still clear HttpOnly cookie when JSON flag is false.
-  clearRefreshCookie(resJsonOff);
+  // Logout must still clear HttpOnly cookies when JSON flag is false.
+  clearAuthCookies(resJsonOff);
   const cleared = resJsonOff.getHeader('Set-Cookie');
-  const clearedLast = Array.isArray(cleared) ? cleared[cleared.length - 1] : String(cleared);
-  assert.ok(String(clearedLast).includes('Max-Age=0'), String(clearedLast));
-  assert.ok(String(clearedLast).includes('HttpOnly'), String(clearedLast));
-  assert.ok(/Expires=Thu, 01 Jan 1970/i.test(String(clearedLast)), String(clearedLast));
-  assert.ok(String(clearedLast).includes('sch_refresh='), String(clearedLast));
+  const clearedAll = Array.isArray(cleared) ? cleared.map(String) : [String(cleared)];
+  assert.ok(clearedAll.some((c) => c.includes('sch_refresh=') && c.includes('Max-Age=0')), String(clearedAll));
+  assert.ok(clearedAll.some((c) => c.includes('sch_access=') && c.includes('Max-Age=0')), String(clearedAll));
+  assert.ok(clearedAll.every((c) => c.includes('HttpOnly')), String(clearedAll));
+  assert.ok(clearedAll.some((c) => /Expires=Thu, 01 Jan 1970/i.test(c)), String(clearedAll));
 
   // Cookie off → never omit (body-only clients), even if JSON flag is false.
   process.env.REFRESH_COOKIE_ENABLED = 'false';
@@ -264,9 +306,16 @@ try {
   const ctrl = require('fs').readFileSync(require('path').join(__dirname, 'auth.controller.ts'), 'utf8');
   assert.ok(ctrl.includes('resolveRefreshToken(req, dto?.refreshToken)'), 'refresh prefers cookie helper');
   assert.ok(ctrl.includes('resolveRefreshToken(req, body?.refreshToken)'), 'logout reads cookie then body');
-  assert.ok(/async logout\([\s\S]*clearRefreshCookie\(res\)/.test(ctrl), 'logout always clearRefreshCookie');
-  assert.ok(/async refresh\([\s\S]*clearRefreshCookie\(res\)/.test(ctrl), 'refresh clears cookie when token missing');
+  assert.ok(/async logout\([\s\S]*clearAuthCookies\(res\)/.test(ctrl), 'logout always clearAuthCookies');
+  assert.ok(/async refresh\([\s\S]*clearAuthCookies\(res\)/.test(ctrl), 'refresh clears cookies when token missing');
   assert.ok(ctrl.includes("limit: 30"), 'logout is throttled');
+  assert.ok(ctrl.includes('resolveAccessToken(req)'), 'logout reads access from Bearer or cookie');
+
+  const jwtGuard = require('fs').readFileSync(
+    require('path').join(__dirname, '../../common/guards/jwt-auth.guard.ts'),
+    'utf8',
+  );
+  assert.ok(jwtGuard.includes('resolveAccessToken'), 'JwtAuthGuard accepts access cookie');
 
   console.log('refresh-cookie unit tests ok');
 } finally {

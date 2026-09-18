@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma.service';
+import { resolveAccessToken } from '../../modules/auth/refresh-cookie';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -11,8 +12,7 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const header = String(req.headers.authorization || '');
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const token = resolveAccessToken(req) || '';
     if (!token) throw new UnauthorizedException({ message: 'Token ausente', code: 'UNAUTHORIZED' });
     try {
       const payload = await this.jwt.verifyAsync<{ sub?: string; email?: string; role?: string }>(token, {

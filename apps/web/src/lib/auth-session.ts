@@ -1,16 +1,17 @@
 /**
- * Cookie-first refresh helpers (web).
+ * Cookie-first session helpers (web).
  *
  * Production / same-origin (`/api/v1` on lojasschimitz.com.br, incl. Android WebView):
- * prefer HttpOnly `sch_refresh` cookie — do not persist refresh in localStorage,
- * and do not send a leftover `sch_refresh` in the request body (cookie is the source).
+ * HttpOnly `sch_refresh` + `sch_access` cookies — never persist JWTs in localStorage
+ * or sessionStorage. Fetch uses credentials: 'include'.
  *
- * Localhost: browser talks to API on :3001 (cross-origin), so cookie may not attach;
- * keep refreshToken in localStorage and send it in the request body.
+ * Localhost: browser talks to API on :3001 (cross-origin); cookies may not attach.
+ * Keep access/refresh in **memory only** (api.ts) and send refresh in the request body.
+ * Do not write tokens to web storage on localhost either (XSS + leftover prod cookies).
  *
  * Missing JSON `refreshToken` (API `REFRESH_JSON_TOKEN_ENABLED=false`) is valid on
  * cookie-first hosts — Set-Cookie carries the session. Default API flag stays true
- * until Railway flip; this client is ready either way.
+ * until Railway flip; this client is ready either way. Do not re-enable the flag here.
  *
  * apps/mobile is Kotlin WebView → same site URL (not Capacitor); cookie path applies.
  */
@@ -60,7 +61,7 @@ export function refreshBodyFromStorage(stored: string | null | undefined): { ref
 /**
  * Body for /auth/refresh and /auth/logout.
  * Cookie-first hosts: always `{}` — HttpOnly cookie is sent via credentials.
- * Localhost: dual-mode body if storage has a token.
+ * Localhost: dual-mode body if memory (not web storage) has a token.
  */
 export function refreshBodyForRequest(
   hostname: string,
@@ -70,30 +71,28 @@ export function refreshBodyForRequest(
   return refreshBodyFromStorage(stored);
 }
 
-/** Drop leftover `sch_refresh` on cookie-first hosts (XSS surface + stale body). */
-export function discardStaleRefreshStorage(storage: SessionStorageWriter, hostname: string): void {
-  if (isCookieFirstHost(hostname)) {
-    storage.removeItem(AUTH_STORAGE_KEYS.refresh);
-  }
+/** Drop leftover `sch_access` / `sch_refresh` everywhere (XSS surface + stale body). */
+export function discardStaleAuthTokenStorage(storage: SessionStorageWriter): void {
+  storage.removeItem(AUTH_STORAGE_KEYS.access);
+  storage.removeItem(AUTH_STORAGE_KEYS.refresh);
+}
+
+/** @deprecated use discardStaleAuthTokenStorage — hostname ignored; tokens never stay in web storage. */
+export function discardStaleRefreshStorage(storage: SessionStorageWriter, _hostname?: string): void {
+  discardStaleAuthTokenStorage(storage);
 }
 
 /**
- * Persist access+user. Refresh in localStorage only on localhost.
- * Production / Android WebView: always drop `sch_refresh` (cookie-first).
+ * Persist user profile only. Never write access/refresh JWTs to web storage.
  * Missing `refreshToken` (REFRESH_JSON_TOKEN_ENABLED=false) is valid — cookie carries it.
  */
 export function persistAuthSession(
   storage: SessionStorageWriter,
-  hostname: string,
+  _hostname: string,
   data: AuthSessionPayload,
 ): void {
-  storage.setItem(AUTH_STORAGE_KEYS.access, data.accessToken);
+  discardStaleAuthTokenStorage(storage);
   storage.setItem(AUTH_STORAGE_KEYS.user, JSON.stringify(data.user));
-  if (shouldPersistRefreshInLocalStorage(hostname) && data.refreshToken) {
-    storage.setItem(AUTH_STORAGE_KEYS.refresh, data.refreshToken);
-  } else {
-    discardStaleRefreshStorage(storage, hostname);
-  }
 }
 
 /** Drop access/refresh/user keys. Returns prior tokens so logout can revoke cookie/body. */

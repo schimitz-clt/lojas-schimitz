@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { resolveAccessToken } from '../../modules/auth/refresh-cookie';
 
 @Injectable()
 export class OptionalJwtGuard implements CanActivate {
@@ -7,8 +8,7 @@ export class OptionalJwtGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const header = String(req.headers.authorization || '');
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const token = resolveAccessToken(req) || '';
     if (!token) return true;
     try {
       req.user = await this.jwt.verifyAsync(token, {

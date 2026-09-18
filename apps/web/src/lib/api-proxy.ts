@@ -56,7 +56,7 @@ export function rewriteSetCookieHeaders(headers: string[]): string[] {
 
 /**
  * Browser base URL: same-origin /api/v1 outside localhost so HttpOnly cookies work.
- * Local keeps NEXT_PUBLIC_API_URL (default localhost:3001) — body refresh in localStorage.
+ * Local keeps NEXT_PUBLIC_API_URL (default localhost:3001) — body refresh from memory, not localStorage.
  * Non-local uses /api/v1 (cookie-first; see auth-session.ts).
  */
 /**
