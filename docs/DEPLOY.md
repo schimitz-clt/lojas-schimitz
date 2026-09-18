@@ -16,6 +16,19 @@ merge e com OK do dono, setar **no serviço API**:
 `REFRESH_JSON_TOKEN_ENABLED=false`. Rollback = `true` ou unset. Não setar no web.
 Checklist: `docs/SECURITY.md`.
 
+### Pagamentos — fail-closed (checklist Railway)
+
+Serviço **web**: **não** definir `NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE` nem
+`NEXT_PUBLIC_NULL_WEBHOOK_SECRET`. O `next build` de produção apaga essas chaves
+mesmo se alguém as colar. Manter `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`.
+
+Serviço **API**: `PAYMENTS_PROVIDER=mercadopago` + secrets MP fortes. **Não**
+definir `ALLOW_NULL_PAYMENT_SIMULATE`, `ALLOW_NULL_PROVIDER_IN_PROD`,
+`NULL_WEBHOOK_SECRET`. Simulate/null provider são bloqueados também quando
+`RAILWAY_ENVIRONMENT=production` ou `NODE_ENV=production`.
+
+Ver `docs/SECURITY-HARDENING-2026-09-18.md`. Não rotacionar tokens neste lote.
+
 ## Pipeline
 
 1. Install (raiz + apps/api), generate Prisma, build TypeScript

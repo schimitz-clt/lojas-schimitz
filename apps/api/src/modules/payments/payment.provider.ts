@@ -1,5 +1,9 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
+import { isProdLikeEnv } from '../../common/prod-like-env';
+
+export { isProdLikeEnv };
+
 export type DomainPaymentStatus =
   | 'pending'
   | 'approved'
@@ -501,14 +505,10 @@ export function buildMercadoPagoNotificationUrl(
   return `${withPrefix}/webhooks/mercadopago`;
 }
 
-export function isProdLikeEnv() {
-  const env = String(process.env.APP_ENV || process.env.NODE_ENV || '').toLowerCase();
-  return env === 'production' || env === 'prod' || env === 'staging';
-}
-
-/** Opt-in explícito para body.status no NullPaymentProvider (nunca em prod/staging). */
+/** Opt-in explícito para body.status no NullPaymentProvider (nunca em prod/staging/Railway prod). */
 export function allowNullPaymentSimulate() {
   if (isProdLikeEnv()) return false;
+  // Browser-public flags must never enable API simulate (even in dev they are ignored).
   return process.env.ALLOW_NULL_PAYMENT_SIMULATE === 'true';
 }
 

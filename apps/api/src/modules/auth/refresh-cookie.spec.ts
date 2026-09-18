@@ -260,6 +260,14 @@ try {
   }) as any;
   assert.equal(stillBody.refreshToken, 'r');
 
+  // Source locks: cookie precedes body; logout always clears cookie.
+  const ctrl = require('fs').readFileSync(require('path').join(__dirname, 'auth.controller.ts'), 'utf8');
+  assert.ok(ctrl.includes('resolveRefreshToken(req, dto?.refreshToken)'), 'refresh prefers cookie helper');
+  assert.ok(ctrl.includes('resolveRefreshToken(req, body?.refreshToken)'), 'logout reads cookie then body');
+  assert.ok(/async logout\([\s\S]*clearRefreshCookie\(res\)/.test(ctrl), 'logout always clearRefreshCookie');
+  assert.ok(/async refresh\([\s\S]*clearRefreshCookie\(res\)/.test(ctrl), 'refresh clears cookie when token missing');
+  assert.ok(ctrl.includes("limit: 30"), 'logout is throttled');
+
   console.log('refresh-cookie unit tests ok');
 } finally {
   for (const k of Object.keys(process.env)) {

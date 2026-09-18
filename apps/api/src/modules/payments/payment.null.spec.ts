@@ -11,6 +11,8 @@ process.env.NODE_ENV = 'development';
 process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
 delete process.env.NULL_WEBHOOK_SECRET;
 delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+delete process.env.RAILWAY_ENVIRONMENT;
+delete process.env.RAILWAY_ENVIRONMENT_NAME;
 
 nullProviderReset();
 const p = new NullPaymentProvider();

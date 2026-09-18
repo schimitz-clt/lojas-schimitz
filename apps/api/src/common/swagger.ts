@@ -1,11 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { isProdLikeAppEnv } from './prod-like-env';
 
-/** Espelha isProdLikeEnv do payment.provider — sem acoplar main → payments. */
-export function isProdLikeAppEnv() {
-  const env = String(process.env.APP_ENV || process.env.NODE_ENV || '').toLowerCase();
-  return env === 'production' || env === 'prod' || env === 'staging';
-}
+export { isProdLikeAppEnv, isProdLikeEnv } from './prod-like-env';
 
 /**
  * OpenAPI/Swagger:

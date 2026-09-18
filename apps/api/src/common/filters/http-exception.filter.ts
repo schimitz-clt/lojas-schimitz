@@ -8,7 +8,8 @@ import {
 import { randomUUID } from 'crypto';
 import { Response } from 'express';
 import { mapMulterUploadError } from '../../modules/uploads/upload-validate';
-import { isProdLikeAppEnv } from '../swagger';
+import { isProdLikeAppEnv } from '../prod-like-env';
+import { sanitizeClientErrorDetails, sanitizeClientErrorMessage } from './sanitize-error';
 
 export type ClientErrorBody = {
   success: false;
@@ -77,6 +78,9 @@ export function buildClientError(
     details = [];
     if (!isHttp) code = 'INTERNAL_ERROR';
   }
+
+  message = sanitizeClientErrorMessage(message, { prodLike, status });
+  details = sanitizeClientErrorDetails(details, { prodLike, status });
 
   return {
     status,

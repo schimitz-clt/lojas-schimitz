@@ -43,6 +43,7 @@ const ctrl = readFileSync(join(__dirname, 'users.controller.ts'), 'utf8');
 assert.ok(ctrl.includes('JwtAuthGuard'));
 assert.ok(ctrl.includes("CurrentUser('sub')"));
 assert.ok(!ctrl.includes('@Param'), 'me endpoints must not take foreign user id');
+assert.ok(ctrl.includes('Throttle'), 'PATCH /me is rate-limited');
 
 assert.deepEqual([...ME_PATCH_ALLOWED_KEYS].sort(), ['name', 'phone'].sort());
 

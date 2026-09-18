@@ -95,8 +95,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout / revogar refresh',
     description:
-      'Bearer access opcional. Sem access válido, ainda revoga via cookie/body `refreshToken`.',
+      'Bearer access opcional. Sem access válido, ainda revoga via cookie/body `refreshToken`. Sempre limpa `sch_refresh`.',
   })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async logout(
     @Body() body: { refreshToken?: string },
     @Req() req: Request,

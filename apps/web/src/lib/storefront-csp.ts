@@ -22,6 +22,8 @@
  *
  * Report-Only was considered; it would not reduce XSS→session residual.
  * Nonce-strict CSP remains a later phase.
+ * Cross-Origin-Embedder-Policy is **not** shipped (would break Card Brick
+ * unless every MP CDN sent CORP). See storefront-security-headers.ts.
  */
 
 export const STOREFRONT_CSP_HEADER_NAME = 'Content-Security-Policy';

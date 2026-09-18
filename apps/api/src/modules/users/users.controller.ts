@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ok } from '../../common/http';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -16,6 +17,7 @@ export class UsersController {
   }
 
   @Patch()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async updateMe(@CurrentUser('sub') userId: string, @Body() dto: UpdateMeDto) {
     return ok(await this.users.updateMe(userId, dto));
   }

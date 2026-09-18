@@ -3,7 +3,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { buildClientError } from './http-exception.filter';
 
 function withEnv(env: Record<string, string | undefined>, fn: () => void) {
-  const keys = ['APP_ENV', 'NODE_ENV'];
+  const keys = ['APP_ENV', 'NODE_ENV', 'RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_NAME'];
   const prev: Record<string, string | undefined> = {};
   for (const k of keys) prev[k] = process.env[k];
   for (const k of keys) {
@@ -71,6 +71,48 @@ withEnv({ APP_ENV: 'staging', NODE_ENV: 'production' }, () => {
   const { body } = buildClientError(new Error('disk full /var/lib/postgresql'));
   assert.equal(body.error.message, 'Erro interno');
   assert.equal(JSON.stringify(body).includes('postgresql'), false);
+});
+
+// Railway production is prod-like even if APP_ENV looks like local.
+withEnv(
+  {
+    APP_ENV: 'development',
+    NODE_ENV: 'development',
+    RAILWAY_ENVIRONMENT: 'production',
+  },
+  () => {
+    const { body } = buildClientError(new Error('ENOENT /workspace/apps/api/src/secret.ts'));
+    assert.equal(body.error.message, 'Erro interno');
+    assert.equal(JSON.stringify(body).includes('/workspace'), false);
+    assert.equal(JSON.stringify(body).includes('secret.ts'), false);
+  },
+);
+
+// 4xx in production: keep intentional messages, strip path/stack leaks.
+withEnv({ APP_ENV: 'production', NODE_ENV: 'production' }, () => {
+  const ok401 = new HttpException(
+    { code: 'UNAUTHORIZED', message: 'Token ausente' },
+    HttpStatus.UNAUTHORIZED,
+  );
+  assert.equal(buildClientError(ok401).body.error.message, 'Token ausente');
+
+  const leaked = new HttpException(
+    { code: 'VALIDATION_ERROR', message: 'Failed at /workspace/apps/api/src/foo.ts:12:3' },
+    HttpStatus.BAD_REQUEST,
+  );
+  const leakedBody = buildClientError(leaked).body;
+  assert.equal(leakedBody.error.message, 'Requisição inválida');
+  assert.equal(JSON.stringify(leakedBody).includes('/workspace'), false);
+  assert.equal(JSON.stringify(leakedBody).includes('foo.ts'), false);
+  assert.equal('stack' in leakedBody.error, false);
+
+  const stacked = new HttpException(
+    'boom\n    at Object.<anonymous> (/usr/src/app/dist/main.js:1:1)',
+    HttpStatus.BAD_REQUEST,
+  );
+  const stackedBody = buildClientError(stacked).body;
+  assert.equal(stackedBody.error.message, 'Requisição inválida');
+  assert.equal(JSON.stringify(stackedBody).includes('/usr/src'), false);
 });
 
 {
