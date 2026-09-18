@@ -136,7 +136,7 @@ export function Header() {
             )}
 
             <div className="actions">
-              <Link className="hdr-link" href={user ? '/conta' : '/entrar'}>
+              <Link className="hdr-link hdr-hide-sm" href={user ? '/conta' : '/entrar'}>
                 <span className="hdr-link-ico" aria-hidden>
                   👤
                 </span>

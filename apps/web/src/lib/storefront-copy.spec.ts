@@ -15,4 +15,24 @@ assert.ok(/className="btn wa[\w\s-]*"/.test(header), 'header WhatsApp contact bu
 assert.ok(header.includes('<SearchBox'), 'header search uses live suggestions box');
 assert.ok(!/Atendimento WhatsApp/.test(header), 'header file must not add Atendimento WhatsApp copy');
 
+const accountLink = header.match(
+  /<Link className="hdr-link[^"]*" href=\{user \? '\/conta' : '\/entrar'\}>/,
+);
+assert.ok(accountLink, 'header account link (Claiton / Entrar) exists');
+assert.ok(
+  accountLink[0].includes('hdr-hide-sm'),
+  'header account is hidden on mobile; bottom Conta is the single entry',
+);
+
+const cartLink = header.match(/<Link className="hdr-link[^"]*" href="\/carrinho">/);
+assert.ok(cartLink, 'header cart link exists');
+assert.ok(
+  !cartLink[0].includes('hdr-hide-sm'),
+  'header cart stays visible on mobile (owner only asked about Conta)',
+);
+
+const bottomNav = readFileSync(join(__dirname, '..', 'components/BottomNav.tsx'), 'utf8');
+assert.ok(/label: 'Conta'/.test(bottomNav), 'bottom tab bar keeps Conta');
+assert.ok(/contaHref/.test(bottomNav), 'bottom Conta still routes to /conta or /entrar');
+
 console.log('storefront-copy unit tests ok');
