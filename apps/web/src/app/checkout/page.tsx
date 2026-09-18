@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, brl, currentUser, waLink } from '@/lib/api';
-import { pixPrice, pixSavings } from '@/lib/pricing';
+import { pixPrice, pixSavings, isPixPromoCollidingCouponCode } from '@/lib/pricing';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
@@ -24,7 +24,7 @@ type CartItem = {
   image?: string | null;
 };
 type Cart = { items: CartItem[]; subtotal: number };
-type CouponPreview = { code: string; discount: number; finalSubtotal: number };
+type CouponPreview = { code: string; discount: number; finalSubtotal: number; collidesWithPixPromo?: boolean };
 type Loyalty = { balance: number; label: string; rate: number };
 type FreightQuote = {
   price: number;
@@ -201,8 +201,12 @@ export default function CheckoutPage() {
   const displayTotal = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
   const freightReady = Boolean(freight) && !freightLoading;
   const totalsSettled = freightReady;
-  const pixTotal = pixPrice(displayTotal);
-  const pixSave = pixSavings(displayTotal);
+  const skipAutoPix = Boolean(
+    couponPreview?.collidesWithPixPromo ||
+      isPixPromoCollidingCouponCode(couponPreview?.code),
+  );
+  const pixTotal = skipAutoPix ? displayTotal : pixPrice(displayTotal);
+  const pixSave = skipAutoPix ? 0 : pixSavings(displayTotal);
   const canConfirm = Boolean(addressId) && !loading;
   const supportHref = waLink('Olá! Preciso de ajuda no checkout da Lojas Schimitz.');
 
@@ -335,7 +339,7 @@ export default function CheckoutPage() {
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <input
             id="checkout-coupon"
-            placeholder="Ex.: PIX5"
+            placeholder="Ex.: BEMVINDO10"
             value={coupon}
             onChange={(e) => {
               setCoupon(e.target.value);
@@ -428,14 +432,22 @@ export default function CheckoutPage() {
               <span>
                 <strong>PIX 5% OFF</strong>
                 <span className="muted" style={{ display: 'block', fontSize: 12 }}>
-                  {totalsSettled
-                    ? 'Desconto aplicado no pagamento via PIX'
-                    : 'Prévia com o total atual (frete ainda não fechado)'}
+                  {skipAutoPix
+                    ? 'Este cupom já cobre o 5% PIX — o desconto automático não empilha'
+                    : totalsSettled
+                      ? 'Desconto aplicado no pagamento via PIX'
+                      : 'Prévia com o total atual (frete ainda não fechado)'}
                 </span>
               </span>
               <span className="checkout-pix-prices">
-                <s className="muted">{brl(displayTotal)}</s>
-                <strong className="checkout-pix-value">{brl(pixTotal)}</strong>
+                {skipAutoPix ? (
+                  <strong className="checkout-pix-value">{brl(pixTotal)}</strong>
+                ) : (
+                  <>
+                    <s className="muted">{brl(displayTotal)}</s>
+                    <strong className="checkout-pix-value">{brl(pixTotal)}</strong>
+                  </>
+                )}
               </span>
             </div>
             {pixSave > 0 ? (

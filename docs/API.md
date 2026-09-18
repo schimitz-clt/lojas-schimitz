@@ -29,7 +29,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` | user |
 | GET | `/orders/:publicId` | user |
-| POST | `/coupons/validate` body `{ code, subtotal }` | user |
+| POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |
 | POST | `/shipping/quote` body `{ cep, subtotal }` | user |
 | GET | `/admin/shipping` | admin |
 | PATCH | `/admin/shipping/settings` body `{ freeAbove, defaultFee, defaultDays }` | admin |

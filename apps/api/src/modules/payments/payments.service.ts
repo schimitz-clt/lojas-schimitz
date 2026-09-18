@@ -25,7 +25,12 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { isRefundAllowed, shouldRestockOnRefund } from '../../common/order-status';
-import { amountsMatchForApprove, pixChargeAmount, roundMoney } from '../../common/pricing';
+import {
+  amountsMatchForApprove,
+  isPixPromoCollidingCouponCode,
+  pixIntentChargeAmount,
+  roundMoney,
+} from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
 import {
@@ -67,7 +72,8 @@ export class PaymentsService {
   /**
    * When PIX intent charged 95% of checkout total, fold the 5% into Order.discount/total
    * so cashback/commission/notifications use the amount actually paid.
-   * Idempotent if totals already match payment amount.
+   * Idempotent if totals already match payment amount (including PIX+PIX5 anti-stack,
+   * where charge == order.total and this is a no-op).
    */
   private async applyPixDiscountOnApprove(orderId: string, paidAmount: number) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
@@ -134,7 +140,11 @@ export class PaymentsService {
 
     const order = await this.prisma.order.findFirst({
       where: { id: dto.orderId },
-      include: { user: { select: { email: true } }, payments: true },
+      include: {
+        user: { select: { email: true } },
+        payments: true,
+        coupon: { select: { code: true } },
+      },
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     if (order.userId !== userId) {
@@ -219,8 +229,13 @@ export class PaymentsService {
         if (again?.status === 'pending') {
           return again;
         }
+        // PIX 5% is the real pay-with-PIX promo. Skip it when a colliding coupon
+        // (PIX5 / PIX_PROMO_COLLIDING_COUPON_CODES) already reduced order.total.
+        // Card always charges order.total (coupon already in the total).
         const chargeAmount =
-          dto.method === 'pix' ? pixChargeAmount(Number(order.total)) : roundMoney(Number(order.total));
+          dto.method === 'pix'
+            ? pixIntentChargeAmount(Number(order.total), order.coupon?.code)
+            : roundMoney(Number(order.total));
         return tx.payment.create({
           data: {
             orderId: order.id,
@@ -342,11 +357,19 @@ export class PaymentsService {
       data: { status: 'completed', requestHash, response: response as object },
     }).catch(() => undefined);
 
+    const skippedAutomaticPixDiscount =
+      dto.method === 'pix' && isPixPromoCollidingCouponCode(order.coupon?.code);
     await this.audit.log('payment.intent_created', {
       actorId: userId,
       entity: 'Payment',
       entityId: payment.id,
-      meta: { orderId: order.id, method: dto.method, provider: this.provider.name },
+      meta: {
+        orderId: order.id,
+        method: dto.method,
+        provider: this.provider.name,
+        couponCode: order.coupon?.code || null,
+        skippedAutomaticPixDiscount,
+      },
     });
     structuredLog('info', 'PAYMENT_INTENT_CREATED', {
       paymentId: payment.id,

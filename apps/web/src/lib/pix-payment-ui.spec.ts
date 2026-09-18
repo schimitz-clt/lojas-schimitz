@@ -54,6 +54,7 @@ assert.equal(PIX_APPROVED_COPY, 'Pagamento PIX: Aprovado');
 const pedido = readFileSync(join(__dirname, '../app/pedidos/[publicId]/page.tsx'), 'utf8');
 assert.ok(pedido.includes('showPixGate'), 'order page uses showPixGate');
 assert.ok(pedido.includes('PIX_APPROVED_COPY'), 'approved copy');
+assert.ok(pedido.includes('isPixPromoCollidingCouponCode'), 'order page skips stacked PIX 5% preview');
 assert.ok(!/isPixPending \|\| \(intent\.payment\.method === 'pix' && \(qr \|\| qrImgSrc\)\)/.test(pedido), 'old QR OR-payload gate removed');
 
 const conta = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');

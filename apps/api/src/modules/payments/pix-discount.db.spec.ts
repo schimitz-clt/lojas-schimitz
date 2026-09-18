@@ -1,5 +1,6 @@
 /**
  * PIX 5% backend authority — createIntent amount on LOCAL Postgres (null provider).
+ * Locks anti-stack: PIX + PIX5 must not apply a second 5%.
  */
 import assert from 'assert';
 import { NestFactory } from '@nestjs/core';
@@ -7,7 +8,7 @@ import { INestApplicationContext } from '@nestjs/common';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma.service';
 import { PaymentsService } from '../payments/payments.service';
-import { pixChargeAmount } from '../../common/pricing';
+import { pixChargeAmount, pixIntentChargeAmount } from '../../common/pricing';
 import { randomUUID } from 'crypto';
 import * as argon2 from 'argon2';
 
@@ -50,55 +51,82 @@ async function main() {
       name: 'Pix User', passwordHash: await argon2.hash('PixPass12'), role: 'customer', status: 'active',
     },
   });
-  const order = await prisma.order.create({
-    data: {
-      publicId: `SCH-PIX-${randomUUID().slice(0, 6).toUpperCase()}`,
-      userId: user.id,
-      status: 'awaiting_payment',
-      subtotal: 100,
-      discount: 0,
-      freight: 0,
-      total: 100,
-      addressSnap: { cep: '90000000', city: 'Porto Alegre', uf: 'RS' },
-      reservationExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
-      items: { create: [{ productId: product.id, sellerId: seller.id, name: product.name, qty: 1, unitPrice: 100 }] },
-    },
+
+  const pix5 = await prisma.coupon.upsert({
+    where: { code: 'PIX5' },
+    update: { type: 'percent', value: 5 },
+    create: { code: 'PIX5', type: 'percent', value: 5, minSubtotal: 0, active: false },
+  });
+  const otherCode = `OFF-${randomUUID().slice(0, 6).toUpperCase()}`;
+  const otherCoupon = await prisma.coupon.create({
+    data: { code: otherCode, type: 'percent', value: 10, minSubtotal: 0, active: true },
   });
 
-  try {
-    const pix = await payments.createIntent(user.id, { orderId: order.id, method: 'pix' }, randomUUID());
-    assert.equal(Number((pix as any).payment.amount), pixChargeAmount(100));
-    assert.equal(Number((pix as any).payment.amount), 95);
+  const orderIds: string[] = [];
 
-    const cardOrder = await prisma.order.create({
+  const makeOrder = async (opts: { total: number; discount: number; couponId?: string }) => {
+    const created = await prisma.order.create({
       data: {
-        publicId: `SCH-CARD-${randomUUID().slice(0, 6).toUpperCase()}`,
+        publicId: `SCH-PIX-${randomUUID().slice(0, 6).toUpperCase()}`,
         userId: user.id,
         status: 'awaiting_payment',
         subtotal: 100,
-        discount: 0,
+        discount: opts.discount,
         freight: 0,
-        total: 100,
+        total: opts.total,
+        couponId: opts.couponId ?? null,
         addressSnap: { cep: '90000000', city: 'Porto Alegre', uf: 'RS' },
         reservationExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
         items: { create: [{ productId: product.id, sellerId: seller.id, name: product.name, qty: 1, unitPrice: 100 }] },
       },
     });
+    orderIds.push(created.id);
+    return created;
+  };
+
+  try {
+    const order = await makeOrder({ total: 100, discount: 0 });
+    const pix = await payments.createIntent(user.id, { orderId: order.id, method: 'pix' }, randomUUID());
+    assert.equal(Number((pix as any).payment.amount), pixChargeAmount(100));
+    assert.equal(Number((pix as any).payment.amount), 95);
+
+    const pix5Order = await makeOrder({ total: 95, discount: 5, couponId: pix5.id });
+    const pixWithPix5 = await payments.createIntent(user.id, { orderId: pix5Order.id, method: 'pix' }, randomUUID());
+    assert.equal(Number((pixWithPix5 as any).payment.amount), 95);
+    assert.equal(
+      Number((pixWithPix5 as any).payment.amount),
+      pixIntentChargeAmount(95, 'PIX5'),
+    );
+    assert.notEqual(
+      Number((pixWithPix5 as any).payment.amount),
+      pixChargeAmount(95),
+      'PIX + PIX5 must not stack a second 5%',
+    );
+
+    const otherOrder = await makeOrder({ total: 90, discount: 10, couponId: otherCoupon.id });
+    const pixWithOther = await payments.createIntent(user.id, { orderId: otherOrder.id, method: 'pix' }, randomUUID());
+    assert.equal(Number((pixWithOther as any).payment.amount), pixChargeAmount(90));
+    assert.equal(Number((pixWithOther as any).payment.amount), 85.5);
+
+    const cardPix5Order = await makeOrder({ total: 95, discount: 5, couponId: pix5.id });
+    const cardWithPix5 = await payments.createIntent(
+      user.id,
+      { orderId: cardPix5Order.id, method: 'card', cardToken: 'tok_test' },
+      randomUUID(),
+    );
+    assert.equal(Number((cardWithPix5 as any).payment.amount), 95);
+
+    const cardOrder = await makeOrder({ total: 100, discount: 0 });
     const card = await payments.createIntent(user.id, { orderId: cardOrder.id, method: 'card', cardToken: 'tok_test' }, randomUUID());
     assert.equal(Number((card as any).payment.amount), 100);
 
-    // Cleanup card order payments
-    await prisma.payment.deleteMany({ where: { orderId: cardOrder.id } });
-    await prisma.orderItem.deleteMany({ where: { orderId: cardOrder.id } });
-    await prisma.idempotencyRecord.deleteMany({ where: { userId: user.id } });
-    await prisma.order.delete({ where: { id: cardOrder.id } });
-
     console.log('pix-discount.db.spec PASS');
   } finally {
-    await prisma.payment.deleteMany({ where: { orderId: order.id } });
-    await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
+    await prisma.payment.deleteMany({ where: { orderId: { in: orderIds } } });
+    await prisma.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
     await prisma.idempotencyRecord.deleteMany({ where: { userId: user.id } });
-    await prisma.order.delete({ where: { id: order.id } }).catch(() => undefined);
+    await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
+    await prisma.coupon.delete({ where: { id: otherCoupon.id } }).catch(() => undefined);
     await prisma.inventory.deleteMany({ where: { productId: product.id } });
     await prisma.product.delete({ where: { id: product.id } }).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
@@ -107,4 +135,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-
