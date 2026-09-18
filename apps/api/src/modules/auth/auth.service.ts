@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   HttpException,
   HttpStatus,
   Inject,
@@ -9,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
@@ -16,6 +16,7 @@ import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
+import { registerAcceptedResult } from './register-public';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -96,27 +97,39 @@ export class AuthService {
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
+  /**
+   * Always the same generic success (no e-mail enumeration).
+   * Hash first so existing vs new takes similar time; never 409 "já cadastrado".
+   * New accounts still get welcome mail; the client must login afterwards.
+   */
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
-    const exists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
-    if (exists) {
-      this.attempts.recordFailure(ip, dto.email);
-      throw new ConflictException('E-mail já cadastrado');
-    }
+    const email = dto.email.toLowerCase();
     const passwordHash = await argon2.hash(dto.password);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email.toLowerCase(),
-        passwordHash,
-        name: dto.name,
-        phone: dto.phone?.trim() || null,
-        role: 'customer',
-      },
-    });
+    const exists = await this.prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return registerAcceptedResult();
+    }
+    let user: { id: string; email: string; role: string; name: string | null };
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          name: dto.name,
+          phone: dto.phone?.trim() || null,
+          role: 'customer',
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return registerAcceptedResult();
+      }
+      throw e;
+    }
     this.attempts.clear(ip, dto.email);
-    // Welcome: mail + in-app (idempotent; never throw).
     await this.notifyWelcome(user.id, user.email, user.name);
-    return this.issue(user.id, user.email, user.role, user.name);
+    return registerAcceptedResult();
   }
 
   /** Best-effort welcome after register — no recipient e-mail in logs. */

@@ -16,6 +16,7 @@ import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
 import android.webkit.URLUtil
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -24,6 +25,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -55,6 +57,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private var showingOffline = false
     private var lastRequestedUrl: String = HOME_URL
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    /**
+     * `<input type=file>` inside the storefront/Admin WebView (product/banner photos).
+     * Uses SAF / GET_CONTENT — no extra storage permission; does not enable file:// access.
+     */
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val callback = filePathCallback
+            filePathCallback = null
+            val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            callback?.onReceiveValue(uris)
+        }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,6 +136,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        cancelFileChooser()
         webView.destroy()
         super.onDestroy()
     }
@@ -178,6 +194,14 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?,
+            ): Boolean {
+                return showFileChooser(webView, filePathCallback, fileChooserParams)
             }
         }
 
@@ -344,5 +368,45 @@ class MainActivity : AppCompatActivity() {
         } catch (_: ActivityNotFoundException) {
             // Sem app para o scheme — ignora silenciosamente.
         }
+    }
+
+    /**
+     * Same-origin only: Admin product/banner `<input type=file>` on lojasschimitz.com.br.
+     * Cancel the previous callback (WebView requires exactly one onReceiveValue).
+     */
+    private fun showFileChooser(
+        view: WebView?,
+        callback: ValueCallback<Array<Uri>>?,
+        params: WebChromeClient.FileChooserParams?,
+    ): Boolean {
+        cancelFileChooser()
+        val pageUrl = view?.url ?: if (::webView.isInitialized) webView.url else null
+        if (pageUrl.isNullOrBlank() || !isAllowedUrl(pageUrl)) {
+            callback?.onReceiveValue(null)
+            return true
+        }
+        filePathCallback = callback
+        val intent = try {
+            params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }
+        } catch (_: Exception) {
+            cancelFileChooser()
+            return false
+        }
+        return try {
+            fileChooserLauncher.launch(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            cancelFileChooser()
+            false
+        }
+    }
+
+    private fun cancelFileChooser() {
+        val callback = filePathCallback
+        filePathCallback = null
+        callback?.onReceiveValue(null)
     }
 }

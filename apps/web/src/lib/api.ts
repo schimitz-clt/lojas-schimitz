@@ -2,8 +2,8 @@ import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp
 import { getBrowserApiBase } from './api-proxy';
 import { parseApiEnvelope, type ApiFail, type ApiOk } from './api-envelope';
 import {
-  AUTH_STORAGE_KEYS,
-  discardStaleRefreshStorage,
+  discardStaleAuthTokenStorage,
+  isCookieFirstHost,
   persistAuthSession,
   refreshBodyForRequest,
   wipeAuthSessionStorage,
@@ -16,9 +16,29 @@ function API() {
   return getBrowserApiBase();
 }
 
+/** In-memory JWTs for localhost (cross-origin API). Cookie-first hosts use HttpOnly cookies. */
+let memoryAccess = '';
+let memoryRefresh = '';
+
+function scrubWebAuthTokens() {
+  if (typeof window === 'undefined') return;
+  try {
+    discardStaleAuthTokenStorage(window.localStorage);
+  } catch {
+    /* ignore */
+  }
+  try {
+    discardStaleAuthTokenStorage(window.sessionStorage);
+  } catch {
+    /* ignore */
+  }
+}
+
 function getToken() {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('sch_access') || '';
+  scrubWebAuthTokens();
+  if (isCookieFirstHost(window.location.hostname)) return '';
+  return memoryAccess || '';
 }
 
 export function getGuestToken() {
@@ -84,12 +104,12 @@ async function tryRefreshSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
-    // Cookie-first hosts: empty body + credentials (HttpOnly sch_refresh).
-    // Drop leftover localStorage refresh so it cannot compete with the cookie.
-    // Localhost: body if localStorage still has a refresh (API cross-origin :3001).
+    // Cookie-first hosts: empty body + credentials (HttpOnly sch_refresh / sch_access).
+    // Drop leftover web-storage JWTs so they cannot compete with the cookie.
+    // Localhost: body if memory still has a refresh (API cross-origin :3001).
     const host = window.location.hostname;
-    discardStaleRefreshStorage(localStorage, host);
-    const storedRefresh = localStorage.getItem(AUTH_STORAGE_KEYS.refresh);
+    scrubWebAuthTokens();
+    const storedRefresh = isCookieFirstHost(host) ? '' : memoryRefresh;
     try {
       const res = await fetch(`${API()}/auth/refresh`, {
         method: 'POST',
@@ -185,26 +205,48 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
 }
 
 /**
- * Access (curto) + user em localStorage.
- * Refresh: cookie-first em hosts não-locais (HttpOnly `sch_refresh` via credentials).
- * Em localhost ainda gravamos refresh no localStorage (API cross-origin :3001).
+ * User em localStorage (não é JWT). Access/refresh: cookie HttpOnly em hosts cookie-first;
+ * memória no localhost. Nunca gravar JWTs em localStorage/sessionStorage.
  * Cookie-first: body de refresh/logout é `{}` mesmo se restar `sch_refresh` legado.
  */
 export function saveSession(data: { accessToken: string; refreshToken?: string; user: unknown }) {
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  persistAuthSession(localStorage, host, data);
+  if (typeof window !== 'undefined') {
+    persistAuthSession(localStorage, host, data);
+    scrubWebAuthTokens();
+  }
+  if (typeof window !== 'undefined' && isCookieFirstHost(host)) {
+    // HttpOnly cookies carry the session — do not keep JWTs in JS (XSS).
+    memoryAccess = '';
+    memoryRefresh = '';
+  } else {
+    memoryAccess = typeof data.accessToken === 'string' ? data.accessToken : '';
+    if (typeof data.refreshToken === 'string' && data.refreshToken.trim()) {
+      memoryRefresh = data.refreshToken.trim();
+    }
+  }
 }
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
   const host = window.location.hostname;
-  const { access, refreshToken } = wipeAuthSessionStorage(localStorage);
-  // Best-effort: revoga cookie (credentials) e, só em localhost, body legado.
+  const leftover = wipeAuthSessionStorage(localStorage);
+  try {
+    wipeAuthSessionStorage(sessionStorage);
+  } catch {
+    /* ignore */
+  }
+  const access = memoryAccess || leftover.access;
+  const refreshToken = memoryRefresh || leftover.refreshToken;
+  memoryAccess = '';
+  memoryRefresh = '';
+  scrubWebAuthTokens();
+  // Best-effort: revoga cookies (credentials) e, só em localhost, body em memória.
   void fetch(`${API()}/auth/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(access ? { Authorization: `Bearer ${access}` } : {}),
+      ...(access && !isCookieFirstHost(host) ? { Authorization: `Bearer ${access}` } : {}),
     },
     body: JSON.stringify(refreshBodyForRequest(host, refreshToken)),
     cache: 'no-store',
@@ -216,6 +258,7 @@ export type SessionUser = { id: string; name: string; email: string; role: strin
 
 export function currentUser(): SessionUser | null {
   if (typeof window === 'undefined') return null;
+  scrubWebAuthTokens();
   const raw = localStorage.getItem('sch_user');
   if (!raw) return null;
   try {

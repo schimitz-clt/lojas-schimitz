@@ -23,8 +23,9 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Ícone do launcher: wordmark **SCHIMITZ** (branco + barra amarela no fundo `#08080A`), o mesmo mark da loja/PWA. Adaptive (API 26+) em `mipmap-anydpi-v26` com foreground em `drawable/ic_launcher_foreground.png` (safe zone); PNG legado em `drawable/ic_launcher.png`. PNG Play 512×512 em `store/icon-512.png`.
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
 - Página offline/erro (`assets/offline.html`) se não houver rede, falha da carga principal ou erro SSL.
-- `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` HttpOnly); 3P cookies desligados (MP abre externo).
-- Cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é transparente para o app: same-origin + `credentials: 'include'` no Next; não há persistência nativa de refresh.
+- `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` + `sch_access` HttpOnly); 3P cookies desligados (MP abre externo).
+- Cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é transparente para o app: same-origin + `credentials: 'include'` no Next; não há persistência nativa de JWT.
+- `<input type=file>` (Admin fotos de produto/banner) via `WebChromeClient.onShowFileChooser` + Activity Result (SAF/`GET_CONTENT`). Sem `allowFileAccess`; só mesma origem.
 - Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
 
 ## Pré-requisitos (no seu computador)

@@ -1,18 +1,20 @@
 /**
- * Refresh token em cookie HttpOnly (modo dual com body).
+ * Session cookies HttpOnly (refresh + access) em modo dual com body/Bearer.
  *
  * MEGA Phase 9 + cookie-only JSON omit (opt-in via env, default inalterado):
  * - Prefer cookie quando presente; body permanece fallback (localhost / legado / mobile).
  * - JSON ainda inclui `refreshToken` por default (compat). Cookie-only JSON =
  *   REFRESH_COOKIE_ENABLED (default true) AND REFRESH_JSON_TOKEN_ENABLED=false
- *   → login/register/refresh omitem `refreshToken` mas ainda emitem Set-Cookie.
+ *   → login/refresh omitem `refreshToken` mas ainda emitem Set-Cookie.
  * - Default de REFRESH_JSON_TOKEN_ENABLED permanece **true** (unset = compat).
  *   Ativar em prod é passo Railway explícito — merge de código NÃO flipa sozinho.
- * - Web same-origin / Android WebView: credentials include + cookie; não persistir
- *   refresh em localStorage fora de localhost.
+ * - Web same-origin / Android WebView: credentials include + cookies; não persistir
+ *   refresh **nem access** em localStorage/sessionStorage.
+ * - Access JWT: cookie HttpOnly `sch_access` (TTL curto) além do Bearer. Guards lêem
+ *   Bearer primeiro, depois o cookie. Cliente cookie-first não guarda JWT em JS storage.
  *
  * Cross-origin (ex.: web :3000 → api :3001): cookie exige SameSite=None; Secure e
- * HTTPS, ou proxy same-site. Sem isso o body continua sendo o caminho funcional.
+ * HTTPS, ou proxy same-site. Sem isso o body/Bearer continua sendo o caminho funcional.
  *
  * Com proxy same-origin no Next (`/api/v1` → Nest), o browser vê cookie no host da loja.
  * O proxy reescreve Set-Cookie (remove Domain; SameSite=None→Lax). REFRESH_COOKIE_DOMAIN
@@ -26,6 +28,9 @@ import type { Request, Response } from 'express';
 
 export const REFRESH_COOKIE_NAME = () =>
   (process.env.REFRESH_COOKIE_NAME || 'sch_refresh').trim() || 'sch_refresh';
+
+export const ACCESS_COOKIE_NAME = () =>
+  (process.env.ACCESS_COOKIE_NAME || 'sch_access').trim() || 'sch_access';
 
 export function refreshCookieEnabled(): boolean {
   const flag = String(process.env.REFRESH_COOKIE_ENABLED || 'true').toLowerCase().trim();
@@ -82,6 +87,23 @@ export function refreshCookieMaxAgeSec(): number {
   return Number.isFinite(n) && n > 60 ? Math.floor(n) : 30 * 24 * 60 * 60;
 }
 
+/** Access cookie TTL. Prefer ACCESS_COOKIE_MAX_AGE_SEC; else parse JWT_ACCESS_EXPIRES (15m). */
+export function accessCookieMaxAgeSec(): number {
+  const explicit = Number(process.env.ACCESS_COOKIE_MAX_AGE_SEC || '');
+  if (Number.isFinite(explicit) && explicit > 30) return Math.floor(explicit);
+  const raw = String(process.env.JWT_ACCESS_EXPIRES || '15m').trim();
+  const m = raw.match(/^(\d+)\s*(s|m|h|sec|secs|min|mins|minute|minutes|hour|hours)?$/i);
+  if (!m) return 900;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return 900;
+  const u = (m[2] || 's').toLowerCase();
+  if (u === 'h' || u === 'hour' || u === 'hours') return Math.floor(n * 3600);
+  if (u === 'm' || u === 'min' || u === 'mins' || u === 'minute' || u === 'minutes') {
+    return Math.floor(n * 60);
+  }
+  return Math.floor(n);
+}
+
 function parseCookieHeader(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
@@ -107,6 +129,27 @@ export function readRefreshFromRequest(req: Request): string | undefined {
   return undefined;
 }
 
+export function readAccessFromRequest(req: Request): string | undefined {
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const fromCookie = cookies[ACCESS_COOKIE_NAME()];
+  if (fromCookie?.trim()) return fromCookie.trim();
+  return undefined;
+}
+
+/**
+ * Access JWT: Authorization Bearer first (localhost / API clients), then HttpOnly cookie.
+ */
+export function resolveAccessToken(req: Request, bearer?: string): string | undefined {
+  const fromBearer = typeof bearer === 'string' ? bearer.trim() : '';
+  if (fromBearer) return fromBearer;
+  const header = String(req.headers?.authorization || '');
+  if (header.startsWith('Bearer ')) {
+    const t = header.slice(7).trim();
+    if (t) return t;
+  }
+  return readAccessFromRequest(req);
+}
+
 function buildSetCookie(name: string, value: string, maxAge: number, clear = false): string {
   const parts = [
     `${name}=${clear ? '' : encodeURIComponent(value)}`,
@@ -123,10 +166,8 @@ function buildSetCookie(name: string, value: string, maxAge: number, clear = fal
   return parts.join('; ');
 }
 
-export function setRefreshCookie(res: Response, refreshToken: string) {
-  if (!refreshCookieEnabled()) return;
+function appendSetCookie(res: Response, next: string) {
   const prev = res.getHeader('Set-Cookie');
-  const next = buildSetCookie(REFRESH_COOKIE_NAME(), refreshToken, refreshCookieMaxAgeSec());
   if (!prev) {
     res.setHeader('Set-Cookie', next);
   } else if (Array.isArray(prev)) {
@@ -136,29 +177,44 @@ export function setRefreshCookie(res: Response, refreshToken: string) {
   }
 }
 
+export function setRefreshCookie(res: Response, refreshToken: string) {
+  if (!refreshCookieEnabled()) return;
+  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), refreshToken, refreshCookieMaxAgeSec()));
+}
+
+export function setAccessCookie(res: Response, accessToken: string) {
+  if (!refreshCookieEnabled()) return;
+  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), accessToken, accessCookieMaxAgeSec()));
+}
+
 /**
- * Login / register / refresh: always Set-Cookie when cookie mode is on,
+ * Login / refresh: always Set-Cookie (refresh + access) when cookie mode is on,
  * then optionally omit `refreshToken` from the JSON body (cookie-only path).
+ * Register does not issue a session (anti-enumeration — same generic JSON either way).
  */
-export function issueAuthSession<T extends { refreshToken: string }>(
+export function issueAuthSession<T extends { refreshToken: string; accessToken: string }>(
   res: Response,
   tokens: T,
 ): T | Omit<T, 'refreshToken'> {
   setRefreshCookie(res, tokens.refreshToken);
+  setAccessCookie(res, tokens.accessToken);
   return shapeAuthSessionPayload(tokens);
 }
 
 export function clearRefreshCookie(res: Response) {
   if (!refreshCookieEnabled()) return;
-  const prev = res.getHeader('Set-Cookie');
-  const next = buildSetCookie(REFRESH_COOKIE_NAME(), '', 0, true);
-  if (!prev) {
-    res.setHeader('Set-Cookie', next);
-  } else if (Array.isArray(prev)) {
-    res.setHeader('Set-Cookie', [...prev.map(String), next]);
-  } else {
-    res.setHeader('Set-Cookie', [String(prev), next]);
-  }
+  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), '', 0, true));
+}
+
+export function clearAccessCookie(res: Response) {
+  if (!refreshCookieEnabled()) return;
+  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), '', 0, true));
+}
+
+/** Logout / failed refresh: drop both session cookies. */
+export function clearAuthCookies(res: Response) {
+  clearRefreshCookie(res);
+  clearAccessCookie(res);
 }
 
 /**

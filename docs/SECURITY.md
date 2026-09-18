@@ -47,10 +47,11 @@
 - `POST /auth/refresh` aceita cookie HttpOnly **ou** body (cookie tem precedência; body é
   fallback no servidor — não removido).
 - `POST /auth/logout` limpa o cookie e revoga o refresh; access JWT é opcional (se expirado, ainda revoga via cookie/body).
-- Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage.
-  Hosts cookie-first (`lojasschimitz.com.br`, Android WebView) **não** gravam refresh em
-  `localStorage` e **não** enviam body `refreshToken` (stale localStorage é ignorado).
-  Localhost ainda persiste/envia body (API cross-origin `:3001`).
+- Web (`apps/web`): `credentials: 'include'` em fetch; **não** persiste access/refresh JWT em
+  `localStorage` nem `sessionStorage` (só o perfil `sch_user`). Hosts cookie-first
+  (`lojasschimitz.com.br`, Android WebView) enviam cookies HttpOnly `sch_refresh` + `sch_access`
+  e **não** mandam Bearer nem body `refreshToken`. Localhost ainda pode mandar Bearer/body a
+  partir da **memória** da aba (API cross-origin `:3001`).
 - **Limite honesto:** em localhost web:3000 → api:3001 o cookie cross-site pode não colar
   sem HTTPS + `SameSite=None`. Em produção o proxy same-origin `/api/v1` cola o cookie no
   host da loja (`REFRESH_COOKIE_DOMAIN` no Nest é opcional; o proxy remove `Domain`).
@@ -99,15 +100,16 @@ depois do merge, com OK explícito do dono. **Não** alterar variáveis de produ
    - Login → JSON **sem** `data.refreshToken`; resposta tem `Set-Cookie: sch_refresh`.
    - Refresh (access expirado ou `POST /auth/refresh` com body `{}`) → novo access; cookie rotaciona.
    - Logout → cookie `Max-Age=0`; chamada protegida pede login.
-   - DevTools: **sem** `sch_refresh` em `localStorage`; access JWT (`sch_access`) ainda pode existir.
+   - DevTools: **sem** `sch_refresh` nem `sch_access` em `localStorage`/`sessionStorage`.
 5. Smoke **Android WebView** (same-origin `lojasschimitz.com.br`): CookieManager first-party on;
    login → uso autenticado → logout. Esperado: cookie HttpOnly, sem body refresh.
 6. **Rollback instantâneo:** no serviço API, `REFRESH_JSON_TOKEN_ENABLED=true` ou **unset**
    (volta a incluir `refreshToken` no JSON). Cookie continua sendo setado.
 
-Residual aceito após o flip: access JWT em `localStorage` (XSS); body refresh ainda **aceito**
+Residual aceito após o flip: body refresh ainda **aceito**
 no servidor se enviado (localhost/legado); CSRF SameSite residual se alguém chamar a API
-Railway direto com `SameSite=None`.
+Railway direto com `SameSite=None`. Access JWT sai do web storage — cookie HttpOnly `sch_access`
++ Bearer só em memória no localhost.
 
 ## MASTER LOTE 4 — residual security audit (P0/P1)
 
@@ -122,7 +124,7 @@ Auditoria 2026-09-16: superfície já sólida — **sem mudança de código**.
 | Rate limit | OK (in-memory) | Global Throttler 100/min + `@Throttle` auth/admin/chat/payments; brute-force login in-process. **Sem Redis** (não inventar). Multi-réplica = limite por processo (já documentado Phase 8 M5). |
 | Admin `GET /orders?q=` | OK | Classe `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`; `@Throttle(30/min)`; `q` `@MaxLength(120)`; take≤50; source locks no spec |
 
-Residual aceito: access JWT em localStorage (XSS mitigado em parte pelo CSP gradual + cookie HttpOnly), body refresh ainda aceito no servidor (fallback; JSON omit é o flip), Throttler in-memory multi-réplica, CSRF SameSite residual na API direta, CSP nonce-strict no Next (fase futura).
+Residual aceito: body refresh ainda aceito no servidor (fallback; JSON omit é o flip), Throttler in-memory multi-réplica, CSRF SameSite residual na API direta, CSP nonce-strict no Next (fase futura).
 
 ## 2026-09-18 — reinforcement (Security Pass + LOTE 4)
 
@@ -138,7 +140,7 @@ Código fail-closed + headers + specs. Relatório: `docs/SECURITY-HARDENING-2026
 | IDOR 404 payments/orders | **Locked** em specs |
 | Throttle extra | logout 30/min; PATCH `/me` 20/min; admin uploads 40/min; Redis **deferred** |
 | Filtro 4xx/5xx prod-like | Sem stack/paths; Railway conta como prod |
-| Redis throttler / cookie-only access JWT / rotação de secrets | **Deferred** |
+| Redis throttler / rotação de secrets | **Deferred** |
 
 Railway (humano): no serviço **web** confirmar ausência de `NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE` e `NEXT_PUBLIC_NULL_WEBHOOK_SECRET`. No serviço **API**: `PAYMENTS_PROVIDER=mercadopago` + webhook secret forte; não setar `ALLOW_NULL_*`.
 

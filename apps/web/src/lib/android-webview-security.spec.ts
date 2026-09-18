@@ -17,6 +17,13 @@ assert.ok(/setAcceptThirdPartyCookies\(\s*webView,\s*false\s*\)/.test(kotlin), '
 assert.ok(kotlin.includes('MIXED_CONTENT_NEVER_ALLOW'), 'mixed content never allow');
 assert.ok(kotlin.includes('file:///android_asset/offline.html'), 'offline page still uses android_asset');
 assert.ok(kotlin.includes('mercadopago.com'), 'MP hosts listed for external browser');
+assert.ok(kotlin.includes('onShowFileChooser'), 'WebView file chooser for <input type=file>');
+assert.ok(kotlin.includes('FileChooserParams.parseResult'), 'file chooser uses Activity result');
+assert.ok(kotlin.includes('isAllowedUrl(pageUrl)'), 'file chooser stays same-origin');
+assert.ok(!/allowFileAccess\s*=\s*true/.test(kotlin), 'file chooser must not re-enable file:// access');
 assert.ok(manifest.includes('usesCleartextTraffic="false"'), 'cleartext off');
+assert.ok(manifest.includes('android.intent.action.GET_CONTENT'), 'manifest queries GET_CONTENT for picker');
+assert.ok(!manifest.includes('READ_EXTERNAL_STORAGE'), 'no broad storage permission for file chooser');
+assert.ok(!manifest.includes('READ_MEDIA_IMAGES'), 'no READ_MEDIA_IMAGES — SAF picker only');
 
 console.log('android-webview-security tests ok');
