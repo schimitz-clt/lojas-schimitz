@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  buildProxyUpstreamInit,
   buildUpstreamUrl,
   rewriteSetCookieHeaders,
 } from '@/lib/api-proxy';
@@ -33,19 +34,12 @@ async function proxyRequest(req: NextRequest, pathParts: string[] | undefined) {
   });
   headers.delete('host');
 
-  const init: RequestInit = {
-    method: req.method,
-    headers,
-    redirect: 'manual',
-    cache: 'no-store',
-  };
-
+  let body: ArrayBuffer | null = null;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     const buf = await req.arrayBuffer();
-    if (buf.byteLength > 0) {
-      init.body = Buffer.from(buf);
-    }
+    if (buf.byteLength > 0) body = buf;
   }
+  const init = buildProxyUpstreamInit(req.method, headers, body);
 
   let upstreamRes: Response;
   try {

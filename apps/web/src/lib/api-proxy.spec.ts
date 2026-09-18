@@ -1,5 +1,6 @@
 import assert from 'assert';
 import {
+  buildProxyUpstreamInit,
   buildUpstreamUrl,
   getBrowserApiBase,
   normalizeProxyOrigin,
@@ -56,6 +57,18 @@ try {
     getBrowserApiBase(),
     'https://lojas-schimitz-production.up.railway.app/api/v1',
   );
+
+  const noBody = buildProxyUpstreamInit('GET', new Headers(), null);
+  assert.equal(noBody.method, 'GET');
+  assert.equal(noBody.body, undefined);
+
+  const buf = new Uint8Array([1, 2, 3]).buffer;
+  const withBody = buildProxyUpstreamInit('POST', new Headers({ 'content-type': 'multipart/form-data' }), buf) as RequestInit & {
+    duplex?: string;
+  };
+  assert.equal(withBody.method, 'POST');
+  assert.ok(withBody.body, 'multipart body is forwarded');
+  assert.equal(withBody.duplex, 'half', 'undici needs duplex for proxied POST');
 
   console.log('api-proxy unit tests ok');
 } finally {

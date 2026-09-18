@@ -158,6 +158,7 @@ assert.equal(validateProductPhotoFile({ type: 'image/jpg', size: 100, name: 'a.j
 assert.equal(validateProductPhotoFile({ type: '', size: 100, name: 'capa.JPEG' }, 1), null);
 assert.equal(validateProductPhotoFile({ type: 'application/octet-stream', size: 80, name: 'foto.webp' }, 0), null);
 assert.ok(validateProductPhotoFile({ type: '', size: 10, name: 'nota.pdf' }, 0)?.includes('JPG'));
+assert.ok(validateProductPhotoFile({ type: 'image/heic', size: 80, name: 'IMG.HEIC' }, 0)?.includes('HEIC'));
 
 assert.deepEqual(
   collectProductGalleryUrls(

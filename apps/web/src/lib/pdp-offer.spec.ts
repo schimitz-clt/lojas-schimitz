@@ -56,8 +56,9 @@ assert.ok(
 );
 
 const catalog = readFileSync(join(srcRoot, 'components/admin/sections/AdminCatalogoSection.tsx'), 'utf8');
-assert.ok(/\bmultiple\b/.test(catalog), 'catalog file input stays multiple');
+assert.ok(catalog.includes('AdminPhotoFilePicker'), 'catalog uses mobile-safe photo picker');
 assert.ok(catalog.includes('Adicionar mais fotos') || catalog.includes('Adicionar fotos'), 'owner can add more photos');
+assert.ok(!catalog.includes('admin-file-hidden'), 'catalog must not use clipped 1px file input');
 
 const adminState = readFileSync(join(srcRoot, 'components/admin/admin-console-state.ts'), 'utf8');
 assert.ok(adminState.includes('applyProductSaveImageFields'), 'save omits empty imageUrl via helper');

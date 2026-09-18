@@ -69,6 +69,7 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -87,6 +88,9 @@ export function AdminCatalogoSection() {
     categories,
     saving,
     uploading,
+    uploadProgress,
+    err,
+    msg,
     editingId,
     form,
     setForm,
@@ -99,8 +103,6 @@ export function AdminCatalogoSection() {
     catalogPhotoFilter,
     setCatalogPhotoFilter,
     listPhotoBusyId,
-    listPhotoInputRef,
-    listPhotoProductIdRef,
     downloadProductsNeedingPhotosCsv,
     editingLabel,
     lowStockProducts,
@@ -113,7 +115,6 @@ export function AdminCatalogoSection() {
     moveFormImage,
     setCoverImage,
     saveProduct,
-    pickListPhoto,
     uploadListPhotos,
     addPhotoFromUrl,
   } = useAdminConsole();
@@ -232,35 +233,38 @@ export function AdminCatalogoSection() {
               <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
                 Até {MAX_PRODUCT_IMAGES} fotos · JPG/PNG/WebP · 15 MB cada. A primeira é a capa da
                 vitrine. Envie várias de uma vez ou vá adicionando — no produto já salvo, cada upload
-                aplica na hora (não apaga as outras).
+                aplica na hora (não apaga as outras). No celular: toque em Escolher arquivos, selecione
+                as fotos e confirme.
               </p>
-              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                <label
-                  className="btn ghost"
-                  style={{
-                    cursor: uploading || !canAddPhotos ? 'not-allowed' : 'pointer',
-                    margin: 0,
-                    opacity: canAddPhotos ? 1 : 0.6,
+              {err ? (
+                <p role="alert" className="alert admin-photo-feedback admin-catalog-alert--danger">
+                  {err}
+                </p>
+              ) : null}
+              {uploadProgress ? (
+                <p role="status" className="ok admin-photo-feedback">
+                  {uploadProgress}
+                </p>
+              ) : null}
+              {msg && !err && !uploadProgress ? (
+                <p role="status" className="ok admin-photo-feedback">
+                  {msg}
+                </p>
+              ) : null}
+              <div className="row" style={{ alignItems: 'stretch', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <AdminPhotoFilePicker
+                  label={
+                    uploading
+                      ? uploadProgress || 'Enviando…'
+                      : formImages.length
+                        ? `Adicionar mais fotos (${formImages.length}/${MAX_PRODUCT_IMAGES})`
+                        : 'Enviar fotos'
+                  }
+                  disabled={uploading || saving || !canAddPhotos}
+                  onFiles={(files) => {
+                    void uploadPhotos(files);
                   }}
-                >
-                  {uploading
-                    ? 'Enviando...'
-                    : formImages.length
-                      ? `Adicionar mais fotos (${formImages.length}/${MAX_PRODUCT_IMAGES})`
-                      : 'Enviar fotos'}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                    multiple
-                    disabled={uploading || saving || !canAddPhotos}
-                    className="admin-file-hidden"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      e.target.value = '';
-                      void uploadPhotos(files);
-                    }}
-                  />
-                </label>
+                />
               </div>
               <div className="row" style={{ alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                 <label style={{ flex: '1 1 220px', margin: 0 }}>
@@ -516,21 +520,6 @@ export function AdminCatalogoSection() {
           {emptyPhotoQueueMessage('needs_photo')}
         </p>
       ) : null}
-      <input
-        ref={listPhotoInputRef}
-        type="file"
-        accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-        multiple
-        className="admin-file-hidden"
-        aria-label="Enviar fotos reais pela lista do catálogo"
-        onChange={(e) => {
-          const files = e.target.files;
-          e.target.value = '';
-          const productId = listPhotoProductIdRef.current;
-          listPhotoProductIdRef.current = null;
-          if (productId) void uploadListPhotos(productId, files);
-        }}
-      />
       <div className="admin-product-list" style={{ marginBottom: 8 }}>
         {visibleCatalogProducts.map((p) => {
           const avail = availableStock(p);
@@ -589,18 +578,21 @@ export function AdminCatalogoSection() {
               </div>
               <div className="admin-product-row__actions">
                 {canAddListPhotos ? (
-                  <button
-                    type="button"
-                    className={isPlaceholderImg ? 'btn admin-btn-photo' : 'btn ghost admin-btn-ghost-pro'}
+                  <AdminPhotoFilePicker
+                    variant="inline"
+                    accent={isPlaceholderImg}
+                    label={
+                      listBusy
+                        ? uploadProgress || 'Enviando…'
+                        : isPlaceholderImg
+                          ? 'Enviar foto'
+                          : 'Adicionar fotos'
+                    }
                     disabled={listBusy || uploading}
-                    onClick={() => pickListPhoto(p.id)}
-                  >
-                    {listBusy
-                      ? 'Enviando…'
-                      : isPlaceholderImg
-                        ? 'Enviar foto'
-                        : 'Adicionar fotos'}
-                  </button>
+                    onFiles={(files) => {
+                      void uploadListPhotos(p.id, files);
+                    }}
+                  />
                 ) : null}
                 <button
                   type="button"
