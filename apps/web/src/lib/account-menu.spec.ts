@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  ACCOUNT_ADD_ADDRESS_CTA,
   ACCOUNT_DADOS_PATH,
   ACCOUNT_HUB_TITLE,
   ACCOUNT_VISTOS_PATH,
   ACCOUNT_WHATSAPP_HELP_TEXT,
+  accountAddressFormOpen,
   accountFirstName,
   accountGreeting,
   accountLoginHref,
@@ -77,6 +79,28 @@ const admin = accountMenuSections({
 assert.ok(admin[1].items.some((i) => i.href === '/admin'));
 assert.ok(admin[1].items.some((i) => i.href === '/vendedor'));
 
+assert.equal(ACCOUNT_ADD_ADDRESS_CTA, 'Adicionar outro endereço');
+assert.equal(
+  accountAddressFormOpen({ loaded: false, addressCount: 0, userRequestedAdd: false }),
+  false,
+  'hide blank form while addresses are still loading',
+);
+assert.equal(
+  accountAddressFormOpen({ loaded: true, addressCount: 0, userRequestedAdd: false }),
+  true,
+  'first cadastro shows the form',
+);
+assert.equal(
+  accountAddressFormOpen({ loaded: true, addressCount: 1, userRequestedAdd: false }),
+  false,
+  'saved address hides the add form',
+);
+assert.equal(
+  accountAddressFormOpen({ loaded: true, addressCount: 2, userRequestedAdd: true }),
+  true,
+  'CTA reveals the form when the user wants another address',
+);
+
 const empty = recentVistosEmptyCopy();
 assert.equal(empty.ctaHref, '/produtos');
 assert.ok(empty.title.includes('visto'));
@@ -96,6 +120,9 @@ const dados = readFileSync(join(srcRoot, 'app/conta/dados/page.tsx'), 'utf8');
 assert.ok(dados.includes("api<Address[]>('/me/addresses')"), 'dados keeps addresses API');
 assert.ok(dados.includes("api<Loyalty>('/me/loyalty')"), 'dados keeps loyalty API');
 assert.ok(dados.includes("api('/me'"), 'dados keeps phone PATCH');
+assert.ok(dados.includes('accountAddressFormOpen'), 'dados uses address form visibility helper');
+assert.ok(dados.includes('ACCOUNT_ADD_ADDRESS_CTA'), 'dados uses add-another CTA copy');
+assert.ok(dados.includes("setAddAddressOpen(false)"), 'saving an address hides the form again');
 assert.ok(dados.includes('SCHIMITZ+'), 'loyalty brand stays Schimitz');
 assert.ok(!/magalu/i.test(dados), 'no Magalu on dados');
 
@@ -119,5 +146,6 @@ assert.ok(header.includes('hdr-hide-sm'), 'do not re-add account name to mobile 
 const css = readFileSync(join(srcRoot, 'components/storefront/storefront-theme.css'), 'utf8');
 assert.ok(css.includes('.account-hub'), 'hub styles live on storefront tokens');
 assert.ok(css.includes('max-width: 560px'), 'readable desktop width');
+assert.ok(css.includes('.account-dados-add-address'), 'add-address CTA uses account-dados tokens');
 
 console.log('account-menu unit + source tests ok');

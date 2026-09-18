@@ -2,7 +2,23 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, currentUser } from '@/lib/api';
-import { ACCOUNT_DADOS_PATH, ACCOUNT_HUB_TITLE, accountLoginHref } from '@/lib/account-menu';
+import {
+  ACCOUNT_ADD_ADDRESS_CTA,
+  ACCOUNT_DADOS_PATH,
+  ACCOUNT_HUB_TITLE,
+  accountAddressFormOpen,
+  accountLoginHref,
+} from '@/lib/account-menu';
+
+const emptyAddressForm = () => ({
+  label: 'Casa',
+  cep: '',
+  street: '',
+  number: '',
+  district: '',
+  city: '',
+  uf: 'RS',
+});
 
 type Address = {
   id: string;
@@ -30,20 +46,19 @@ const kindLabel: Record<string, string> = {
 export default function ContaDadosPage() {
   const [user, setUser] = useState(currentUser());
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [addAddressOpen, setAddAddressOpen] = useState(false);
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
-  const [form, setForm] = useState({
-    label: 'Casa',
-    cep: '',
-    street: '',
-    number: '',
-    district: '',
-    city: '',
-    uf: 'RS',
-  });
+  const [form, setForm] = useState(emptyAddressForm);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [phone, setPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const showAddressForm = accountAddressFormOpen({
+    loaded: addressesLoaded,
+    addressCount: addresses.length,
+    userRequestedAdd: addAddressOpen,
+  });
 
   useEffect(() => {
     const u = currentUser();
@@ -57,7 +72,8 @@ export default function ContaDadosPage() {
       .catch(() => {});
     api<Address[]>('/me/addresses')
       .then(setAddresses)
-      .catch((e: { message?: string }) => setErr(e.message || 'Falha ao carregar endereços'));
+      .catch((e: { message?: string }) => setErr(e.message || 'Falha ao carregar endereços'))
+      .finally(() => setAddressesLoaded(true));
     api<Loyalty>('/me/loyalty')
       .then(setLoyalty)
       .catch(() => {});
@@ -65,11 +81,14 @@ export default function ContaDadosPage() {
 
   async function addAddress(e: React.FormEvent) {
     e.preventDefault();
+    setErr('');
     try {
       await api('/me/addresses', { method: 'POST', body: JSON.stringify(form) });
       setMsg('Endereço salvo.');
       const list = await api<Address[]>('/me/addresses');
       setAddresses(list);
+      setAddAddressOpen(false);
+      setForm(emptyAddressForm());
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Falha ao salvar endereço');
     }
@@ -180,48 +199,58 @@ export default function ContaDadosPage() {
           </div>
         </div>
       ))}
-      <form className="form" onSubmit={addAddress}>
-        <input
-          placeholder="CEP"
-          value={form.cep}
-          onChange={(e) => setForm({ ...form, cep: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Rua"
-          value={form.street}
-          onChange={(e) => setForm({ ...form, street: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Número"
-          value={form.number}
-          onChange={(e) => setForm({ ...form, number: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Bairro"
-          value={form.district}
-          onChange={(e) => setForm({ ...form, district: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Cidade"
-          value={form.city}
-          onChange={(e) => setForm({ ...form, city: e.target.value })}
-          required
-        />
-        <input
-          placeholder="UF"
-          maxLength={2}
-          value={form.uf}
-          onChange={(e) => setForm({ ...form, uf: e.target.value })}
-          required
-        />
-        <button className="btn ghost" type="submit">
-          Salvar endereço
+      {showAddressForm ? (
+        <form className="form account-dados-address-form" onSubmit={addAddress}>
+          <input
+            placeholder="CEP"
+            value={form.cep}
+            onChange={(e) => setForm({ ...form, cep: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Rua"
+            value={form.street}
+            onChange={(e) => setForm({ ...form, street: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Número"
+            value={form.number}
+            onChange={(e) => setForm({ ...form, number: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Bairro"
+            value={form.district}
+            onChange={(e) => setForm({ ...form, district: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Cidade"
+            value={form.city}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            required
+          />
+          <input
+            placeholder="UF"
+            maxLength={2}
+            value={form.uf}
+            onChange={(e) => setForm({ ...form, uf: e.target.value })}
+            required
+          />
+          <button className="btn ghost" type="submit">
+            Salvar endereço
+          </button>
+        </form>
+      ) : addressesLoaded && addresses.length > 0 ? (
+        <button
+          className="btn ghost account-dados-add-address"
+          type="button"
+          onClick={() => setAddAddressOpen(true)}
+        >
+          {ACCOUNT_ADD_ADDRESS_CTA}
         </button>
-      </form>
+      ) : null}
       <p style={{ marginTop: 16 }}>
         <Link className="btn" href="/checkout">
           Ir ao checkout

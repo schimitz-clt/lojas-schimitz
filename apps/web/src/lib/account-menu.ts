@@ -43,8 +43,20 @@ export type AccountMenuUser = {
 export const ACCOUNT_HUB_TITLE = 'Sua conta';
 export const ACCOUNT_DADOS_PATH = '/conta/dados';
 export const ACCOUNT_VISTOS_PATH = '/conta/vistos';
+export const ACCOUNT_ADD_ADDRESS_CTA = 'Adicionar outro endereço';
 export const ACCOUNT_WHATSAPP_HELP_TEXT =
   'Olá, vim pela Minha conta da Lojas Schimitz e preciso de atendimento.';
+
+/** Show the add-address form only for first cadastro, or after the user asks to add another. */
+export function accountAddressFormOpen(opts: {
+  loaded: boolean;
+  addressCount: number;
+  userRequestedAdd: boolean;
+}): boolean {
+  if (!opts.loaded) return false;
+  if (opts.addressCount < 1) return true;
+  return opts.userRequestedAdd;
+}
 
 /** First name for greeting — never invent a person. */
 export function accountFirstName(user: AccountMenuUser): string {
