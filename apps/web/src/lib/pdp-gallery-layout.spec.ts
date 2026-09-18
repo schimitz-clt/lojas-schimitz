@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PDP_GALLERY_ASPECT_CSS,
+  PDP_LIGHTBOX_TAP_SLOP_PX,
   pdpGalleryFrameSize,
   pdpGalleryHeightCapShrinksWidth,
   pdpGallerySlideWidthLock,
+  pdpGalleryTapOpensLightbox,
+  pdpLightboxOverlayCss,
   pdpPageOverflowX,
 } from './pdp-gallery-layout';
 
@@ -73,5 +76,32 @@ assert.ok(/\.pdp-title-row\s*\{[^}]*display:\s*flex/.test(css), 'name and rating
 
 assert.ok(theme.includes('touch-action: pan-x'), 'photo hit-target allows horizontal swipe');
 assert.ok(theme.includes('object-position: center'), 'theme img also centers in the frame');
+
+assert.deepEqual(pdpLightboxOverlayCss(), { position: 'fixed', inset: '0', zIndex: 100 });
+assert.equal(pdpGalleryTapOpensLightbox(0, 0), true);
+assert.equal(pdpGalleryTapOpensLightbox(PDP_LIGHTBOX_TAP_SLOP_PX, 0), true);
+assert.equal(pdpGalleryTapOpensLightbox(PDP_LIGHTBOX_TAP_SLOP_PX + 1, 0), false);
+assert.ok(/\.pdp-lightbox\s*\{[^}]*position:\s*fixed/.test(theme), 'viewer is a fixed overlay');
+assert.ok(/\.pdp-lightbox\s*\{[^}]*inset:\s*0/.test(theme), 'viewer covers the viewport');
+assert.ok(/\.pdp-lightbox\s*\{[^}]*z-index:\s*100/.test(theme), 'viewer sits above sticky ATC / chat');
+assert.ok(/\.pdp-lightbox-inner\s*\{[^}]*width:\s*100%/.test(theme), 'inner pane is full width');
+assert.ok(/\.pdp-lightbox-inner\s*\{[^}]*height:\s*100%/.test(theme), 'inner pane is full height');
+assert.equal(
+  /max-height:\s*min\(70vh,\s*640px\)/.test(theme),
+  false,
+  'lightbox photo must not stay capped at 70vh/640px',
+);
+assert.ok(/\.pdp-lightbox-img\s*\{[^}]*max-height:\s*100%/.test(theme), 'lightbox photo fills the stage');
+assert.ok(/\.pdp-lightbox-close/.test(theme), 'close control is a large X');
+assert.ok(/\.pdp-lightbox-stage[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(theme), 'lightbox swipes one photo');
+
+const gallerySrc = readFileSync(join(__dirname, '../components/ProductGallery.tsx'), 'utf8');
+assert.ok(gallerySrc.includes('createPortal'), 'viewer mounts on document.body (not clipped by PDP overflow)');
+assert.ok(gallerySrc.includes('openLightbox'), 'tap/Ampliar open the same viewer');
+assert.ok(gallerySrc.includes('pdp-gallery-zoomchip'), 'Ampliar chip remains');
+assert.ok(gallerySrc.includes('pdp-lightbox-close'), 'X closes the viewer');
+assert.ok(gallerySrc.includes("addEventListener('popstate'"), 'Android back closes the viewer');
+assert.ok(gallerySrc.includes('onPointerUp'), 'a tap on the photo (not a swipe) opens the viewer');
+assert.ok(gallerySrc.includes('pdpGalleryTapOpensLightbox'), 'tap slop shared with layout helper');
 
 console.log('pdp-gallery-layout unit tests ok');

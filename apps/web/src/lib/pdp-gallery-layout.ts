@@ -41,3 +41,16 @@ export function pdpGallerySlideWidthLock(): string[] {
 export function pdpPageOverflowX(): string {
   return 'hidden';
 }
+
+/** Fullscreen overlay so tap-to-ampliar is actually large (not a 70vh inset card). */
+export function pdpLightboxOverlayCss(): { position: string; inset: string; zIndex: number } {
+  return { position: 'fixed', inset: '0', zIndex: 100 };
+}
+
+/** Finger movement still counts as a tap on the main photo (opens the viewer). */
+export const PDP_LIGHTBOX_TAP_SLOP_PX = 12;
+
+export function pdpGalleryTapOpensLightbox(dx: number, dy: number): boolean {
+  const slop = PDP_LIGHTBOX_TAP_SLOP_PX;
+  return dx * dx + dy * dy <= slop * slop;
+}
