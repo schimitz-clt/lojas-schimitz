@@ -211,7 +211,16 @@ export function useAdminConsoleState() {
 
   const load = useCallback(() => {
     const u = currentUser();
-    if (!u || u.role !== 'admin') {
+    if (!u) {
+      setErr('Acesso restrito a admin. Entre com a conta administrativa.');
+      if (typeof window !== 'undefined') {
+        window.location.href = adminEntrarHref(
+          adminLoginNextPath(window.location.pathname, window.location.search),
+        );
+      }
+      return Promise.resolve();
+    }
+    if (u.role !== 'admin') {
       setErr('Acesso restrito a admin. Entre com a conta administrativa.');
       return Promise.resolve();
     }

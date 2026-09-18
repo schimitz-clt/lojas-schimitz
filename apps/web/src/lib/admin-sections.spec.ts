@@ -1,11 +1,15 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   ADMIN_NAV_ITEMS,
   ADMIN_SECTION_IDS,
   DEFAULT_ADMIN_SECTION,
   adminAppRoutePaths,
   adminEntrarHref,
+  ADMIN_LOGOUT_LABEL,
   adminLoginNextPath,
+  adminLogoutHref,
   adminSectionLabel,
   adminSectionPath,
   buildAdminCatalogoPhotosHref,
@@ -129,6 +133,9 @@ assert.equal(adminLoginNextPath('/admin/pedidos', '?order=1'), '/admin/pedidos?o
 assert.equal(adminLoginNextPath('/admin', '?section=vendas'), '/admin/vendas');
 assert.equal(adminLoginNextPath('/conta'), '/admin');
 assert.equal(adminEntrarHref('/admin/clientes'), '/entrar?next=%2Fadmin%2Fclientes');
+assert.equal(ADMIN_LOGOUT_LABEL, 'Sair');
+assert.equal(adminLogoutHref(), '/entrar?next=%2Fadmin');
+assert.equal(adminLogoutHref(), adminEntrarHref('/admin'));
 
 const paths = adminAppRoutePaths();
 assert.deepEqual(paths, [
@@ -144,5 +151,26 @@ assert.deepEqual(paths, [
   '/admin/marketplace',
   '/admin/equipe',
 ]);
+
+const consoleSrc = readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8');
+assert.ok(consoleSrc.includes('headerActions={<AdminLogoutButton />}'), 'AdminConsole wires headerActions');
+assert.ok(consoleSrc.includes('clearSession()'), 'Admin Sair reuses Conta clearSession');
+assert.ok(consoleSrc.includes('adminLogoutHref()'), 'Admin Sair redirects via adminLogoutHref');
+assert.ok(consoleSrc.includes('admin-header__logout'), 'Admin Sair uses header ghost class');
+assert.ok(consoleSrc.includes('{ADMIN_LOGOUT_LABEL}'), 'Admin Sair label is Sair');
+
+const shellSrc = readFileSync(join(__dirname, '../components/admin/AdminShell.tsx'), 'utf8');
+assert.ok(shellSrc.includes('{headerActions}'), 'AdminShell renders headerActions slot');
+
+const stateSrc = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
+assert.ok(stateSrc.includes('if (!u)'), 'logged-out /admin hits guest gate');
+assert.ok(stateSrc.includes('adminEntrarHref('), 'guest gate uses existing Entrar login');
+assert.ok(stateSrc.includes("u.role !== 'admin'"), 'non-admin keeps in-shell restriction');
+
+const themeSrc = readFileSync(join(__dirname, '../components/admin/admin-theme.css'), 'utf8');
+assert.ok(themeSrc.includes('.admin-header__logout'), 'logout button styled in admin theme');
+
+const contaSrc = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');
+assert.ok(contaSrc.includes('clearSession()'), 'Conta logout still uses clearSession');
 
 console.log('admin-sections web unit ok');
