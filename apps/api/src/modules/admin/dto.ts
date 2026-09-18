@@ -78,6 +78,14 @@ export class AdminCreateProductDto {
   @MaxLength(2000)
   imageUrl?: string | null;
 
+  /** Fotos extras (além da capa). Dedupes com imageUrl; máx. MAX_PRODUCT_IMAGES no service. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUrl({ require_protocol: true }, { each: true })
+  @MaxLength(2000, { each: true })
+  imageUrls?: string[];
+
   @IsOptional()
   @IsString()
   @MaxLength(80)

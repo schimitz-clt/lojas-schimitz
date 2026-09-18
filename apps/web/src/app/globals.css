@@ -729,7 +729,18 @@ textarea { resize: vertical; min-height: 72px; }
 .catalog-price { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .catalog-empty { padding: 18px 16px; border-radius: var(--radius); border: 1px dashed var(--line-strong); background: #fff; margin-bottom: 16px; }
 
+.pdp { padding: 24px 0; }
 .pdp-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
+.pdp-buybox { display: flex; flex-direction: column; min-width: 0; }
+.pdp-identity { order: 1; }
+.pdp-price-block { order: 2; }
+.pdp-desc { order: 3; }
+.pdp-stock { order: 4; }
+.pdp-buybox > .ok,
+.pdp-buybox > .alert,
+.pdp-added-banner { order: 5; }
+.pdp-actions { order: 6; }
+.pdp-trust { order: 7; }
 .pdp-main-img { aspect-ratio: 1; background: #fafaf7; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line); }
 .pdp-main-img img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .pdp-carousel {
@@ -830,6 +841,31 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-title { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
 .pdp-seller { margin: 0 0 8px; }
 .pdp-rating { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.pdp-offer-pills {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pdp-offer-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .01em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--yellow-soft);
+  color: var(--ink);
+}
+.pdp-offer-pill--pix {
+  background: var(--ok-soft);
+  color: #0b5c32;
+  border-color: #b7e4c7;
+}
 .pdp-price-block { padding: 16px 18px; border-radius: var(--radius); border: 1px solid var(--line); background: #fff; margin-bottom: 12px; }
 .pdp-price { font-size: 32px; color: var(--ink); }
 .pdp-pix { margin: 6px 0 0; color: var(--ok); font-size: 15px; }
@@ -844,7 +880,23 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-trust { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .pdp-trust li { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; }
 .pdp-trust a { color: var(--ink); font-weight: 700; }
-.pdp-desc h2 { font-size: 16px; margin: 0 0 6px; }
+.pdp-desc {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.pdp-desc h2 { font-size: 16px; margin: 0 0 8px; }
+.pdp-desc-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
 .pdp-reviews-empty { padding: 16px; border-radius: var(--radius); border: 1px dashed var(--line-strong); background: var(--bg); }
 .pdp-added-banner { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
 .pdp-cart-toast {
@@ -1000,6 +1052,14 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-cart-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .sf-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .recent-strip-rail { margin: 0; padding: 4px 0 10px; }
+  /* Desktop: keep ATC with the price; description follows the buybox */
+  .pdp-stock { order: 3; }
+  .pdp-buybox > .ok,
+  .pdp-buybox > .alert,
+  .pdp-added-banner { order: 4; }
+  .pdp-actions { order: 5; }
+  .pdp-trust { order: 6; }
+  .pdp-desc { order: 7; }
 }
 
 /* —— Tablet / mid —— */
@@ -1023,8 +1083,31 @@ textarea { resize: vertical; min-height: 72px; }
   .home-banner-slide { aspect-ratio: 16 / 10; min-height: 160px; border-radius: 18px; }
   .home-banner-overlay { padding: 14px 14px 12px; }
   .home-banner-cta { width: 100%; }
-  .pdp-grid { grid-template-columns: 1fr; }
-  .pdp-title { font-size: 22px; }
+  .pdp-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pdp-title { font-size: 20px; margin: 4px 0 8px; }
+  .pdp-identity { min-width: 0; }
+  .pdp-price { font-size: 26px; }
+  .pdp-price-block { padding: 12px 14px; }
+  .pdp-carousel,
+  .pdp-carousel-track,
+  .pdp-carousel-slide {
+    max-height: min(38vh, 280px);
+    max-height: min(38dvh, 280px);
+  }
+  .pdp-carousel-slide {
+    aspect-ratio: 1;
+    height: min(38vh, 280px);
+    height: min(38dvh, 280px);
+    max-height: min(38vh, 280px);
+    max-height: min(38dvh, 280px);
+  }
+  .pdp-carousel-slide img,
+  .pdp-gallery-open img {
+    max-height: min(38vh, 280px);
+    max-height: min(38dvh, 280px);
+    padding: 8px;
+  }
+  .pdp-thumbs { margin-top: 8px; }
   .header-row { padding: 8px 0; gap: 8px; }
   .hdr-hide-sm { display: none !important; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
@@ -1129,10 +1212,13 @@ textarea { resize: vertical; min-height: 72px; }
   .footer-col:first-child { grid-column: 1 / -1; }
   .footer-col p { font-size: 12.5px !important; }
 
-  .pdp { padding-bottom: 88px; }
+  .pdp {
+    padding-top: 8px;
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  }
   .pdp-sticky-atc, .cart-sticky-checkout {
     display: flex; position: fixed; left: 0; right: 0;
-    bottom: calc(68px + env(safe-area-inset-bottom, 0px)); z-index: 25;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 25;
     gap: 10px; align-items: center; padding: 10px 12px; background: #fff; border-top: 1px solid var(--line);
   }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
@@ -1152,6 +1238,20 @@ textarea { resize: vertical; min-height: 72px; }
   .logo { font-size: 15px; }
   .search { min-width: 0; flex: 1 1 100%; order: 4; }
   .hdr-cep { order: 3; }
+  /* Search wraps onto its own row — keep gallery short so name/price/3x stay above sticky ATC */
+  .pdp-carousel,
+  .pdp-carousel-track,
+  .pdp-carousel-slide {
+    max-height: min(28vh, 200px);
+    max-height: min(28dvh, 200px);
+    height: min(28vh, 200px);
+    height: min(28dvh, 200px);
+  }
+  .pdp-carousel-slide img,
+  .pdp-gallery-open img {
+    max-height: min(28vh, 200px);
+    max-height: min(28dvh, 200px);
+  }
 }
 
 /* —— Desktop store experience —— */

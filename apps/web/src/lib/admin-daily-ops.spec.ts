@@ -23,6 +23,9 @@ import {
   shouldPromoteUploadedImageToCover,
   toggleIdInList,
   validateProductPhotoFile,
+  collectProductGalleryUrls,
+  extraProductImageUrls,
+  missingProductImageUrls,
 } from './admin-daily-ops';
 
 assert.equal(nextOneClickFulfillmentStatus('paid'), 'organizing');
@@ -150,6 +153,23 @@ assert.ok(validateProductPhotoFile({ type: 'application/pdf', size: 10 }, 0)?.in
 assert.ok(validateProductPhotoFile({ type: 'image/jpeg', size: 16 * 1024 * 1024 }, 0)?.includes('15 MB'));
 assert.ok(validateProductPhotoFile({ type: 'image/png', size: 10 }, 10)?.includes('Limite'));
 assert.equal(validateProductPhotoFile({ type: 'image/webp', size: 100 }, 2), null);
+assert.equal(validateProductPhotoFile({ type: 'image/jpg', size: 100, name: 'a.jpg' }, 0), null);
+assert.equal(validateProductPhotoFile({ type: '', size: 100, name: 'capa.JPEG' }, 1), null);
+assert.equal(validateProductPhotoFile({ type: 'application/octet-stream', size: 80, name: 'foto.webp' }, 0), null);
+assert.ok(validateProductPhotoFile({ type: '', size: 10, name: 'nota.pdf' }, 0)?.includes('JPG'));
+
+assert.deepEqual(
+  collectProductGalleryUrls(
+    [{ url: 'https://cdn.example/a.jpg' }, { url: 'https://cdn.example/b.jpg' }, { url: 'https://cdn.example/a.jpg' }],
+    'https://cdn.example/a.jpg',
+  ),
+  ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'],
+);
+assert.deepEqual(extraProductImageUrls(['a', 'b', 'c']), ['b', 'c']);
+assert.deepEqual(
+  missingProductImageUrls(['https://a', 'https://b'], [{ url: 'https://a' }]),
+  ['https://b'],
+);
 
 assert.ok(emptyPhotoQueueMessage('needs_photo').includes('Fila sem foto vazia'));
 assert.ok(emptyPhotoQueueMessage('all').includes('Nenhum produto'));

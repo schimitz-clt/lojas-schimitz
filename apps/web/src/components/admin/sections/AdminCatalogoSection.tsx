@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { brl } from '@/lib/api';
 import {
@@ -113,8 +114,11 @@ export function AdminCatalogoSection() {
     setCoverImage,
     saveProduct,
     pickListPhoto,
-    uploadListCoverPhoto,
+    uploadListPhotos,
+    addPhotoFromUrl,
   } = useAdminConsole();
+  const [photoUrlDraft, setPhotoUrlDraft] = useState('');
+  const canAddPhotos = formImages.length < MAX_PRODUCT_IMAGES;
   return (
     <>
       <div className="admin-section-panel admin-catalog">
@@ -141,11 +145,14 @@ export function AdminCatalogoSection() {
             <label>
               Descrição
               <textarea
-                rows={3}
+                rows={10}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="O que o cliente precisa saber"
+                placeholder="O que o cliente precisa saber — modelo, especificações, garantia"
               />
+              <span className="muted" style={{ fontSize: 12 }}>
+                {form.description.trim().length} caracteres · aparece inteira na página do produto
+              </span>
             </label>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
@@ -224,24 +231,29 @@ export function AdminCatalogoSection() {
               </div>
               <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
                 Até {MAX_PRODUCT_IMAGES} fotos · JPG/PNG/WebP · 15 MB cada. A primeira é a capa da
-                vitrine. Em produto já salvo, upload/remoção/reordenação aplica na hora.
+                vitrine. Envie várias de uma vez ou vá adicionando — no produto já salvo, cada upload
+                aplica na hora (não apaga as outras).
               </p>
               <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <label
                   className="btn ghost"
                   style={{
-                    cursor: uploading || formImages.length >= MAX_PRODUCT_IMAGES ? 'not-allowed' : 'pointer',
+                    cursor: uploading || !canAddPhotos ? 'not-allowed' : 'pointer',
                     margin: 0,
-                    opacity: formImages.length >= MAX_PRODUCT_IMAGES ? 0.6 : 1,
+                    opacity: canAddPhotos ? 1 : 0.6,
                   }}
                 >
-                  {uploading ? 'Enviando...' : 'Enviar fotos'}
+                  {uploading
+                    ? 'Enviando...'
+                    : formImages.length
+                      ? `Adicionar mais fotos (${formImages.length}/${MAX_PRODUCT_IMAGES})`
+                      : 'Enviar fotos'}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                     multiple
-                    disabled={uploading || saving || formImages.length >= MAX_PRODUCT_IMAGES}
-                    style={{ display: 'none' }}
+                    disabled={uploading || saving || !canAddPhotos}
+                    className="admin-file-hidden"
                     onChange={(e) => {
                       const files = e.target.files;
                       e.target.value = '';
@@ -249,6 +261,30 @@ export function AdminCatalogoSection() {
                     }}
                   />
                 </label>
+              </div>
+              <div className="row" style={{ alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <label style={{ flex: '1 1 220px', margin: 0 }}>
+                  Ou cole a URL de uma foto
+                  <input
+                    value={photoUrlDraft}
+                    onChange={(e) => setPhotoUrlDraft(e.target.value)}
+                    placeholder="https://...jpg"
+                    disabled={!canAddPhotos || uploading || saving}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={!canAddPhotos || uploading || saving || !photoUrlDraft.trim()}
+                  onClick={() => {
+                    const url = photoUrlDraft;
+                    void addPhotoFromUrl(url).then((ok) => {
+                      if (ok) setPhotoUrlDraft('');
+                    });
+                  }}
+                >
+                  Adicionar URL
+                </button>
               </div>
               {formImages.length ? (
                 <div className="admin-photo-grid">
@@ -483,15 +519,16 @@ export function AdminCatalogoSection() {
       <input
         ref={listPhotoInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        multiple
         className="admin-file-hidden"
-        aria-label="Enviar foto real pela lista do catálogo"
+        aria-label="Enviar fotos reais pela lista do catálogo"
         onChange={(e) => {
-          const file = e.target.files?.[0] || null;
+          const files = e.target.files;
           e.target.value = '';
           const productId = listPhotoProductIdRef.current;
           listPhotoProductIdRef.current = null;
-          if (productId) void uploadListCoverPhoto(productId, file);
+          if (productId) void uploadListPhotos(productId, files);
         }}
       />
       <div className="admin-product-list" style={{ marginBottom: 8 }}>
@@ -506,6 +543,8 @@ export function AdminCatalogoSection() {
             isPlaceholderOrMissing: isPlaceholderImg,
           });
           const photoLabel = productPhotoBadgeLabel(photoKind);
+          const imgCount = p.images?.length ?? (imgUrl ? 1 : 0);
+          const canAddListPhotos = imgCount < MAX_PRODUCT_IMAGES;
           const listBusy = listPhotoBusyId === p.id;
           return (
             <div
@@ -539,6 +578,7 @@ export function AdminCatalogoSection() {
                 <div className="admin-product-row__meta">
                   {p.sku} · {brl(p.price)}
                   {p.category ? ` · ${p.category.name}` : ''}
+                  {` · ${imgCount} foto${imgCount === 1 ? '' : 's'}`}
                 </div>
                 <div className="admin-product-row__meta" style={{ color: isLow ? 'var(--admin-danger)' : undefined }}>
                   Estoque: {onHand}
@@ -548,29 +588,27 @@ export function AdminCatalogoSection() {
                 </div>
               </div>
               <div className="admin-product-row__actions">
-                {isPlaceholderImg ? (
+                {canAddListPhotos ? (
                   <button
                     type="button"
-                    className="btn admin-btn-photo"
+                    className={isPlaceholderImg ? 'btn admin-btn-photo' : 'btn ghost admin-btn-ghost-pro'}
                     disabled={listBusy || uploading}
                     onClick={() => pickListPhoto(p.id)}
                   >
-                    {listBusy ? 'Enviando…' : 'Enviar foto'}
+                    {listBusy
+                      ? 'Enviando…'
+                      : isPlaceholderImg
+                        ? 'Enviar foto'
+                        : 'Adicionar fotos'}
                   </button>
                 ) : null}
-                {isPlaceholderImg ? (
-                  <button
-                    type="button"
-                    className="btn ghost admin-btn-ghost-pro"
-                    onClick={() => startEdit(p)}
-                  >
-                    Editar / galeria
-                  </button>
-                ) : (
-                  <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
-                    Editar
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="btn ghost admin-btn-ghost-pro"
+                  onClick={() => startEdit(p)}
+                >
+                  {isPlaceholderImg ? 'Editar / galeria' : 'Editar'}
+                </button>
                 {p.active ? (
                   <Link className="btn ghost admin-btn-ghost-pro" href={`/produto/${p.slug}`} target="_blank">
                     Ver na loja
