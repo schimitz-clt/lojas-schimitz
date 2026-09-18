@@ -4,7 +4,7 @@
  */
 
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { rewritePublicUploadUrl, localizeStorefrontUploadUrl } from '@/lib/public-upload-url';
 
 export type GalleryImageInput = {
   url?: string | null;
@@ -27,7 +27,7 @@ export type GallerySource = {
 function cleanUrl(raw: string | null | undefined): string {
   const t = (raw || '').trim();
   if (!t) return '';
-  const rewritten = rewritePublicUploadUrl(t) || t;
+  const rewritten = localizeStorefrontUploadUrl(rewritePublicUploadUrl(t) || t);
   if (isMissingOrPlaceholderImage(rewritten)) return '';
   return rewritten;
 }

@@ -27,3 +27,27 @@ export function rewritePublicUploadUrl(url: string | null | undefined): string |
     return raw;
   }
 }
+
+/**
+ * On localhost, load apex/Railway uploads through the Next `/api/v1` proxy
+ * so the browser is same-origin (CSP + VM egress). Production is unchanged.
+ */
+export function localizeStorefrontUploadUrl(url: string, pageOrigin?: string): string {
+  const origin =
+    pageOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+  if (!origin || !url) return url;
+  let page: URL;
+  try {
+    page = new URL(origin);
+  } catch {
+    return url;
+  }
+  if (page.hostname !== 'localhost' && page.hostname !== '127.0.0.1') return url;
+  try {
+    const u = new URL(url, page.origin);
+    if (!u.pathname.startsWith('/api/v1/uploads/') || u.pathname.includes('..')) return url;
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return url;
+  }
+}
