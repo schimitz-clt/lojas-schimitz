@@ -85,10 +85,6 @@ export function Header() {
           ·
         </span>
         <span>{interestFreeInstallmentClaim()}</span>
-        <span className="topbar-sep" aria-hidden>
-          ·
-        </span>
-        <span>Troca em 7 dias</span>
       </div>
       <header className="header">
         <div className="wrap">
