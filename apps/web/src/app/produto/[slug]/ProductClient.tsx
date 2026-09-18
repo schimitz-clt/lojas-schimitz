@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { api, brl, currentUser, getGuestToken, waLink } from '@/lib/api';
@@ -13,9 +13,10 @@ import {
   stockBadge,
 } from '@/lib/pricing';
 import { PdpSkeleton } from '@/components/Skeleton';
-import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { buildProductGallery } from '@/lib/product-gallery';
+import { ProductGallery } from '@/components/ProductGallery';
+import { CompareToggle } from '@/components/compare/CompareToggle';
 
 type Detail = {
   id: string;
@@ -33,6 +34,7 @@ type Detail = {
   imageUrl?: string | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
+  category?: { slug: string; name: string } | null;
 };
 
 type Review = {
@@ -118,7 +120,6 @@ export default function ProductPage() {
   const [savingReview, setSavingReview] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-  const [galleryIdx, setGalleryIdx] = useState(0);
   const [addedToBag, setAddedToBag] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showBagToast, setShowBagToast] = useState(false);
@@ -154,7 +155,6 @@ export default function ProductPage() {
 
   useEffect(() => {
     getGuestToken();
-    setGalleryIdx(0);
     setAddedToBag(false);
     setShowBagToast(false);
     setMsg('');
@@ -220,64 +220,7 @@ export default function ProductPage() {
     }
   }
 
-  const gallery = useMemo(() => {
-    if (!p) return [] as string[];
-    const sorted = [...(p.images || [])].sort(
-      (a, b) => (a.position ?? 0) - (b.position ?? 0),
-    );
-    const urls = sorted
-      .map((i) => {
-        const raw = (i.url || '').trim();
-        return rewritePublicUploadUrl(raw) || raw;
-      })
-      .filter((u): u is string => Boolean(u) && !isMissingOrPlaceholderImage(u));
-    if (urls.length) return urls;
-    const flatRaw = (p.image || p.imageUrl || '').trim();
-    const flat = rewritePublicUploadUrl(flatRaw) || flatRaw;
-    return flat && !isMissingOrPlaceholderImage(flat) ? [flat] : [];
-  }, [p]);
-
-
-  const carouselRef = useRef<HTMLDivElement | null>(null);
-  const scrollSyncLock = useRef(false);
-
-  const goToGallery = useCallback((idx: number) => {
-    const el = carouselRef.current;
-    const n = Math.max(0, idx);
-    setGalleryIdx(n);
-    if (!el) return;
-    const w = el.clientWidth || 1;
-    scrollSyncLock.current = true;
-    el.scrollTo({ left: n * w, behavior: 'smooth' });
-    window.setTimeout(() => {
-      scrollSyncLock.current = false;
-    }, 350);
-  }, []);
-
-  const goGallery = useCallback(
-    (delta: number) => {
-      const total = gallery.length;
-      if (total <= 0) return;
-      const next = (galleryIdx + delta + total) % total;
-      goToGallery(next);
-    },
-    [gallery.length, galleryIdx, goToGallery],
-  );
-
-  const onCarouselScroll = useCallback(() => {
-    if (scrollSyncLock.current) return;
-    const el = carouselRef.current;
-    if (!el) return;
-    const w = el.clientWidth || 1;
-    const idx = Math.round(el.scrollLeft / w);
-    setGalleryIdx((cur) => (cur === idx ? cur : idx));
-  }, []);
-
-  useEffect(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    el.scrollTo({ left: 0, behavior: 'auto' });
-  }, [slug]);
+  const gallery = useMemo(() => (p ? buildProductGallery(p) : []), [p]);
 
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!p) return <PdpSkeleton />;
@@ -305,111 +248,7 @@ export default function ProductPage() {
   return (
     <div className="pdp sf-pro-pdp" style={{ padding: '24px 0' }}>
       <div className="pdp-grid">
-        <div className="pdp-gallery">
-          <div
-            className="pdp-carousel card"
-            onKeyDown={(e) => {
-              if (gallery.length <= 1) return;
-              if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                goGallery(1);
-              } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                goGallery(-1);
-              }
-            }}
-            tabIndex={gallery.length > 1 ? 0 : undefined}
-            aria-roledescription="carrossel"
-            aria-label={`Fotos do produto${gallery.length > 1 ? ` (${galleryIdx + 1} de ${gallery.length})` : ''}`}
-          >
-            <div
-              className="pdp-carousel-track"
-              ref={carouselRef}
-              onScroll={onCarouselScroll}
-            >
-              {gallery.length ? (
-                gallery.map((url, i) => (
-                  <div className="pdp-carousel-slide" key={`${url}-${i}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={i === 0 ? p.name : `${p.name} — foto ${i + 1}`}
-                      width={800}
-                      height={800}
-                      sizes="(max-width: 768px) 100vw, 480px"
-                      loading={i === 0 ? 'eager' : 'lazy'}
-                      decoding="async"
-                      draggable={false}
-                      onError={(e) => {
-                        e.currentTarget.style.visibility = 'hidden';
-                      }}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="pdp-carousel-slide pdp-carousel-empty pdp-carousel-ph" aria-label="Imagem em breve">
-                  <span className="pdp-carousel-ph-mark">
-                    LOJAS <em>SCHIMITZ</em>
-                  </span>
-                  <span className="pdp-carousel-ph-hint">Imagem em breve</span>
-                </div>
-              )}
-            </div>
-            {gallery.length > 1 ? (
-              <>
-                <button
-                  type="button"
-                  className="pdp-carousel-nav pdp-carousel-prev"
-                  aria-label="Foto anterior"
-                  onClick={() => goGallery(-1)}
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="pdp-carousel-nav pdp-carousel-next"
-                  aria-label="Próxima foto"
-                  onClick={() => goGallery(1)}
-                >
-                  ›
-                </button>
-                <div className="pdp-carousel-dots" aria-hidden>
-                  {gallery.map((_, i) => (
-                    <span
-                      key={i}
-                      className={`pdp-carousel-dot${i === galleryIdx ? ' active' : ''}`}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </div>
-          {gallery.length > 1 ? (
-            <div className="pdp-thumbs" role="list">
-              {gallery.map((url, i) => (
-                <button
-                  key={`${url}-${i}`}
-                  type="button"
-                  className={`pdp-thumb${i === galleryIdx ? ' active' : ''}`}
-                  onClick={() => goToGallery(i)}
-                  aria-label={`Foto ${i + 1}`}
-                  aria-current={i === galleryIdx ? 'true' : undefined}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt=""
-                    width={80}
-                    height={80}
-                    sizes="80px"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <ProductGallery images={gallery} productName={p.name} />
 
         <div className="pdp-buybox">
           {p.badge ? <div className="badge">{p.badge}</div> : null}
@@ -503,6 +342,7 @@ export default function ProductPage() {
                 {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
               </button>
             )}
+            <CompareToggle product={p} variant="pdp" />
             <button className="btn ghost" onClick={fav}>
               Favoritar
             </button>

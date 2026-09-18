@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
-import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { productCardCues, productCardKicker } from '@/lib/product-card-cues';
+import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
+import { CompareToggle } from '@/components/compare/CompareToggle';
 
 export type Product = {
   id: string;
@@ -26,23 +27,6 @@ export type Product = {
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
 };
-
-function resolveImageUrl(p: Product): string {
-  const nested = p.images?.[0]?.url?.trim() || '';
-  const flat = (p.image || p.imageUrl || '').trim();
-  const raw = nested || flat;
-  const rewritten = rewritePublicUploadUrl(raw) || raw;
-  if (isMissingOrPlaceholderImage(rewritten)) return '';
-  return rewritten;
-}
-
-function resolveStock(p: Product): number | null {
-  if (typeof p.stock === 'number') return p.stock;
-  if (p.stock === null) return null;
-  if (p.inventory) return Math.max(0, p.inventory.qtyOnHand - p.inventory.qtyReserved);
-  return null;
-}
-
 
 function ProductImage({
   src,
@@ -84,10 +68,10 @@ function ProductImage({
 }
 
 export function ProductCard({ p, priority = false }: { p: Product; priority?: boolean }) {
-  const img = resolveImageUrl(p);
+  const img = resolveProductImageUrl(p);
   const count = p.ratingCount ?? 0;
   const avg = Number(p.ratingAvg ?? 0);
-  const stock = resolveStock(p);
+  const stock = resolveProductStock(p);
   const sb = stockBadge(stock);
   const price = Number(p.price);
   const pix = pixPrice(price);
@@ -95,6 +79,8 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const out = sb?.tone === 'out';
+  const kicker = productCardKicker(p.category?.name, p.seller?.name);
+  const cues = productCardCues();
 
   async function addToCart(e: { preventDefault(): void; stopPropagation(): void }) {
     e.preventDefault();
@@ -122,7 +108,8 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
   }
 
   return (
-    <article className="pcard">
+    <article className="pcard pcard-pro">
+      <CompareToggle product={p} variant="card" />
       <Link href={`/produto/${p.slug}`} className="pcard-link">
         <div className="pcard-media">
           {img ? <ProductImage src={img} alt={p.name} priority={priority} /> : null}
@@ -144,6 +131,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
           {sb ? <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span> : null}
         </div>
         <div className="pcard-body">
+          {kicker ? <p className="pcard-kicker">{kicker}</p> : null}
           <h3 className="pcard-title">{p.name}</h3>
           {p.seller?.name ? (
             <p className="pcard-seller muted">Vendido por {p.seller.name}</p>
@@ -168,6 +156,13 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
             </p>
             <p className="pcard-install">{installmentLine(price)}</p>
           </div>
+          <ul className="pcard-cues" aria-label="Condições">
+            {cues.map((cue) => (
+              <li key={cue.id} className={`pcard-cue pcard-cue-${cue.tone}`}>
+                {cue.label}
+              </li>
+            ))}
+          </ul>
         </div>
       </Link>
       <div className="pcard-cta">
