@@ -131,7 +131,7 @@
   padding: 7px 12px;
 }
 
-.home-banners .home-banner-slide {
+.home-banners .home-banners-viewport {
   border-radius: var(--sf-radius-lg);
   box-shadow: var(--sf-shadow);
   overflow: hidden;

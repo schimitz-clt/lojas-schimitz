@@ -79,6 +79,11 @@ import {
   advanceButtonLabel,
   orderWa,
 } from '@/components/admin/admin-console-model';
+import {
+  canCreateHomeBanner,
+  homeBannerCountHint,
+  MAX_HOME_BANNERS,
+} from '@/lib/home-banners';
 
 export function AdminVitrineSection() {
   const {
@@ -158,8 +163,10 @@ export function AdminVitrineSection() {
             ) : null}
           </div>
           <p className="admin-section-intro">
-            Imagem + link opcional. Só banners ativos aparecem na vitrine (carrossel).
+            {homeBannerCountHint(banners.length)} Imagem + link opcional. Só banners ativos
+            entram no carrossel da home (swipe, um por vez).
           </p>
+          {canCreateHomeBanner(banners.length) || editingBannerId ? (
           <form className="form admin-form-pro" style={{ marginBottom: 20 }} onSubmit={saveBanner}>
             <label>
               Título (opcional)
@@ -233,6 +240,12 @@ export function AdminVitrineSection() {
               {savingBanner ? 'Salvando...' : editingBannerId ? 'Salvar banner' : 'Criar banner'}
             </button>
           </form>
+          ) : (
+            <p className="admin-empty" style={{ marginBottom: 20 }}>
+              Limite de {MAX_HOME_BANNERS} banners atingido. Edite ou exclua um para adicionar
+              outro.
+            </p>
+          )}
 
           <div className="admin-dense-list">
             {banners.map((b, i) => (

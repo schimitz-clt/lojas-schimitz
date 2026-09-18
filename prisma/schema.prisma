@@ -490,7 +490,7 @@ model StoreSettings {
   updatedAt       DateTime @updatedAt
 }
 
-/** Banners da home (carrossel / faixa). */
+/** Banners da home (carrossel, no máximo 5 na vitrine). */
 model HomeBanner {
   id        String   @id @default(uuid())
   title     String   @default("")

@@ -60,6 +60,10 @@ import {
   applyProductSaveImageFields,
 } from '@/lib/admin-daily-ops';
 import {
+  canCreateHomeBanner,
+  homeBannerLimitMessage,
+} from '@/lib/home-banners';
+import {
   emptyPhotoSelectionError,
   photoUploadProgressLabel,
   snapshotSelectedFiles,
@@ -1723,6 +1727,10 @@ export function useAdminConsoleState() {
     e.preventDefault();
     if (!bannerForm.imageUrl.trim()) {
       setErr('Envie ou informe a imagem do banner');
+      return;
+    }
+    if (!editingBannerId && !canCreateHomeBanner(banners.length)) {
+      setErr(homeBannerLimitMessage());
       return;
     }
     setSavingBanner(true);
