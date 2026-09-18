@@ -99,6 +99,33 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.admin-header__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: #fff;
+  font-size: var(--admin-type-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-header__logout:hover,
+.admin-header__logout:focus-visible {
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+  outline: none;
 }
 
 .admin-header__menu-btn {
@@ -269,6 +296,11 @@
 
   .admin-header__meta {
     display: none;
+  }
+
+  .admin-header__logout {
+    min-height: 40px;
+    padding: 6px 10px;
   }
 
   .admin-sidebar {

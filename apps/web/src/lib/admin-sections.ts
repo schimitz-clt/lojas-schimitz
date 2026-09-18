@@ -262,6 +262,18 @@ export function adminEntrarHref(nextPath = ADMIN_BASE_PATH): string {
   return `/entrar?next=${encodeURIComponent(nextPath)}`;
 }
 
+/** PT label for Admin header logout — same wording as Conta. */
+export const ADMIN_LOGOUT_LABEL = 'Sair';
+
+/**
+ * After explicit Admin logout: `/entrar?next=/admin` (email/password gate).
+ * Conta lands on `/`; Admin uses the login form so the owner must sign in
+ * again to re-enter the console, then returns to `/admin`.
+ */
+export function adminLogoutHref(): string {
+  return adminEntrarHref(ADMIN_BASE_PATH);
+}
+
 /** All first-class App Router paths (for smoke / nav). */
 export function adminAppRoutePaths(): string[] {
   return ADMIN_SECTION_IDS.map((id) => adminSectionPath(id));

@@ -15,6 +15,8 @@ import { AdminOpsSection } from '@/components/admin/sections/AdminOpsSection';
 import { AdminPedidosSection } from '@/components/admin/sections/AdminPedidosSection';
 import { AdminVendasSection } from '@/components/admin/sections/AdminVendasSection';
 import { AdminVitrineSection } from '@/components/admin/sections/AdminVitrineSection';
+import { ADMIN_LOGOUT_LABEL, adminLogoutHref } from '@/lib/admin-sections';
+import { clearSession } from '@/lib/api';
 
 const SECTION_VIEW = {
   ops: AdminOpsSection,
@@ -30,6 +32,22 @@ const SECTION_VIEW = {
   equipe: AdminEquipeSection,
 } as const;
 
+/** Same session wipe as Conta (`clearSession` → POST /auth/logout + cookie). */
+function AdminLogoutButton() {
+  return (
+    <button
+      type="button"
+      className="admin-header__logout"
+      onClick={() => {
+        clearSession();
+        window.location.href = adminLogoutHref();
+      }}
+    >
+      {ADMIN_LOGOUT_LABEL}
+    </button>
+  );
+}
+
 export function AdminConsole({ children }: { children?: ReactNode }) {
   const state = useAdminConsoleState();
   const View = SECTION_VIEW[state.adminSection];
@@ -39,6 +57,7 @@ export function AdminConsole({ children }: { children?: ReactNode }) {
         section={state.adminSection}
         onSectionChange={state.goAdminSection}
         badges={state.shellBadges}
+        headerActions={<AdminLogoutButton />}
       >
         {state.err ? <div className="alert">{state.err}</div> : null}
         {state.msg ? <div className="ok">{state.msg}</div> : null}
