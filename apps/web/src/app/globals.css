@@ -729,9 +729,11 @@ textarea { resize: vertical; min-height: 72px; }
 .catalog-price { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .catalog-empty { padding: 18px 16px; border-radius: var(--radius); border: 1px dashed var(--line-strong); background: #fff; margin-bottom: 16px; }
 
-.pdp { padding: 24px 0; }
-.pdp-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
+.pdp { padding: 24px 0; min-width: 0; }
+.pdp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.pdp-grid > * { min-width: 0; }
 .pdp-buybox { display: flex; flex-direction: column; min-width: 0; }
+.pdp-gallery { width: 100%; min-width: 0; }
 .pdp-identity { order: 1; }
 .pdp-price-block { order: 2; }
 .pdp-desc { order: 3; }
@@ -745,6 +747,8 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-main-img img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .pdp-carousel {
   position: relative;
+  width: 100%;
+  min-width: 0;
   background: #fafaf7;
   border-radius: var(--radius);
   border: 1px solid var(--line);
@@ -754,6 +758,8 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-carousel:focus-visible { box-shadow: 0 0 0 2px var(--yellow); }
 .pdp-carousel-track {
   display: flex;
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
@@ -763,20 +769,31 @@ textarea { resize: vertical; min-height: 72px; }
   touch-action: pan-x;
 }
 .pdp-carousel-track::-webkit-scrollbar { display: none; }
+/* Slide width = track width. Height from 1:1 — do NOT also set a short height/max-height
+   (Chromium transfers that onto width and the photo collapses to a right-hand strip). */
 .pdp-carousel-slide {
+  box-sizing: border-box;
   flex: 0 0 100%;
   width: 100%;
-  aspect-ratio: 1;
+  min-width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: grid;
-  place-items: center;
+  place-items: stretch;
   background: #fafaf7;
 }
 .pdp-carousel-slide img {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+  object-position: center;
   padding: 12px;
   user-select: none;
   -webkit-user-drag: none;
@@ -825,6 +842,7 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-thumbs {
   display: flex;
   flex-wrap: nowrap;
+  justify-content: center;
   gap: 8px;
   margin-top: 10px;
   overflow-x: auto;
@@ -1027,7 +1045,8 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: center;
   gap: 8px;
   width: 100%;
-  min-height: 280px;
+  height: 100%;
+  min-height: 0;
   background: linear-gradient(160deg, #f7f7f4 0%, #ebebe6 100%);
   color: var(--ink);
 }
@@ -1083,31 +1102,41 @@ textarea { resize: vertical; min-height: 72px; }
   .home-banner-slide { aspect-ratio: 16 / 10; min-height: 160px; border-radius: 18px; }
   .home-banner-overlay { padding: 14px 14px 12px; }
   .home-banner-cta { width: 100%; }
-  .pdp-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pdp-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .pdp-title { font-size: 20px; margin: 4px 0 8px; }
   .pdp-identity { min-width: 0; }
   .pdp-price { font-size: 26px; }
   .pdp-price-block { padding: 12px 14px; }
+  /* Full-width square frame. Short height+aspect-ratio caps were what pinned the
+     photo as a strip on the right (PR #31). Name/price still follow the gallery. */
+  .pdp-gallery,
   .pdp-carousel,
-  .pdp-carousel-track,
-  .pdp-carousel-slide {
-    max-height: min(38vh, 280px);
-    max-height: min(38dvh, 280px);
+  .pdp-carousel-track {
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    height: auto;
   }
   .pdp-carousel-slide {
-    aspect-ratio: 1;
-    height: min(38vh, 280px);
-    height: min(38dvh, 280px);
-    max-height: min(38vh, 280px);
-    max-height: min(38dvh, 280px);
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    max-height: none;
   }
   .pdp-carousel-slide img,
   .pdp-gallery-open img {
-    max-height: min(38vh, 280px);
-    max-height: min(38dvh, 280px);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
     padding: 8px;
   }
-  .pdp-thumbs { margin-top: 8px; }
+  .pdp-thumbs { margin-top: 8px; justify-content: center; }
   .header-row { padding: 8px 0; gap: 8px; }
   .hdr-hide-sm { display: none !important; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
@@ -1215,12 +1244,17 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp {
     padding-top: 8px;
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+    overflow-x: clip;
   }
   .pdp-sticky-atc, .cart-sticky-checkout {
     display: flex; position: fixed; left: 0; right: 0;
     bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 25;
-    gap: 10px; align-items: center; padding: 10px 12px; background: #fff; border-top: 1px solid var(--line);
+    gap: 10px; align-items: center;
+    padding: 10px 12px;
+    background: #fff; border-top: 1px solid var(--line);
+    box-sizing: border-box;
   }
+  .pdp-sticky-atc .btn { flex: 1 1 auto; min-width: 0; }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
   .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }
   .chatw { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); right: 12px; }
@@ -1238,20 +1272,6 @@ textarea { resize: vertical; min-height: 72px; }
   .logo { font-size: 15px; }
   .search { min-width: 0; flex: 1 1 100%; order: 4; }
   .hdr-cep { order: 3; }
-  /* Search wraps onto its own row — keep gallery short so name/price/3x stay above sticky ATC */
-  .pdp-carousel,
-  .pdp-carousel-track,
-  .pdp-carousel-slide {
-    max-height: min(28vh, 200px);
-    max-height: min(28dvh, 200px);
-    height: min(28vh, 200px);
-    height: min(28dvh, 200px);
-  }
-  .pdp-carousel-slide img,
-  .pdp-gallery-open img {
-    max-height: min(28vh, 200px);
-    max-height: min(28dvh, 200px);
-  }
 }
 
 /* —— Desktop store experience —— */

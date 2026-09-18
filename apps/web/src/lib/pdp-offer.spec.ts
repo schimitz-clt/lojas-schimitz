@@ -45,7 +45,9 @@ assert.ok(descAt < actionsAt, 'description before ATC actions (prominent, not bu
 
 const css = readFileSync(join(srcRoot, 'app/globals.css'), 'utf8');
 assert.ok(css.includes('.pdp-offer-pills'), 'mobile offer chips styled');
-assert.ok(/\.pdp-carousel-slide[\s\S]*max-height/.test(css), 'gallery height capped');
+assert.ok(/\.pdp-carousel-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'gallery slides lock to track width');
+assert.ok(/\.pdp-carousel-slide\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/.test(css), 'gallery uses a full-width square frame');
+assert.equal(/height:\s*min\(28vh,\s*200px\)/.test(css), false, 'gallery must not use the 200px strip cap');
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp[\s\S]*padding-bottom:\s*calc\(/.test(css),
   'mobile PDP padding clears sticky ATC + bottom nav',
