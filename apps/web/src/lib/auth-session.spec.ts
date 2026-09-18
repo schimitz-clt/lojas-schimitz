@@ -7,7 +7,9 @@ import {
   persistAuthSession,
   refreshBodyForRequest,
   refreshBodyFromStorage,
+  SESSION_UPDATED_EVENT,
   shouldPersistRefreshInLocalStorage,
+  shouldRestoreSessionFromCookies,
   wipeAuthSessionStorage,
 } from './auth-session';
 
@@ -36,6 +38,13 @@ assert.equal(isCookieFirstHost('lojasschimitz.com.br'), true);
 assert.equal(isCookieFirstHost('www.lojasschimitz.com.br'), true);
 assert.equal(isCookieFirstHost('localhost'), false);
 assert.equal(isCookieFirstHost('127.0.0.1'), false);
+
+assert.equal(SESSION_UPDATED_EVENT, 'sch-session-updated');
+assert.equal(shouldRestoreSessionFromCookies('lojasschimitz.com.br', false), true);
+assert.equal(shouldRestoreSessionFromCookies('www.lojasschimitz.com.br', false), true);
+assert.equal(shouldRestoreSessionFromCookies('lojasschimitz.com.br', true), false);
+assert.equal(shouldRestoreSessionFromCookies('localhost', false), false);
+assert.equal(shouldRestoreSessionFromCookies('127.0.0.1', false), false);
 
 assert.deepEqual(refreshBodyFromStorage('rt-abc'), { refreshToken: 'rt-abc' });
 assert.deepEqual(refreshBodyFromStorage('  rt-abc  '), { refreshToken: 'rt-abc' });
@@ -179,5 +188,9 @@ assert.ok(!apiSrc.includes("sessionStorage.setItem('sch_refresh'"), 'must not pe
 assert.ok(!apiSrc.includes("localStorage.getItem('sch_access'"), 'must not read access JWT from localStorage');
 assert.ok(apiSrc.includes('isCookieFirstHost'), 'cookie-first skips Bearer from JS');
 assert.ok(!apiSrc.includes('REFRESH_JSON_TOKEN_ENABLED'), 'client must not flip JSON refresh flag');
+assert.ok(apiSrc.includes('ensureHydratedSession'), 'cold start restores cookie session');
+assert.ok(apiSrc.includes("'/auth/refresh'"), 'hydrate uses refresh, not localStorage JWT');
+assert.ok(apiSrc.includes('shouldRestoreSessionFromCookies'), 'hydrate skips when sch_user already present');
+assert.ok(apiSrc.includes('SESSION_UPDATED_EVENT'), 'login/logout/hydrate notify chrome');
 
 console.log('auth-session unit tests ok');

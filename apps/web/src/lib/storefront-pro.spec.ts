@@ -47,7 +47,7 @@ assert.equal(
 );
 
 assert.equal(cartCheckoutLabel(true), 'Finalizar compra');
-assert.equal(cartCheckoutLabel(false), 'Entrar e finalizar');
+assert.equal(cartCheckoutLabel(false), 'Entrar ou cadastrar');
 
 /* —— Phase 2 —— */
 assert.equal(parseCatalogSort('price_asc'), 'price_asc');

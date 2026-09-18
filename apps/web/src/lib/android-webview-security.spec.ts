@@ -14,6 +14,12 @@ const manifest = readFileSync(
 assert.ok(/allowFileAccess\s*=\s*false/.test(kotlin), 'WebView must not allow file:/// filesystem access');
 assert.ok(/allowFileAccessFromFileURLs\s*=\s*false/.test(kotlin), 'file URL → file URL access off');
 assert.ok(/setAcceptThirdPartyCookies\(\s*webView,\s*false\s*\)/.test(kotlin), '3P cookies off');
+assert.ok(
+  kotlin.indexOf('CookieManager.getInstance().setAcceptCookie(true)') < kotlin.indexOf('setContentView'),
+  'accept first-party cookies before WebView inflate',
+);
+assert.ok(/override fun onStop\(\)[\s\S]*CookieManager\.getInstance\(\)\.flush\(\)/.test(kotlin), 'flush cookies onStop');
+assert.ok(/override fun onPageFinished[\s\S]*CookieManager\.getInstance\(\)\.flush\(\)/.test(kotlin), 'flush cookies after page load');
 assert.ok(kotlin.includes('MIXED_CONTENT_NEVER_ALLOW'), 'mixed content never allow');
 assert.ok(kotlin.includes('file:///android_asset/offline.html'), 'offline page still uses android_asset');
 assert.ok(kotlin.includes('mercadopago.com'), 'MP hosts listed for external browser');

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, currentUser } from '@/lib/api';
+import { api, brl } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
 import {
   ACCOUNT_DADOS_PATH,
   ACCOUNT_EDIT_ADDRESS_CTA,
@@ -39,7 +40,7 @@ const kindLabel: Record<string, string> = {
 };
 
 export default function ContaDadosPage() {
-  const [user, setUser] = useState(currentUser());
+  const { user, ready } = useSessionUser();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressesLoaded, setAddressesLoaded] = useState(false);
   const [editAddressOpen, setEditAddressOpen] = useState(false);
@@ -57,9 +58,8 @@ export default function ContaDadosPage() {
   });
 
   useEffect(() => {
-    const u = currentUser();
-    setUser(u);
-    if (!u) {
+    if (!ready) return;
+    if (!user) {
       window.location.href = accountLoginHref(ACCOUNT_DADOS_PATH);
       return;
     }
@@ -73,7 +73,7 @@ export default function ContaDadosPage() {
     api<Loyalty>('/me/loyalty')
       .then(setLoyalty)
       .catch(() => {});
-  }, []);
+  }, [ready, user]);
 
   function openEditAddress() {
     const current = accountAddressToEdit(addresses);

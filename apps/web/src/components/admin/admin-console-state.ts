@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { api, apiUpload, brl, clearSession, currentUser, isUnauthorizedError } from '@/lib/api';
+import { api, apiUpload, brl, clearSession, currentUser, ensureHydratedSession, isUnauthorizedError } from '@/lib/api';
 import {
   nextFulfillmentStatus,
   orderStatusLabel,
@@ -233,8 +233,8 @@ export function useAdminConsoleState() {
     router.push(buildAdminSectionHref(next));
   }, [router]);
 
-  const load = useCallback(() => {
-    const u = currentUser();
+  const load = useCallback(async () => {
+    const u = await ensureHydratedSession();
     if (!u) {
       setErr('Acesso restrito a admin. Entre com a conta administrativa.');
       if (typeof window !== 'undefined') {
@@ -301,7 +301,7 @@ export function useAdminConsoleState() {
   }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
 
   const loadCustomers = useCallback(async (q = customerQ) => {
-    const u = currentUser();
+    const u = await ensureHydratedSession();
     if (!u || u.role !== 'admin') return;
     setCustomerBusy(true);
     try {
@@ -325,7 +325,7 @@ export function useAdminConsoleState() {
   }, [customerQ]);
 
   const loadOps = useCallback(async () => {
-    const u = currentUser();
+    const u = await ensureHydratedSession();
     if (!u || u.role !== 'admin') return;
     setOpsBusy(true);
     try {
@@ -354,7 +354,7 @@ export function useAdminConsoleState() {
   }, [router]);
 
   const loadReconciliations = useCallback(async () => {
-    const u = currentUser();
+    const u = await ensureHydratedSession();
     if (!u || u.role !== 'admin') return;
     setReconBusy(true);
     try {
@@ -490,7 +490,7 @@ export function useAdminConsoleState() {
 
 
   const loadSalesReport = useCallback(async (from = salesFrom, to = salesTo) => {
-    const u = currentUser();
+    const u = await ensureHydratedSession();
     if (!u || u.role !== 'admin') return;
     setSalesBusy(true);
     try {

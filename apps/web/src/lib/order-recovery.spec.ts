@@ -40,6 +40,7 @@ assert.ok(PIX_LEAVE_COPY.includes('Pode sair'));
 assert.ok(PIX_LEAVE_COPY.includes('Meus pedidos'));
 
 const checkout = readFileSync(join(__dirname, '../app/checkout/page.tsx'), 'utf8');
+assert.ok(checkout.includes("loginNextPath('/checkout')"), 'checkout login keeps next');
 assert.ok(checkout.includes("api<{ publicId: string }>('/orders'"), 'checkout POSTs /orders');
 assert.ok(checkout.includes('router.push(`/pedidos/${order.publicId}`)'), 'navigate only after publicId');
 assert.ok(checkout.includes('persistLastOrderPublicId'), 'persist publicId before leave');

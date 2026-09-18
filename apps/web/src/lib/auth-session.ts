@@ -22,6 +22,22 @@ export const AUTH_STORAGE_KEYS = {
   user: 'sch_user',
 } as const;
 
+/** Dispatched after login, logout, or cookie restore so chrome/Conta re-read `sch_user`. */
+export const SESSION_UPDATED_EVENT = 'sch-session-updated';
+
+/**
+ * Cookie-first cold start: HttpOnly `sch_refresh` may exist while `sch_user` is missing
+ * (WebView storage vs cookie stores). UI must restore via POST /auth/refresh before
+ * treating the visitor as logged out.
+ */
+export function shouldRestoreSessionFromCookies(
+  hostname: string,
+  localUserPresent: boolean,
+): boolean {
+  if (localUserPresent) return false;
+  return isCookieFirstHost(hostname);
+}
+
 export type AuthSessionPayload = {
   accessToken: string;
   refreshToken?: string;

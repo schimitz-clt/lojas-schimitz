@@ -6,10 +6,16 @@ import {
   isCookieFirstHost,
   persistAuthSession,
   refreshBodyForRequest,
+  SESSION_UPDATED_EVENT,
+  shouldRestoreSessionFromCookies,
   wipeAuthSessionStorage,
 } from './auth-session';
 
+export { SESSION_UPDATED_EVENT };
+
 export type { ApiFail, ApiOk } from './api-envelope';
+
+export type SessionUser = { id: string; name: string; email: string; role: string };
 
 /** Browser: same-origin /api/v1 in prod; localhost API for local. Cookie-first body is empty. */
 function API() {
@@ -98,6 +104,18 @@ type SessionPayload = { accessToken: string; refreshToken?: string; user: unknow
 
 /** Single-flight: parallel 401s share one refresh (token rotation). */
 let refreshInFlight: Promise<boolean> | null = null;
+
+/** Single-flight cookie restore so Conta/checkout don't bounce to /entrar on cold start. */
+let hydrateInFlight: Promise<SessionUser | null> | null = null;
+
+function notifySessionUpdated() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new Event(SESSION_UPDATED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
 
 async function tryRefreshSession(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -225,10 +243,12 @@ export function saveSession(data: { accessToken: string; refreshToken?: string; 
       memoryRefresh = data.refreshToken.trim();
     }
   }
+  notifySessionUpdated();
 }
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
+  hydrateInFlight = Promise.resolve(null);
   const host = window.location.hostname;
   const leftover = wipeAuthSessionStorage(localStorage);
   try {
@@ -252,9 +272,8 @@ export function clearSession() {
     cache: 'no-store',
     credentials: 'include',
   }).catch(() => undefined);
+  notifySessionUpdated();
 }
-
-export type SessionUser = { id: string; name: string; email: string; role: string };
 
 export function currentUser(): SessionUser | null {
   if (typeof window === 'undefined') return null;
@@ -273,6 +292,27 @@ export function currentUser(): SessionUser | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Restore cookie-first session before Conta/checkout decide "logged out".
+ * Localhost keeps memory+sch_user (no cookie restore). Cookie-first with missing
+ * sch_user calls POST /auth/refresh with credentials (HttpOnly sch_refresh).
+ */
+export function ensureHydratedSession(): Promise<SessionUser | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const existing = currentUser();
+  const host = window.location.hostname;
+  if (!shouldRestoreSessionFromCookies(host, Boolean(existing))) {
+    return Promise.resolve(existing);
+  }
+  if (hydrateInFlight) return hydrateInFlight;
+  hydrateInFlight = (async () => {
+    const restored = await tryRefreshSession();
+    if (restored) notifySessionUpdated();
+    return currentUser();
+  })();
+  return hydrateInFlight;
 }
 
 /** Label for header/account UI when name may be missing. */

@@ -2,7 +2,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api, brl, currentUser, waLink } from '@/lib/api';
+import { api, brl, waLink } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
+import { loginNextPath, persistLastOrderPublicId } from '@/lib/order-recovery';
 import { pixPrice, pixSavings, isPixPromoCollidingCouponCode } from '@/lib/pricing';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
@@ -11,7 +13,6 @@ import {
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
 import { TrustBadges } from '@/components/TrustBadges';
-import { persistLastOrderPublicId } from '@/lib/order-recovery';
 import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
 
 type CartItem = {
@@ -48,6 +49,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const errId = useId();
   const submittingRef = useRef(false);
+  const { user, ready: sessionReady } = useSessionUser();
   const [cart, setCart] = useState<Cart | null>(null);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
@@ -65,8 +67,9 @@ export default function CheckoutPage() {
   const [validating, setValidating] = useState(false);
 
   useEffect(() => {
-    if (!currentUser()) {
-      router.push('/entrar');
+    if (!sessionReady) return;
+    if (!user) {
+      router.replace(loginNextPath('/checkout'));
       return;
     }
     api<Cart>('/cart').then(setCart).catch((e) => setErr(e.message));
@@ -78,7 +81,7 @@ export default function CheckoutPage() {
       .catch(() => {})
       .finally(() => setAddressesLoaded(true));
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
-  }, [router]);
+  }, [router, sessionReady, user]);
 
   useEffect(() => {
     if (!cart || !addressId) {
@@ -184,6 +187,7 @@ export default function CheckoutPage() {
     }
   }
 
+  if (!sessionReady || !user) return <p className="muted">Carregando checkout...</p>;
   if (!cart) return <p className="muted">Carregando checkout...</p>;
   if (cart.items.length === 0) {
     return (

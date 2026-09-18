@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, currentUser } from '@/lib/api';
+import { api, brl } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
 import { orderStatusLabel } from '@/lib/order-status';
 import {
   extraItemsCount,
@@ -67,18 +68,20 @@ function OrderCardThumb({
 }
 
 export default function PedidosPage() {
+  const { user, ready } = useSessionUser();
   const [orders, setOrders] = useState<OrderListRow[]>([]);
   const [err, setErr] = useState('');
   const [lastPublicId, setLastPublicId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!currentUser()) {
+    if (!ready) return;
+    if (!user) {
       window.location.href = loginNextPath('/pedidos');
       return;
     }
     setLastPublicId(readLastOrderPublicId(window.localStorage));
     api<OrderListRow[]>('/orders').then(setOrders).catch((e) => setErr(e.message));
-  }, []);
+  }, [ready, user]);
 
   const lastStillListed = lastPublicId && orders.some((o) => o.publicId === lastPublicId);
   const lastPaths = lastPublicId ? orderRecoveryPaths(lastPublicId) : null;

@@ -1,10 +1,22 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { loginNextPath } from '@/lib/order-recovery';
 
 const REGISTER_ACCEPTED_FALLBACK =
   'Se o e-mail ainda não estiver cadastrado, sua conta foi criada. Faça login para continuar.';
+
+function safeNextPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 export default function CadastroPage() {
   const [name, setName] = useState('');
@@ -14,6 +26,12 @@ export default function CadastroPage() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState(false);
+  const [loginHref, setLoginHref] = useState('/entrar');
+
+  useEffect(() => {
+    const next = safeNextPath();
+    setLoginHref(next ? loginNextPath(next) : '/entrar');
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +65,12 @@ export default function CadastroPage() {
             <button className="btn" type="submit">Cadastrar</button>
           </>
         ) : null}
-        <Link href="/entrar">Já tenho conta</Link>
+        <Link href={loginHref}>Já tenho conta</Link>
+        {done ? (
+          <Link className="btn" href={loginHref}>
+            Entrar para continuar
+          </Link>
+        ) : null}
       </form>
     </div>
   );
