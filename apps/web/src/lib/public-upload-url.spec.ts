@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { rewritePublicUploadUrl } from './public-upload-url';
+import { rewritePublicUploadUrl, localizeStorefrontUploadUrl } from './public-upload-url';
 
 const railway =
   'https://lojas-schimitz-production.up.railway.app/api/v1/uploads/518992fa-c11b-4ca5-8113-18e5a1e6c6db.png';
@@ -23,6 +23,18 @@ assert.equal(
     'https://lojas-schimitz-production.up.railway.app/api/v1/uploads/../secret',
   ),
   'https://lojas-schimitz-production.up.railway.app/api/v1/uploads/../secret',
+);
+
+const localApex = localizeStorefrontUploadUrl(apex, 'http://localhost:3000');
+assert.equal(localApex, '/api/v1/uploads/518992fa-c11b-4ca5-8113-18e5a1e6c6db.png');
+assert.equal(
+  localizeStorefrontUploadUrl(apex, 'https://lojasschimitz.com.br'),
+  apex,
+  'production keeps the public apex URL',
+);
+assert.equal(
+  localizeStorefrontUploadUrl('https://cdn.example/foto.jpg', 'http://localhost:3000'),
+  'https://cdn.example/foto.jpg',
 );
 
 console.log('public-upload-url (web) unit tests ok');

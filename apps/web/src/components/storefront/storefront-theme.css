@@ -1633,7 +1633,7 @@
   }
 
   .pdp-carousel-nav {
-    display: none;
+    display: none !important;
   }
 
   .pdp-carousel-dots {

@@ -871,6 +871,7 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .pdp-title-row {
   display: flex;
+  flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
@@ -1168,6 +1169,7 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-title { font-size: 18px; margin: 4px 0 0; font-weight: 800; }
   .pdp-title-row {
     display: flex;
+    flex-wrap: nowrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
@@ -1269,7 +1271,7 @@ textarea { resize: vertical; min-height: 72px; }
     object-position: center;
     padding: 12px 24px;
   }
-  .pdp-carousel-nav { display: none; }
+  .pdp-carousel-nav { display: none !important; }
   .pdp-carousel-dots {
     position: static;
     padding: 4px 0 8px;
