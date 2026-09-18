@@ -23,6 +23,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
 - Página offline/erro (`assets/offline.html`) se não houver rede, falha da carga principal ou erro SSL.
 - `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` HttpOnly); 3P cookies desligados (MP abre externo).
+- Cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é transparente para o app: same-origin + `credentials: 'include'` no Next; não há persistência nativa de refresh.
 - Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
 
 ## Pré-requisitos (no seu computador)

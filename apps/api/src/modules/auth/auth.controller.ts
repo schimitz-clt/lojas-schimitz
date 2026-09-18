@@ -8,9 +8,8 @@ import { CartService } from '../cart/cart.service';
 import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
 import {
   clearRefreshCookie,
+  issueAuthSession,
   resolveRefreshToken,
-  setRefreshCookie,
-  shapeAuthSessionPayload,
 } from './refresh-cookie';
 
 function clientIp(req: Request): string {
@@ -40,10 +39,6 @@ export class AuthController {
     }
   }
 
-  private attachRefreshCookie(res: Response, tokens: { refreshToken: string }) {
-    setRefreshCookie(res, tokens.refreshToken);
-  }
-
   @Post('register')
   @ApiOperation({ summary: 'Registrar cliente' })
   @ApiSecurity('guest-token')
@@ -56,8 +51,7 @@ export class AuthController {
   ) {
     const tokens = await this.auth.register(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
-    this.attachRefreshCookie(res, tokens);
-    return ok(shapeAuthSessionPayload(tokens));
+    return ok(issueAuthSession(res, tokens));
   }
 
   @Post('login')
@@ -72,15 +66,14 @@ export class AuthController {
   ) {
     const tokens = await this.auth.login(dto, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
-    this.attachRefreshCookie(res, tokens);
-    return ok(shapeAuthSessionPayload(tokens));
+    return ok(issueAuthSession(res, tokens));
   }
 
   @Post('refresh')
   @ApiOperation({
     summary: 'Renovar access token',
     description:
-      'Aceita refresh no cookie HttpOnly `sch_refresh` **ou** no body (`refreshToken`). Cookie tem precedência (Phase 9); body é fallback. Resposta inclui `refreshToken` por default (compat); omitível com REFRESH_JSON_TOKEN_ENABLED=false.',
+      'Aceita refresh no cookie HttpOnly `sch_refresh` **ou** no body (`refreshToken`). Cookie tem precedência; body é fallback (localhost/legado). JSON inclui `refreshToken` por default; com REFRESH_COOKIE_ENABLED + REFRESH_JSON_TOKEN_ENABLED=false a resposta omite o campo (cookie-only). Merge de código não flipa prod — ver checklist em docs/SECURITY.md.',
   })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async refresh(
@@ -94,8 +87,7 @@ export class AuthController {
       throw new UnauthorizedException('Refresh token inválido');
     }
     const tokens = await this.auth.refresh({ refreshToken });
-    this.attachRefreshCookie(res, tokens);
-    return ok(shapeAuthSessionPayload(tokens));
+    return ok(issueAuthSession(res, tokens));
   }
 
   @Post('logout')

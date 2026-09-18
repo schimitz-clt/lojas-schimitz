@@ -106,7 +106,9 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 - Login/register/refresh: `Set-Cookie: sch_refresh=...; HttpOnly; Path=/; SameSite=...`
 - Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
 - Access token continua no header `Authorization: Bearer`.
-- Resposta JSON ainda inclui `refreshToken` (compat mobile/legado).
+- JSON inclui `refreshToken` **por default** (`REFRESH_JSON_TOKEN_ENABLED` unset/true).
+  Com cookie enabled + `REFRESH_JSON_TOKEN_ENABLED=false` o campo é **omitido** (cookie-only).
+  Body `{ refreshToken }` ainda é aceito no refresh/logout como fallback (cookie tem precedência).
 
 
 ## URLs públicas de upload

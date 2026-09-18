@@ -10,6 +10,12 @@ Evita deteccao incorreta como multi-app Nx/Next.
 Nao commitar .env. Configure no Railway: DATABASE_URL, JWT_ACCESS_SECRET,
 JWT_REFRESH_SECRET, CORS_ORIGINS, PORT e demais chaves de .env.example.
 
+Cookie-only JSON (refresh): default do código é `REFRESH_JSON_TOKEN_ENABLED=true`
+(unset = inclui `refreshToken` no JSON). Para omitir o campo em prod, depois do
+merge e com OK do dono, setar **no serviço API**:
+`REFRESH_JSON_TOKEN_ENABLED=false`. Rollback = `true` ou unset. Não setar no web.
+Checklist: `docs/SECURITY.md`.
+
 ## Pipeline
 
 1. Install (raiz + apps/api), generate Prisma, build TypeScript

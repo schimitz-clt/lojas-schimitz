@@ -1,7 +1,10 @@
 import assert from 'assert';
 import {
   AUTH_STORAGE_KEYS,
+  discardStaleRefreshStorage,
+  isCookieFirstHost,
   persistAuthSession,
+  refreshBodyForRequest,
   refreshBodyFromStorage,
   shouldPersistRefreshInLocalStorage,
   wipeAuthSessionStorage,
@@ -28,6 +31,10 @@ assert.equal(shouldPersistRefreshInLocalStorage('LOCALHOST'), true);
 assert.equal(shouldPersistRefreshInLocalStorage('lojasschimitz.com.br'), false);
 assert.equal(shouldPersistRefreshInLocalStorage('www.lojasschimitz.com.br'), false);
 assert.equal(shouldPersistRefreshInLocalStorage(''), false);
+assert.equal(isCookieFirstHost('lojasschimitz.com.br'), true);
+assert.equal(isCookieFirstHost('www.lojasschimitz.com.br'), true);
+assert.equal(isCookieFirstHost('localhost'), false);
+assert.equal(isCookieFirstHost('127.0.0.1'), false);
 
 assert.deepEqual(refreshBodyFromStorage('rt-abc'), { refreshToken: 'rt-abc' });
 assert.deepEqual(refreshBodyFromStorage('  rt-abc  '), { refreshToken: 'rt-abc' });
@@ -35,6 +42,17 @@ assert.deepEqual(refreshBodyFromStorage(null), {});
 assert.deepEqual(refreshBodyFromStorage(undefined), {});
 assert.deepEqual(refreshBodyFromStorage(''), {});
 assert.deepEqual(refreshBodyFromStorage('   '), {});
+
+// Cookie-first hosts never put refresh in the request body (stale localStorage ignored).
+assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', 'stale-rt'), {});
+assert.deepEqual(refreshBodyForRequest('www.lojasschimitz.com.br', 'stale-rt'), {});
+assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', null), {});
+assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', ''), {});
+// Localhost dual-mode: body still sent when storage has a token.
+assert.deepEqual(refreshBodyForRequest('localhost', 'rt-local'), { refreshToken: 'rt-local' });
+assert.deepEqual(refreshBodyForRequest('127.0.0.1', '  rt-local  '), { refreshToken: 'rt-local' });
+assert.deepEqual(refreshBodyForRequest('localhost', null), {});
+assert.deepEqual(refreshBodyForRequest('localhost', ''), {});
 
 const user = { id: 'u1', email: 'a@b.c', role: 'customer', name: 'A' };
 
@@ -90,5 +108,43 @@ assert.deepEqual(refreshBodyFromStorage(wiped.refreshToken), { refreshToken: 'rt
 const emptyWipe = wipeAuthSessionStorage(mem());
 assert.deepEqual(emptyWipe, { access: '', refreshToken: '' });
 assert.deepEqual(refreshBodyFromStorage(emptyWipe.refreshToken), {});
+
+// Prod logout/refresh: even if wipe returned a leftover token, request body stays empty.
+assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', wiped.refreshToken), {});
+assert.deepEqual(refreshBodyForRequest('localhost', wiped.refreshToken), { refreshToken: 'rt-out' });
+
+// discardStaleRefreshStorage only drops on cookie-first hosts.
+const staleProd = mem({ [AUTH_STORAGE_KEYS.refresh]: 'legacy-keep-or-not' });
+discardStaleRefreshStorage(staleProd, 'lojasschimitz.com.br');
+assert.equal(staleProd.getItem(AUTH_STORAGE_KEYS.refresh), null);
+const staleLocal = mem({ [AUTH_STORAGE_KEYS.refresh]: 'keep-on-local' });
+discardStaleRefreshStorage(staleLocal, 'localhost');
+assert.equal(staleLocal.getItem(AUTH_STORAGE_KEYS.refresh), 'keep-on-local');
+
+// Cookie-only login → persist → refresh → logout (prod / Android WebView).
+const cookieOnlyFlow = mem({ [AUTH_STORAGE_KEYS.refresh]: 'pre-flip-stale' });
+persistAuthSession(cookieOnlyFlow, 'lojasschimitz.com.br', {
+  accessToken: 'acc-login',
+  user,
+});
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.access), 'acc-login');
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.refresh), null);
+assert.deepEqual(
+  refreshBodyForRequest(
+    'lojasschimitz.com.br',
+    cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.refresh),
+  ),
+  {},
+);
+persistAuthSession(cookieOnlyFlow, 'lojasschimitz.com.br', {
+  accessToken: 'acc-refreshed',
+  user,
+});
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.access), 'acc-refreshed');
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.refresh), null);
+const afterLogout = wipeAuthSessionStorage(cookieOnlyFlow);
+assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', afterLogout.refreshToken), {});
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.access), null);
+assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.user), null);
 
 console.log('auth-session unit tests ok');
