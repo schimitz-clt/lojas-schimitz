@@ -24,6 +24,7 @@ import {
   findDeliveredAt,
   type FreightSnapLike,
 } from '@/lib/delivery-eta';
+import { orderItemDisplayName, orderItemImageUrl } from '@/lib/order-card-ui';
 import MercadoPagoCardBrick from '@/components/MercadoPagoCardBrick';
 import Link from 'next/link';
 
@@ -66,7 +67,16 @@ type Order = {
   trackingCode?: string | null;
   carrier?: string | null;
   freightSnap?: FreightSnapLike;
-  items: { id: string; qty: number; name: string; unitPrice: number; sellerId?: string | null }[];
+  items: {
+    id: string;
+    qty: number;
+    name: string;
+    productName?: string | null;
+    unitPrice: number;
+    sellerId?: string | null;
+    imageUrl?: string | null;
+    image?: string | null;
+  }[];
   payments?: Payment[];
   statusHistory?: StatusHistory[];
 };
@@ -487,14 +497,37 @@ export default function PedidoPage() {
       <section className="card" style={{ marginTop: 12 }} aria-labelledby="order-items-heading">
         <div className="body">
           <h2 id="order-items-heading" className="checkout-section-title">Itens</h2>
-          {o.items?.map((i) => (
-            <div key={i.id} className="row" style={{ marginBottom: 6 }}>
-              <span>
-                {i.qty}× {i.name}
-              </span>
-              <span>{brl(i.unitPrice)}</span>
-            </div>
-          ))}
+          {o.items?.map((i) => {
+            const name = orderItemDisplayName(i) || i.name;
+            const src = orderItemImageUrl(i);
+            return (
+              <div key={i.id} className="checkout-line" style={{ marginBottom: 8 }}>
+                <div className="checkout-line-media">
+                  {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={src}
+                      alt={name}
+                      width={64}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <span className="checkout-line-ph" aria-hidden>
+                      SCH
+                    </span>
+                  )}
+                </div>
+                <div className="checkout-line-body">
+                  <span className="checkout-line-name">
+                    {i.qty}× {name}
+                  </span>
+                </div>
+                <span>{brl(i.unitPrice)}</span>
+              </div>
+            );
+          })}
           <p style={{ marginBottom: 0 }}>
             Total {brl(o.total)}
             {Number(o.discount) > 0 ? ` (desconto ${brl(o.discount)})` : ''}

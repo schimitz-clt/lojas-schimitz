@@ -311,6 +311,8 @@ model OrderItem {
   sellerId  String?
   seller    Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   name      String
+  /** Snapshot da foto de capa no momento do pedido (histórico sem snapshot usa ProductImage atual). */
+  imageUrl  String?
   qty       Int
   unitPrice Decimal @db.Decimal(12, 2)
 
