@@ -12,7 +12,7 @@ import {
   nextGalleryIndex,
   type GalleryImage,
 } from '@/lib/product-gallery';
-import { pdpGalleryTapOpensLightbox } from '@/lib/pdp-gallery-layout';
+import { pdpGalleryTapOpensLightbox, pdpLightboxOpenedTooRecently } from '@/lib/pdp-gallery-layout';
 
 type Props = {
   images: GalleryImage[];
@@ -30,6 +30,7 @@ export function ProductGallery({ images, productName }: Props) {
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const touchStartX = useRef<number | null>(null);
   const tapOrigin = useRef<{ x: number; y: number } | null>(null);
+  const openedAtMs = useRef(0);
 
   const total = images.length;
 
@@ -73,6 +74,7 @@ export function ProductGallery({ images, productName }: Props) {
 
   const openLightbox = useCallback(() => {
     if (!total) return;
+    openedAtMs.current = Date.now();
     setZoomed(false);
     setLightbox(true);
   }, [total]);
@@ -83,6 +85,7 @@ export function ProductGallery({ images, productName }: Props) {
   }, []);
 
   const requestCloseLightbox = useCallback(() => {
+    if (pdpLightboxOpenedTooRecently(openedAtMs.current, Date.now())) return;
     if (typeof window !== 'undefined' && window.history.state?.pdpLightbox) {
       window.history.back();
       return;
@@ -92,6 +95,11 @@ export function ProductGallery({ images, productName }: Props) {
 
   const onPhotoPointerDown = useCallback((e: React.PointerEvent) => {
     tapOrigin.current = { x: e.clientX, y: e.clientY };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is optional */
+    }
   }, []);
 
   const onPhotoPointerUp = useCallback(
@@ -233,6 +241,7 @@ export function ProductGallery({ images, productName }: Props) {
                   draggable={false}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (pdpLightboxOpenedTooRecently(openedAtMs.current, Date.now())) return;
                     setZoomed((z) => !z);
                   }}
                 />

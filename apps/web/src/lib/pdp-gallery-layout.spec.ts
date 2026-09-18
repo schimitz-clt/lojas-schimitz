@@ -8,6 +8,7 @@ import {
   pdpGalleryHeightCapShrinksWidth,
   pdpGallerySlideWidthLock,
   pdpGalleryTapOpensLightbox,
+  pdpLightboxOpenedTooRecently,
   pdpLightboxOverlayCss,
   pdpPageOverflowX,
 } from './pdp-gallery-layout';
@@ -102,6 +103,13 @@ assert.ok(gallerySrc.includes('pdp-gallery-zoomchip'), 'Ampliar chip remains');
 assert.ok(gallerySrc.includes('pdp-lightbox-close'), 'X closes the viewer');
 assert.ok(gallerySrc.includes("addEventListener('popstate'"), 'Android back closes the viewer');
 assert.ok(gallerySrc.includes('onPointerUp'), 'a tap on the photo (not a swipe) opens the viewer');
-assert.ok(gallerySrc.includes('pdpGalleryTapOpensLightbox'), 'tap slop shared with layout helper');
+assert.ok(gallerySrc.includes('pdpLightboxOpenedTooRecently'), 'ignore the ghost click after opening');
+assert.ok(gallerySrc.includes('setPointerCapture'), 'photo target keeps the tap pointer');
+assert.equal(pdpLightboxOpenedTooRecently(1000, 1200), true);
+assert.equal(pdpLightboxOpenedTooRecently(1000, 1600), false);
+assert.ok(
+  /\.pdp-gallery-open img\s*\{[^}]*pointer-events:\s*none/.test(theme),
+  'gallery <img> does not steal the tap from the open target',
+);
 
 console.log('pdp-gallery-layout unit tests ok');

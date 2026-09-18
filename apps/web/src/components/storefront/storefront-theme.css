@@ -1483,6 +1483,7 @@
   object-fit: contain;
   object-position: center;
   padding: 12px;
+  pointer-events: none;
 }
 
 .pdp-gallery-zoomchip {

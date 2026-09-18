@@ -48,9 +48,18 @@ export function pdpLightboxOverlayCss(): { position: string; inset: string; zInd
 }
 
 /** Finger movement still counts as a tap on the main photo (opens the viewer). */
-export const PDP_LIGHTBOX_TAP_SLOP_PX = 12;
+export const PDP_LIGHTBOX_TAP_SLOP_PX = 24;
 
 export function pdpGalleryTapOpensLightbox(dx: number, dy: number): boolean {
   const slop = PDP_LIGHTBOX_TAP_SLOP_PX;
   return dx * dx + dy * dy <= slop * slop;
+}
+
+/** Ignore the click that follows pointerup after the overlay appears. */
+export function pdpLightboxIgnoreCloseMs(): number {
+  return 450;
+}
+
+export function pdpLightboxOpenedTooRecently(openedAtMs: number, nowMs: number): boolean {
+  return nowMs - openedAtMs < pdpLightboxIgnoreCloseMs();
 }
