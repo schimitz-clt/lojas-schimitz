@@ -271,15 +271,17 @@ async function main() {
   }
 
 
+  // PIX5 duplicates the automatic PIX 5% payment promo — keep the row for
+  // historical orders but do not re-activate it on fresh seeds.
   await prisma.coupon.upsert({
     where: { code: 'PIX5' },
-    update: { active: true, type: 'percent', value: 5 },
+    update: { active: false, type: 'percent', value: 5 },
     create: {
       code: 'PIX5',
       type: 'percent',
       value: 5,
       minSubtotal: 0,
-      active: true,
+      active: false,
     },
   });
 

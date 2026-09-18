@@ -95,7 +95,8 @@ export function AdminCuponsSection() {
       <div className="admin-section-panel">
       <p className="admin-section-intro">
             Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout. Use cupons ativos
-            para campanhas (ex.: BEMVINDO10) mesmo sem banner na home.
+            para campanhas (ex.: BEMVINDO10) mesmo sem banner na home. Não crie cupom percentual que
+            duplique o 5% automático do PIX (código PIX5 está aposentado/colidente).
       </p>
       {(() => {
         const couponStats = couponListStats(coupons);

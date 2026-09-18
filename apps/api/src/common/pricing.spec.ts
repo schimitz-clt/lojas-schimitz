@@ -1,14 +1,20 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   PIX_DISCOUNT_RATE,
+  PIX_PROMO_COLLIDING_COUPON_CODES,
   MAX_INSTALLMENTS,
   INTEREST_FREE_INSTALLMENTS,
   amountsMatchForApprove,
+  collidingPixPromoCouponCodes,
   computeCheckoutTotals,
   couponDiscountAmount,
+  isPixPromoCollidingCouponCode,
   moneyEquals,
   pixChargeAmount,
   pixDiscountAmount,
+  pixIntentChargeAmount,
   roundMoney,
 } from './pricing';
 
@@ -107,6 +113,57 @@ assert.equal(
 assert.equal(
   amountsMatchForApprove({ providerAmount: 90, paymentAmount: 95, orderTotal: 100 }),
   false,
+);
+
+// PIX promo vs coupon: named colliding list (no magic strings in payments.service)
+assert.deepEqual([...PIX_PROMO_COLLIDING_COUPON_CODES], ['PIX5']);
+assert.equal(isPixPromoCollidingCouponCode('pix5'), true);
+assert.equal(isPixPromoCollidingCouponCode(' PIX5 '), true);
+assert.equal(isPixPromoCollidingCouponCode('OFF10'), false);
+assert.equal(isPixPromoCollidingCouponCode(null), false);
+assert.equal(isPixPromoCollidingCouponCode('FOO5', 'FOO5,BAR5'), true);
+assert.ok(collidingPixPromoCouponCodes('').includes('PIX5'));
+assert.ok(collidingPixPromoCouponCodes('PIX05').includes('PIX05'));
+
+// PIX intent + PIX5 → no double 5% (charge post-coupon total)
+assert.equal(pixIntentChargeAmount(95, 'PIX5'), 95);
+assert.equal(pixIntentChargeAmount(95, 'pix5'), 95);
+{
+  const t = computeCheckoutTotals({
+    subtotal: 100,
+    couponDiscount: couponDiscountAmount('percent', 5, 100),
+    couponCode: 'PIX5',
+  });
+  assert.equal(t.total, 95);
+  assert.equal(t.pixCharge, 95);
+  assert.equal(t.pixDiscount, 0);
+}
+
+// PIX intent + unrelated coupon → automatic PIX 5% on post-coupon total
+assert.equal(pixIntentChargeAmount(90, 'OFF10'), pixChargeAmount(90));
+assert.equal(pixIntentChargeAmount(90, 'OFF10'), 85.5);
+{
+  const t = computeCheckoutTotals({
+    subtotal: 100,
+    couponDiscount: couponDiscountAmount('percent', 10, 100),
+    couponCode: 'OFF10',
+  });
+  assert.equal(t.total, 90);
+  assert.equal(t.pixCharge, 85.5);
+  assert.equal(t.pixDiscount, 4.5);
+}
+
+// Card path is order.total (this helper is PIX-only; no coupon still 95%)
+assert.equal(pixIntentChargeAmount(100, null), 95);
+assert.equal(pixIntentChargeAmount(100), pixChargeAmount(100));
+
+const paySrc = readFileSync(join(__dirname, '../modules/payments/payments.service.ts'), 'utf8');
+assert.ok(paySrc.includes('pixIntentChargeAmount'), 'PIX intent uses pixIntentChargeAmount');
+assert.ok(paySrc.includes('coupon: { select: { code: true } }'), 'PIX intent loads coupon code');
+assert.equal(
+  /method === 'pix' \? pixChargeAmount/.test(paySrc),
+  false,
+  'do not apply pixChargeAmount blindly on PIX intent',
 );
 
 console.log('pricing unit tests ok');

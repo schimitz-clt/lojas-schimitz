@@ -1,6 +1,18 @@
 /** Storefront display helpers (PIX 5% + parcelamento). Backend authority: apps/api/src/common/pricing.ts — see docs/PIX-DISCOUNT.md */
 
 export const PIX_DISCOUNT = 0.05;
+
+/**
+ * Display-side mirror of API `PIX_PROMO_COLLIDING_COUPON_CODES`.
+ * When one of these is applied, do not preview a second automatic PIX 5%.
+ */
+export const PIX_PROMO_COLLIDING_COUPON_CODES = ['PIX5'] as const;
+
+export function isPixPromoCollidingCouponCode(code: string | null | undefined): boolean {
+  const n = String(code || '').trim().toUpperCase();
+  if (!n) return false;
+  return (PIX_PROMO_COLLIDING_COUPON_CODES as readonly string[]).includes(n);
+}
 /** Card Brick / checkout max installment options — not the interest-free marketing claim. */
 export const MAX_INSTALLMENTS = 12;
 /** Seller-absorbed Mercado Pago “Parcelado vendedor”. Only this many may be advertised as “sem juros”. */

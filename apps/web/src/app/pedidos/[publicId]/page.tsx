@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { pixPrice } from '@/lib/pricing';
+import { pixPrice, isPixPromoCollidingCouponCode } from '@/lib/pricing';
 import { api, brl, currentUser, isUnauthorizedError, waLink } from '@/lib/api';
 import { loginNextPath, orderRecoveryPaths, persistLastOrderPublicId, PIX_LEAVE_COPY } from '@/lib/order-recovery';
 import {
@@ -78,6 +78,7 @@ type Order = {
     imageUrl?: string | null;
     image?: string | null;
   }[];
+  coupon?: { code?: string | null } | null;
   payments?: Payment[];
   statusHistory?: StatusHistory[];
 };
@@ -462,6 +463,8 @@ export default function PedidoPage() {
   const showTimeline = isPixPaidLikeOrder(o.status);
   const paidLike = isPixPaidLikeOrder(o.status);
   const pendingPay = awaiting || o.status === 'draft';
+  const skipAutoPix = isPixPromoCollidingCouponCode(o.coupon?.code);
+  const pixChargePreview = skipAutoPix ? Number(o.total) : pixPrice(o.total);
   // Recompute with definite order (after load) — same rule as showPixUi above.
   const showPixPayUi = showPixGate(intent?.payment?.status, o.status, intent?.payment?.method);
   const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
@@ -552,9 +555,16 @@ export default function PedidoPage() {
         <div className="card" style={{ marginTop: 16 }}>
           <div className="body">
             <h3>Pagamento pendente</h3>
-            <p className="muted">Escolha o método: PIX (5% OFF) ou cartão. O pedido só fica pago após aprovação.</p>
+            <p className="muted">
+              {skipAutoPix
+                ? 'Escolha o método: PIX (cupom PIX já aplicado — sem segundo 5%) ou cartão. O pedido só fica pago após aprovação.'
+                : 'Escolha o método: PIX (5% OFF) ou cartão. O pedido só fica pago após aprovação.'}
+            </p>
             <label style={{ display: 'block', marginBottom: 8 }}>
-              <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} /> PIX (5% off → {brl(pixPrice(o.total))})
+              <input type="radio" checked={method === 'pix'} onChange={() => setMethod('pix')} />{' '}
+              {skipAutoPix
+                ? `PIX (${brl(pixChargePreview)})`
+                : `PIX (5% off → ${brl(pixChargePreview)})`}
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
               <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão (valor integral {brl(o.total)})

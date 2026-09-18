@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma.service';
+import { isPixPromoCollidingCouponCode } from '../../common/pricing';
 
 export type CreateCouponInput = {
   code: string;
@@ -80,6 +81,8 @@ export class CouponsService {
     discount = Math.min(discount, subtotal);
     discount = Math.round(discount * 100) / 100;
 
+    // PIX5 remains a valid coupon (card / non-PIX). Payment method is usually
+    // unknown here — stacking with automatic PIX 5% is blocked at createIntent.
     return {
       id: coupon.id,
       code: coupon.code,
@@ -89,6 +92,7 @@ export class CouponsService {
       finalSubtotal: Math.round((subtotal - discount) * 100) / 100,
       minSubtotal: coupon.minSubtotal == null ? null : Number(coupon.minSubtotal),
       endsAt: coupon.endsAt,
+      collidesWithPixPromo: isPixPromoCollidingCouponCode(coupon.code),
     };
   }
 

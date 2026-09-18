@@ -5,6 +5,8 @@ import {
   pixPrice,
   pixSavings,
   PIX_DISCOUNT,
+  PIX_PROMO_COLLIDING_COUPON_CODES,
+  isPixPromoCollidingCouponCode,
   toNumber,
   MAX_INSTALLMENTS,
   INTEREST_FREE_INSTALLMENTS,
@@ -20,6 +22,10 @@ import {
 assert.equal(PIX_DISCOUNT, 0.05);
 assert.equal(pixPrice(100), 95);
 assert.equal(pixSavings(100), 5);
+assert.deepEqual([...PIX_PROMO_COLLIDING_COUPON_CODES], ['PIX5']);
+assert.equal(isPixPromoCollidingCouponCode('pix5'), true);
+assert.equal(isPixPromoCollidingCouponCode('OFF10'), false);
+assert.equal(isPixPromoCollidingCouponCode(''), false);
 assert.equal(pixPrice(199.9), Math.round(199.9 * 0.95 * 100) / 100);
 assert.equal(pixSavings(199.9), Math.round((199.9 - pixPrice(199.9)) * 100) / 100);
 assert.ok(pixSavings(199.9) > 0);
@@ -98,5 +104,9 @@ assert.ok(pdp.includes('installmentLine'), 'PDP headline uses installmentLine (3
 
 const brickUi = readFileSync(join(srcRoot, 'lib/card-payment-ui.ts'), 'utf8');
 assert.ok(brickUi.includes('maxInstallments: MAX_INSTALLMENTS'), 'Brick still max 12');
+
+const checkout = readFileSync(join(srcRoot, 'app/checkout/page.tsx'), 'utf8');
+assert.ok(checkout.includes('isPixPromoCollidingCouponCode'), 'checkout skips stacked PIX preview');
+assert.ok(!/placeholder="Ex\.: PIX5"/.test(checkout), 'checkout must not advertise retired PIX5');
 
 console.log('pricing display helpers ok');

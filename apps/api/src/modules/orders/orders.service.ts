@@ -221,6 +221,9 @@ export class OrdersService {
     let couponId: string | undefined;
 
     if (dto.couponCode) {
+      // Payment method is not known at order create (chosen later on the pay page).
+      // Colliding codes like PIX5 still apply here so card checkouts keep the 5%.
+      // Anti-stack with automatic PIX 5% is the createIntent gate.
       const validated = await this.coupons.validate(dto.couponCode, subtotal);
       couponDiscount = Number(validated.discount);
       couponId = validated.id;
@@ -246,6 +249,7 @@ export class OrdersService {
     const totals = computeCheckoutTotals({
       subtotal,
       couponDiscount,
+      couponCode: dto.couponCode,
       cashbackUsed: requestedCashback > 0 ? requestedCashback : 0,
       freight: quote.price,
     });
@@ -394,6 +398,7 @@ export class OrdersService {
         },
         payments: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
+        coupon: { select: { code: true } },
       },
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
