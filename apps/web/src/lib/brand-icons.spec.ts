@@ -32,7 +32,7 @@ mustPng('public/icons/schimitz-icon.png', 1024, 1024);
 mustPng('public/icons/schimitz-icon-fill-life.png', 1024, 1024);
 
 assert.ok(existsSync(join(webRoot, 'public/favicon.ico')), 'public/favicon.ico');
-assert.ok(existsSync(join(webRoot, 'src/app/favicon.ico')), 'app/favicon.ico');
+assert.equal(existsSync(join(webRoot, 'src/app/favicon.ico')), false, 'no app/favicon.ico conflict');
 
 mustPng('../mobile/store/icon-512.png', 512, 512);
 mustPng('../mobile/store/play-listing-icon-512-source.png', 512, 512);
@@ -52,6 +52,7 @@ assert.ok(layout.includes("url: '/apple-touch-icon.png'"), 'layout wires apple-t
 assert.ok(layout.includes("url: '/android-chrome-192x192.png'"), 'layout wires 192');
 assert.ok(layout.includes("url: '/android-chrome-512x512.png'"), 'layout wires 512');
 assert.ok(layout.includes("manifest: '/manifest.webmanifest'"), 'layout points at PWA manifest');
+assert.ok(layout.includes('themeColor:'), 'theme color on viewport');
 
 const manifest = readFileSync(join(srcRoot, 'app/manifest.ts'), 'utf8');
 assert.ok(manifest.includes("src: '/android-chrome-192x192.png'"), 'manifest any 192');

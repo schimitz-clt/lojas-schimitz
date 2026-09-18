@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
@@ -11,6 +11,10 @@ const jakarta = Plus_Jakarta_Sans({
   variable: '--font-schimitz',
   weight: ['400', '500', '600', '700', '800'],
 });
+
+export const viewport: Viewport = {
+  themeColor: '#0a0a0a',
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await fetchStoreSettings();
@@ -35,7 +39,6 @@ export async function generateMetadata(): Promise<Metadata> {
       description: s.siteDescription,
       ...(s.ogImageUrl ? { images: [s.ogImageUrl] } : {}),
     },
-    themeColor: '#0a0a0a',
     appleWebApp: {
       capable: true,
       title: s.siteTitle,
