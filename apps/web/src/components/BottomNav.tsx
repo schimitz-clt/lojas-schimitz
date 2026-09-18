@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { api, currentUser } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
 import { formatWishlistBadge } from '@/lib/wishlist-ui';
 
@@ -19,13 +19,11 @@ type NavItem = {
 export function BottomNav() {
   const path = usePathname() || '/';
   const [cartCount, setCartCount] = useState(0);
-  const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
   const { count: favCount } = useFavorites();
   const favBadge = formatWishlistBadge(favCount);
   const favBadgeNum = favBadge ? favCount : 0;
 
   useEffect(() => {
-    setUser(currentUser());
     api<{ itemCount?: number }>('/cart')
       .then((d) => setCartCount(d.itemCount || 0))
       .catch(() => setCartCount(0));
@@ -38,7 +36,7 @@ export function BottomNav() {
     return () => window.removeEventListener('sch-cart-updated', onCart);
   }, []);
 
-  const contaHref = user ? '/conta' : '/entrar';
+  const contaHref = '/conta';
 
   const items: NavItem[] = [
     {

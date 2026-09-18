@@ -33,6 +33,7 @@ assert.ok(
 
 const bottomNav = readFileSync(join(__dirname, '..', 'components/BottomNav.tsx'), 'utf8');
 assert.ok(/label: 'Conta'/.test(bottomNav), 'bottom tab bar keeps Conta');
-assert.ok(/contaHref/.test(bottomNav), 'bottom Conta still routes to /conta or /entrar');
+assert.ok(/contaHref/.test(bottomNav), 'bottom Conta still uses contaHref');
+assert.ok(/contaHref = '\/conta'/.test(bottomNav), 'bottom Conta always opens the /conta hub');
 
 console.log('storefront-copy unit tests ok');
