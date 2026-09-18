@@ -11,12 +11,14 @@ Elevar **ATENÇÃO AGORA** com evidências reais de reconciliação de pagamento
 | Item | Status | Evidência |
 |---|---|---|
 | `GET /admin/ops` + `reconciliations.{openCount,recent[]}` (cap 10) | ✅ | `admin.controller.ts` + `summarizeReconciliations` |
-| Alerta `open_reconciliations` severity `high` + evidence + recommendedAction | ✅ | `deriveOpsAlerts` + `admin-ops.spec.ts` |
-| FE sticky **ATENÇÃO AGORA** (critical/high/warn) com deep-link | ✅ | `apps/web/src/app/admin/page.tsx` |
-| Seção compacta **Reconciliações** (`/admin/payments/reconciliations`) | ✅ | mesma page, id `#admin-reconciliations` |
+| Alerta `open_reconciliations` + `label` PT **Pagamentos a conciliar** + deep-link `#admin-reconciliations` | ✅ | `deriveOpsAlerts` + `AdminAttentionStrip` |
+| Orphan approved/paid → severity `critical` (senão `high`); copy “SEM pedido local”; sem auto-estorno | ✅ | `admin-ops.ts` |
+| Falhas de e-mail pós-pago (`STORE_EMAIL_SEND_FAILED` / sem destinatário / provider off) no snapshot ops | ✅ | `mail.recentFailures` + `mail.recipientCount` + alertas PT |
+| FE sticky **ATENÇÃO AGORA** (critical/high/warn) com deep-link | ✅ | `AdminAttentionStrip` + `AdminOpsSection` |
+| Seção compacta **Reconciliações** (`#admin-reconciliations`) | ✅ | `AdminOpsSection` |
 | Order 360: publicId + payment status/ext no Detalhe | ✅ | usa `payments` já retornados por `GET /admin/orders` |
 | Jump leve por publicId/id/cliente (lista carregada) | ✅ | filtro client-side — sem endpoint público novo |
-| Testes unitários admin-ops (recon) | ✅ | `tsx src/modules/admin/admin-ops.spec.ts` |
+| Testes unitários admin-ops (recon + mail) | ✅ | `tsx src/modules/admin/admin-ops.spec.ts` |
 
 ## O que NÃO entrou / permanece wishlist
 

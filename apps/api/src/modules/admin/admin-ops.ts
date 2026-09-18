@@ -267,6 +267,8 @@ export type OpsReconciliationsSummary = {
 
 export type OpsAlert = {
   code: string;
+  /** Human PT label for Command Center (alongside machine code). */
+  label: string;
   severity: OpsAlertSeverity;
   message: string;
   count: number;
@@ -283,6 +285,75 @@ export type OpsAlert = {
   };
   /** Human-in-the-loop hint only — never auto-execute. */
   recommendedAction?: string;
+};
+
+export const OPS_ALERT_LABELS_PT: Record<string, string> = {
+  out_of_stock: 'Estoque zerado',
+  low_stock: 'Estoque baixo',
+  pending_payments: 'Pagamentos pendentes',
+  awaiting_payment_orders: 'Aguardando pagamento',
+  paid_needs_organizing: 'Pagos para organizar',
+  paid_stuck_awaiting_org: 'Pagos travados',
+  order_problems: 'Pedidos legados travados',
+  order_terminal_history: 'Cancelados/reembolsados',
+  placeholder_photos: 'Fotos placeholder',
+  open_reconciliations: 'Pagamentos a conciliar',
+  mail_off_with_store_notify: 'E-mail da loja desligado',
+  mail_not_configured: 'E-mail transacional ausente',
+  uploads_ephemeral: 'Uploads efêmeros',
+  store_email_send_failed: 'Falha ao enviar e-mail da loja',
+  store_email_no_recipients: 'Sem destinatário de e-mail da loja',
+};
+
+export const OPS_ALERT_SEVERITY_LABELS_PT: Record<OpsAlertSeverity, string> = {
+  critical: 'Crítico',
+  high: 'Alto',
+  warn: 'Atenção',
+  info: 'Info',
+};
+
+export function opsAlertLabelPt(code: string): string {
+  return OPS_ALERT_LABELS_PT[code] || code;
+}
+
+export function opsAlertSeverityLabelPt(severity: string): string {
+  if (severity === 'critical' || severity === 'high' || severity === 'warn' || severity === 'info') {
+    return OPS_ALERT_SEVERITY_LABELS_PT[severity];
+  }
+  return severity;
+}
+
+const OPS_ALERT_SEVERITY_RANK: Record<OpsAlertSeverity, number> = {
+  critical: 0,
+  high: 1,
+  warn: 2,
+  info: 3,
+};
+
+function pushOpsAlert(alerts: OpsAlert[], partial: Omit<OpsAlert, 'label'> & { label?: string }): void {
+  alerts.push({
+    ...partial,
+    label: partial.label || opsAlertLabelPt(partial.code),
+  });
+}
+
+export type OpsStoreNotifyMailFailure = {
+  code: string;
+  publicId: string;
+  reason: string;
+  at: string;
+};
+
+export type OpsMailSummary = {
+  configured: boolean;
+  storeNotifyConfigured: boolean;
+  /** Real env mismatch hint — not an invented counter; no e-mail on ops poll. */
+  providerOffWithStoreNotify: boolean;
+  /** Unique DB∪env recipients (count only — never addresses). Null when caller omitted. */
+  recipientCount: number | null;
+  /** Process-local recent store-notify failures (empty after API restart is honest). */
+  recentFailures: OpsStoreNotifyMailFailure[];
+  failureCount: number;
 };
 
 /**
@@ -433,6 +504,13 @@ export function deriveOpsAlerts(input: {
   uploadsPersistent?: boolean;
   /** Optional resolved dir for evidence (ops). */
   uploadsDir?: string;
+  /**
+   * Unique store-notify recipients (DB∪env). Pass only when counted.
+   * Alert fires solely when explicitly 0 and mail is configured; undefined skips.
+   */
+  mailRecipientCount?: number;
+  /** Process-local recent store-notify failures — empty is honest, not a KPI. */
+  storeNotifyRecentFailures?: OpsStoreNotifyMailFailure[];
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -445,9 +523,15 @@ export function deriveOpsAlerts(input: {
   const paid = Math.max(0, Number(buckets.paid) || 0);
   const awaiting = Math.max(0, Number(buckets.awaiting_payment) || 0);
   const openRecon = Math.max(0, Number(input.openReconciliationCount) || 0);
+  const mailFailures = input.storeNotifyRecentFailures ?? [];
+  const sendFailed = mailFailures.filter((f) => f.code === 'STORE_EMAIL_SEND_FAILED');
+  const noRecipientEvents = mailFailures.filter((f) => f.code === 'STORE_EMAIL_NO_RECIPIENTS');
+  const providerOffEvents = mailFailures.filter(
+    (f) => f.code === 'MAIL_PROVIDER_OFF_STORE_NOTIFY' || f.code === 'MAIL_PROVIDER_OFF',
+  );
 
   if (out > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'out_of_stock',
       severity: 'critical',
       message: `${out} produto(s) com estoque zerado`,
@@ -455,7 +539,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (low > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'low_stock',
       severity: 'warn',
       message: `${low} produto(s) com estoque baixo`,
@@ -463,7 +547,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (pending > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'pending_payments',
       severity: 'warn',
       message: `${pending} pagamento(s) pendente(s)`,
@@ -472,7 +556,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (awaiting > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'awaiting_payment_orders',
       severity: 'info',
       message: `${awaiting} pedido(s) aguardando pagamento`,
@@ -481,7 +565,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (paid > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'paid_needs_organizing',
       severity: 'warn',
       message: `${paid} pedido(s) pago(s) aguardando organização`,
@@ -497,7 +581,7 @@ export function deriveOpsAlerts(input: {
     const threshold = paidOrg.stuckHoursThreshold ?? PAID_STUCK_HOURS;
     const oldest = paidOrg.oldestStuckHours;
     const sev = paidStuckSeverity(stuckCount, oldest, threshold);
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'paid_stuck_awaiting_org',
       severity: sev,
       message: `${stuckCount} pedido(s) pago(s) travado(s) há ≥${threshold}h sem organização${
@@ -513,11 +597,11 @@ export function deriveOpsAlerts(input: {
         ).slice(0, PAID_STUCK_IDS_CAP),
       },
       recommendedAction:
-        'Separar agora (Organizando). Se a loja não recebeu aviso de venda, use Reenviar e-mail de pago / confira STORE_NOTIFY_EMAIL.',
+        'Separar agora (Organizando). Se a loja não recebeu aviso de venda, use Reenviar aviso loja / confira STORE_NOTIFY_EMAIL.',
     });
   }
   if (stuck > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'order_problems',
       severity: 'critical',
       message: `${stuck} pedido(s) legado(s) travado(s) (separando/saiu para entrega)`,
@@ -528,7 +612,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (terminalHistory > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'order_terminal_history',
       severity: 'info',
       message: `${terminalHistory} pedido(s) cancelado(s)/reembolsado(s) (histórico — não é fila crítica)`,
@@ -537,7 +621,7 @@ export function deriveOpsAlerts(input: {
     });
   }
   if (placeholders > 0) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'placeholder_photos',
       severity: 'info',
       message: `${placeholders} produto(s) com foto placeholder/ausente`,
@@ -553,12 +637,12 @@ export function deriveOpsAlerts(input: {
       const s = String(r.providerStatus || '').toLowerCase();
       return s === 'approved' || s === 'paid';
     });
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'open_reconciliations',
-      // Always high: money-at-risk orphans need human review; moneyRisk only enriches evidence.
-      severity: 'high',
-      message: `${openRecon} reconciliação(ões) de pagamento aberta(s) — revisão humana${
-        moneyRisk ? ' (possível captura sem Payment local)' : ''
+      // Approved/paid orphans are money-at-risk → critical so they lead ATENÇÃO AGORA.
+      severity: moneyRisk ? 'critical' : 'high',
+      message: `${openRecon} pagamento(s) no provedor SEM pedido local — abrir fila Reconciliações agora${
+        moneyRisk ? ' (provedor aprovou/pagou; possível captura sem Payment local)' : ''
       }`,
       count: openRecon,
       section: 'reconciliations',
@@ -569,21 +653,69 @@ export function deriveOpsAlerts(input: {
         ids: sample.map((r) => r.id),
       },
       recommendedAction:
-        'Revisar lista Reconciliações: conferir externalReference/publicId no provedor. Não estornar/cancelar automaticamente.',
+        'Abrir Reconciliações, conferir ref/publicId no Mercado Pago e decidir na mão. Não estornar, marcar pago nem ajustar estoque automaticamente.',
+    });
+  }
+  if (sendFailed.length > 0) {
+    const last = sendFailed[0];
+    pushOpsAlert(alerts, {
+      code: 'store_email_send_failed',
+      severity: 'high',
+      message: `${sendFailed.length} falha(s) ao enviar e-mail da loja após pagamento (nesta instância da API)${
+        last?.publicId ? ` — último: ${last.publicId}` : ''
+      }`,
+      count: sendFailed.length,
+      queueBucket: 'paid',
+      evidence: {
+        reason: last?.reason || 'send_failed',
+        ids: sendFailed.map((f) => f.publicId).filter(Boolean).slice(0, 8),
+      },
+      recommendedAction:
+        'Abrir fila Pagos e usar Reenviar aviso loja. Pagamento não é revertido. Confira Resend / MAIL_FROM.',
+    });
+  }
+  const recipientCountKnown = input.mailRecipientCount != null;
+  const noRecipientsNow =
+    recipientCountKnown &&
+    input.mailConfigured === true &&
+    Number(input.mailRecipientCount) === 0;
+  if (noRecipientsNow || noRecipientEvents.length > 0) {
+    const last = noRecipientEvents[0];
+    pushOpsAlert(alerts, {
+      code: 'store_email_no_recipients',
+      severity: input.mailConfigured === true ? 'high' : 'warn',
+      message: noRecipientsNow
+        ? 'E-mail da loja configurado, mas nenhum destinatário (STORE_NOTIFY_EMAIL / admins reais) — avisos de venda não saem'
+        : `E-mail da loja não tentado: sem destinatários${
+            last?.publicId ? ` — último: ${last.publicId}` : ''
+          }`,
+      count: noRecipientsNow ? 0 : noRecipientEvents.length,
+      queueBucket: 'paid',
+      evidence: {
+        reason: 'no_recipients',
+        ids: noRecipientEvents.map((f) => f.publicId).filter(Boolean).slice(0, 8),
+      },
+      recommendedAction:
+        'Defina STORE_NOTIFY_EMAIL com a caixa do dono (não noreply). Reenviar aviso loja só gera in-app até haver destinatário.',
     });
   }
   if (input.mailConfigured === false && input.storeNotifyConfigured === true) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'mail_off_with_store_notify',
       severity: 'warn',
       message:
         'STORE_NOTIFY_EMAIL configurado mas provider de e-mail off (MAIL_FROM + RESEND_API_KEY|SMTP) — avisos de venda não saem por e-mail',
-      count: 0,
+      count: providerOffEvents.length,
+      queueBucket: 'paid',
+      evidence: {
+        reason: 'provider_off',
+        ids: providerOffEvents.map((f) => f.publicId).filter(Boolean).slice(0, 8),
+      },
       recommendedAction:
-        'Configure MAIL_FROM + RESEND_API_KEY (ou SMTP). Não disparamos e-mail neste poll.',
+        'Configure MAIL_FROM + RESEND_API_KEY (ou SMTP). Não disparamos e-mail neste poll. Pedido pago continua válido.',
     });
   } else if (input.mailConfigured === false) {
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'mail_not_configured',
       severity: 'info',
       message: 'E-mail transacional não configurado (env ausente)',
@@ -592,7 +724,7 @@ export function deriveOpsAlerts(input: {
   }
   if (input.uploadsPersistent === false) {
     const dirHint = input.uploadsDir ? ` (${input.uploadsDir})` : '';
-    alerts.push({
+    pushOpsAlert(alerts, {
       code: 'uploads_ephemeral',
       severity: 'warn',
       message: `UPLOADS_DIR fora de /data${dirHint} — disco efêmero; fotos somem no redeploy sem Volume Railway`,
@@ -604,7 +736,10 @@ export function deriveOpsAlerts(input: {
         'Montar Volume em /data/uploads e definir UPLOADS_DIR=/data/uploads (OWNER/ops). Não movemos arquivos neste poll.',
     });
   }
-  return alerts;
+  return alerts.sort(
+    (a, b) =>
+      (OPS_ALERT_SEVERITY_RANK[a.severity] ?? 9) - (OPS_ALERT_SEVERITY_RANK[b.severity] ?? 9),
+  );
 }
 
 export function summarizeOps(input: {
@@ -630,6 +765,13 @@ export function summarizeOps(input: {
   paidAwaitingOrg?: PaidAwaitingOrgSummary;
   /** Uploads durability snapshot (real path check only). */
   uploads?: UploadsDurabilitySummary;
+  /** Unique store-notify recipients (count only). Omit to skip durable no-recipient alert. */
+  mailRecipientCount?: number;
+  /** Process-local store-notify failures (empty after restart is honest). */
+  storeNotifyMail?: {
+    recentFailures?: OpsStoreNotifyMailFailure[];
+    failureCount?: number;
+  };
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -648,6 +790,16 @@ export function summarizeOps(input: {
     summarizePaidAwaitingOrg({ orders: [] });
   const storeNotifyConfigured = Boolean(input.storeNotifyConfigured);
   const uploads = input.uploads;
+  const recentFailures = (input.storeNotifyMail?.recentFailures ?? []).map((f) => ({
+    code: String(f.code || ''),
+    publicId: String(f.publicId || ''),
+    reason: String(f.reason || ''),
+    at: String(f.at || ''),
+  }));
+  const mailRecipientCount =
+    input.mailRecipientCount == null
+      ? null
+      : Math.max(0, Math.floor(Number(input.mailRecipientCount) || 0));
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
     outOfStockCount: input.outOfStockCount,
@@ -663,7 +815,17 @@ export function summarizeOps(input: {
     paidAwaitingOrg,
     uploadsPersistent: uploads ? uploads.persistent : undefined,
     uploadsDir: uploads?.dir,
+    mailRecipientCount: mailRecipientCount == null ? undefined : mailRecipientCount,
+    storeNotifyRecentFailures: recentFailures,
   });
+  const mail: OpsMailSummary = {
+    configured: mailConfigured,
+    storeNotifyConfigured,
+    providerOffWithStoreNotify: mailConfigured === false && storeNotifyConfigured === true,
+    recipientCount: mailRecipientCount,
+    recentFailures,
+    failureCount: recentFailures.length,
+  };
   return {
     ...base,
     catalog: {
@@ -674,12 +836,7 @@ export function summarizeOps(input: {
       pendingCount: input.pendingPaymentCount,
     },
     reconciliations,
-    mail: {
-      configured: mailConfigured,
-      storeNotifyConfigured,
-      /** Real env mismatch hint — not an invented counter; no e-mail on ops poll. */
-      providerOffWithStoreNotify: mailConfigured === false && storeNotifyConfigured === true,
-    },
+    mail,
     /** Real UPLOADS_DIR path check — null when caller omitted (no invented durability). */
     uploads: uploads ?? null,
     orders,

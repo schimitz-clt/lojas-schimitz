@@ -1,13 +1,16 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { opsAlertCodeLabelPt, opsAlertSeverityLabelPt } from '@/lib/admin-ops-ui';
 
 type Severity = 'critical' | 'high' | 'warn' | 'info' | string;
 
 export type AdminAttentionItem = {
   code: string;
+  label?: string | null;
   severity: Severity;
   message: string;
+  count?: number;
   recommendedAction?: string | null;
   evidenceLine?: string | null;
   ctaHint?: string | null;
@@ -34,6 +37,8 @@ export function AdminAttentionStrip({ items, onSelect, max = 6 }: Props): ReactN
       <ul className="admin-attn__list">
         {items.slice(0, max).map((a) => {
           const t = tone(a.severity);
+          const label = opsAlertCodeLabelPt(a.code, a.label);
+          const sevPt = opsAlertSeverityLabelPt(a.severity);
           return (
             <li key={`attn-${a.code}`}>
               <button
@@ -41,11 +46,16 @@ export function AdminAttentionStrip({ items, onSelect, max = 6 }: Props): ReactN
                 className={`admin-attn__btn admin-attn__btn--${t}`}
                 onClick={() => onSelect(a.code)}
               >
-                <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8 }}>
-                  {a.severity}
+                <span style={{ fontSize: 11, marginRight: 8, fontWeight: 700 }}>
+                  {sevPt}
+                  {typeof a.count === 'number' && a.count > 0 ? ` · ${a.count}` : ''}
                 </span>
-                {a.message}
-                {a.ctaHint ? ` ${a.ctaHint}` : ''}
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{label}</span>
+                <span style={{ display: 'block', marginTop: 4 }}>{a.message}</span>
+                <span style={{ display: 'block', fontSize: 11, opacity: 0.7, marginTop: 2 }}>
+                  código {a.code}
+                  {a.ctaHint ? ` · ${a.ctaHint}` : ''}
+                </span>
                 {a.evidenceLine ? (
                   <span style={{ display: 'block', fontSize: 11, opacity: 0.85, marginTop: 4 }}>
                     {a.evidenceLine}

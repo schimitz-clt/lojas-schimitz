@@ -9,6 +9,7 @@ import {
 } from '../../common/whatsapp';
 import { buildInAppDedupeWhere, inAppDedupeKey } from './notification-dedupe';
 import { structuredLog } from '../../common/structured-log';
+import { recordStoreNotifyMailFailure } from './store-notify-mail-ops';
 
 export type CreateNotificationInput = {
   userId: string;
@@ -109,6 +110,41 @@ export function resolveStoreNotifyEmailsFromEnv(env: NodeJS.ProcessEnv = process
   push(env.ADMIN_EMAIL);
   return out;
 }
+
+/**
+ * Count unique store-notify recipients (DB admins ∪ env) without returning addresses.
+ * Used by GET /admin/ops — never a secret dump.
+ */
+export function countUniquePaidSaleEmailRecipients(opts: {
+  dbEmails?: Array<string | null | undefined>;
+  env?: NodeJS.ProcessEnv;
+}): number {
+  const seen = new Set<string>();
+  const push = (raw?: string | null) => {
+    const e = (raw || '').trim().toLowerCase();
+    if (!e || isPlaceholderStoreEmail(e) || seen.has(e)) return;
+    seen.add(e);
+  };
+  for (const raw of opts.dbEmails || []) push(raw);
+  for (const e of resolveStoreNotifyEmailsFromEnv(opts.env)) push(e);
+  return seen.size;
+}
+
+export type StoreNotifyMailOutcome =
+  | 'sent'
+  | 'provider_off'
+  | 'no_recipients'
+  | 'send_failed'
+  | 'partial';
+
+export type StoreNotifyPaidResult = {
+  inAppCreated: number;
+  emailsAttempted: number;
+  emailsSent: number;
+  emailsFailed: number;
+  mailOutcome: StoreNotifyMailOutcome;
+  mailConfigured: boolean;
+};
 
 /**
  * Mensagem + wa.me para o número da loja (aviso interno de venda paga).
@@ -276,7 +312,7 @@ export class NotificationsService implements OnModuleInit {
     orderId: string;
     customerEmail?: string | null;
     customerName?: string | null;
-  }): Promise<{ inAppCreated: number; emailsAttempted: number }> {
+  }): Promise<StoreNotifyPaidResult> {
     const adminPayload = buildAdminOrderPaidNotification({
       publicId: opts.publicId,
       total: opts.total,
@@ -300,10 +336,14 @@ export class NotificationsService implements OnModuleInit {
       whatsappUrl: whatsapp.url,
     };
 
+    const mailConfigured = this.mail.isConfigured();
     let emailsAttempted = 0;
+    let emailsSent = 0;
+    let emailsFailed = 0;
+    let recipientCount = 0;
     try {
       const storeNotifyConfigured = resolveStoreNotifyEmailsFromEnv().length > 0;
-      if (!this.mail.isConfigured()) {
+      if (!mailConfigured) {
         this.log.warn(
           `notifyStoreOfPaidOrder: mail provider off (MAIL_FROM + RESEND_API_KEY|SMTP ausentes) — in-app ainda pode ser criada (${opts.publicId})`,
         );
@@ -314,29 +354,51 @@ export class NotificationsService implements OnModuleInit {
             storeNotifyConfigured: true,
             mailConfigured: false,
           });
+          recordStoreNotifyMailFailure({
+            code: 'MAIL_PROVIDER_OFF_STORE_NOTIFY',
+            publicId: opts.publicId,
+            reason: 'provider_off',
+          });
         } else {
           structuredLog('warn', 'MAIL_PROVIDER_OFF', {
             publicId: opts.publicId,
             orderId: opts.orderId || null,
             mailConfigured: false,
           });
+          recordStoreNotifyMailFailure({
+            code: 'MAIL_PROVIDER_OFF',
+            publicId: opts.publicId,
+            reason: 'provider_off',
+          });
         }
       }
       const recipients = await this.resolvePaidSaleEmailRecipients();
+      recipientCount = recipients.length;
       for (const to of recipients) {
         emailsAttempted += 1;
         const r = await this.mail.notifyAdminOrderPaid(to, mailCtx);
-        if (!r?.sent) {
-          this.log.warn(
-            `notifyStoreOfPaidOrder: e-mail não enviado to=*** reason=${r?.reason || 'unknown'} order=${opts.publicId}`,
-          );
-          structuredLog('warn', 'STORE_EMAIL_SEND_FAILED', {
+        if (r?.sent) {
+          emailsSent += 1;
+          continue;
+        }
+        this.log.warn(
+          `notifyStoreOfPaidOrder: e-mail não enviado to=*** reason=${r?.reason || 'unknown'} order=${opts.publicId}`,
+        );
+        structuredLog('warn', 'STORE_EMAIL_SEND_FAILED', {
+          publicId: opts.publicId,
+          orderId: opts.orderId || null,
+          reason: r?.reason || 'unknown',
+          mode: r?.mode || null,
+        });
+        if (r?.reason === 'send_failed') {
+          emailsFailed += 1;
+          recordStoreNotifyMailFailure({
+            code: 'STORE_EMAIL_SEND_FAILED',
             publicId: opts.publicId,
-            orderId: opts.orderId || null,
-            reason: r?.reason || 'unknown',
-            mode: r?.mode || null,
+            reason: r.reason,
           });
         }
+        // smtp_not_configured → already recorded as provider off; duplicate is not a failure.
       }
       if (recipients.length === 0) {
         this.log.warn(
@@ -346,6 +408,11 @@ export class NotificationsService implements OnModuleInit {
           publicId: opts.publicId,
           orderId: opts.orderId || null,
           storeNotifyConfigured,
+        });
+        recordStoreNotifyMailFailure({
+          code: 'STORE_EMAIL_NO_RECIPIENTS',
+          publicId: opts.publicId,
+          reason: 'no_recipients',
         });
       } else {
         this.log.log(
@@ -359,12 +426,32 @@ export class NotificationsService implements OnModuleInit {
         orderId: opts.orderId || null,
         error: String(e?.message || e).slice(0, 200),
       });
+      emailsFailed += 1;
+      recordStoreNotifyMailFailure({
+        code: 'STORE_EMAIL_SEND_FAILED',
+        publicId: opts.publicId,
+        reason: 'exception',
+      });
     }
 
+    let mailOutcome: StoreNotifyMailOutcome = 'sent';
+    if (!mailConfigured) mailOutcome = 'provider_off';
+    else if (emailsFailed > 0 && emailsSent > 0) mailOutcome = 'partial';
+    else if (emailsFailed > 0) mailOutcome = 'send_failed';
+    else if (recipientCount === 0) mailOutcome = 'no_recipients';
+    else mailOutcome = 'sent';
+
     this.log.log(
-      `notifyStoreOfPaidOrder ${opts.publicId}: inApp=${inAppCreated} emails=${emailsAttempted} wa.me=${whatsapp.url.slice(0, 48)}…`,
+      `notifyStoreOfPaidOrder ${opts.publicId}: inApp=${inAppCreated} emails=${emailsAttempted} sent=${emailsSent} failed=${emailsFailed} outcome=${mailOutcome} wa.me=${whatsapp.url.slice(0, 48)}…`,
     );
-    return { inAppCreated, emailsAttempted };
+    return {
+      inAppCreated,
+      emailsAttempted,
+      emailsSent,
+      emailsFailed,
+      mailOutcome,
+      mailConfigured,
+    };
   }
 
   /**

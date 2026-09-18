@@ -3,10 +3,17 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   emptyOrdersQueueMessage,
+  emptyReconciliationsMessage,
+  mailOpsKpiValue,
+  opsAlertCodeLabelPt,
+  opsAlertSeverityLabelPt,
   paymentMethodBadge,
   paymentMethodLabelPt,
   pickPrimaryPayment,
+  reconciliationsKpiHint,
   separarPrimaryLabel,
+  storeNotifyCardHint,
+  storePaidNotifyResendMessage,
   whatsAppOpsButtonLabel,
 } from './admin-ops-ui';
 
@@ -68,5 +75,82 @@ assert.ok(
 assert.equal(whatsAppOpsButtonLabel(true, 'paid'), 'WhatsApp cliente (pago)');
 assert.equal(whatsAppOpsButtonLabel(false, 'generic'), 'WhatsApp loja (rascunho)');
 assert.equal(whatsAppOpsButtonLabel(true, 'generic'), 'WhatsApp cliente');
+
+assert.equal(opsAlertSeverityLabelPt('critical'), 'Crítico');
+assert.equal(opsAlertSeverityLabelPt('high'), 'Alto');
+assert.equal(opsAlertSeverityLabelPt('warn'), 'Atenção');
+assert.equal(opsAlertCodeLabelPt('open_reconciliations'), 'Pagamentos a conciliar');
+assert.equal(opsAlertCodeLabelPt('store_email_send_failed', 'Falha ao enviar e-mail da loja'), 'Falha ao enviar e-mail da loja');
+
+assert.ok(
+  storePaidNotifyResendMessage({
+    publicId: 'SCH-1',
+    inAppCreated: 2,
+    emailsAttempted: 0,
+    mailOutcome: 'provider_off',
+  }).includes('NÃO foi tentado'),
+);
+assert.ok(
+  storePaidNotifyResendMessage({
+    publicId: 'SCH-1',
+    inAppCreated: 2,
+    emailsAttempted: 0,
+    mailOutcome: 'no_recipients',
+  }).includes('nenhum destinatário'),
+);
+assert.ok(
+  storePaidNotifyResendMessage({
+    publicId: 'SCH-1',
+    inAppCreated: 1,
+    emailsAttempted: 1,
+    emailsFailed: 1,
+    mailOutcome: 'send_failed',
+  }).includes('FALHOU'),
+);
+assert.ok(
+  storePaidNotifyResendMessage({
+    publicId: 'SCH-1',
+    inAppCreated: 1,
+    emailsAttempted: 1,
+    emailsSent: 1,
+    mailOutcome: 'sent',
+  }).includes('e-mail enviado'),
+);
+assert.ok(
+  storePaidNotifyResendMessage({
+    publicId: 'SCH-1',
+    inAppCreated: 1,
+    emailsAttempted: 0,
+  }).includes('NÃO tentado'),
+);
+
+assert.ok(
+  storeNotifyCardHint({
+    statusLabel: 'Pago',
+    publicId: 'SCH-X',
+    mail: {
+      configured: true,
+      recentFailures: [{ code: 'STORE_EMAIL_SEND_FAILED', publicId: 'SCH-X', reason: 'send_failed' }],
+    },
+  }).includes('FALHOU'),
+);
+assert.ok(
+  storeNotifyCardHint({
+    statusLabel: 'Pago',
+    publicId: 'SCH-Y',
+    mail: { configured: false, recipientCount: 0, recentFailures: [] },
+  }).includes('não dispara e-mail'),
+);
+
+assert.ok(reconciliationsKpiHint(3).includes('revisar agora'));
+assert.equal(reconciliationsKpiHint(0), 'nenhuma aberta');
+assert.ok(emptyReconciliationsMessage({ openCount: 2, listed: 0 }).includes('atualize a lista'));
+assert.equal(emptyReconciliationsMessage({ openCount: 0, listed: 0 }), 'Nenhuma reconciliação aberta.');
+
+assert.equal(mailOpsKpiValue(null).value, '—');
+assert.equal(mailOpsKpiValue({ configured: true, recipientCount: 1, failureCount: 0 }).value, 'Configurado');
+assert.equal(mailOpsKpiValue({ configured: true, failureCount: 2 }).danger, true);
+assert.equal(mailOpsKpiValue({ configured: false, providerOffWithStoreNotify: true }).value, 'Provider off');
+assert.equal(mailOpsKpiValue({ configured: true, recipientCount: 0 }).value, 'Sem destinatário');
 
 console.log('admin-ops-ui web unit ok');

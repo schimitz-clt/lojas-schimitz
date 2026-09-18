@@ -14,7 +14,12 @@ import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { shouldServerOrderSearch } from '@/lib/admin-order-search';
 import {
   emptyOrdersQueueMessage,
+  emptyReconciliationsMessage,
+  mailOpsKpiValue,
+  opsAlertCodeLabelPt,
+  opsAlertSeverityLabelPt,
   paymentMethodBadge,
+  reconciliationsKpiHint,
   whatsAppOpsButtonLabel,
 } from '@/lib/admin-ops-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
@@ -105,8 +110,10 @@ export function AdminOpsSection() {
       <AdminAttentionStrip
         items={attentionAlerts.map((a) => ({
           code: a.code,
+          label: a.label,
           severity: a.severity,
           message: a.message,
+          count: a.count,
           recommendedAction: a.recommendedAction,
           evidenceLine: a.evidence?.reason
             ? `Evidência: ${a.evidence.reason}${
@@ -223,6 +230,7 @@ export function AdminOpsSection() {
               <div className={`admin-kpi__value${(ops?.reconciliations?.openCount ?? 0) > 0 ? ' admin-kpi__value--danger' : ''}`}>
                 {ops?.reconciliations?.openCount ?? '—'}
               </div>
+              <div className="admin-kpi__hint">{reconciliationsKpiHint(ops?.reconciliations?.openCount)}</div>
             </button>
             <button
               type="button"
@@ -233,12 +241,25 @@ export function AdminOpsSection() {
               <div className="admin-kpi__value">{ops?.catalog?.placeholderProductCount ?? '—'}</div>
               <div className="admin-kpi__hint">fila Catálogo + CSV</div>
             </button>
-            <div className={`admin-kpi${ops?.mail?.configured ? ' admin-kpi--accent' : ' admin-kpi--danger'}`}>
-              <div className="admin-kpi__label">E-mail (env)</div>
-              <div className={`admin-kpi__value${ops == null || ops.mail?.configured ? '' : ' admin-kpi__value--danger'}`} style={{ fontSize: 16 }}>
-                {ops == null ? '—' : ops.mail?.configured ? 'Configurado' : 'Ausente'}
-              </div>
-            </div>
+            {(() => {
+              const mailKpi = mailOpsKpiValue(ops?.mail);
+              return (
+                <button
+                  type="button"
+                  className={`admin-kpi${mailKpi.danger ? ' admin-kpi--danger' : ' admin-kpi--accent'}`}
+                  onClick={() => selectOpsBucket('paid')}
+                >
+                  <div className="admin-kpi__label">E-mail da loja</div>
+                  <div
+                    className={`admin-kpi__value${mailKpi.danger ? ' admin-kpi__value--danger' : ''}`}
+                    style={{ fontSize: 16 }}
+                  >
+                    {mailKpi.value}
+                  </div>
+                  <div className="admin-kpi__hint">{mailKpi.hint}</div>
+                </button>
+              );
+            })()}
             <div className="admin-kpi">
               <div className="admin-kpi__label">Pedidos (total)</div>
               <div className="admin-kpi__value">{ops?.orders?.total ?? '—'}</div>
@@ -271,8 +292,12 @@ export function AdminOpsSection() {
                           cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
-                        <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8, opacity: 0.85 }}>
-                          {a.severity}
+                        <span style={{ fontSize: 11, marginRight: 8, opacity: 0.85, fontWeight: 700 }}>
+                          {opsAlertSeverityLabelPt(a.severity)}
+                          {a.count > 0 ? ` · ${a.count}` : ''}
+                        </span>
+                        <span style={{ fontWeight: 700, marginRight: 6 }}>
+                          {opsAlertCodeLabelPt(a.code, a.label)}
                         </span>
                         {a.message}
                         {a.section === 'reconciliations'
@@ -280,6 +305,9 @@ export function AdminOpsSection() {
                           : a.queueBucket
                             ? ' → abrir fila'
                             : ''}
+                        <span style={{ display: 'block', fontSize: 11, opacity: 0.7, marginTop: 2 }}>
+                          código {a.code}
+                        </span>
                         {a.recommendedAction ? (
                           <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginTop: 4 }}>
                             {a.recommendedAction}
@@ -445,6 +473,9 @@ export function AdminOpsSection() {
           </p>
           <p className="muted" style={{ fontSize: 13, color: '#f5e6a3', marginTop: 0 }}>
             Abertas no snapshot: {ops?.reconciliations?.openCount ?? '—'} · listadas: {reconciliations.length}
+            {(ops?.reconciliations?.openCount ?? 0) > 0
+              ? ' — clique no alerta ATENÇÃO AGORA para voltar aqui. Sem estorno automático.'
+              : ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {(reconciliations.length
@@ -493,7 +524,10 @@ export function AdminOpsSection() {
             ))}
             {!reconciliations.length && !(ops?.reconciliations?.recent?.length) ? (
               <p className="muted" style={{ margin: 0, fontSize: 13, color: '#8a8a84' }}>
-                Nenhuma reconciliação aberta.
+                {emptyReconciliationsMessage({
+                  openCount: ops?.reconciliations?.openCount,
+                  listed: reconciliations.length,
+                })}
               </p>
             ) : null}
           </div>

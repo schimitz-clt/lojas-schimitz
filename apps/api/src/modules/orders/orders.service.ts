@@ -497,7 +497,13 @@ export class OrdersService {
     await this.audit.log('order.store_paid_notify_resend', {
       entity: 'Order',
       entityId: order.id,
-      meta: { publicId: order.publicId, emailsAttempted: result.emailsAttempted },
+      meta: {
+        publicId: order.publicId,
+        emailsAttempted: result.emailsAttempted,
+        emailsSent: result.emailsSent,
+        emailsFailed: result.emailsFailed,
+        mailOutcome: result.mailOutcome,
+      },
     });
     return { publicId: order.publicId, status: order.status, ...result };
   }

@@ -149,6 +149,169 @@ export function emptyOrdersQueueMessage(opts: {
   return 'Nenhum pedido ainda.';
 }
 
+export type StorePaidNotifyResendResult = {
+  publicId: string;
+  inAppCreated: number;
+  emailsAttempted: number;
+  emailsSent?: number;
+  emailsFailed?: number;
+  mailOutcome?: 'sent' | 'provider_off' | 'no_recipients' | 'send_failed' | 'partial' | string;
+  mailConfigured?: boolean;
+};
+
+/** Distinguishes mail failed vs never attempted after POST notify-paid. */
+export function storePaidNotifyResendMessage(data: StorePaidNotifyResendResult): string {
+  const pid = data.publicId || 'pedido';
+  const inApp = Number(data.inAppCreated) || 0;
+  switch (data.mailOutcome) {
+    case 'provider_off':
+      return `Pedido ${pid} pago, mas o e-mail da loja NÃO foi tentado: provedor desligado (MAIL_FROM + RESEND_API_KEY/SMTP). In-app: ${inApp}. Pagamento não foi revertido.`;
+    case 'no_recipients':
+      return `Pedido ${pid} pago, mas o e-mail da loja NÃO foi tentado: nenhum destinatário (STORE_NOTIFY_EMAIL / admins). In-app: ${inApp}.`;
+    case 'send_failed':
+      return `Pedido ${pid} pago, mas o e-mail da loja FALHOU ao enviar (${data.emailsFailed ?? data.emailsAttempted} tentativa(s)). In-app: ${inApp}. Use Reenviar aviso loja de novo.`;
+    case 'partial':
+      return `Pedido ${pid}: e-mail da loja parcial (enviados ${data.emailsSent ?? 0}, falhas ${data.emailsFailed ?? 0}). In-app: ${inApp}.`;
+    case 'sent':
+      return `Aviso da loja reenviado (${pid}): e-mail enviado (${data.emailsSent ?? data.emailsAttempted}), in-app ${inApp}.`;
+    default:
+      if (!data.emailsAttempted) {
+        return `Aviso loja: e-mail NÃO tentado (${pid}), in-app ${inApp}. Confira MAIL_FROM / STORE_NOTIFY_EMAIL — falhou vs nunca tentado.`;
+      }
+      return `Aviso loja reenviado (${pid}): e-mails tentados ${data.emailsAttempted}, in-app ${inApp}. Confira STORE_NOTIFY_EMAIL / MAIL_FROM se zero enviado.`;
+  }
+}
+
+export type StoreNotifyMailFailureLike = {
+  code?: string;
+  publicId?: string;
+  reason?: string;
+};
+
+export function storeNotifyCardHint(opts: {
+  statusLabel: string;
+  publicId: string;
+  mail?: {
+    configured?: boolean;
+    recipientCount?: number | null;
+    recentFailures?: StoreNotifyMailFailureLike[];
+  } | null;
+}): string {
+  const fail = (opts.mail?.recentFailures || []).find((f) => f.publicId === opts.publicId);
+  if (fail?.code === 'STORE_EMAIL_SEND_FAILED') {
+    return `E-mail da loja FALHOU neste pedido (${fail.reason || 'send_failed'}). Use Reenviar aviso loja — não cria cobrança.`;
+  }
+  if (fail?.code === 'STORE_EMAIL_NO_RECIPIENTS') {
+    return `E-mail da loja NÃO foi tentado neste pedido: sem destinatários. Reenviar só gera in-app até haver STORE_NOTIFY_EMAIL.`;
+  }
+  if (
+    fail?.code === 'MAIL_PROVIDER_OFF_STORE_NOTIFY' ||
+    fail?.code === 'MAIL_PROVIDER_OFF'
+  ) {
+    return `E-mail da loja NÃO foi tentado neste pedido: provedor desligado. Reenviar cria in-app, mas não dispara e-mail.`;
+  }
+  if (opts.mail?.configured === false) {
+    return `Pedido já pago (${opts.statusLabel}). E-mail transacional ausente — Reenviar aviso loja cria in-app, mas não dispara e-mail.`;
+  }
+  if (opts.mail?.recipientCount === 0) {
+    return `Pedido já pago (${opts.statusLabel}). Nenhum destinatário de e-mail da loja — Reenviar só gera in-app.`;
+  }
+  return `Pedido já pago (${opts.statusLabel}) — reenviar aviso de venda à loja se o e-mail não chegou (falhou) ou não foi tentado.`;
+}
+
+export function opsAlertSeverityLabelPt(severity: string): string {
+  if (severity === 'critical') return 'Crítico';
+  if (severity === 'high') return 'Alto';
+  if (severity === 'warn') return 'Atenção';
+  if (severity === 'info') return 'Info';
+  return severity;
+}
+
+export function opsAlertCodeLabelPt(code: string, apiLabel?: string | null): string {
+  if (apiLabel && apiLabel.trim()) return apiLabel.trim();
+  const map: Record<string, string> = {
+    out_of_stock: 'Estoque zerado',
+    low_stock: 'Estoque baixo',
+    pending_payments: 'Pagamentos pendentes',
+    awaiting_payment_orders: 'Aguardando pagamento',
+    paid_needs_organizing: 'Pagos para organizar',
+    paid_stuck_awaiting_org: 'Pagos travados',
+    order_problems: 'Pedidos legados travados',
+    order_terminal_history: 'Cancelados/reembolsados',
+    placeholder_photos: 'Fotos placeholder',
+    open_reconciliations: 'Pagamentos a conciliar',
+    mail_off_with_store_notify: 'E-mail da loja desligado',
+    mail_not_configured: 'E-mail transacional ausente',
+    uploads_ephemeral: 'Uploads efêmeros',
+    store_email_send_failed: 'Falha ao enviar e-mail da loja',
+    store_email_no_recipients: 'Sem destinatário de e-mail da loja',
+  };
+  return map[code] || code;
+}
+
+export function reconciliationsKpiHint(openCount: number | null | undefined): string {
+  const n = Math.max(0, Number(openCount) || 0);
+  if (openCount == null) return 'aguardando snapshot';
+  if (n > 0) return `${n} aberta(s) — revisar agora (sem estorno automático)`;
+  return 'nenhuma aberta';
+}
+
+export function emptyReconciliationsMessage(opts: {
+  openCount?: number | null;
+  listed: number;
+}): string {
+  const open = Math.max(0, Number(opts.openCount) || 0);
+  if (open > 0 && opts.listed === 0) {
+    return `${open} pagamento(s) a conciliar no snapshot — atualize a lista. Não estornar automaticamente.`;
+  }
+  if (open > 0) {
+    return `${open} pagamento(s) no provedor sem pedido local — revisão humana.`;
+  }
+  return 'Nenhuma reconciliação aberta.';
+}
+
+export function mailOpsKpiValue(mail?: {
+  configured?: boolean;
+  providerOffWithStoreNotify?: boolean;
+  recipientCount?: number | null;
+  failureCount?: number;
+} | null): { value: string; danger: boolean; hint: string } {
+  if (!mail) return { value: '—', danger: false, hint: 'aguardando snapshot' };
+  const failures = Math.max(0, Number(mail.failureCount) || 0);
+  if (failures > 0) {
+    return {
+      value: 'Falha recente',
+      danger: true,
+      hint: `${failures} evento(s) nesta instância da API (desde o restart)`,
+    };
+  }
+  if (mail.providerOffWithStoreNotify) {
+    return {
+      value: 'Provider off',
+      danger: true,
+      hint: 'STORE_NOTIFY set, MAIL_FROM/RESEND ausentes',
+    };
+  }
+  if (mail.configured === false) {
+    return { value: 'Ausente', danger: true, hint: 'MAIL_FROM + RESEND_API_KEY|SMTP' };
+  }
+  if (mail.recipientCount === 0) {
+    return {
+      value: 'Sem destinatário',
+      danger: true,
+      hint: 'Defina STORE_NOTIFY_EMAIL (não noreply)',
+    };
+  }
+  return {
+    value: 'Configurado',
+    danger: false,
+    hint:
+      mail.recipientCount != null
+        ? `${mail.recipientCount} destinatário(s) (contagem, sem endereços)`
+        : 'STORE_NOTIFY / MAIL_FROM presentes',
+  };
+}
+
 /** WhatsApp CTA copy: prefer explicit “cliente” when resolveOrderWhatsApp.toCustomer. */
 export function whatsAppOpsButtonLabel(
   toCustomer: boolean,

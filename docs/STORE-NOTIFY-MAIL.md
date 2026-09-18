@@ -32,7 +32,9 @@ Sem `MAIL_FROM` + (`RESEND_API_KEY` **ou** `SMTP_HOST`): mail provider **off** �
 ## Validação produção
 
 1. Railway API: `RESEND_API_KEY` + `MAIL_FROM` + `STORE_NOTIFY_EMAIL` setados
-2. `GET /admin/ops` → `mail.configured: true`
+2. `GET /admin/ops` → `mail.configured: true`, `mail.recipientCount` ≥ 1, `mail.failureCount: 0`
 3. Pedido pago de teste → e-mail cliente + e-mail loja + in-app admin
-4. Se falhar: logs `notifyStoreOfPaidOrder` / `mail provider mode=off`
-5. Admin: botão **Reenviar aviso loja** no card do pedido
+4. Se falhar: logs `STORE_EMAIL_SEND_FAILED` / `MAIL_PROVIDER_OFF*` **e** alerta no Centro de comando (`store_email_send_failed` / `mail_off_with_store_notify` / `store_email_no_recipients`) — não só Railway
+5. Admin: botão **Reenviar aviso loja** no card do pedido. A copy distingue *falhou ao enviar* vs *não foi tentado* (provider off / sem destinatário). `emailsAttempted: 0` não é sucesso.
+
+`mail.recentFailures` é **process-local** (some no restart da API). Contagem `recipientCount` é real (DB∪env, sem endereços). Nenhuma env nova.

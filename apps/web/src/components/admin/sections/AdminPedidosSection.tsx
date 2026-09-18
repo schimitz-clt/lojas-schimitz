@@ -15,6 +15,7 @@ import { shouldServerOrderSearch } from '@/lib/admin-order-search';
 import {
   emptyOrdersQueueMessage,
   paymentMethodBadge,
+  storeNotifyCardHint,
   whatsAppOpsButtonLabel,
 } from '@/lib/admin-ops-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
@@ -484,11 +485,14 @@ export function AdminPedidosSection() {
                         : ''}{' '}
                       Avisar no WhatsApp (e-mail já cobre o cliente, se mail estiver ativo).
                     </span>
-                  ) : (
-                    <span className="muted" style={{ fontSize: 13 }}>
-                      Pedido já pago ({orderStatusLabel(o.status)}) — reenviar aviso de venda à loja se o e-mail não chegou.
-                    </span>
-                  )}
+                  ) : null}
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {storeNotifyCardHint({
+                      statusLabel: orderStatusLabel(o.status),
+                      publicId: o.publicId,
+                      mail: ops?.mail,
+                    })}
+                  </span>
                   {showEarlyPaidOps ? (
                     <a
                       className="btn wa"

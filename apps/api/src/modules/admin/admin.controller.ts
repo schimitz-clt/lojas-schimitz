@@ -78,6 +78,10 @@ import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence } from '../mail/mail.config';
 import {
+  countUniquePaidSaleEmailRecipients,
+} from '../notifications/notifications.service';
+import { summarizeStoreNotifyMailOps } from '../notifications/store-notify-mail-ops';
+import {
   buildAdminOrderWhere,
   resolveAdminOrdersTake,
 } from './admin-orders-search';
@@ -244,6 +248,21 @@ export class AdminController {
         `ops uploads_ephemeral dir=${uploads.dir} — mount Volume /data/uploads (OWNER); UPLOADS_DIR should be under /data`,
       );
     }
+
+    let mailRecipientCount: number | undefined;
+    try {
+      const adminEmailRows = await this.prisma.user.findMany({
+        where: { role: 'admin', status: 'active' },
+        select: { email: true },
+      });
+      mailRecipientCount = countUniquePaidSaleEmailRecipients({
+        dbEmails: adminEmailRows.map((a) => a.email),
+      });
+    } catch (e: any) {
+      this.log.warn(`ops mailRecipientCount query failed: ${e?.message || e}`);
+    }
+
+    const storeNotifyMail = summarizeStoreNotifyMailOps();
     return ok(
       summarizeOps({
         lowStockCount,
@@ -254,6 +273,8 @@ export class AdminController {
         threshold,
         mailConfigured: mailConfiguredFromEnvPresence(),
         storeNotifyConfigured: storeNotifyConfiguredFromEnvPresence(),
+        mailRecipientCount,
+        storeNotifyMail,
         orderStatusCounts,
         salesToday: summarizeSalesWindow({
           from: todayRange.from,

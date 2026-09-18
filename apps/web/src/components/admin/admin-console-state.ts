@@ -20,6 +20,7 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   copyTextToClipboard,
+  storePaidNotifyResendMessage,
 } from '@/lib/admin-ops-ui';
 import {
   type AdminSectionId,
@@ -1469,13 +1470,19 @@ export function useAdminConsoleState() {
     setErr('');
     setMsg('');
     try {
-      const data = await api<{ publicId: string; emailsAttempted: number; inAppCreated: number }>(
+      const data = await api<{
+        publicId: string;
+        emailsAttempted: number;
+        inAppCreated: number;
+        emailsSent?: number;
+        emailsFailed?: number;
+        mailOutcome?: string;
+        mailConfigured?: boolean;
+      }>(
         `/admin/orders/${order.id}/notify-paid`,
         { method: 'POST', body: JSON.stringify({}) },
       );
-      setMsg(
-        `Aviso loja reenviado (${data.publicId}): e-mails tentados ${data.emailsAttempted}, in-app ${data.inAppCreated}. Confira STORE_NOTIFY_EMAIL / MAIL_FROM se zero.`,
-      );
+      setMsg(storePaidNotifyResendMessage(data));
     } catch (e: any) {
       setErr(e.message || 'Falha ao reenviar aviso da loja');
     } finally {

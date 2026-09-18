@@ -14,6 +14,7 @@ import {
   isPlaceholderStoreEmail,
   extractEmailAddress,
   resolveStoreNotifyEmailsFromEnv,
+  countUniquePaidSaleEmailRecipients,
 } from './notifications.service';
 import { adminOrderPaidEmail } from '../mail/mail.templates';
 
@@ -202,6 +203,24 @@ function fanOutAdmins(
   console.log('admin-notify: env recipients + skip placeholder — PASSOU');
 }
 
+{
+  assert.equal(
+    countUniquePaidSaleEmailRecipients({
+      dbEmails: ['admin@lojas-schimitz.test', 'dono@example.com'],
+      env: { STORE_NOTIFY_EMAIL: 'dono@example.com' } as NodeJS.ProcessEnv,
+    }),
+    1,
+  );
+  assert.equal(
+    countUniquePaidSaleEmailRecipients({
+      dbEmails: ['admin@lojas-schimitz.test'],
+      env: {} as NodeJS.ProcessEnv,
+    }),
+    0,
+  );
+  console.log('admin-notify: countUniquePaidSaleEmailRecipients — PASSOU');
+}
+
 
 {
   const paySrc = readFileSync(join(__dirname, '../payments/payments.service.ts'), 'utf8');
@@ -231,7 +250,10 @@ function fanOutAdmins(
 
 {
   const notifSrc = readFileSync(join(__dirname, 'notifications.service.ts'), 'utf8');
-  assert.ok(notifSrc.includes("structuredLog('warn', 'MAIL_PROVIDER_OFF_STORE_NOTIFY'"), 'mail off + STORE_NOTIFY structured warn');
+  assert.ok(notifSrc.includes('recordStoreNotifyMailFailure'), 'store mail failures recorded for GET /admin/ops');
+  assert.ok(notifSrc.includes('mailOutcome'), 'notify-paid returns mailOutcome for admin copy');
+  assert.ok(notifSrc.includes('emailsSent'), 'notify-paid returns emailsSent');
+  assert.ok(notifSrc.includes('emailsFailed'), 'notify-paid returns emailsFailed');
   assert.ok(notifSrc.includes("structuredLog('warn', 'STORE_EMAIL_SEND_FAILED'") || notifSrc.includes("structuredLog('error', 'STORE_EMAIL_SEND_FAILED'"), 'store email failure structured log');
   assert.ok(notifSrc.includes('STORE_EMAIL_NO_RECIPIENTS') || notifSrc.includes('STORE_EMAIL_SEND_FAILED'), 'store email observability events');
 

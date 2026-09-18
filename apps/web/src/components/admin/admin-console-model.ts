@@ -353,6 +353,7 @@ export type AdminOpsSalesWindow = {
 
 export type AdminOpsAlert = {
   code: string;
+  label?: string;
   severity: 'info' | 'warn' | 'high' | 'critical';
   message: string;
   count: number;
@@ -407,7 +408,19 @@ export type AdminOpsSnapshot = {
     openCount: number;
     recent: AdminOpsReconciliationRow[];
   };
-  mail?: { configured: boolean };
+  mail?: {
+    configured: boolean;
+    storeNotifyConfigured?: boolean;
+    providerOffWithStoreNotify?: boolean;
+    recipientCount?: number | null;
+    recentFailures?: {
+      code: string;
+      publicId: string;
+      reason: string;
+      at: string;
+    }[];
+    failureCount?: number;
+  };
   orders?: {
     byStatus: Record<string, number>;
     buckets: Record<string, number>;

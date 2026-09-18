@@ -10,7 +10,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 |---|---|---|
 | GET | `/health` | público — liveness |
 | GET | `/health/ready` | público — readiness (DB `SELECT 1`) |
-| GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `reconciliations.{openCount,recent[]}` + `mail.configured` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` + `alerts[]` (incl. open_reconciliations severity high) |
+| GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `reconciliations.{openCount,recent[]}` + `mail.{configured,storeNotifyConfigured,providerOffWithStoreNotify,recipientCount,recentFailures[],failureCount}` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` + `alerts[]` (códigos + `label` PT; `open_reconciliations` critical se provedor approved/paid; `store_email_send_failed` / `store_email_no_recipients`) |
 | GET | `/admin/payments/reconciliations` | admin — open PaymentReconciliation rows (Jwt+admin; no secrets) |
 | GET | `/admin/ops/products-needing-photos` | admin — CSV `{ filename, csv }` colunas `id,name,imageUrl` (sem gerar fotos) |
 | POST | `/auth/register` | público |
