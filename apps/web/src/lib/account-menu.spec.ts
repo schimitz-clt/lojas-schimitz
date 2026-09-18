@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ACCOUNT_ADD_ADDRESS_CTA,
+  ACCOUNT_EDIT_ADDRESS_CTA,
   ACCOUNT_DADOS_PATH,
   ACCOUNT_HUB_TITLE,
   ACCOUNT_VISTOS_PATH,
   ACCOUNT_WHATSAPP_HELP_TEXT,
+  accountAddressFormFrom,
   accountAddressFormOpen,
+  accountAddressSaveRequest,
+  accountAddressToEdit,
+  emptyAccountAddressForm,
   accountFirstName,
   accountGreeting,
   accountLoginHref,
@@ -79,27 +83,61 @@ const admin = accountMenuSections({
 assert.ok(admin[1].items.some((i) => i.href === '/admin'));
 assert.ok(admin[1].items.some((i) => i.href === '/vendedor'));
 
-assert.equal(ACCOUNT_ADD_ADDRESS_CTA, 'Adicionar outro endereço');
+assert.equal(ACCOUNT_EDIT_ADDRESS_CTA, 'Alterar endereço');
+assert.ok(!ACCOUNT_EDIT_ADDRESS_CTA.toLowerCase().includes('adicionar outro'));
 assert.equal(
-  accountAddressFormOpen({ loaded: false, addressCount: 0, userRequestedAdd: false }),
+  accountAddressFormOpen({ loaded: false, addressCount: 0, userRequestedEdit: false }),
   false,
   'hide blank form while addresses are still loading',
 );
 assert.equal(
-  accountAddressFormOpen({ loaded: true, addressCount: 0, userRequestedAdd: false }),
+  accountAddressFormOpen({ loaded: true, addressCount: 0, userRequestedEdit: false }),
   true,
   'first cadastro shows the form',
 );
 assert.equal(
-  accountAddressFormOpen({ loaded: true, addressCount: 1, userRequestedAdd: false }),
+  accountAddressFormOpen({ loaded: true, addressCount: 1, userRequestedEdit: false }),
   false,
-  'saved address hides the add form',
+  'saved address hides the blank form',
 );
 assert.equal(
-  accountAddressFormOpen({ loaded: true, addressCount: 2, userRequestedAdd: true }),
+  accountAddressFormOpen({ loaded: true, addressCount: 2, userRequestedEdit: true }),
   true,
-  'CTA reveals the form when the user wants another address',
+  'Alterar endereço reveals the form',
 );
+
+assert.equal(accountAddressToEdit([]), null);
+assert.equal(
+  accountAddressToEdit([
+    { id: 'a', isDefault: false },
+    { id: 'b', isDefault: true },
+  ])?.id,
+  'b',
+);
+assert.equal(accountAddressToEdit([{ id: 'only' }])?.id, 'only');
+
+const prefilled = accountAddressFormFrom({
+  id: 'addr-1',
+  label: 'Casa',
+  street: 'Rua Jacy Costa',
+  number: '19',
+  district: 'Porto Alegre',
+  city: 'Porto Alegre',
+  uf: 'rs',
+  cep: '91160390',
+  isDefault: true,
+});
+assert.equal(prefilled.street, 'Rua Jacy Costa');
+assert.equal(prefilled.number, '19');
+assert.equal(prefilled.cep, '91160390');
+assert.equal(prefilled.uf, 'RS');
+assert.deepEqual(emptyAccountAddressForm().cep, '');
+
+assert.deepEqual(accountAddressSaveRequest(null), { path: '/me/addresses', method: 'POST' });
+assert.deepEqual(accountAddressSaveRequest('addr-1'), {
+  path: '/me/addresses/addr-1',
+  method: 'PATCH',
+});
 
 const empty = recentVistosEmptyCopy();
 assert.equal(empty.ctaHref, '/produtos');
@@ -121,8 +159,12 @@ assert.ok(dados.includes("api<Address[]>('/me/addresses')"), 'dados keeps addres
 assert.ok(dados.includes("api<Loyalty>('/me/loyalty')"), 'dados keeps loyalty API');
 assert.ok(dados.includes("api('/me'"), 'dados keeps phone PATCH');
 assert.ok(dados.includes('accountAddressFormOpen'), 'dados uses address form visibility helper');
-assert.ok(dados.includes('ACCOUNT_ADD_ADDRESS_CTA'), 'dados uses add-another CTA copy');
-assert.ok(dados.includes("setAddAddressOpen(false)"), 'saving an address hides the form again');
+assert.ok(dados.includes('ACCOUNT_EDIT_ADDRESS_CTA'), 'dados uses Alterar endereço CTA');
+assert.ok(dados.includes('accountAddressToEdit'), 'dados picks default/first address to edit');
+assert.ok(dados.includes('accountAddressFormFrom'), 'dados prefills the existing address');
+assert.ok(dados.includes('accountAddressSaveRequest'), 'dados uses real POST/PATCH path');
+assert.ok(dados.includes("setEditAddressOpen(false)"), 'saving an address hides the form again');
+assert.ok(!/adicionar outro/i.test(dados), 'no Adicionar outro copy');
 assert.ok(dados.includes('SCHIMITZ+'), 'loyalty brand stays Schimitz');
 assert.ok(!/magalu/i.test(dados), 'no Magalu on dados');
 
@@ -146,6 +188,6 @@ assert.ok(header.includes('hdr-hide-sm'), 'do not re-add account name to mobile 
 const css = readFileSync(join(srcRoot, 'components/storefront/storefront-theme.css'), 'utf8');
 assert.ok(css.includes('.account-hub'), 'hub styles live on storefront tokens');
 assert.ok(css.includes('max-width: 560px'), 'readable desktop width');
-assert.ok(css.includes('.account-dados-add-address'), 'add-address CTA uses account-dados tokens');
+assert.ok(css.includes('.account-dados-edit-address'), 'edit-address CTA uses account-dados tokens');
 
 console.log('account-menu unit + source tests ok');

@@ -3,28 +3,23 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, currentUser } from '@/lib/api';
 import {
-  ACCOUNT_ADD_ADDRESS_CTA,
   ACCOUNT_DADOS_PATH,
+  ACCOUNT_EDIT_ADDRESS_CTA,
   ACCOUNT_HUB_TITLE,
+  accountAddressFormFrom,
   accountAddressFormOpen,
+  accountAddressSaveRequest,
+  accountAddressToEdit,
   accountLoginHref,
+  emptyAccountAddressForm,
 } from '@/lib/account-menu';
-
-const emptyAddressForm = () => ({
-  label: 'Casa',
-  cep: '',
-  street: '',
-  number: '',
-  district: '',
-  city: '',
-  uf: 'RS',
-});
 
 type Address = {
   id: string;
   label: string;
   street: string;
   number: string;
+  district?: string;
   city: string;
   uf: string;
   cep: string;
@@ -47,9 +42,10 @@ export default function ContaDadosPage() {
   const [user, setUser] = useState(currentUser());
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressesLoaded, setAddressesLoaded] = useState(false);
-  const [addAddressOpen, setAddAddressOpen] = useState(false);
+  const [editAddressOpen, setEditAddressOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
-  const [form, setForm] = useState(emptyAddressForm);
+  const [form, setForm] = useState(emptyAccountAddressForm);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [phone, setPhone] = useState('');
@@ -57,7 +53,7 @@ export default function ContaDadosPage() {
   const showAddressForm = accountAddressFormOpen({
     loaded: addressesLoaded,
     addressCount: addresses.length,
-    userRequestedAdd: addAddressOpen,
+    userRequestedEdit: editAddressOpen,
   });
 
   useEffect(() => {
@@ -79,16 +75,25 @@ export default function ContaDadosPage() {
       .catch(() => {});
   }, []);
 
-  async function addAddress(e: React.FormEvent) {
+  function openEditAddress() {
+    const current = accountAddressToEdit(addresses);
+    setEditingId(current?.id || null);
+    setForm(accountAddressFormFrom(current));
+    setEditAddressOpen(true);
+  }
+
+  async function saveAddress(e: React.FormEvent) {
     e.preventDefault();
     setErr('');
+    const req = accountAddressSaveRequest(editingId);
     try {
-      await api('/me/addresses', { method: 'POST', body: JSON.stringify(form) });
-      setMsg('Endereço salvo.');
+      await api(req.path, { method: req.method, body: JSON.stringify(form) });
+      setMsg(req.method === 'PATCH' ? 'Endereço atualizado.' : 'Endereço salvo.');
       const list = await api<Address[]>('/me/addresses');
       setAddresses(list);
-      setAddAddressOpen(false);
-      setForm(emptyAddressForm());
+      setEditAddressOpen(false);
+      setEditingId(null);
+      setForm(emptyAccountAddressForm());
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Falha ao salvar endereço');
     }
@@ -200,7 +205,7 @@ export default function ContaDadosPage() {
         </div>
       ))}
       {showAddressForm ? (
-        <form className="form account-dados-address-form" onSubmit={addAddress}>
+        <form className="form account-dados-address-form" onSubmit={saveAddress}>
           <input
             placeholder="CEP"
             value={form.cep}
@@ -244,11 +249,11 @@ export default function ContaDadosPage() {
         </form>
       ) : addressesLoaded && addresses.length > 0 ? (
         <button
-          className="btn ghost account-dados-add-address"
+          className="btn ghost account-dados-edit-address"
           type="button"
-          onClick={() => setAddAddressOpen(true)}
+          onClick={openEditAddress}
         >
-          {ACCOUNT_ADD_ADDRESS_CTA}
+          {ACCOUNT_EDIT_ADDRESS_CTA}
         </button>
       ) : null}
       <p style={{ marginTop: 16 }}>

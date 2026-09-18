@@ -43,19 +43,87 @@ export type AccountMenuUser = {
 export const ACCOUNT_HUB_TITLE = 'Sua conta';
 export const ACCOUNT_DADOS_PATH = '/conta/dados';
 export const ACCOUNT_VISTOS_PATH = '/conta/vistos';
-export const ACCOUNT_ADD_ADDRESS_CTA = 'Adicionar outro endereço';
+export const ACCOUNT_EDIT_ADDRESS_CTA = 'Alterar endereço';
 export const ACCOUNT_WHATSAPP_HELP_TEXT =
   'Olá, vim pela Minha conta da Lojas Schimitz e preciso de atendimento.';
 
-/** Show the add-address form only for first cadastro, or after the user asks to add another. */
+export type AccountAddressForm = {
+  label: string;
+  cep: string;
+  street: string;
+  number: string;
+  district: string;
+  city: string;
+  uf: string;
+};
+
+export type AccountAddressRecord = {
+  id: string;
+  label?: string | null;
+  cep?: string | null;
+  street?: string | null;
+  number?: string | null;
+  district?: string | null;
+  city?: string | null;
+  uf?: string | null;
+  isDefault?: boolean;
+};
+
+/** Show the address form for first cadastro, or after the user asks to edit a saved one. */
 export function accountAddressFormOpen(opts: {
   loaded: boolean;
   addressCount: number;
-  userRequestedAdd: boolean;
+  userRequestedEdit: boolean;
 }): boolean {
   if (!opts.loaded) return false;
   if (opts.addressCount < 1) return true;
-  return opts.userRequestedAdd;
+  return opts.userRequestedEdit;
+}
+
+/** Prefer the default address, otherwise the first in the list (API already sorts default first). */
+export function accountAddressToEdit<T extends { isDefault?: boolean }>(
+  addresses: T[] | null | undefined,
+): T | null {
+  const list = addresses || [];
+  if (!list.length) return null;
+  return list.find((a) => Boolean(a.isDefault)) ?? list[0];
+}
+
+export function emptyAccountAddressForm(): AccountAddressForm {
+  return {
+    label: 'Casa',
+    cep: '',
+    street: '',
+    number: '',
+    district: '',
+    city: '',
+    uf: 'RS',
+  };
+}
+
+export function accountAddressFormFrom(
+  addr: AccountAddressRecord | null | undefined,
+): AccountAddressForm {
+  if (!addr) return emptyAccountAddressForm();
+  return {
+    label: (addr.label || '').trim() || 'Casa',
+    cep: addr.cep || '',
+    street: addr.street || '',
+    number: addr.number || '',
+    district: addr.district || '',
+    city: addr.city || '',
+    uf: (addr.uf || 'RS').toUpperCase(),
+  };
+}
+
+/** First cadastro POSTs; editing a saved address uses the existing PATCH /me/addresses/:id. */
+export function accountAddressSaveRequest(editingId: string | null | undefined): {
+  path: string;
+  method: 'POST' | 'PATCH';
+} {
+  const id = typeof editingId === 'string' ? editingId.trim() : '';
+  if (id) return { path: `/me/addresses/${id}`, method: 'PATCH' };
+  return { path: '/me/addresses', method: 'POST' };
 }
 
 /** First name for greeting — never invent a person. */
