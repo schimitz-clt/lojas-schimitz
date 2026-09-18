@@ -7,7 +7,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 | Nome | Lojas Schimitz |
 | applicationId | `com.lojasschimitz.app` |
 | minSdk / targetSdk | 24 / 36 |
-| Versão (Play closed) | **1.0.6** (`versionCode` 7) |
+| Versão (Play closed) | **1.0.7** (`versionCode` 8) |
 | Entrada | `MainActivity` (WebView) |
 
 > **Por que não Capacitor/TWA?** Neste monorepo um WebView Kotlin é mais simples (sem `node_modules` no app), mantém Nest/Next intactos e cobre navegação mesma-origem + WhatsApp/Mercado Pago. Capacitor/TWA podem ser avaliados depois se precisarem de plugins JS.
