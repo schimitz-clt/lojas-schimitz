@@ -253,7 +253,7 @@ export default function ProductPage() {
           <ProductGallery images={gallery} productName={p.name} />
           <div className="pdp-gallery-tools">
             <FavoriteToggle productId={p.id} variant="pdp" />
-            <ProductShareButton productName={p.name} variant="icon" />
+            <ProductShareButton productName={p.name} productSlug={p.slug} variant="icon" />
           </div>
         </div>
 
@@ -273,7 +273,7 @@ export default function ProductPage() {
                     : 'Sem avaliações'}
                 </span>
               </div>
-              <ProductShareButton productName={p.name} />
+              <ProductShareButton productName={p.name} productSlug={p.slug} />
             </div>
             {p.sku ? <p className="pdp-model muted">Modelo {p.sku}</p> : null}
             {p.seller?.name ? (

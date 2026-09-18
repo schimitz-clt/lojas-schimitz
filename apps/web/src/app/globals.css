@@ -880,9 +880,9 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .pdp-title { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; flex: 1 1 auto; min-width: 0; }
 .pdp-model { margin: 0 0 8px; font-size: 13px; }
-.pdp-share { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.pdp-share { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 100%; }
 .pdp-share-btn { min-height: 40px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
-.pdp-share-status { font-size: 12px; font-weight: 700; color: var(--ok); }
+.pdp-share-icon { max-width: 40px; }
 .pdp-seller { margin: 0 0 8px; }
 .pdp-rating {
   display: flex;
@@ -1369,6 +1369,8 @@ textarea { resize: vertical; min-height: 72px; }
     top: 12px;
     right: 12px;
     z-index: 4;
+    pointer-events: none;
+    max-width: 48px;
   }
   .pdp-gallery-tools .fav-toggle-txt {
     position: absolute;
@@ -1382,12 +1384,15 @@ textarea { resize: vertical; min-height: 72px; }
     width: 40px;
     height: 40px;
     min-height: 40px;
+    max-width: 40px;
     padding: 0;
     border-radius: 999px;
     background: #fff;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
     display: grid;
     place-items: center;
+    pointer-events: auto;
+    touch-action: manipulation;
   }
   .header-row { padding: 8px 0; gap: 8px; }
   .hdr-hide-sm { display: none !important; }

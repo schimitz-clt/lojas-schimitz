@@ -1,7 +1,10 @@
 /**
  * PDP share — Web Share API, then copy, then WhatsApp (wa.me text).
  * Portuguese copy only. No analytics.
+ * Share URL is always the live apex product page, never localhost / www / query.
  */
+
+export const PDP_SHARE_ORIGIN = 'https://lojasschimitz.com.br';
 
 export type PdpSharePayload = {
   title: string;
@@ -11,21 +14,28 @@ export type PdpSharePayload = {
 
 export type PdpShareResult = 'shared' | 'copied' | 'whatsapp' | 'cancelled' | 'failed';
 
+/** Canonical PDP URL customers should share (apex, no query/hash). */
+export function pdpProductCanonicalUrl(slug: string): string {
+  const s = (slug || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!s || s.includes('/') || s.includes('..') || s.includes('?') || s.includes('#')) return '';
+  return `${PDP_SHARE_ORIGIN}/produto/${encodeURIComponent(s)}`;
+}
+
 export function pdpSharePayload(productName: string, url: string): PdpSharePayload {
   const name = (productName || '').trim() || 'Produto';
   const href = (url || '').trim();
   return {
-    title: `${name} | Lojas Schimitz`,
-    text: `Olha este produto na Lojas Schimitz: ${name}`,
+    title: name,
+    text: 'Olha este produto na Lojas Schimitz',
     url: href,
   };
 }
 
 /** Opens the user's WhatsApp with product title + link (no store number). */
 export function pdpShareWhatsAppHref(productName: string, url: string): string {
-  const { text } = pdpSharePayload(productName, url);
+  const { title, text } = pdpSharePayload(productName, url);
   const href = (url || '').trim();
-  const body = href ? `${text}\n${href}` : text;
+  const body = href ? `${title}\n${text}\n${href}` : `${title}\n${text}`;
   return `https://wa.me/?text=${encodeURIComponent(body)}`;
 }
 

@@ -1,25 +1,42 @@
 'use client';
 
-import { useState } from 'react';
 import {
+  pdpProductCanonicalUrl,
   pdpShareButtonLabel,
   pdpShareCopiedLabel,
+  pdpSharePayload,
   pdpShareWhatsAppHref,
   shareProductPage,
 } from '@/lib/pdp-share';
+import { showStorefrontToast } from '@/lib/storefront-toast';
 
 type Props = {
   productName: string;
+  productSlug: string;
   variant?: 'text' | 'icon';
 };
 
-export function ProductShareButton({ productName, variant = 'text' }: Props) {
-  const [status, setStatus] = useState('');
+function canUseNativeShare(payload: { title: string; text: string; url: string }): boolean {
+  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+  if (typeof navigator.canShare === 'function') {
+    try {
+      return navigator.canShare(payload);
+    } catch {
+      return true;
+    }
+  }
+  return true;
+}
+
+export function ProductShareButton({ productName, productSlug, variant = 'text' }: Props) {
   const icon = variant === 'icon';
 
-  async function onShare() {
-    const url = typeof window !== 'undefined' ? window.location.href.split('#')[0] : '';
-    const canShareNative = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  async function onShare(e: { preventDefault(): void; stopPropagation(): void }) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = pdpProductCanonicalUrl(productSlug);
+    const payload = pdpSharePayload(productName, url);
+    const canShareNative = canUseNativeShare(payload);
     const result = await shareProductPage({
       productName,
       url,
@@ -31,15 +48,16 @@ export function ProductShareButton({ productName, variant = 'text' }: Props) {
           : undefined,
     });
     if (result === 'copied') {
-      setStatus(pdpShareCopiedLabel());
-      window.setTimeout(() => setStatus(''), 2500);
+      showStorefrontToast({ message: pdpShareCopiedLabel() });
       return;
     }
     if (result === 'whatsapp') {
       window.open(pdpShareWhatsAppHref(productName, url), '_blank', 'noopener,noreferrer');
       return;
     }
-    if (result === 'failed') setStatus('Não foi possível compartilhar');
+    if (result === 'failed') {
+      showStorefrontToast({ message: 'Não foi possível compartilhar', tone: 'warn' });
+    }
   }
 
   return (
@@ -62,11 +80,6 @@ export function ProductShareButton({ productName, variant = 'text' }: Props) {
           pdpShareButtonLabel()
         )}
       </button>
-      {status ? (
-        <span className="pdp-share-status" role="status">
-          {status}
-        </span>
-      ) : null}
     </span>
   );
 }
