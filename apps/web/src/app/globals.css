@@ -33,6 +33,8 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-schimitz), "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -46,11 +48,13 @@ html, body {
 .main-shell {
   padding-top: 10px;
   padding-bottom: 28px;
+  min-width: 0;
+  overflow-x: clip;
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 button, input, select, textarea { font: inherit; }
-.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 18px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 18px; min-width: 0; overflow-x: clip; }
 
 /* —— Top bar & header —— */
 .topbar {
@@ -729,7 +733,7 @@ textarea { resize: vertical; min-height: 72px; }
 .catalog-price { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .catalog-empty { padding: 18px 16px; border-radius: var(--radius); border: 1px dashed var(--line-strong); background: #fff; margin-bottom: 16px; }
 
-.pdp { padding: 24px 0; min-width: 0; }
+.pdp { padding: 24px 0; min-width: 0; max-width: 100%; overflow-x: clip; }
 .pdp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 .pdp-grid > * { min-width: 0; }
 .pdp-buybox { display: flex; flex-direction: column; min-width: 0; }
@@ -845,7 +849,9 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: center;
   gap: 8px;
   margin-top: 10px;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   padding-bottom: 2px;
@@ -856,7 +862,18 @@ textarea { resize: vertical; min-height: 72px; }
 @media (max-width: 768px) {
   .pdp-carousel-nav { width: 36px; height: 36px; font-size: 24px; opacity: .92; }
 }
-.pdp-title { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
+.pdp-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.pdp-title { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; flex: 1 1 auto; min-width: 0; }
+.pdp-model { margin: 0 0 8px; font-size: 13px; }
+.pdp-share { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.pdp-share-btn { min-height: 40px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+.pdp-share-status { font-size: 12px; font-weight: 700; color: var(--ok); }
 .pdp-seller { margin: 0 0 8px; }
 .pdp-rating { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .pdp-offer-pills {
@@ -893,10 +910,10 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-install-table ul { margin: 8px 0 0; padding-left: 18px; }
 .pdp-stock { margin: 0 0 12px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pdp-stock .pcard-stock { position: static; }
-.pdp-actions { flex-wrap: wrap; margin-bottom: 14px; }
-.pdp-actions .btn { min-height: 48px; }
-.pdp-trust { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-.pdp-trust li { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; }
+.pdp-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 100%; min-width: 0; margin-bottom: 14px; }
+.pdp-actions .btn { min-height: 48px; min-width: 0; }
+.pdp-trust { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+.pdp-trust li { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; min-width: 0; }
 .pdp-trust a { color: var(--ink); font-weight: 700; }
 .pdp-desc {
   margin: 0 0 16px;
@@ -1104,6 +1121,8 @@ textarea { resize: vertical; min-height: 72px; }
   .home-banner-cta { width: 100%; }
   .pdp-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .pdp-title { font-size: 20px; margin: 4px 0 8px; }
+  .pdp-title-row { gap: 8px; }
+  .pdp-share-btn { min-height: 36px; padding: 0 10px; }
   .pdp-identity { min-width: 0; }
   .pdp-price { font-size: 26px; }
   .pdp-price-block { padding: 12px 14px; }
@@ -1245,6 +1264,7 @@ textarea { resize: vertical; min-height: 72px; }
     padding-top: 8px;
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
     overflow-x: clip;
+    max-width: 100%;
   }
   .pdp-sticky-atc, .cart-sticky-checkout {
     display: flex; position: fixed; left: 0; right: 0;
@@ -1253,6 +1273,8 @@ textarea { resize: vertical; min-height: 72px; }
     padding: 10px 12px;
     background: #fff; border-top: 1px solid var(--line);
     box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
   }
   .pdp-sticky-atc .btn { flex: 1 1 auto; min-width: 0; }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }

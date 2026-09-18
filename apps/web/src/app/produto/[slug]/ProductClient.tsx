@@ -21,6 +21,7 @@ import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { rememberProductView } from '@/lib/recently-viewed';
+import { ProductShareButton } from '@/components/ProductShareButton';
 
 type Detail = {
   id: string;
@@ -39,6 +40,7 @@ type Detail = {
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
+  sku?: string | null;
 };
 
 type Review = {
@@ -249,7 +251,11 @@ export default function ProductPage() {
         <div className="pdp-buybox">
           <div className="pdp-identity">
             {p.badge ? <div className="badge">{p.badge}</div> : null}
-            <h1 className="pdp-title">{p.name}</h1>
+            <div className="pdp-title-row">
+              <h1 className="pdp-title">{p.name}</h1>
+              <ProductShareButton productName={p.name} />
+            </div>
+            {p.sku ? <p className="pdp-model muted">Modelo {p.sku}</p> : null}
             {p.seller?.name ? (
               <p className="pdp-seller muted">
                 Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>

@@ -6,6 +6,7 @@ import {
   pdpGalleryFrameSize,
   pdpGalleryHeightCapShrinksWidth,
   pdpGallerySlideWidthLock,
+  pdpPageOverflowX,
 } from './pdp-gallery-layout';
 
 assert.deepEqual(pdpGalleryFrameSize(390), { width: 390, height: 390 });
@@ -51,6 +52,13 @@ assert.equal(
   '390px breakpoint must not reintroduce the 28vh/200px strip',
 );
 
+assert.equal(pdpPageOverflowX(), 'clip');
+
+assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*clip/.test(css), 'document must not scroll sideways');
+assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*clip/.test(css), 'PDP clips horizontal overflow');
+assert.ok(/\.pdp-carousel-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(css), 'gallery snaps one photo at a time');
+assert.ok(theme.includes('scroll-snap-stop: always'), 'lightbox snaps one photo at a time');
+assert.ok(/minmax\(min\(100%,\s*140px\)/.test(css), 'trust cards cannot force a 140px×3 overflow');
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-atc[\s\S]*bottom:\s*calc\(72px/.test(css),
   'sticky ATC stays above the 72px bottom nav',
