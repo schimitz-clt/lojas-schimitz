@@ -10,11 +10,16 @@
 
 ## Depois do deploy — como o dono troca os banners
 
-1. Abra `/admin` → **Vitrine**.
-2. **Criar banner**: enviar a arte (JPG/PNG/WebP) ou colar a URL, link do clique (ex.: `/departamento/ofertas`), marcar **Banner ativo**.
-3. **Editar / reordenar**: Editar, ↑↓, Desativar ou Excluir.
-4. Limite de 5. Para um sexto, edite ou exclua um existente.
-5. Recarregue a home (ou espere ~1 min) para ver o carrossel.
+1. Abra `/admin` → **Vitrine** no mesmo celular Android de antes.
+2. Contador **N de 5** no topo. Enquanto houver vaga, o formulário de criar fica visível (não some depois do 1º).
+3. **Criar banner**: toque em **Enviar imagem** *ou* no seletor visível **Seletor de arquivos (Android)**. Escolha JPG/PNG/WebP (não HEIC), confirme. A prévia deve aparecer. Título/alt opcionais, link do clique (ex.: `/departamento/ofertas`), marcar **Banner ativo**.
+4. Toque em **Criar banner**. Toast: **Banner criado. Pode adicionar mais (1/5).** O formulário esvazia e o foco volta para criar o próximo.
+5. Repita para o 2º–5º. O botão passa a **Criar outro banner**. Erro de upload/API fica **vermelho no bloco do banner** (não só no topo do Admin).
+6. **Editar / reordenar**: Editar, ↑↓, Desativar ou Excluir. Em edição, **Criar outro banner** volta ao formulário vazio (se ainda houver vaga).
+7. Limite de 5 no total (ativos + inativos). Para um sexto, edite ou exclua um existente.
+8. Recarregue a home: carrossel com swipe (PR #43). 1 banner → sem setas/bolinhas. 2+ → swipe + bolinhas.
+
+Se a imagem “não sobe”: o alerta vermelho no bloco do banner deve dizer que o celular não entregou o arquivo — use o seletor visível e confirme de novo.
 
 ## Público
 

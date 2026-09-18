@@ -10,6 +10,8 @@ type Props = {
   variant?: 'block' | 'inline';
   accent?: boolean;
   inputId?: string;
+  /** Catalog multi-foto defaults on; Vitrine banner is a single image. */
+  multiple?: boolean;
 };
 
 /**
@@ -24,6 +26,7 @@ export function AdminPhotoFilePicker({
   variant = 'block',
   accent = false,
   inputId,
+  multiple = true,
 }: Props) {
   const rootClass = [
     'admin-file-picker',
@@ -46,7 +49,7 @@ export function AdminPhotoFilePicker({
         <input
           type="file"
           accept={PRODUCT_PHOTO_ACCEPT}
-          multiple
+          multiple={multiple}
           disabled={disabled}
           className="admin-file-picker__cover"
           aria-hidden
@@ -62,7 +65,7 @@ export function AdminPhotoFilePicker({
           id={inputId}
           type="file"
           accept={PRODUCT_PHOTO_ACCEPT}
-          multiple
+          multiple={multiple}
           disabled={disabled}
           className="admin-file-picker__visible"
           aria-label={label}
