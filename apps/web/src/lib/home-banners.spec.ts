@@ -231,9 +231,13 @@ assert.ok(src.includes('interacting.current'), 'finger down pauses programmatic 
 assert.ok(src.includes('if (!el || interacting.current) return'), 'scrollTo does not run during touch');
 assert.ok(src.includes('settleLoopRef'), 'clone jump after wrap uses the latest settle fn');
 assert.ok(src.includes('bannerImageIsPriority'), 'eager/high only on the first real slide');
+assert.ok(src.includes('onDragStart'), 'banner drag ghost must not overlay the track');
 assert.equal(src.includes('onTouchStart'), false, 'JS swipe must not fight native scroll-snap');
 assert.equal(src.includes('scrollSyncLock'), false, 'must not lock scrollLeft updates for 350ms');
 assert.ok(src.includes('bannerCtaLabel()'), 'CTA copy stays Conferir agora');
+
+const libSrc = readFileSync(join(__dirname, './home-banners.ts'), 'utf8');
+assert.ok(libSrc.includes('localizeStorefrontUploadUrl'), 'localhost loads banner PNGs same-origin');
 
 const adminSrc = readFileSync(
   join(__dirname, '../components/admin/sections/AdminVitrineSection.tsx'),

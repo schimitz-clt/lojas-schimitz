@@ -571,6 +571,8 @@ textarea { resize: vertical; min-height: 72px; }
   overscroll-behavior-y: contain;
   touch-action: pan-x;
   overflow-anchor: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .home-banner-track::-webkit-scrollbar { display: none; }
 .home-banner-slide {
@@ -586,6 +588,8 @@ textarea { resize: vertical; min-height: 72px; }
   min-height: 168px;
   scroll-snap-align: start;
   scroll-snap-stop: normal;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .home-banner-img {
   width: 100%;

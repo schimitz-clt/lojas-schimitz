@@ -220,7 +220,7 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
     jumping.current = true;
     const snap = el.style.scrollSnapType;
     el.style.scrollSnapType = 'none';
-    el.scrollTo({ left: trackIdx * (el.clientWidth || 1), behavior: 'auto' });
+    el.scrollLeft = trackIdx * (el.clientWidth || 1);
     el.style.scrollSnapType = snap;
     window.requestAnimationFrame(() => {
       jumping.current = false;
@@ -443,6 +443,7 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
                   draggable={false}
                   tabIndex={slot.clone ? -1 : undefined}
                   onPointerDown={onSlidePointerDown}
+                  onDragStart={(e) => e.preventDefault()}
                   onClick={onSlideClick}
                 >
                   {img}

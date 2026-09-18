@@ -6,7 +6,7 @@
  */
 
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { localizeStorefrontUploadUrl, rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import type { HomeBanner } from '@/lib/storefront';
 
 export type { HomeBanner };
@@ -27,7 +27,8 @@ export type HomeBannerLoopSlot<T> = {
 
 export function bannerImageUrl(b: Pick<HomeBanner, 'imageUrl'>): string {
   const raw = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
-  return rewritePublicUploadUrl(raw) || raw;
+  const rewritten = rewritePublicUploadUrl(raw) || raw;
+  return localizeStorefrontUploadUrl(rewritten);
 }
 
 export function isUsableHomeBanner(b: HomeBanner | null | undefined): b is HomeBanner {
