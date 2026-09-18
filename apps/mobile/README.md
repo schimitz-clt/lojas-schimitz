@@ -19,7 +19,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - **Mercado Pago** e outros HTTPS externos abrem no navegador do sistema (melhor para pagamento/OAuth).
 - `tel:` / `mailto:` / `sms:` externos.
 - Status bar / splash escuros com destaque dourado (`#1A1A1A` / `#D4AF37`).
-- Ícone do launcher: monograma **LS** (ouro `#FCC303` no fundo `#1A1A1A`), alinhado ao ícone da ficha Play. Adaptive (API 26+) em `mipmap-anydpi-v26`; vetor legado em `drawable/ic_launcher.xml`. PNG Play 512×512 em `store/icon-512.png`.
+- Ícone do launcher: wordmark **SCHIMITZ** (branco + barra amarela no fundo `#08080A`), o mesmo mark da loja/PWA. Adaptive (API 26+) em `mipmap-anydpi-v26` com foreground em `drawable/ic_launcher_foreground.png` (safe zone); PNG legado em `drawable/ic_launcher.png`. PNG Play 512×512 em `store/icon-512.png`.
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
 - Página offline/erro (`assets/offline.html`) se não houver rede, falha da carga principal ou erro SSL.
 - `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` HttpOnly); 3P cookies desligados (MP abre externo).
@@ -177,8 +177,8 @@ Detalhes: `docs/ANDROID-TWA-ASSETLINKS.md`.
 ```
 apps/mobile/
   app/src/main/java/.../MainActivity.kt
-  app/src/main/res/          # tema escuro/dourado, splash, ícone LS (vetor adaptive)
-  store/                     # icon-512.png (Play) + ls-mark.svg (fonte do monograma)
+  app/src/main/res/          # tema escuro/dourado, splash, ícone SCHIMITZ (PNG adaptive)
+  store/                     # icon-512.png (Play) + ls-mark.svg (monograma legado)
   app/build.gradle.kts
   README.md                  # este arquivo
 ```

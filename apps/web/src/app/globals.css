@@ -1496,6 +1496,14 @@ textarea { resize: vertical; min-height: 72px; }
     background: var(--yellow); margin: 3px auto 0;
   }
   .bottom-nav-ico { font-size: 18px; line-height: 1; position: relative; }
+  .bottom-nav-brand-ico {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+  }
   .bottom-nav-label { letter-spacing: .01em; }
   .bottom-nav-badge {
     position: absolute; top: -6px; right: -10px;

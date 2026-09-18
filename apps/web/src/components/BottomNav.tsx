@@ -11,7 +11,8 @@ type NavItem = {
   href: string;
   label: string;
   match: (path: string) => boolean;
-  ico: string;
+  ico?: string;
+  iconSrc?: string;
   badge?: number;
 };
 
@@ -72,7 +73,7 @@ export function BottomNav() {
     {
       href: contaHref,
       label: 'Conta',
-      ico: '👤',
+      iconSrc: '/android-chrome-192x192.png',
       match: (p) =>
         p.startsWith('/conta') ||
         p.startsWith('/entrar') ||
@@ -93,7 +94,17 @@ export function BottomNav() {
             aria-current={active ? 'page' : undefined}
           >
             <span className="bottom-nav-ico" aria-hidden>
-              {item.ico}
+              {item.iconSrc ? (
+                <img
+                  className="bottom-nav-brand-ico"
+                  src={item.iconSrc}
+                  alt=""
+                  width={22}
+                  height={22}
+                />
+              ) : (
+                item.ico
+              )}
               {item.badge && item.badge > 0 ? (
                 <span className="bottom-nav-badge">{item.badge > 99 ? '99+' : item.badge}</span>
               ) : null}

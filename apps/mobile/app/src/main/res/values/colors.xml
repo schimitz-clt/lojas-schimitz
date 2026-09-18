@@ -5,5 +5,5 @@
     <color name="schimitz_gold_dark">#B8962E</color>
     <!-- Letter gold from Play listing icon (release play-store-listing-assets-v1) -->
     <color name="schimitz_gold_mark">#FCC303</color>
-    <color name="ic_launcher_background">#1A1A1A</color>
+    <color name="ic_launcher_background">#08080A</color>
 </resources>
