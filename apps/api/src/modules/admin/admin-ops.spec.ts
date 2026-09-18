@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   DEFAULT_OPS_LOW_STOCK_THRESHOLD,
   PAID_STUCK_HOURS,
@@ -19,7 +21,9 @@ import {
   summarizePaidAwaitingOrg,
   summarizeReconciliations,
   summarizeSalesWindow,
+  summarizeStoreNotifyMailOps,
   summarizeUploadsDurability,
+  sortOpsAlertsForAttention,
   resolveUploadsDir,
   isUploadsDirPersistent,
   UPLOADS_PERSISTENT_ROOT,
@@ -270,8 +274,10 @@ assert.equal(reconAlert!.severity, 'high');
 assert.equal(reconAlert!.count, 2);
 assert.equal(reconAlert!.section, 'reconciliations');
 assert.equal(reconAlert!.evidence?.reason, 'orphan_approved');
-assert.ok(reconAlert!.recommendedAction?.includes('Revisar'));
-assert.ok(!reconAlert!.recommendedAction?.toLowerCase().includes('automaticamente estornar') || true);
+assert.ok(reconAlert!.message.includes('ABERTA'));
+assert.ok(reconAlert!.message.toLowerCase().includes('estorno'));
+assert.ok(reconAlert!.recommendedAction?.includes('Abrir fila Reconciliações'));
+assert.ok(reconAlert!.recommendedAction?.toLowerCase().includes('nunca estornar'));
 
 const withRecon = summarizeOps({
   lowStockCount: 0,
@@ -589,4 +595,119 @@ console.log('admin-ops unit tests ok');
   assert.equal(paidUnchanged.alerts.some((a) => a.code === 'order_problems'), false);
 
   console.log('admin-ops: stuck vs terminal history order_problems — PASSOU');
+}
+
+{
+  assert.deepEqual(summarizeStoreNotifyMailOps(), { last: null, openCount: 0 });
+  assert.deepEqual(summarizeStoreNotifyMailOps({ last: null, openCount: 3 }), {
+    last: null,
+    openCount: 0,
+  });
+
+  const mailSnap = summarizeStoreNotifyMailOps({
+    last: {
+      at: new Date('2026-09-18T12:00:00.000Z'),
+      publicId: 'SCH-MAIL1',
+      orderId: 'ord-1',
+      event: 'STORE_EMAIL_SEND_FAILED',
+      reason: 'send_failed',
+      mode: 'resend-http',
+    },
+    openCount: 2,
+  });
+  assert.equal(mailSnap.openCount, 2);
+  assert.equal(mailSnap.last?.publicId, 'SCH-MAIL1');
+  assert.equal(mailSnap.last?.event, 'STORE_EMAIL_SEND_FAILED');
+
+  const mailAlerts = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    storeNotifyMail: mailSnap,
+  });
+  const mailAlert = mailAlerts.find((a) => a.code === 'store_notify_mail_failed');
+  assert.ok(mailAlert);
+  assert.equal(mailAlert!.severity, 'high');
+  assert.equal(mailAlert!.count, 2);
+  assert.equal(mailAlert!.section, 'mail');
+  assert.ok(mailAlert!.message.includes('SCH-MAIL1'));
+  assert.ok(mailAlert!.message.includes('FALHOU') || mailAlert!.message.includes('falhou'));
+  assert.ok(mailAlert!.recommendedAction?.includes('Reenviar'));
+  assert.ok(mailAlert!.recommendedAction?.toLowerCase().includes('não foi revertido'));
+
+  const noRecipients = deriveOpsAlerts({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    storeNotifyMail: summarizeStoreNotifyMailOps({
+      last: {
+        at: '2026-09-18T12:00:00.000Z',
+        publicId: 'SCH-NONE',
+        event: 'STORE_EMAIL_NO_RECIPIENTS',
+        reason: 'no_recipients',
+      },
+      openCount: 1,
+    }),
+  });
+  const none = noRecipients.find((a) => a.code === 'store_notify_mail_failed');
+  assert.ok(none);
+  assert.ok(none!.message.includes('NÃO tentado') || none!.message.includes('nenhum destinatário'));
+
+  const opsMail = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+    storeNotifyMail: mailSnap,
+  });
+  assert.equal(opsMail.mail.lastStoreNotifyFailure?.publicId, 'SCH-MAIL1');
+  assert.equal(opsMail.mail.storeNotifyFailureCount, 2);
+  assert.equal(
+    opsMail.alerts.some((a) => a.code === 'store_notify_mail_failed' && a.severity === 'high'),
+    true,
+  );
+
+  const emptyMail = summarizeOps({
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 0,
+    mailConfigured: true,
+  });
+  assert.equal(emptyMail.mail.lastStoreNotifyFailure, null);
+  assert.equal(emptyMail.mail.storeNotifyFailureCount, 0);
+  assert.equal(emptyMail.alerts.some((a) => a.code === 'store_notify_mail_failed'), false);
+
+  // Recon + mail beat stock/pending so they survive ATENÇÃO AGORA cap
+  const crowded = deriveOpsAlerts({
+    lowStockCount: 3,
+    outOfStockCount: 1,
+    placeholderProductCount: 0,
+    pendingPaymentCount: 4,
+    mailConfigured: true,
+    orderBuckets: { paid: 5 },
+    stuckOrderCount: 2,
+    openReconciliationCount: 1,
+    reconciliationRecent: reconSum.recent,
+    storeNotifyMail: mailSnap,
+  });
+  assert.equal(crowded[0]?.code, 'open_reconciliations');
+  assert.equal(crowded[1]?.code, 'store_notify_mail_failed');
+  const sorted = sortOpsAlertsForAttention([
+    { code: 'low_stock', severity: 'warn', message: 'x', count: 1 },
+    { code: 'open_reconciliations', severity: 'high', message: 'r', count: 1, section: 'reconciliations' },
+    { code: 'out_of_stock', severity: 'critical', message: 'z', count: 1 },
+  ]);
+  assert.equal(sorted[0].code, 'open_reconciliations');
+
+  const ctrlSrc = readFileSync(join(__dirname, 'admin.controller.ts'), 'utf8');
+  assert.ok(ctrlSrc.includes('peekStoreNotifyMailSnapshot'), 'GET /admin/ops reads process-local mail failures');
+  assert.ok(ctrlSrc.includes('storeNotifyMail:'), 'ops snapshot passes storeNotifyMail');
+
+  console.log('admin-ops: store_notify_mail_failed + recon attention sort — PASSOU');
 }

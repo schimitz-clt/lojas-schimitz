@@ -14,6 +14,8 @@ import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { shouldServerOrderSearch } from '@/lib/admin-order-search';
 import {
   emptyOrdersQueueMessage,
+  opsAlertCtaHintPt,
+  opsAlertSeverityLabelPt,
   paymentMethodBadge,
   whatsAppOpsButtonLabel,
 } from '@/lib/admin-ops-ui';
@@ -117,14 +119,7 @@ export function AdminOpsSection() {
                   : ''
               }`
             : null,
-          ctaHint:
-            a.section === 'reconciliations'
-              ? '→ Reconciliações'
-              : a.section === 'catalog'
-                ? '→ Catálogo (fotos)'
-                : a.queueBucket
-                  ? '→ abrir fila'
-                  : null,
+          ctaHint: opsAlertCtaHintPt(a),
         }))}
         onSelect={(code) => {
           const a = attentionAlerts.find((x) => x.code === code);
@@ -219,7 +214,7 @@ export function AdminOpsSection() {
                 void loadReconciliations();
               }}
             >
-              <div className="admin-kpi__label">Reconciliações</div>
+              <div className="admin-kpi__label">Reconciliações abertas</div>
               <div className={`admin-kpi__value${(ops?.reconciliations?.openCount ?? 0) > 0 ? ' admin-kpi__value--danger' : ''}`}>
                 {ops?.reconciliations?.openCount ?? '—'}
               </div>
@@ -233,11 +228,40 @@ export function AdminOpsSection() {
               <div className="admin-kpi__value">{ops?.catalog?.placeholderProductCount ?? '—'}</div>
               <div className="admin-kpi__hint">fila Catálogo + CSV</div>
             </button>
-            <div className={`admin-kpi${ops?.mail?.configured ? ' admin-kpi--accent' : ' admin-kpi--danger'}`}>
-              <div className="admin-kpi__label">E-mail (env)</div>
-              <div className={`admin-kpi__value${ops == null || ops.mail?.configured ? '' : ' admin-kpi__value--danger'}`} style={{ fontSize: 16 }}>
-                {ops == null ? '—' : ops.mail?.configured ? 'Configurado' : 'Ausente'}
+            <div
+              className={`admin-kpi${
+                (ops?.mail?.storeNotifyFailureCount ?? 0) > 0 || ops?.mail?.providerOffWithStoreNotify
+                  ? ' admin-kpi--danger'
+                  : ops?.mail?.configured
+                    ? ' admin-kpi--accent'
+                    : ' admin-kpi--danger'
+              }`}
+            >
+              <div className="admin-kpi__label">E-mail loja</div>
+              <div
+                className={`admin-kpi__value${
+                  ops == null ||
+                  ((ops.mail?.storeNotifyFailureCount ?? 0) === 0 && ops.mail?.configured)
+                    ? ''
+                    : ' admin-kpi__value--danger'
+                }`}
+                style={{ fontSize: 16 }}
+              >
+                {ops == null
+                  ? '—'
+                  : (ops.mail?.storeNotifyFailureCount ?? 0) > 0
+                    ? `${ops.mail!.storeNotifyFailureCount} falha(s)`
+                    : ops.mail?.providerOffWithStoreNotify
+                      ? 'Provedor off'
+                      : ops.mail?.configured
+                        ? 'Configurado'
+                        : 'Ausente'}
               </div>
+              {ops?.mail?.lastStoreNotifyFailure?.publicId ? (
+                <div className="admin-kpi__hint">
+                  último: {ops.mail.lastStoreNotifyFailure.publicId}
+                </div>
+              ) : null}
             </div>
             <div className="admin-kpi">
               <div className="admin-kpi__label">Pedidos (total)</div>
@@ -272,14 +296,10 @@ export function AdminOpsSection() {
                         }}
                       >
                         <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8, opacity: 0.85 }}>
-                          {a.severity}
+                          {opsAlertSeverityLabelPt(a.severity)}
                         </span>
                         {a.message}
-                        {a.section === 'reconciliations'
-                          ? ' → Reconciliações'
-                          : a.queueBucket
-                            ? ' → abrir fila'
-                            : ''}
+                        {opsAlertCtaHintPt(a) ? ` ${opsAlertCtaHintPt(a)}` : ''}
                         {a.recommendedAction ? (
                           <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginTop: 4 }}>
                             {a.recommendedAction}

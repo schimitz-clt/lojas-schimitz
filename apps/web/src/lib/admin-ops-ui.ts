@@ -166,3 +166,129 @@ export function whatsAppOpsButtonLabel(
   }
   return toCustomer ? 'WhatsApp cliente' : 'WhatsApp loja (rascunho)';
 }
+
+export type OpsAlertSeverityLike = 'critical' | 'high' | 'warn' | 'info' | string;
+
+/** PT severity chip for ATENÇÃO AGORA — never leave English "high"/"warn". */
+export function opsAlertSeverityLabelPt(sev: OpsAlertSeverityLike): string {
+  const s = String(sev || '').toLowerCase();
+  if (s === 'critical') return 'CRÍTICO';
+  if (s === 'high') return 'URGENTE';
+  if (s === 'warn') return 'ATENÇÃO';
+  if (s === 'info') return 'INFO';
+  return s ? s.toUpperCase() : 'INFO';
+}
+
+export type OpsAlertLike = {
+  code: string;
+  severity: OpsAlertSeverityLike;
+  section?: string | null;
+  queueBucket?: string | null;
+};
+
+/**
+ * Recon + store-mail first so they survive the ATENÇÃO AGORA cap.
+ * Matches API sortOpsAlertsForAttention.
+ */
+export function sortOpsAlertsForAttention<T extends OpsAlertLike>(alerts: T[]): T[] {
+  const rankCode = (code: string): number => {
+    if (code === 'open_reconciliations') return 0;
+    if (code === 'store_notify_mail_failed') return 1;
+    if (code === 'mail_off_with_store_notify') return 2;
+    return 10;
+  };
+  const rankSev = (sev: OpsAlertSeverityLike): number => {
+    const s = String(sev || '');
+    if (s === 'critical') return 0;
+    if (s === 'high') return 1;
+    if (s === 'warn') return 2;
+    return 3;
+  };
+  return [...alerts].sort((a, b) => {
+    const c = rankCode(a.code) - rankCode(b.code);
+    if (c !== 0) return c;
+    return rankSev(a.severity) - rankSev(b.severity);
+  });
+}
+
+export function opsAlertCtaHintPt(a: OpsAlertLike): string | null {
+  if (a.section === 'reconciliations' || a.code === 'open_reconciliations') {
+    return '→ abrir fila Reconciliações';
+  }
+  if (a.section === 'mail' || a.code === 'store_notify_mail_failed' || a.code === 'mail_off_with_store_notify') {
+    return '→ Pedidos / reenviar aviso';
+  }
+  if (a.section === 'catalog') return '→ Catálogo (fotos)';
+  if (a.queueBucket) return '→ abrir fila';
+  return null;
+}
+
+export type StorePaidNotifyResult = {
+  publicId?: string | null;
+  emailsAttempted?: number | null;
+  emailsSent?: number | null;
+  inAppCreated?: number | null;
+  mailOutcome?: string | null;
+  mailReason?: string | null;
+};
+
+/**
+ * Admin copy after POST /admin/orders/:id/notify-paid.
+ * Distinguishes send failure vs never attempted vs sent vs duplicate.
+ */
+export function storePaidNotifyResultMessage(data: StorePaidNotifyResult): string {
+  const publicId = String(data.publicId || '').trim() || 'pedido';
+  const attempted = Math.max(0, Math.floor(Number(data.emailsAttempted) || 0));
+  const sent =
+    data.emailsSent == null
+      ? null
+      : Math.max(0, Math.floor(Number(data.emailsSent) || 0));
+  const inApp = Math.max(0, Math.floor(Number(data.inAppCreated) || 0));
+  const outcome = String(data.mailOutcome || '').trim();
+  const inAppBit = `In-app loja: ${inApp}.`;
+
+  if (outcome === 'sent' || (sent != null && sent > 0)) {
+    const n = sent ?? attempted;
+    return `Aviso da loja enviado (${publicId}): ${n} e-mail(s) enviado(s). ${inAppBit}`;
+  }
+  if (outcome === 'duplicate_skipped' || data.mailReason === 'duplicate') {
+    return `E-mail da loja já enviado recentemente (${publicId}) — não reenviado (dedupe). ${inAppBit} Não é falha.`;
+  }
+  if (outcome === 'no_recipients' || (outcome === '' && attempted === 0 && sent !== null && sent === 0)) {
+    return `Aviso da loja NÃO tentado por e-mail (${publicId}): nenhum destinatário. ${inAppBit} Confira STORE_NOTIFY_EMAIL / admins ativos.`;
+  }
+  if (outcome === 'provider_off' || data.mailReason === 'smtp_not_configured') {
+    return `Aviso da loja NÃO enviado por e-mail (${publicId}): provedor desligado (não chegou a falhar o envio). ${inAppBit} Configure MAIL_FROM + RESEND_API_KEY.`;
+  }
+  if (outcome === 'send_failed' || outcome === 'error') {
+    return `Envio de e-mail da loja FALHOU (${publicId}): tentados ${attempted}, enviados ${sent ?? 0}. ${inAppBit} Pagamento não foi revertido. Use Reenviar de novo se o provedor já estiver ok.`;
+  }
+  // Legacy payload: only emailsAttempted + inAppCreated
+  if (attempted === 0) {
+    return `Aviso da loja NÃO tentado por e-mail (${publicId}): 0 destinatários (nunca tentou). ${inAppBit} Confira STORE_NOTIFY_EMAIL / MAIL_FROM.`;
+  }
+  return `Aviso loja reenviado (${publicId}): e-mails tentados ${attempted}, in-app ${inApp}. Se a caixa não recebeu, o envio pode ter falhado — confira o alerta no Centro de comando.`;
+}
+
+/** Per-order hint when GET /admin/ops last failure matches this publicId. */
+export function storePaidNotifyCardHint(opts: {
+  orderPublicId: string;
+  lastFailure?: { publicId?: string | null; event?: string | null; reason?: string | null } | null;
+}): string | null {
+  const id = String(opts.orderPublicId || '').trim();
+  const failId = String(opts.lastFailure?.publicId || '').trim();
+  if (!id || !failId || id !== failId) return null;
+  const event = String(opts.lastFailure?.event || '');
+  const reason = String(opts.lastFailure?.reason || '');
+  if (event === 'STORE_EMAIL_NO_RECIPIENTS' || reason === 'no_recipients') {
+    return 'E-mail da loja deste pedido NÃO foi tentado (nenhum destinatário). Reenviar depois de conferir STORE_NOTIFY_EMAIL.';
+  }
+  if (
+    event === 'MAIL_PROVIDER_OFF_STORE_NOTIFY' ||
+    event === 'MAIL_PROVIDER_OFF' ||
+    reason === 'smtp_not_configured'
+  ) {
+    return 'E-mail da loja deste pedido NÃO foi enviado — provedor desligado (não chegou a falhar o transporte).';
+  }
+  return 'E-mail da loja deste pedido FALHOU no último envio. Reenviar aviso loja — pagamento permanece pago.';
+}

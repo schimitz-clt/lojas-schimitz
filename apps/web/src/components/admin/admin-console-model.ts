@@ -357,7 +357,7 @@ export type AdminOpsAlert = {
   message: string;
   count: number;
   queueBucket?: string;
-  section?: 'reconciliations' | 'orders' | 'inventory' | 'catalog';
+  section?: 'reconciliations' | 'orders' | 'inventory' | 'catalog' | 'mail';
   evidence?: {
     reason?: string;
     providerStatus?: string;
@@ -407,7 +407,20 @@ export type AdminOpsSnapshot = {
     openCount: number;
     recent: AdminOpsReconciliationRow[];
   };
-  mail?: { configured: boolean };
+  mail?: {
+    configured: boolean;
+    storeNotifyConfigured?: boolean;
+    providerOffWithStoreNotify?: boolean;
+    lastStoreNotifyFailure?: {
+      at: string;
+      publicId: string;
+      orderId: string | null;
+      event: string;
+      reason: string;
+      mode: string | null;
+    } | null;
+    storeNotifyFailureCount?: number;
+  };
   orders?: {
     byStatus: Record<string, number>;
     buckets: Record<string, number>;

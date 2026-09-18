@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { opsAlertSeverityLabelPt } from '@/lib/admin-ops-ui';
 
 type Severity = 'critical' | 'high' | 'warn' | 'info' | string;
 
@@ -25,11 +26,17 @@ function tone(sev: Severity): 'high' | 'warn' {
 
 export function AdminAttentionStrip({ items, onSelect, max = 6 }: Props): ReactNode {
   if (!items.length) return null;
+  const recon = items.find((a) => a.code === 'open_reconciliations');
   return (
     <div className="admin-attn">
       <div className="admin-attn__head">
-        <strong className="admin-attn__title">Atenção agora</strong>
-        <span style={{ fontSize: 12, color: '#b0b0a8' }}>Revisar · sem execução automática</span>
+        <strong className="admin-attn__title">ATENÇÃO AGORA</strong>
+        <span style={{ fontSize: 12, color: '#b0b0a8' }}>
+          Revisar · sem execução automática
+          {recon
+            ? ` · ${recon.message.split(' — ')[0] || 'reconciliações abertas'}`
+            : ''}
+        </span>
       </div>
       <ul className="admin-attn__list">
         {items.slice(0, max).map((a) => {
@@ -42,7 +49,7 @@ export function AdminAttentionStrip({ items, onSelect, max = 6 }: Props): ReactN
                 onClick={() => onSelect(a.code)}
               >
                 <span style={{ fontSize: 11, textTransform: 'uppercase', marginRight: 8 }}>
-                  {a.severity}
+                  {opsAlertSeverityLabelPt(a.severity)}
                 </span>
                 {a.message}
                 {a.ctaHint ? ` ${a.ctaHint}` : ''}

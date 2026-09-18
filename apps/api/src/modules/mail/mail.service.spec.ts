@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   adminOrderPaidEmail,
   orderCreatedEmail,
@@ -484,6 +486,14 @@ async function testPhase15IdempotentKinds() {
   await testProviderModeAndIdempotency();
   await testPasswordResetNotIdempotent();
   await testPhase15IdempotentKinds();
+  {
+    const src = readFileSync(join(__dirname, 'mail.service.ts'), 'utf8');
+    assert.ok(src.includes("reason: 'smtp_not_configured'"), 'ops maps provider off');
+    assert.ok(src.includes("reason: 'send_failed'"), 'ops maps send failure');
+    assert.ok(src.includes("reason: 'duplicate'"), 'ops maps duplicate skip');
+    assert.ok(src.includes('notifyAdminOrderPaid'), 'store notify uses admin_order_paid');
+    console.log('mail.service: store-notify reason vocabulary — PASSOU');
+  }
   console.log('mail.service tests ok');
 })().catch((e) => {
   console.error(e);

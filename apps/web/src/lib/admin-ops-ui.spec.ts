@@ -3,10 +3,15 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   emptyOrdersQueueMessage,
+  opsAlertCtaHintPt,
+  opsAlertSeverityLabelPt,
   paymentMethodBadge,
   paymentMethodLabelPt,
   pickPrimaryPayment,
   separarPrimaryLabel,
+  sortOpsAlertsForAttention,
+  storePaidNotifyCardHint,
+  storePaidNotifyResultMessage,
   whatsAppOpsButtonLabel,
 } from './admin-ops-ui';
 
@@ -68,5 +73,86 @@ assert.ok(
 assert.equal(whatsAppOpsButtonLabel(true, 'paid'), 'WhatsApp cliente (pago)');
 assert.equal(whatsAppOpsButtonLabel(false, 'generic'), 'WhatsApp loja (rascunho)');
 assert.equal(whatsAppOpsButtonLabel(true, 'generic'), 'WhatsApp cliente');
+
+assert.equal(opsAlertSeverityLabelPt('critical'), 'CRÍTICO');
+assert.equal(opsAlertSeverityLabelPt('high'), 'URGENTE');
+assert.equal(opsAlertSeverityLabelPt('warn'), 'ATENÇÃO');
+assert.equal(opsAlertSeverityLabelPt('info'), 'INFO');
+
+assert.ok(opsAlertCtaHintPt({ code: 'open_reconciliations', severity: 'high', section: 'reconciliations' }).includes('Reconciliações'));
+assert.ok(opsAlertCtaHintPt({ code: 'store_notify_mail_failed', severity: 'high', section: 'mail' }).includes('reenviar'));
+
+{
+  const sorted = sortOpsAlertsForAttention([
+    { code: 'low_stock', severity: 'warn' },
+    { code: 'open_reconciliations', severity: 'high' },
+    { code: 'store_notify_mail_failed', severity: 'high' },
+    { code: 'out_of_stock', severity: 'critical' },
+  ]);
+  assert.equal(sorted[0].code, 'open_reconciliations');
+  assert.equal(sorted[1].code, 'store_notify_mail_failed');
+}
+
+assert.ok(
+  storePaidNotifyResultMessage({
+    publicId: 'SCH-1',
+    emailsAttempted: 1,
+    emailsSent: 1,
+    inAppCreated: 2,
+    mailOutcome: 'sent',
+  }).includes('enviado'),
+);
+assert.ok(
+  storePaidNotifyResultMessage({
+    publicId: 'SCH-2',
+    emailsAttempted: 0,
+    emailsSent: 0,
+    inAppCreated: 1,
+    mailOutcome: 'no_recipients',
+  }).includes('NÃO tentado'),
+);
+assert.ok(
+  storePaidNotifyResultMessage({
+    publicId: 'SCH-3',
+    emailsAttempted: 1,
+    emailsSent: 0,
+    inAppCreated: 1,
+    mailOutcome: 'send_failed',
+  }).includes('FALHOU'),
+);
+assert.ok(
+  storePaidNotifyResultMessage({
+    publicId: 'SCH-4',
+    emailsAttempted: 1,
+    emailsSent: 0,
+    inAppCreated: 1,
+    mailOutcome: 'provider_off',
+    mailReason: 'smtp_not_configured',
+  }).includes('provedor desligado'),
+);
+assert.ok(
+  storePaidNotifyResultMessage({
+    publicId: 'SCH-LEG',
+    emailsAttempted: 0,
+    inAppCreated: 1,
+  }).includes('NÃO tentado'),
+);
+
+assert.equal(
+  storePaidNotifyCardHint({ orderPublicId: 'SCH-1', lastFailure: { publicId: 'SCH-OTHER' } }),
+  null,
+);
+assert.ok(
+  storePaidNotifyCardHint({
+    orderPublicId: 'SCH-1',
+    lastFailure: { publicId: 'SCH-1', event: 'STORE_EMAIL_SEND_FAILED' },
+  })?.includes('FALHOU'),
+);
+assert.ok(
+  storePaidNotifyCardHint({
+    orderPublicId: 'SCH-1',
+    lastFailure: { publicId: 'SCH-1', event: 'STORE_EMAIL_NO_RECIPIENTS' },
+  })?.includes('NÃO foi tentado'),
+);
 
 console.log('admin-ops-ui web unit ok');
