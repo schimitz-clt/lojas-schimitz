@@ -25,7 +25,17 @@ export function pdpOfferPills(): PdpOfferPill[] {
   ];
 }
 
-/** First-screen content order used by layout tests and mobile CSS comments. */
+/**
+ * Magalu-style mobile stack (alignment rhythm only — Schimitz branding stays):
+ * gallery → name + rating → model → seller → price/PIX/parcelas → description → stock → CTAs.
+ */
 export function pdpMobileContentOrder(): string[] {
-  return ['gallery', 'title', 'offers', 'price', 'description'];
+  return ['gallery', 'title', 'rating', 'model', 'seller', 'price', 'description', 'stock', 'ctas'];
+}
+
+/** Long Admin specs get a “Ver descrição completa” fold on mobile. */
+export const PDP_DESC_PREVIEW_CHARS = 360;
+
+export function pdpDescriptionNeedsCollapse(text: string): boolean {
+  return productDescriptionText(text).length > PDP_DESC_PREVIEW_CHARS;
 }
