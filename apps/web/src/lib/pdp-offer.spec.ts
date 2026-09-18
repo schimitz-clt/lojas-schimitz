@@ -50,6 +50,10 @@ assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp[\s\S]*padding-bottom:\s*calc\(/.test(css),
   'mobile PDP padding clears sticky ATC + bottom nav',
 );
+assert.ok(
+  /@media \(min-width: 721px\)[\s\S]*\.pdp-desc\s*\{\s*order:\s*7/.test(css),
+  'desktop keeps description after ATC (not between price and buy)',
+);
 
 const catalog = readFileSync(join(srcRoot, 'components/admin/sections/AdminCatalogoSection.tsx'), 'utf8');
 assert.ok(/\bmultiple\b/.test(catalog), 'catalog file input stays multiple');

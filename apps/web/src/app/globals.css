@@ -731,6 +731,16 @@ textarea { resize: vertical; min-height: 72px; }
 
 .pdp { padding: 24px 0; }
 .pdp-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
+.pdp-buybox { display: flex; flex-direction: column; min-width: 0; }
+.pdp-identity { order: 1; }
+.pdp-price-block { order: 2; }
+.pdp-desc { order: 3; }
+.pdp-stock { order: 4; }
+.pdp-buybox > .ok,
+.pdp-buybox > .alert,
+.pdp-added-banner { order: 5; }
+.pdp-actions { order: 6; }
+.pdp-trust { order: 7; }
 .pdp-main-img { aspect-ratio: 1; background: #fafaf7; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line); }
 .pdp-main-img img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .pdp-carousel {
@@ -1042,6 +1052,14 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-cart-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .sf-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .recent-strip-rail { margin: 0; padding: 4px 0 10px; }
+  /* Desktop: keep ATC with the price; description follows the buybox */
+  .pdp-stock { order: 3; }
+  .pdp-buybox > .ok,
+  .pdp-buybox > .alert,
+  .pdp-added-banner { order: 4; }
+  .pdp-actions { order: 5; }
+  .pdp-trust { order: 6; }
+  .pdp-desc { order: 7; }
 }
 
 /* —— Tablet / mid —— */
@@ -1220,6 +1238,20 @@ textarea { resize: vertical; min-height: 72px; }
   .logo { font-size: 15px; }
   .search { min-width: 0; flex: 1 1 100%; order: 4; }
   .hdr-cep { order: 3; }
+  /* Search wraps onto its own row — keep gallery short so name/price/3x stay above sticky ATC */
+  .pdp-carousel,
+  .pdp-carousel-track,
+  .pdp-carousel-slide {
+    max-height: min(28vh, 200px);
+    max-height: min(28dvh, 200px);
+    height: min(28vh, 200px);
+    height: min(28dvh, 200px);
+  }
+  .pdp-carousel-slide img,
+  .pdp-gallery-open img {
+    max-height: min(28vh, 200px);
+    max-height: min(28dvh, 200px);
+  }
 }
 
 /* —— Desktop store experience —— */
