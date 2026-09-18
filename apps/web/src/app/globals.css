@@ -873,8 +873,9 @@ textarea { resize: vertical; min-height: 72px; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  max-width: 100%;
 }
 .pdp-title { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; flex: 1 1 auto; min-width: 0; }
 .pdp-model { margin: 0 0 8px; font-size: 13px; }
@@ -882,7 +883,19 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-share-btn { min-height: 40px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
 .pdp-share-status { font-size: 12px; font-weight: 700; color: var(--ok); }
 .pdp-seller { margin: 0 0 8px; }
-.pdp-rating { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.pdp-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin: 8px 0 0;
+  max-width: 42%;
+  min-width: 0;
+  text-align: right;
+}
+.pdp-rating-score { font-weight: 800; font-size: 18px; line-height: 1; color: var(--ink); letter-spacing: -.03em; }
+.pdp-rating-meta { font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
 .pdp-offer-pills {
   list-style: none;
   margin: 0 0 12px;
@@ -918,7 +931,23 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-stock { margin: 0 0 12px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pdp-stock .pcard-stock { position: static; }
 .pdp-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 100%; min-width: 0; margin-bottom: 14px; }
-.pdp-actions .btn { min-height: 48px; min-width: 0; }
+.pdp-actions .btn { min-height: 48px; min-width: 0; max-width: 100%; }
+.pdp-actions .compare-toggle,
+.pdp-actions .fav-toggle { position: relative; min-width: 0; max-width: 100%; }
+.pdp-desc-toggle {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 8px 0 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .pdp-trust { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 .pdp-trust li { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; min-width: 0; }
 .pdp-trust a { color: var(--ink); font-weight: 700; }
@@ -1096,6 +1125,7 @@ textarea { resize: vertical; min-height: 72px; }
   .sf-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .recent-strip-rail { margin: 0; padding: 4px 0 10px; }
   /* Desktop: keep ATC with the price; description follows the buybox */
+  .pdp-rating { max-width: 160px; }
   .pdp-stock { order: 3; }
   .pdp-buybox > .ok,
   .pdp-buybox > .alert,
@@ -1103,6 +1133,13 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-actions { order: 5; }
   .pdp-trust { order: 6; }
   .pdp-desc { order: 7; }
+  .pdp-desc-toggle { display: none; }
+  .pdp-desc.is-collapsed .pdp-desc-body {
+    display: block;
+    -webkit-line-clamp: unset;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* —— Tablet / mid —— */
@@ -1127,14 +1164,68 @@ textarea { resize: vertical; min-height: 72px; }
   .home-banner-overlay { padding: 14px 14px 12px; }
   .home-banner-cta { width: 100%; }
   .pdp-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .pdp-title { font-size: 18px; margin: 10px 0 6px; font-weight: 800; }
-  .pdp-title-row { display: block; }
+  .pdp-buybox { width: 100%; max-width: 100%; min-width: 0; }
+  .pdp-title { font-size: 18px; margin: 4px 0 0; font-weight: 800; }
+  .pdp-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
   .pdp-title-row .pdp-share { display: none; }
   .pdp-share-btn { min-height: 36px; padding: 0 10px; }
-  .pdp-identity { min-width: 0; }
-  .pdp-seller { text-align: center; margin: 10px 0 14px; }
+  .pdp-identity { min-width: 0; max-width: 100%; padding: 8px 0 4px; }
+  .pdp-rating { margin: 4px 0 0; max-width: 38%; }
+  .pdp-rating-score { font-size: 16px; }
+  .pdp-model { text-align: center; margin: 10px 0 4px; }
+  .pdp-seller { text-align: center; margin: 4px 0 12px; }
   .pdp-price { font-size: 28px; }
-  .pdp-price-block { padding: 4px 0 12px; border: 0; background: transparent; box-shadow: none; border-radius: 0; }
+  .pdp-price-block { padding: 4px 0 16px; border: 0; background: transparent; box-shadow: none; border-radius: 0; }
+  .pdp-offer-pills { margin: 0 0 10px; }
+  .pdp-desc {
+    padding: 16px 0 8px;
+    margin: 0 0 8px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+  }
+  .pdp-desc h2 { font-size: 15px; margin: 0 0 10px; }
+  .pdp-desc-body { font-size: 14px; line-height: 1.6; }
+  .pdp-desc.is-collapsed .pdp-desc-body {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 8;
+    overflow: hidden;
+    max-height: 12.8em;
+  }
+  .pdp-stock { margin: 4px 0 12px; }
+  .pdp-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .pdp-actions .pdp-cta-primary,
+  .pdp-actions .pdp-cta-wa { grid-column: 1 / -1; width: 100%; }
+  .pdp-actions .btn,
+  .pdp-actions .compare-toggle,
+  .pdp-actions .fav-toggle,
+  .pdp-actions .compare-toggle-btn,
+  .pdp-actions .fav-toggle-btn {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .pdp-actions .compare-toggle-btn,
+  .pdp-actions .fav-toggle-btn {
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 10px;
+  }
+  .pdp-trust { grid-template-columns: 1fr; }
   /* Magalu rhythm: photo full-bleed, centered; title/price share wrap gutters. */
   .pdp-gallery-col {
     margin-left: -12px;
@@ -1214,7 +1305,6 @@ textarea { resize: vertical; min-height: 72px; }
     display: grid;
     place-items: center;
   }
-  .pdp-actions .fav-toggle { display: none; }
   .header-row { padding: 8px 0; gap: 8px; }
   .hdr-hide-sm { display: none !important; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }

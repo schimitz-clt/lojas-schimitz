@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  pdpDescriptionNeedsCollapse,
   pdpMobileContentOrder,
   pdpOfferPills,
   productDescriptionText,
@@ -22,29 +23,54 @@ assert.equal(pills[1].label, interestFreeInstallmentClaim());
 assert.ok(/3x sem juros/i.test(pills[1].label));
 assert.ok(!/12x/.test(pills.map((p) => p.label).join(' ')));
 
-assert.deepEqual(pdpMobileContentOrder(), ['gallery', 'title', 'offers', 'price', 'description']);
+assert.deepEqual(pdpMobileContentOrder(), [
+  'gallery',
+  'title',
+  'rating',
+  'model',
+  'seller',
+  'price',
+  'description',
+  'stock',
+  'ctas',
+]);
+assert.equal(pdpDescriptionNeedsCollapse('curto'), false);
+assert.equal(pdpDescriptionNeedsCollapse('x'.repeat(361)), true);
 
 const srcRoot = join(__dirname, '..');
 const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 'utf8');
 assert.ok(pdp.includes('productDescriptionText'), 'PDP uses trimmed Admin description');
 assert.ok(pdp.includes('pdpOfferPills'), 'PDP shows Pix 5% / 3x chips');
 assert.ok(pdp.includes('className="pdp-title"'), 'PDP keeps h1.pdp-title');
-assert.ok(pdp.includes('className="pdp-desc"'), 'PDP keeps description block');
+assert.ok(pdp.includes('pdp-desc'), 'PDP keeps description block');
+assert.ok(pdp.includes('pdp-desc-toggle'), 'long description can fold with Ver mais');
+assert.ok(pdp.includes('Ver mais'), 'collapse control is in Portuguese');
 assert.ok(pdp.includes('className="pdp-price-block"'), 'PDP keeps price offer block');
 assert.ok(pdp.includes('ProductShareButton'), 'PDP has Compartilhar');
-assert.ok(pdp.includes('pdp-title-row'), 'title + share sit in Magalu-style header row');
+assert.ok(pdp.includes('pdp-title-row'), 'title + rating sit in Magalu-style header row');
+assert.ok(pdp.includes('pdp-rating-score'), 'rating score sits beside the product name');
 assert.ok(pdp.includes('pdp-gallery-col'), 'gallery column wraps full-bleed photo + tools');
 assert.ok(pdp.includes('pdp-gallery-tools'), 'favoritar/compartilhar overlay the photo on mobile');
+assert.ok(pdp.includes('pdp-cta-primary'), 'primary ATC spans the mobile CTA grid');
+assert.ok(pdp.includes('pdp-cta-wa'), 'WhatsApp stays in the CTA row');
 assert.ok(pdp.includes('pixPrice('), 'PDP reuses pixPrice');
 assert.ok(pdp.includes('installmentLine('), 'PDP reuses installmentLine');
 assert.ok(!/style=\{\{\s*padding:\s*'24px 0'\s*\}\}/.test(pdp), 'PDP must not inline-override padding (hides sticky clearance)');
 
 const titleAt = pdp.indexOf('className="pdp-title"');
+const ratingAt = pdp.indexOf('className="pdp-rating"');
+const modelAt = pdp.indexOf('className="pdp-model');
+const sellerAt = pdp.indexOf('className="pdp-seller');
 const priceAt = pdp.indexOf('className="pdp-price-block"');
-const descAt = pdp.indexOf('className="pdp-desc"');
+const descAt = pdp.indexOf('className={`pdp-desc');
+const stockAt = pdp.indexOf('className={`pdp-stock');
 const actionsAt = pdp.indexOf('className="actions pdp-actions"');
-assert.ok(titleAt > 0 && titleAt < priceAt, 'title before price block');
+assert.ok(titleAt > 0 && ratingAt > titleAt && ratingAt < priceAt, 'rating sits with title, before price');
+assert.ok(modelAt > ratingAt && modelAt < priceAt, 'model under title/rating');
+assert.ok(sellerAt > modelAt && sellerAt < priceAt, 'seller before price');
 assert.ok(priceAt < descAt, 'price block before description');
+assert.ok(descAt < stockAt, 'description before stock');
+assert.ok(stockAt < actionsAt, 'stock before ATC actions');
 assert.ok(descAt < actionsAt, 'description before ATC actions (prominent, not buried)');
 
 const css = readFileSync(join(srcRoot, 'app/globals.css'), 'utf8');
@@ -59,6 +85,29 @@ assert.ok(
 assert.ok(
   /@media \(min-width: 721px\)[\s\S]*\.pdp-desc\s*\{\s*order:\s*7/.test(css),
   'desktop keeps description after ATC (not between price and buy)',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-title-row\s*\{[^}]*display:\s*flex/.test(css),
+  'mobile title + rating stay on one row',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-model\s*\{[^}]*text-align:\s*center/.test(css),
+  'mobile model line is centered',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/.test(css),
+  'mobile CTAs use a 2-col grid that cannot overflow',
+);
+assert.ok(css.includes('.pdp-desc.is-collapsed'), 'long specs clamp on mobile');
+assert.ok(css.includes('.pdp-desc-toggle'), 'Ver mais control is styled');
+assert.equal(
+  /\.pdp-actions \.fav-toggle \{\s*display:\s*none/.test(css),
+  false,
+  'Favoritar stays in the mobile CTA row',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-trust\s*\{[^}]*grid-template-columns:\s*1fr/.test(css),
+  'mobile trust benefits stack in one column',
 );
 
 const catalog = readFileSync(join(srcRoot, 'components/admin/sections/AdminCatalogoSection.tsx'), 'utf8');

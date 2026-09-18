@@ -12,7 +12,7 @@ import {
   pixPrice,
   stockBadge,
 } from '@/lib/pricing';
-import { pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
+import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
@@ -129,6 +129,7 @@ export default function ProductPage() {
   const [addedToBag, setAddedToBag] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showBagToast, setShowBagToast] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
 
   const loadReviews = useCallback(async (productId: string) => {
     const list = await api<Review[]>(`/products/${productId}/reviews`);
@@ -163,6 +164,7 @@ export default function ProductPage() {
     getGuestToken();
     setAddedToBag(false);
     setShowBagToast(false);
+    setDescOpen(false);
     setMsg('');
     setErr('');
     api<Detail>(`/products/${slug}`)
@@ -241,6 +243,7 @@ export default function ProductPage() {
   const pix = pixPrice(price);
   const outOfStock = stock != null && stock <= 0;
   const description = productDescriptionText(p.description);
+  const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
   const offerPills = pdpOfferPills();
 
   return (
@@ -259,6 +262,17 @@ export default function ProductPage() {
             {p.badge ? <div className="badge">{p.badge}</div> : null}
             <div className="pdp-title-row">
               <h1 className="pdp-title">{p.name}</h1>
+              <div className="pdp-rating">
+                <span className="pdp-rating-score">
+                  {count > 0 ? avg.toFixed(1).replace('.', ',') : '—'}
+                </span>
+                <Stars value={Math.round(avg)} size={14} />
+                <span className="pdp-rating-meta muted">
+                  {count > 0
+                    ? `${count} avaliação${count === 1 ? '' : 'ões'}`
+                    : 'Sem avaliações'}
+                </span>
+              </div>
               <ProductShareButton productName={p.name} />
             </div>
             {p.sku ? <p className="pdp-model muted">Modelo {p.sku}</p> : null}
@@ -267,14 +281,9 @@ export default function ProductPage() {
                 Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>
               </p>
             ) : null}
-            <div className="pdp-rating">
-              <Stars value={Math.round(avg)} />
-              <span className="muted" style={{ fontSize: 14 }}>
-                {count > 0
-                  ? `${avg.toFixed(1).replace('.', ',')} · ${count} avaliação${count === 1 ? '' : 'ões'}`
-                  : 'Sem avaliações ainda'}
-              </span>
-            </div>
+          </div>
+
+          <div className="pdp-price-block">
             <ul className="pdp-offer-pills" aria-label="Condições da oferta">
               {offerPills.map((pill) => (
                 <li key={pill.id} className={`pdp-offer-pill pdp-offer-pill--${pill.tone}`}>
@@ -282,9 +291,6 @@ export default function ProductPage() {
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="pdp-price-block">
             <div className="pdp-price-row">
               <span className="price pdp-price">{brl(price)}</span>
               {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
@@ -313,9 +319,19 @@ export default function ProductPage() {
           </div>
 
           {description ? (
-            <div className="pdp-desc">
+            <div className={`pdp-desc${descNeedsCollapse && !descOpen ? ' is-collapsed' : ''}`}>
               <h2>Descrição</h2>
               <p className="pdp-desc-body">{description}</p>
+              {descNeedsCollapse ? (
+                <button
+                  type="button"
+                  className="pdp-desc-toggle"
+                  aria-expanded={descOpen}
+                  onClick={() => setDescOpen((open) => !open)}
+                >
+                  {descOpen ? 'Ver menos' : 'Ver mais'}
+                </button>
+              ) : null}
             </div>
           ) : null}
 
@@ -344,7 +360,7 @@ export default function ProductPage() {
           <div className="actions pdp-actions">
             {addedToBag && !outOfStock ? (
               <>
-                <Link className="btn" href="/carrinho">
+                <Link className="btn pdp-cta-primary" href="/carrinho">
                   Ir para a sacola
                 </Link>
                 <button
@@ -362,14 +378,14 @@ export default function ProductPage() {
                 </button>
               </>
             ) : (
-              <button className="btn" onClick={add} disabled={outOfStock || adding}>
+              <button className="btn pdp-cta-primary" onClick={add} disabled={outOfStock || adding}>
                 {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
               </button>
             )}
             <CompareToggle product={p} variant="pdp" />
             <FavoriteToggle productId={p.id} variant="pdp" />
             <a
-              className="btn wa"
+              className="btn wa pdp-cta-wa"
               href={waLink(`Olá, quero o produto ${p.name}`)}
               target="_blank"
               rel="noreferrer"

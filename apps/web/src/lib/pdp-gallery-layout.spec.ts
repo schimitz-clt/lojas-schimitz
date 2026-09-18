@@ -65,6 +65,11 @@ assert.ok(/\.pdp-gallery-col[\s\S]*margin-left:\s*-12px/.test(css), 'mobile gall
 assert.ok(/\.pdp-carousel-nav[\s\S]*display:\s*none/.test(css), 'mobile uses swipe + dots, not side arrows');
 assert.ok(/\.pdp-carousel-dots[\s\S]*position:\s*static/.test(css), 'dots sit under the photo, centered');
 assert.ok(/\.pdp-sticky-atc \.btn[\s\S]*white-space:\s*nowrap/.test(css), 'sticky ATC is price left + button right');
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css),
+  'mobile buy CTAs sit in a 2-col grid (Adicionar / Comparar / Favoritar / WhatsApp)',
+);
+assert.ok(/\.pdp-title-row\s*\{[^}]*display:\s*flex/.test(css), 'name and rating share one Magalu header row');
 
 assert.ok(theme.includes('touch-action: pan-x'), 'photo hit-target allows horizontal swipe');
 assert.ok(theme.includes('object-position: center'), 'theme img also centers in the frame');

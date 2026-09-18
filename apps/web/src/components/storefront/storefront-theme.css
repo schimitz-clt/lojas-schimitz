@@ -1621,11 +1621,15 @@
   }
 
   .pdp-price-block {
-    padding: 4px 0 12px;
+    padding: 4px 0 16px;
     border: 0;
     box-shadow: none;
     background: transparent;
     border-radius: 0;
+  }
+
+  .pdp-desc {
+    box-shadow: none;
   }
 
   .pdp-carousel-nav {
