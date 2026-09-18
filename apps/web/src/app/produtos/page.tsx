@@ -16,6 +16,7 @@ import {
   searchResultsHeading,
   type FilterChip,
 } from '@/lib/storefront-pro';
+import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number; page?: number; pageSize?: number; sort?: string };
@@ -368,6 +369,8 @@ function ProdutosInner() {
           ))}
         </div>
       ) : null}
+
+      <RecentlyViewedStrip />
 
       {sheetOpen ? (
         <div

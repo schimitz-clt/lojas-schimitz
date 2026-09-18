@@ -7,6 +7,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { ChatWidget } from '@/components/ChatWidget';
 import { CompareProvider } from '@/components/compare/CompareProvider';
 import { CompareBar } from '@/components/compare/CompareBar';
+import { FavoritesProvider } from '@/components/favorites/FavoritesProvider';
+import { StorefrontToast } from '@/components/StorefrontToast';
 import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
 
 /**
@@ -23,8 +25,9 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
 
   return (
     <CompareProvider>
-      <Header />
-      <main className="wrap main-shell">{children}</main>
+      <FavoritesProvider>
+        <Header />
+        <main className="wrap main-shell">{children}</main>
       <footer className="footer">
         <div className="wrap">
           <div className="footer-grid">
@@ -106,7 +109,9 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
       </footer>
       <CompareBar />
       <BottomNav />
+      <StorefrontToast />
       <ChatWidget />
+      </FavoritesProvider>
     </CompareProvider>
   );
 }

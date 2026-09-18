@@ -17,6 +17,7 @@ import {
   searchEmptyCopy,
   type FilterChip,
 } from '@/lib/storefront-pro';
+import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number };
@@ -290,6 +291,8 @@ export default function DepartamentoClient() {
           ))}
         </div>
       ) : null}
+
+      <RecentlyViewedStrip />
 
       {sheetOpen ? (
         <div

@@ -1138,6 +1138,52 @@
   border-color: var(--sf-ink);
 }
 
+.fav-toggle-card {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+}
+
+.fav-toggle-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: var(--sf-radius-pill);
+  border: 1px solid rgba(10, 10, 10, 0.16);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--sf-ink);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.fav-toggle-btn:hover {
+  border-color: var(--sf-ink);
+  background: #fff;
+}
+
+.fav-toggle-btn.is-on {
+  background: var(--sf-ink);
+  color: #ff8aa0;
+  border-color: var(--sf-ink);
+}
+
+.fav-toggle-pdp {
+  display: inline-flex;
+}
+
+.fav-toggle-pdp .fav-toggle-btn {
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: var(--sf-radius-sm);
+}
+
 .compare-toggle-pdp {
   display: inline-flex;
 }
@@ -1564,7 +1610,8 @@
     padding: 3px;
   }
 
-  .compare-toggle-txt {
+  .compare-toggle-txt,
+  .fav-toggle-txt {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1572,7 +1619,8 @@
     clip: rect(0, 0, 0, 0);
   }
 
-  .compare-toggle-card .compare-toggle-btn {
+  .compare-toggle-card .compare-toggle-btn,
+  .fav-toggle-card .fav-toggle-btn {
     width: 36px;
     height: 36px;
     min-height: 36px;
@@ -1580,7 +1628,8 @@
     justify-content: center;
   }
 
-  .compare-toggle-pdp .compare-toggle-txt {
+  .compare-toggle-pdp .compare-toggle-txt,
+  .fav-toggle-pdp .fav-toggle-txt {
     position: static;
     width: auto;
     height: auto;

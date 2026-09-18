@@ -8,6 +8,7 @@ import { HomeBanners } from '@/components/HomeBanners';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
+import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -141,6 +142,7 @@ function HomeInner() {
             ))}
           </div>
         ) : null}
+        <RecentlyViewedStrip />
       </>
     );
   }
@@ -200,6 +202,8 @@ function HomeInner() {
           </section>
         </>
       ) : null}
+
+      <RecentlyViewedStrip />
 
       {/* 6. Benefits → then footer (layout) */}
       <section className="home-benefits" aria-labelledby="home-benefits-title">
