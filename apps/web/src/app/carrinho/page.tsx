@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, currentUser, getGuestToken } from '@/lib/api';
+import { api, brl, getGuestToken } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
+import { cartCheckoutHref } from '@/lib/checkout-auth';
 import {
   CheckoutAddressSection,
   type CheckoutAddress,
@@ -62,11 +64,11 @@ function CartThumb({ item }: { item: CartItem }) {
 }
 
 export default function CartPage() {
+  const { user, ready: sessionReady } = useSessionUser();
   const [cart, setCart] = useState<Cart | null>(null);
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState('');
-  const [loggedIn, setLoggedIn] = useState(false);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
   const [addressesLoaded, setAddressesLoaded] = useState(false);
@@ -84,12 +86,10 @@ export default function CartPage() {
   }
 
   async function loadAddresses() {
-    if (!currentUser()) {
-      setLoggedIn(false);
+    if (!user) {
       setAddressesLoaded(true);
       return;
     }
-    setLoggedIn(true);
     try {
       const list = await api<CheckoutAddress[]>('/me/addresses');
       setAddresses(list);
@@ -103,8 +103,13 @@ export default function CartPage() {
 
   useEffect(() => {
     load();
-    loadAddresses();
   }, []);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    setAddressesLoaded(false);
+    void loadAddresses();
+  }, [sessionReady, user]);
 
   async function change(id: string, qty: number) {
     setBusyId(id);
@@ -159,6 +164,8 @@ export default function CartPage() {
 
   const hasItems = cart.items.length > 0;
   const pixSubtotal = pixPrice(cart.subtotal);
+  const loggedIn = Boolean(user);
+  const checkoutHref = cartCheckoutHref(loggedIn);
 
   return (
     <div className="cart-page sf-pro-cart" style={{ padding: '24px 0' }}>
@@ -275,15 +282,16 @@ export default function CartPage() {
             />
           ) : null}
 
-          {!loggedIn && addressesLoaded ? (
+          {sessionReady && !loggedIn && addressesLoaded ? (
             <div className="card" style={{ marginTop: 12, marginBottom: 8 }}>
               <div className="body">
                 <b>Endereço de entrega</b>
                 <p className="muted" style={{ margin: '8px 0 12px', fontSize: 14 }}>
-                  Entre na conta para cadastrar o endereço e calcular o frete no checkout.
+                  Entre ou crie a conta na hora de finalizar — não precisa cadastrar só para olhar a
+                  loja.
                 </p>
-                <Link className="btn" href="/entrar">
-                  Entrar para continuar
+                <Link className="btn" href={checkoutHref}>
+                  Entrar ou cadastrar
                 </Link>
               </div>
             </div>
@@ -320,7 +328,7 @@ export default function CartPage() {
                   Cadastre o endereço acima (ou no próximo passo) para calcular frete e pagar.
                 </p>
               ) : null}
-              <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
+              <Link className="btn cart-checkout-btn" href={checkoutHref}>
                 {cartCheckoutLabel(loggedIn)}
               </Link>
               <Link
@@ -346,7 +354,7 @@ export default function CartPage() {
                 {brl(cart.subtotal)}
               </div>
             </div>
-            <Link className="btn cart-checkout-btn" href={loggedIn ? '/checkout' : '/entrar'}>
+            <Link className="btn cart-checkout-btn" href={checkoutHref}>
               {cartCheckoutLabel(loggedIn)}
             </Link>
           </div>

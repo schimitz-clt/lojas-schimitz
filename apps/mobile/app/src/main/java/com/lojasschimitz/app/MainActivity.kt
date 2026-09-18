@@ -73,6 +73,8 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Accept first-party cookies before WebView inflate so sch_refresh survives restarts.
+        CookieManager.getInstance().setAcceptCookie(true)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -128,6 +130,11 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         CookieManager.getInstance().flush()
         super.onPause()
+    }
+
+    override fun onStop() {
+        CookieManager.getInstance().flush()
+        super.onStop()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -231,6 +238,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
+                CookieManager.getInstance().flush()
             }
 
             override fun onReceivedError(

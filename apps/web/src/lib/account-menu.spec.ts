@@ -159,6 +159,7 @@ assert.ok(empty.title.includes('visto'));
 
 const srcRoot = join(__dirname, '..');
 const hub = readFileSync(join(srcRoot, 'app/conta/page.tsx'), 'utf8');
+assert.ok(hub.includes('useSessionUser'), 'hub hydrates cookie session before guest vs Olá');
 assert.ok(hub.includes('AccountMenu'), 'hub renders sectioned menu');
 assert.ok(hub.includes('clearSession()'), 'hub logout still uses clearSession');
 assert.ok(hub.includes("api") && hub.includes('/orders'), 'hub loads real /orders');

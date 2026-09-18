@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, currentUser, isUnauthorizedError } from '@/lib/api';
+import { api, brl, isUnauthorizedError } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
+import { loginNextPath } from '@/lib/order-recovery';
 import { orderStatusLabel } from '@/lib/order-status';
 
 type SellerMe = {
@@ -54,7 +56,7 @@ type SellerCommissionsPayload = {
 };
 
 export default function VendedorPage() {
-  const [user, setUser] = useState(currentUser());
+  const { user, ready } = useSessionUser();
   const [me, setMe] = useState<SellerMe | null>(null);
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
@@ -84,7 +86,7 @@ export default function VendedorPage() {
       setEdits(next);
     } catch (e: unknown) {
       if (isUnauthorizedError(e)) {
-        window.location.href = '/entrar';
+        window.location.href = loginNextPath('/vendedor');
         return;
       }
       setErr(e instanceof Error ? e.message : 'Falha ao carregar portal do vendedor');
@@ -93,14 +95,13 @@ export default function VendedorPage() {
   }, []);
 
   useEffect(() => {
-    const u = currentUser();
-    setUser(u);
-    if (!u) {
-      window.location.href = '/entrar';
+    if (!ready) return;
+    if (!user) {
+      window.location.href = loginNextPath('/vendedor');
       return;
     }
     void load();
-  }, [load]);
+  }, [load, ready, user]);
 
   async function saveProduct(e: FormEvent, productId: string) {
     e.preventDefault();

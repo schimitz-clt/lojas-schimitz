@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, clearSession, currentUser, waLink } from '@/lib/api';
+import { api, brl, clearSession, waLink } from '@/lib/api';
 import { AccountMenu } from '@/components/account/AccountMenu';
 import {
   ACCOUNT_HUB_TITLE,
@@ -11,6 +11,8 @@ import {
   accountLoginHref,
   accountMenuSections,
 } from '@/lib/account-menu';
+import { authRegisterHref } from '@/lib/checkout-auth';
+import { useSessionUser } from '@/lib/use-session-user';
 import { orderStatusLabel } from '@/lib/order-status';
 import { orderRecoveryPaths } from '@/lib/order-recovery';
 import { pickInProgressOrder } from '@/lib/pix-payment-ui';
@@ -24,22 +26,23 @@ type CustomerOrder = {
 };
 
 export default function ContaPage() {
-  const [user, setUser] = useState(currentUser());
+  const { user, ready } = useSessionUser();
   const [orders, setOrders] = useState<CustomerOrder[] | null>(null);
 
   useEffect(() => {
-    const u = currentUser();
-    setUser(u);
-    if (!u) {
+    if (!ready) return;
+    if (!user) {
       setOrders([]);
       return;
     }
     api<CustomerOrder[]>('/orders')
       .then(setOrders)
       .catch(() => setOrders([]));
-  }, []);
+  }, [ready, user]);
 
-  const greeting = accountGreeting(user);
+  const greeting = !ready
+    ? { title: 'Olá', subtitle: 'Carregando sua conta...' }
+    : accountGreeting(user);
   const whatsappHref = waLink(ACCOUNT_WHATSAPP_HELP_TEXT);
   const sections = useMemo(
     () =>
@@ -68,12 +71,12 @@ export default function ContaPage() {
         <p className="account-hub-kicker">{ACCOUNT_HUB_TITLE}</p>
         <h1 className="account-hub-title">{greeting.title}</h1>
         <p className="account-hub-sub muted">{greeting.subtitle}</p>
-        {!user ? (
+        {ready && !user ? (
           <div className="account-hub-cta">
             <Link className="btn account-hub-enter" href={accountLoginHref('/conta')}>
               Entrar
             </Link>
-            <Link className="btn ghost" href="/cadastro">
+            <Link className="btn ghost" href={authRegisterHref('/conta')}>
               Criar conta
             </Link>
           </div>

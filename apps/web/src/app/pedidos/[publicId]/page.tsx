@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { pixPrice, isPixPromoCollidingCouponCode } from '@/lib/pricing';
-import { api, brl, currentUser, isUnauthorizedError, waLink } from '@/lib/api';
+import { api, brl, isUnauthorizedError, waLink } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
 import { loginNextPath, orderRecoveryPaths, persistLastOrderPublicId, PIX_LEAVE_COPY } from '@/lib/order-recovery';
 import {
   FULFILLMENT_STEPS,
@@ -270,6 +271,7 @@ function FulfillmentTimeline({
 
 export default function PedidoPage() {
   const { publicId } = useParams<{ publicId: string }>();
+  const { user, ready } = useSessionUser();
   const [o, setO] = useState<Order | null>(null);
   const [err, setErr] = useState('');
   const [method, setMethod] = useState<'pix' | 'card'>('pix');
@@ -292,7 +294,8 @@ export default function PedidoPage() {
 
   useEffect(() => {
     if (publicId) persistLastOrderPublicId(String(publicId), window.localStorage);
-    if (!currentUser()) {
+    if (!ready) return;
+    if (!user) {
       window.location.href = loginNextPath(`/pedidos/${publicId}`);
       return;
     }
@@ -303,7 +306,7 @@ export default function PedidoPage() {
       }
       setErr(e.message);
     });
-  }, [reload, publicId]);
+  }, [reload, publicId, ready, user]);
 
   // Enquanto PIX/pedido aguardam confirmação, atualiza sozinho (webhook → paid).
   useEffect(() => {

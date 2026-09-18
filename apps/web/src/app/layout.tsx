@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
+import { SessionHydrator } from '@/components/SessionHydrator';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -62,7 +63,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={jakarta.variable}>
       <body className={jakarta.className}>
-        <StorefrontChrome>{children}</StorefrontChrome>
+        <SessionHydrator>
+          <StorefrontChrome>{children}</StorefrontChrome>
+        </SessionHydrator>
       </body>
     </html>
   );

@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { api, currentUser, userAccountLabel, waLink } from '@/lib/api';
+import { api, userAccountLabel, waLink } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
 import { SearchBox } from '@/components/SearchBox';
@@ -17,7 +18,7 @@ function formatCep(raw: string) {
 }
 
 export function Header() {
-  const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
+  const { user } = useSessionUser();
   const [qInit, setQInit] = useState('');
   const [unread, setUnread] = useState(0);
   const [cartCount, setCartCount] = useState(0);
@@ -37,19 +38,12 @@ export function Header() {
     } catch {
       /* ignore */
     }
-    const u = currentUser();
-    setUser(u);
     try {
       const saved = localStorage.getItem(CEP_KEY) || '';
       setCep(saved);
       setCepDraft(saved);
     } catch {
       /* ignore */
-    }
-    if (u) {
-      api<{ unreadCount: number }>('/notifications?limit=1')
-        .then((d) => setUnread(d.unreadCount || 0))
-        .catch(() => setUnread(0));
     }
     api<{ itemCount?: number }>('/cart')
       .then((d) => setCartCount(d.itemCount || 0))
@@ -62,6 +56,16 @@ export function Header() {
     window.addEventListener('sch-cart-updated', onCart);
     return () => window.removeEventListener('sch-cart-updated', onCart);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
+    api<{ unreadCount: number }>('/notifications?limit=1')
+      .then((d) => setUnread(d.unreadCount || 0))
+      .catch(() => setUnread(0));
+  }, [user]);
 
   function saveCep(e?: { preventDefault(): void }) {
     e?.preventDefault();

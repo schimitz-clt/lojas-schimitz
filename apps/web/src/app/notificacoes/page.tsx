@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { api, currentUser } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useSessionUser } from '@/lib/use-session-user';
+import { loginNextPath } from '@/lib/order-recovery';
 
 type Notification = {
   id: string;
@@ -26,6 +28,7 @@ function formatTs(iso: string) {
 }
 
 export default function NotificacoesPage() {
+  const { user, ready } = useSessionUser();
   const [items, setItems] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [err, setErr] = useState('');
@@ -38,13 +41,13 @@ export default function NotificacoesPage() {
   }, []);
 
   useEffect(() => {
-    const u = currentUser();
-    if (!u) {
-      window.location.href = '/entrar';
+    if (!ready) return;
+    if (!user) {
+      window.location.href = loginNextPath('/notificacoes');
       return;
     }
     load().catch((e) => setErr(e.message || 'Falha ao carregar notificações'));
-  }, [load]);
+  }, [load, ready, user]);
 
   async function markOne(id: string) {
     setBusy(true);

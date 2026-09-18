@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { api, currentUser, isUnauthorizedError } from '@/lib/api';
+import { api, currentUser, ensureHydratedSession, isUnauthorizedError } from '@/lib/api';
 import { showStorefrontToast } from '@/lib/storefront-toast';
 import {
   FAVORITES_EVENT,
@@ -57,7 +57,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [loggedIn, setLoggedIn] = useState(false);
 
   const refresh = useCallback(async () => {
-    const user = currentUser();
+    const user = await ensureHydratedSession();
     setLoggedIn(Boolean(user));
     if (!user) {
       setItems([]);

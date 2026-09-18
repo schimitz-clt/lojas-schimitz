@@ -73,7 +73,7 @@ export function stickyBuyLabel(state: StickyBuyState): string {
 
 /** Cart primary CTA label. */
 export function cartCheckoutLabel(loggedIn: boolean): string {
-  return loggedIn ? 'Finalizar compra' : 'Entrar e finalizar';
+  return loggedIn ? 'Finalizar compra' : 'Entrar ou cadastrar';
 }
 
 /* —— Phase 2: search / filters / categories (pure helpers) —— */
