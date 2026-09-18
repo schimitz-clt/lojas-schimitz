@@ -2,13 +2,24 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, currentUser } from '@/lib/api';
-import { ACCOUNT_DADOS_PATH, ACCOUNT_HUB_TITLE, accountLoginHref } from '@/lib/account-menu';
+import {
+  ACCOUNT_DADOS_PATH,
+  ACCOUNT_EDIT_ADDRESS_CTA,
+  ACCOUNT_HUB_TITLE,
+  accountAddressFormFrom,
+  accountAddressFormOpen,
+  accountAddressSaveRequest,
+  accountAddressToEdit,
+  accountLoginHref,
+  emptyAccountAddressForm,
+} from '@/lib/account-menu';
 
 type Address = {
   id: string;
   label: string;
   street: string;
   number: string;
+  district?: string;
   city: string;
   uf: string;
   cep: string;
@@ -30,20 +41,20 @@ const kindLabel: Record<string, string> = {
 export default function ContaDadosPage() {
   const [user, setUser] = useState(currentUser());
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [editAddressOpen, setEditAddressOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
-  const [form, setForm] = useState({
-    label: 'Casa',
-    cep: '',
-    street: '',
-    number: '',
-    district: '',
-    city: '',
-    uf: 'RS',
-  });
+  const [form, setForm] = useState(emptyAccountAddressForm);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [phone, setPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const showAddressForm = accountAddressFormOpen({
+    loaded: addressesLoaded,
+    addressCount: addresses.length,
+    userRequestedEdit: editAddressOpen,
+  });
 
   useEffect(() => {
     const u = currentUser();
@@ -57,19 +68,32 @@ export default function ContaDadosPage() {
       .catch(() => {});
     api<Address[]>('/me/addresses')
       .then(setAddresses)
-      .catch((e: { message?: string }) => setErr(e.message || 'Falha ao carregar endereços'));
+      .catch((e: { message?: string }) => setErr(e.message || 'Falha ao carregar endereços'))
+      .finally(() => setAddressesLoaded(true));
     api<Loyalty>('/me/loyalty')
       .then(setLoyalty)
       .catch(() => {});
   }, []);
 
-  async function addAddress(e: React.FormEvent) {
+  function openEditAddress() {
+    const current = accountAddressToEdit(addresses);
+    setEditingId(current?.id || null);
+    setForm(accountAddressFormFrom(current));
+    setEditAddressOpen(true);
+  }
+
+  async function saveAddress(e: React.FormEvent) {
     e.preventDefault();
+    setErr('');
+    const req = accountAddressSaveRequest(editingId);
     try {
-      await api('/me/addresses', { method: 'POST', body: JSON.stringify(form) });
-      setMsg('Endereço salvo.');
+      await api(req.path, { method: req.method, body: JSON.stringify(form) });
+      setMsg(req.method === 'PATCH' ? 'Endereço atualizado.' : 'Endereço salvo.');
       const list = await api<Address[]>('/me/addresses');
       setAddresses(list);
+      setEditAddressOpen(false);
+      setEditingId(null);
+      setForm(emptyAccountAddressForm());
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Falha ao salvar endereço');
     }
@@ -180,48 +204,58 @@ export default function ContaDadosPage() {
           </div>
         </div>
       ))}
-      <form className="form" onSubmit={addAddress}>
-        <input
-          placeholder="CEP"
-          value={form.cep}
-          onChange={(e) => setForm({ ...form, cep: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Rua"
-          value={form.street}
-          onChange={(e) => setForm({ ...form, street: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Número"
-          value={form.number}
-          onChange={(e) => setForm({ ...form, number: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Bairro"
-          value={form.district}
-          onChange={(e) => setForm({ ...form, district: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Cidade"
-          value={form.city}
-          onChange={(e) => setForm({ ...form, city: e.target.value })}
-          required
-        />
-        <input
-          placeholder="UF"
-          maxLength={2}
-          value={form.uf}
-          onChange={(e) => setForm({ ...form, uf: e.target.value })}
-          required
-        />
-        <button className="btn ghost" type="submit">
-          Salvar endereço
+      {showAddressForm ? (
+        <form className="form account-dados-address-form" onSubmit={saveAddress}>
+          <input
+            placeholder="CEP"
+            value={form.cep}
+            onChange={(e) => setForm({ ...form, cep: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Rua"
+            value={form.street}
+            onChange={(e) => setForm({ ...form, street: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Número"
+            value={form.number}
+            onChange={(e) => setForm({ ...form, number: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Bairro"
+            value={form.district}
+            onChange={(e) => setForm({ ...form, district: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Cidade"
+            value={form.city}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            required
+          />
+          <input
+            placeholder="UF"
+            maxLength={2}
+            value={form.uf}
+            onChange={(e) => setForm({ ...form, uf: e.target.value })}
+            required
+          />
+          <button className="btn ghost" type="submit">
+            Salvar endereço
+          </button>
+        </form>
+      ) : addressesLoaded && addresses.length > 0 ? (
+        <button
+          className="btn ghost account-dados-edit-address"
+          type="button"
+          onClick={openEditAddress}
+        >
+          {ACCOUNT_EDIT_ADDRESS_CTA}
         </button>
-      </form>
+      ) : null}
       <p style={{ marginTop: 16 }}>
         <Link className="btn" href="/checkout">
           Ir ao checkout
