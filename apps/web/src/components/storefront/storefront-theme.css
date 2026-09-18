@@ -1606,6 +1606,37 @@
 }
 
 @media (max-width: 720px) {
+  .pdp-carousel,
+  .pdp-carousel.card,
+  .pdp-main-img {
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  .pdp-title {
+    font-size: 18px;
+  }
+
+  .pdp-price-block {
+    padding: 4px 0 12px;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .pdp-carousel-nav,
+  .pdp-gallery-zoomchip {
+    display: none;
+  }
+
+  .pdp-carousel-dots {
+    position: static;
+    padding: 4px 0 8px;
+  }
+
   .compare-table-wrap {
     display: none;
   }
@@ -1650,6 +1681,18 @@
     height: auto;
     clip: auto;
     overflow: visible;
+  }
+
+  .pdp-gallery-tools .fav-toggle-pdp .fav-toggle-txt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  body:has(.pdp) .chatw {
+    bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
 
   body:has(.pdp) .compare-bar {

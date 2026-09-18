@@ -33,6 +33,8 @@ assert.ok(pdp.includes('className="pdp-desc"'), 'PDP keeps description block');
 assert.ok(pdp.includes('className="pdp-price-block"'), 'PDP keeps price offer block');
 assert.ok(pdp.includes('ProductShareButton'), 'PDP has Compartilhar');
 assert.ok(pdp.includes('pdp-title-row'), 'title + share sit in Magalu-style header row');
+assert.ok(pdp.includes('pdp-gallery-col'), 'gallery column wraps full-bleed photo + tools');
+assert.ok(pdp.includes('pdp-gallery-tools'), 'favoritar/compartilhar overlay the photo on mobile');
 assert.ok(pdp.includes('pixPrice('), 'PDP reuses pixPrice');
 assert.ok(pdp.includes('installmentLine('), 'PDP reuses installmentLine');
 assert.ok(!/style=\{\{\s*padding:\s*'24px 0'\s*\}\}/.test(pdp), 'PDP must not inline-override padding (hides sticky clearance)');

@@ -246,7 +246,13 @@ export default function ProductPage() {
   return (
     <div className="pdp sf-pro-pdp">
       <div className="pdp-grid">
-        <ProductGallery images={gallery} productName={p.name} />
+        <div className="pdp-gallery-col">
+          <ProductGallery images={gallery} productName={p.name} />
+          <div className="pdp-gallery-tools">
+            <FavoriteToggle productId={p.id} variant="pdp" />
+            <ProductShareButton productName={p.name} variant="icon" />
+          </div>
+        </div>
 
         <div className="pdp-buybox">
           <div className="pdp-identity">

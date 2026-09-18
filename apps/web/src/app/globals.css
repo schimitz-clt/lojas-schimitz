@@ -738,6 +738,8 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-grid > * { min-width: 0; }
 .pdp-buybox { display: flex; flex-direction: column; min-width: 0; }
 .pdp-gallery { width: 100%; min-width: 0; }
+.pdp-gallery-col { position: relative; width: 100%; min-width: 0; max-width: 100%; }
+.pdp-gallery-tools { display: none; }
 .pdp-identity { order: 1; }
 .pdp-price-block { order: 2; }
 .pdp-desc { order: 3; }
@@ -1119,15 +1121,22 @@ textarea { resize: vertical; min-height: 72px; }
   .home-banner-slide { aspect-ratio: 16 / 10; min-height: 160px; border-radius: 18px; }
   .home-banner-overlay { padding: 14px 14px 12px; }
   .home-banner-cta { width: 100%; }
-  .pdp-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .pdp-title { font-size: 20px; margin: 4px 0 8px; }
-  .pdp-title-row { gap: 8px; }
+  .pdp-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .pdp-title { font-size: 18px; margin: 10px 0 6px; font-weight: 800; }
+  .pdp-title-row { display: block; }
+  .pdp-title-row .pdp-share { display: none; }
   .pdp-share-btn { min-height: 36px; padding: 0 10px; }
   .pdp-identity { min-width: 0; }
-  .pdp-price { font-size: 26px; }
-  .pdp-price-block { padding: 12px 14px; }
-  /* Full-width square frame. Short height+aspect-ratio caps were what pinned the
-     photo as a strip on the right (PR #31). Name/price still follow the gallery. */
+  .pdp-seller { text-align: center; margin: 10px 0 14px; }
+  .pdp-price { font-size: 28px; }
+  .pdp-price-block { padding: 4px 0 12px; border: 0; background: transparent; box-shadow: none; border-radius: 0; }
+  /* Magalu rhythm: photo full-bleed, centered; title/price share wrap gutters. */
+  .pdp-gallery-col {
+    margin-left: -12px;
+    margin-right: -12px;
+    width: auto;
+    max-width: none;
+  }
   .pdp-gallery,
   .pdp-carousel,
   .pdp-carousel-track {
@@ -1135,6 +1144,13 @@ textarea { resize: vertical; min-height: 72px; }
     min-width: 0;
     max-height: none;
     height: auto;
+  }
+  .pdp-carousel,
+  .pdp-carousel.card {
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
   }
   .pdp-carousel-slide {
     flex: 0 0 100%;
@@ -1144,6 +1160,7 @@ textarea { resize: vertical; min-height: 72px; }
     aspect-ratio: 1 / 1;
     height: auto;
     max-height: none;
+    background: #fff;
   }
   .pdp-carousel-slide img,
   .pdp-gallery-open img {
@@ -1153,9 +1170,46 @@ textarea { resize: vertical; min-height: 72px; }
     max-height: 100%;
     object-fit: contain;
     object-position: center;
-    padding: 8px;
+    padding: 12px 24px;
   }
-  .pdp-thumbs { margin-top: 8px; justify-content: center; }
+  .pdp-carousel-nav,
+  .pdp-gallery-zoomchip { display: none; }
+  .pdp-carousel-dots {
+    position: static;
+    padding: 4px 0 8px;
+    bottom: auto;
+  }
+  .pdp-thumbs { margin-top: 4px; justify-content: center; padding: 0 12px 8px; }
+  .pdp-thumb { width: 52px; height: 52px; }
+  .pdp-gallery-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 4;
+  }
+  .pdp-gallery-tools .fav-toggle-txt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .pdp-gallery-tools .fav-toggle-btn,
+  .pdp-gallery-tools .pdp-share-btn {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+    display: grid;
+    place-items: center;
+  }
+  .pdp-actions .fav-toggle { display: none; }
   .header-row { padding: 8px 0; gap: 8px; }
   .hdr-hide-sm { display: none !important; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
@@ -1261,7 +1315,7 @@ textarea { resize: vertical; min-height: 72px; }
   .footer-col p { font-size: 12.5px !important; }
 
   .pdp {
-    padding-top: 8px;
+    padding-top: 0;
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
     overflow-x: clip;
     max-width: 100%;
@@ -1269,14 +1323,20 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-sticky-atc, .cart-sticky-checkout {
     display: flex; position: fixed; left: 0; right: 0;
     bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 25;
-    gap: 10px; align-items: center;
-    padding: 10px 12px;
+    gap: 12px; align-items: center;
+    padding: 10px 16px;
     background: #fff; border-top: 1px solid var(--line);
     box-sizing: border-box;
     max-width: 100%;
     min-width: 0;
   }
-  .pdp-sticky-atc .btn { flex: 1 1 auto; min-width: 0; }
+  .pdp-sticky-atc > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .pdp-sticky-atc .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    padding: 0 16px;
+  }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
   .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }
   .chatw { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); right: 12px; }

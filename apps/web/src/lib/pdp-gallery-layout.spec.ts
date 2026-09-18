@@ -59,10 +59,10 @@ assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*clip/.test(css), 'PDP clips horizontal o
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(css), 'gallery snaps one photo at a time');
 assert.ok(theme.includes('scroll-snap-stop: always'), 'lightbox snaps one photo at a time');
 assert.ok(/minmax\(min\(100%,\s*140px\)/.test(css), 'trust cards cannot force a 140px×3 overflow');
-assert.ok(
-  /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-atc[\s\S]*bottom:\s*calc\(72px/.test(css),
-  'sticky ATC stays above the 72px bottom nav',
-);
+assert.ok(/\.pdp-gallery-col[\s\S]*margin-left:\s*-12px/.test(css), 'mobile gallery bleeds to wrap edges');
+assert.ok(/\.pdp-carousel-nav[\s\S]*display:\s*none/.test(css), 'mobile uses swipe + dots, not side arrows');
+assert.ok(/\.pdp-carousel-dots[\s\S]*position:\s*static/.test(css), 'dots sit under the photo, centered');
+assert.ok(/\.pdp-sticky-atc \.btn[\s\S]*white-space:\s*nowrap/.test(css), 'sticky ATC is price left + button right');
 
 assert.ok(theme.includes('justify-self: stretch'), 'Ampliar hit-target fills the slide');
 assert.ok(theme.includes('object-position: center'), 'theme img also centers in the frame');
