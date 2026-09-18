@@ -564,11 +564,13 @@ textarea { resize: vertical; min-height: 72px; }
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
+  overscroll-behavior-y: contain;
   touch-action: pan-x;
+  overflow-anchor: none;
 }
 .home-banner-track::-webkit-scrollbar { display: none; }
 .home-banner-slide {
@@ -583,7 +585,7 @@ textarea { resize: vertical; min-height: 72px; }
   aspect-ratio: 21 / 8;
   min-height: 168px;
   scroll-snap-align: start;
-  scroll-snap-stop: always;
+  scroll-snap-stop: normal;
 }
 .home-banner-img {
   width: 100%;
@@ -593,6 +595,8 @@ textarea { resize: vertical; min-height: 72px; }
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  content-visibility: auto;
+  contain-intrinsic-size: 1400px 520px;
 }
 .home-banner-link {
   display: block;

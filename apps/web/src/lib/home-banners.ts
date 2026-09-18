@@ -1,7 +1,8 @@
 /**
  * Home hero carousel — up to 5 banners, one snap at a time.
  * Swipe lives on the inner track; the page must not gain horizontal overflow
- * (same contract as the PDP gallery).
+ * (same contract as the PDP gallery). 2+ slides loop via clones so the last
+ * banner is never a dead-end, and CSS snap stays light (stop: normal).
  */
 
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
@@ -13,7 +14,16 @@ export type { HomeBanner };
 export const MAX_HOME_BANNERS = 5;
 export const HOME_BANNER_AUTO_MS = 5500;
 export const HOME_BANNER_RESUME_MS = 8000;
+export const HOME_BANNER_SETTLE_MS = 120;
 export const BANNER_TAP_SLOP_PX = 24;
+
+/** One slot in the looping track (clones of first/last when there are 2+ slides). */
+export type HomeBannerLoopSlot<T> = {
+  key: string;
+  item: T;
+  clone: boolean;
+  logicalIndex: number;
+};
 
 export function bannerImageUrl(b: Pick<HomeBanner, 'imageUrl'>): string {
   const raw = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
@@ -95,6 +105,98 @@ export function clampBannerIndex(current: number, total: number): number {
   if (total <= 0) return 0;
   if (!Number.isFinite(current)) return 0;
   return Math.min(Math.max(0, Math.trunc(current)), total - 1);
+}
+
+/** Real slides plus leading/trailing clones so last→first is one snap, not a rewind. */
+export function homeBannerTrackLength(total: number): number {
+  const n = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
+  if (n <= 1) return n;
+  return n + 2;
+}
+
+function loopSlotKey(id: string | undefined, index: number, clone: false | 'start' | 'end'): string {
+  const base = typeof id === 'string' && id.trim() ? id.trim() : `i${index}`;
+  if (clone === 'start') return `${base}__clone-start`;
+  if (clone === 'end') return `${base}__clone-end`;
+  return base;
+}
+
+export function homeBannerLoopSlides<T extends { id?: string }>(
+  items: T[] | null | undefined,
+): HomeBannerLoopSlot<T>[] {
+  const rows = Array.isArray(items) ? items : [];
+  if (rows.length === 0) return [];
+  if (rows.length === 1) {
+    return [{ key: loopSlotKey(rows[0]?.id, 0, false), item: rows[0], clone: false, logicalIndex: 0 }];
+  }
+  const lastI = rows.length - 1;
+  const last = rows[lastI];
+  const first = rows[0];
+  return [
+    { key: loopSlotKey(last?.id, lastI, 'start'), item: last, clone: true, logicalIndex: lastI },
+    ...rows.map((item, i) => ({
+      key: loopSlotKey(item?.id, i, false),
+      item,
+      clone: false,
+      logicalIndex: i,
+    })),
+    { key: loopSlotKey(first?.id, 0, 'end'), item: first, clone: true, logicalIndex: 0 },
+  ];
+}
+
+/** DOM index of a real slide (0 when there is no loop). */
+export function loopingTrackIndex(logical: number, total: number): number {
+  if (total <= 1) return 0;
+  return clampBannerIndex(logical, total) + 1;
+}
+
+export function logicalFromTrackIndex(trackIndex: number, total: number): number {
+  if (total <= 1) return 0;
+  const t = Number.isFinite(trackIndex) ? Math.trunc(trackIndex) : 0;
+  if (t <= 0) return total - 1;
+  if (t >= total + 1) return 0;
+  return clampBannerIndex(t - 1, total);
+}
+
+/**
+ * Track index to scroll for a ±1 step. Wrapping uses the clone so the finger
+ * (or auto-advance) moves one slide, not back across the whole strip.
+ */
+export function loopingAdvanceTrackIndex(logical: number, total: number, delta: number): number {
+  if (total <= 1) return 0;
+  const step = Number.isFinite(delta) ? Math.trunc(delta) : 0;
+  const cur = clampBannerIndex(logical, total);
+  if (step > 0 && cur === total - 1) return total + 1;
+  if (step < 0 && cur === 0) return 0;
+  return loopingTrackIndex(nextBannerIndex(cur, total, step), total);
+}
+
+/** After snap settles on a clone, jump to the matching real slide (instant). */
+export function loopingCloneJump(trackIndex: number, total: number): number | null {
+  if (total <= 1) return null;
+  const t = Number.isFinite(trackIndex) ? Math.trunc(trackIndex) : 0;
+  if (t <= 0) return total;
+  if (t >= total + 1) return 1;
+  return null;
+}
+
+export function trackIndexFromScroll(scrollLeft: number, width: number, trackCount: number): number {
+  const w = Number.isFinite(width) && width > 0 ? width : 1;
+  const max = Math.max(0, (Number.isFinite(trackCount) ? Math.trunc(trackCount) : 0) - 1);
+  const i = Math.round((Number.isFinite(scrollLeft) ? scrollLeft : 0) / w);
+  return Math.min(Math.max(0, i), max);
+}
+
+export function bannerImageIsPriority(clone: boolean, logicalIndex: number): boolean {
+  return !clone && logicalIndex === 0;
+}
+
+export function bannerScrollBehavior(smooth: boolean): ScrollBehavior {
+  if (!smooth) return 'auto';
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return 'auto';
+  }
+  return 'smooth';
 }
 
 export function bannerCtaLabel(): string {
