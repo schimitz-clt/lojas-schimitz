@@ -32,6 +32,12 @@ export function takeUsableHomeBanners(list: HomeBanner[] | null | undefined): Ho
   return rows.filter(isUsableHomeBanner).slice(0, MAX_HOME_BANNERS);
 }
 
+/** Total HomeBanner rows (active + inactive). Create limit is 5 total, not 5 active. */
+export function homeBannerRowCount(banners: { length?: number } | null | undefined): number {
+  const n = banners && typeof banners.length === 'number' ? banners.length : 0;
+  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+}
+
 export function canCreateHomeBanner(existingCount: number): boolean {
   const n = Number.isFinite(existingCount) ? Math.trunc(existingCount) : 0;
   return n < MAX_HOME_BANNERS;
@@ -40,6 +46,28 @@ export function canCreateHomeBanner(existingCount: number): boolean {
 export function homeBannerLimitMessage(): string {
   return `Limite de ${MAX_HOME_BANNERS} banners na home. Edite ou exclua um existente.`;
 }
+
+export function homeBannerSlotCounter(count: number): string {
+  const n = Math.max(0, Math.trunc(Number(count) || 0));
+  return `${Math.min(n, MAX_HOME_BANNERS)} de ${MAX_HOME_BANNERS}`;
+}
+
+export function bannerCreateCtaLabel(existingCount: number): string {
+  const n = Math.max(0, Math.trunc(Number(existingCount) || 0));
+  return n > 0 ? 'Criar outro banner' : 'Criar banner';
+}
+
+export function bannerCreatedToast(countAfterCreate: number): string {
+  const n = Math.max(0, Math.trunc(Number(countAfterCreate) || 0));
+  const shown = Math.min(n, MAX_HOME_BANNERS);
+  if (shown >= MAX_HOME_BANNERS) {
+    return `Banner criado. Limite de ${MAX_HOME_BANNERS} atingido.`;
+  }
+  return `Banner criado. Pode adicionar mais (${shown}/${MAX_HOME_BANNERS}).`;
+}
+
+export const ADMIN_BANNER_FORM_ID = 'admin-banner-form';
+export const ADMIN_BANNER_TITLE_ID = 'admin-banner-title';
 
 export function homeBannerCountHint(count: number): string {
   const n = Math.max(0, Math.trunc(Number(count) || 0));

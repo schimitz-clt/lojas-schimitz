@@ -71,6 +71,7 @@ assert.ok(picker.includes('PRODUCT_PHOTO_ACCEPT'), 'accept comes from helper');
 assert.ok(picker.includes('admin-file-picker__visible'), 'visible native input');
 assert.ok(picker.includes('admin-file-picker__cover'), 'overlay hit area');
 assert.ok(picker.includes('multiple'), 'multi-select stays');
+assert.ok(picker.includes('multiple = true'), 'catalog keeps multi default');
 assert.ok(!picker.includes('admin-file-hidden'), 'picker is not clip-hidden');
 assert.ok(!/clip:\s*rect/.test(picker), 'picker must not clip the input');
 
@@ -85,6 +86,13 @@ assert.ok(state.includes('snapshotSelectedFiles'), 'upload copies FileList');
 assert.ok(state.includes('emptyPhotoSelectionError'), 'empty select is loud');
 assert.ok(state.includes('photoUploadProgressLabel'), 'progress 1/N');
 assert.ok(state.includes('applyProductSaveImageFields'), 'PR #32 empty imageUrl still omitted');
+
+const vitrine = readFileSync(join(srcRoot, 'components/admin/sections/AdminVitrineSection.tsx'), 'utf8');
+assert.ok(vitrine.includes('AdminPhotoFilePicker'), 'vitrine uses mobile-safe picker');
+assert.ok(!vitrine.includes('admin-file-hidden'), 'vitrine must not clip/1px hide file inputs');
+assert.ok(!/display:\s*'none'/.test(vitrine), 'vitrine must not hide the banner file input');
+assert.ok(vitrine.includes('role="alert"'), 'banner errors are loud on the banner block');
+assert.ok(vitrine.includes('Criar outro banner'), 'owner can add another banner');
 
 const mw = readFileSync(join(srcRoot, 'middleware.ts'), 'utf8');
 assert.ok(mw.includes('api/'), 'upload POSTs skip middleware body limit');

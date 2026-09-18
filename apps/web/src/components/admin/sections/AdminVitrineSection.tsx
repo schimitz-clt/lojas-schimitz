@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { brl } from '@/lib/api';
 import {
   orderStatusLabel,
@@ -68,6 +69,7 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -80,8 +82,13 @@ import {
   orderWa,
 } from '@/components/admin/admin-console-model';
 import {
+  ADMIN_BANNER_FORM_ID,
+  ADMIN_BANNER_TITLE_ID,
+  bannerCreateCtaLabel,
   canCreateHomeBanner,
   homeBannerCountHint,
+  homeBannerRowCount,
+  homeBannerSlotCounter,
   MAX_HOME_BANNERS,
 } from '@/lib/home-banners';
 
@@ -98,15 +105,31 @@ export function AdminVitrineSection() {
     savingBanner,
     uploadingBanner,
     bannerBusyId,
+    bannerErr,
+    bannerMsg,
+    bannerFormEpoch,
     saveSeo,
     uploadBannerPhoto,
     startEditBanner,
     resetBannerForm,
+    beginNewBanner,
     saveBanner,
     toggleBannerActive,
     deleteBanner,
     moveBanner,
   } = useAdminConsole();
+  const bannerTotal = homeBannerRowCount(banners);
+  const canCreate = canCreateHomeBanner(bannerTotal);
+  const showBannerForm = canCreate || Boolean(editingBannerId);
+
+  useEffect(() => {
+    if (!bannerFormEpoch) return;
+    const form = document.getElementById(ADMIN_BANNER_FORM_ID);
+    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const title = document.getElementById(ADMIN_BANNER_TITLE_ID) as HTMLInputElement | null;
+    title?.focus();
+  }, [bannerFormEpoch]);
+
   return (
     <>
       <div className="admin-section-panel">
@@ -150,27 +173,52 @@ export function AdminVitrineSection() {
         </div>
       </section>
 
-      <section className="admin-card-pro">
+      <section className="admin-card-pro" id="admin-vitrine-banners">
         <div className="body">
-          <div className="row" style={{ marginBottom: 12 }}>
+          <div className="row" style={{ marginBottom: 12, alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h2>
               {editingBannerId ? 'Editar banner' : 'Banners da home'}
             </h2>
+            <AdminStatusChip
+              label={homeBannerSlotCounter(bannerTotal)}
+              tone={canCreate ? 'info' : 'warn'}
+            />
             {editingBannerId ? (
               <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={resetBannerForm}>
                 Cancelar edição
               </button>
             ) : null}
+            {editingBannerId && canCreate ? (
+              <button type="button" className="btn admin-btn-primary-accent" onClick={beginNewBanner}>
+                Criar outro banner
+              </button>
+            ) : null}
           </div>
           <p className="admin-section-intro">
-            {homeBannerCountHint(banners.length)} Imagem + link opcional. Só banners ativos
-            entram no carrossel da home (swipe, um por vez).
+            {homeBannerCountHint(bannerTotal)} Imagem + link opcional. Só banners ativos
+            entram no carrossel da home (swipe, um por vez). Limite conta ativos e inativos.
           </p>
-          {canCreateHomeBanner(banners.length) || editingBannerId ? (
-          <form className="form admin-form-pro" style={{ marginBottom: 20 }} onSubmit={saveBanner}>
+          {bannerErr ? (
+            <p role="alert" className="alert admin-photo-feedback admin-catalog-alert--danger">
+              {bannerErr}
+            </p>
+          ) : null}
+          {bannerMsg && !bannerErr ? (
+            <p role="status" className="ok admin-photo-feedback">
+              {bannerMsg}
+            </p>
+          ) : null}
+          {showBannerForm ? (
+          <form
+            id={ADMIN_BANNER_FORM_ID}
+            className="form admin-form-pro"
+            style={{ marginBottom: 20 }}
+            onSubmit={saveBanner}
+          >
             <label>
               Título (opcional)
               <input
+                id={ADMIN_BANNER_TITLE_ID}
                 value={bannerForm.title}
                 onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
                 placeholder="Ex.: Semana do eletro"
@@ -186,21 +234,27 @@ export function AdminVitrineSection() {
             </label>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Imagem do banner</div>
-              <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <label className="btn ghost admin-btn-ghost-pro" style={{ cursor: uploadingBanner ? 'wait' : 'pointer', margin: 0 }}>
-                  {uploadingBanner ? 'Enviando...' : 'Enviar imagem'}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={uploadingBanner || savingBanner}
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
-                      e.target.value = '';
-                      void uploadBannerPhoto(f);
-                    }}
-                  />
-                </label>
+              <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
+                JPG/PNG/WebP. No celular: toque em Enviar imagem ou no seletor visível, confirme,
+                depois {editingBannerId ? 'Salvar banner' : bannerCreateCtaLabel(bannerTotal)}.
+              </p>
+              <div className="row" style={{ alignItems: 'stretch', gap: 10, flexWrap: 'wrap' }}>
+                <AdminPhotoFilePicker
+                  label={
+                    uploadingBanner
+                      ? 'Enviando...'
+                      : bannerForm.imageUrl
+                        ? 'Trocar imagem'
+                        : 'Enviar imagem'
+                  }
+                  disabled={uploadingBanner || savingBanner}
+                  multiple={false}
+                  accent={!bannerForm.imageUrl}
+                  inputId="admin-banner-file"
+                  onFiles={(files) => {
+                    void uploadBannerPhoto(files);
+                  }}
+                />
                 {bannerForm.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -237,7 +291,11 @@ export function AdminVitrineSection() {
               Banner ativo (aparece na home)
             </label>
             <button className="btn admin-btn-primary-accent" type="submit" disabled={savingBanner}>
-              {savingBanner ? 'Salvando...' : editingBannerId ? 'Salvar banner' : 'Criar banner'}
+              {savingBanner
+                ? 'Salvando...'
+                : editingBannerId
+                  ? 'Salvar banner'
+                  : bannerCreateCtaLabel(bannerTotal)}
             </button>
           </form>
           ) : (

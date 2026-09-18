@@ -60,8 +60,13 @@ import {
   applyProductSaveImageFields,
 } from '@/lib/admin-daily-ops';
 import {
+  ADMIN_BANNER_FORM_ID,
+  ADMIN_BANNER_TITLE_ID,
+  bannerCreateCtaLabel,
+  bannerCreatedToast,
   canCreateHomeBanner,
   homeBannerLimitMessage,
+  homeBannerRowCount,
 } from '@/lib/home-banners';
 import {
   emptyPhotoSelectionError,
@@ -174,6 +179,9 @@ export function useAdminConsoleState() {
   const [savingBanner, setSavingBanner] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerBusyId, setBannerBusyId] = useState<string | null>(null);
+  const [bannerErr, setBannerErr] = useState('');
+  const [bannerMsg, setBannerMsg] = useState('');
+  const [bannerFormEpoch, setBannerFormEpoch] = useState(0);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [adminForm, setAdminForm] = useState<AdminUserForm>(emptyAdminUserForm());
   const [savingAdmin, setSavingAdmin] = useState(false);
@@ -1688,18 +1696,45 @@ export function useAdminConsoleState() {
     }
   }
 
-  async function uploadBannerPhoto(file: File | null) {
-    if (!file) return;
+  function focusBannerCreateForm() {
+    if (typeof document === 'undefined') return;
+    const form = document.getElementById(ADMIN_BANNER_FORM_ID);
+    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const title = document.getElementById(ADMIN_BANNER_TITLE_ID) as HTMLInputElement | null;
+    title?.focus();
+  }
+
+  function flashBannerErr(message: string) {
+    setBannerErr(message);
+    setBannerMsg('');
+    setErr(message);
+  }
+
+  function flashBannerMsg(message: string) {
+    setBannerMsg(message);
+    setBannerErr('');
+    setMsg(message);
+    setErr('');
+  }
+
+  async function uploadBannerPhoto(files: FileList | File[] | File | null) {
+    const list = files instanceof File ? [files] : snapshotSelectedFiles(files);
+    if (!list.length) {
+      flashBannerErr(emptyPhotoSelectionError());
+      return;
+    }
     setUploadingBanner(true);
+    setBannerErr('');
     setErr('');
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', list[0]);
       const data = await apiUpload<{ url: string }>('/admin/uploads', fd);
       setBannerForm((f) => ({ ...f, imageUrl: data.url }));
-      setMsg('Foto do banner enviada.');
+      const cta = editingBannerId ? 'Salvar banner' : bannerCreateCtaLabel(homeBannerRowCount(banners));
+      flashBannerMsg(`Foto do banner enviada. Preencha o restante e toque em ${cta}.`);
     } catch (err: any) {
-      setErr(err.message || 'Falha no upload do banner');
+      flashBannerErr(err.message || 'Falha no upload do banner');
     } finally {
       setUploadingBanner(false);
     }
@@ -1714,8 +1749,11 @@ export function useAdminConsoleState() {
       linkUrl: b.linkUrl || '',
       active: b.active,
     });
+    setBannerErr('');
+    setBannerMsg('');
     setMsg('');
     setErr('');
+    setTimeout(focusBannerCreateForm, 0);
   }
 
   function resetBannerForm() {
@@ -1723,19 +1761,37 @@ export function useAdminConsoleState() {
     setBannerForm(emptyBannerForm());
   }
 
+  function beginNewBanner() {
+    const total = homeBannerRowCount(banners);
+    if (!canCreateHomeBanner(total)) {
+      flashBannerErr(homeBannerLimitMessage());
+      return;
+    }
+    resetBannerForm();
+    setBannerErr('');
+    setBannerMsg('');
+    setErr('');
+    setBannerFormEpoch((n) => n + 1);
+    setTimeout(focusBannerCreateForm, 0);
+  }
+
   async function saveBanner(e: React.FormEvent) {
     e.preventDefault();
     if (!bannerForm.imageUrl.trim()) {
-      setErr('Envie ou informe a imagem do banner');
+      flashBannerErr('Envie ou informe a imagem do banner');
       return;
     }
-    if (!editingBannerId && !canCreateHomeBanner(banners.length)) {
-      setErr(homeBannerLimitMessage());
+    const totalRows = homeBannerRowCount(banners);
+    if (!editingBannerId && !canCreateHomeBanner(totalRows)) {
+      flashBannerErr(homeBannerLimitMessage());
       return;
     }
     setSavingBanner(true);
+    setBannerMsg('');
+    setBannerErr('');
     setMsg('');
     setErr('');
+    const wasCreate = !editingBannerId;
     try {
       const body = {
         title: bannerForm.title.trim(),
@@ -1749,15 +1805,20 @@ export function useAdminConsoleState() {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
-        setMsg('Banner atualizado.');
+        flashBannerMsg('Banner atualizado.');
       } else {
         await api('/admin/banners', { method: 'POST', body: JSON.stringify(body) });
-        setMsg('Banner criado.');
+        const nextCount = totalRows + 1;
+        flashBannerMsg(bannerCreatedToast(nextCount));
       }
       resetBannerForm();
       await load();
+      if (wasCreate) {
+        setBannerFormEpoch((n) => n + 1);
+        setTimeout(focusBannerCreateForm, 50);
+      }
     } catch (err: any) {
-      setErr(err.message || 'Falha ao salvar banner');
+      flashBannerErr(err.message || 'Falha ao salvar banner');
     } finally {
       setSavingBanner(false);
     }
@@ -1766,6 +1827,7 @@ export function useAdminConsoleState() {
   async function toggleBannerActive(b: AdminBanner) {
     setBannerBusyId(b.id);
     setErr('');
+    setBannerErr('');
     try {
       await api(`/admin/banners/${b.id}`, {
         method: 'PATCH',
@@ -1773,7 +1835,7 @@ export function useAdminConsoleState() {
       });
       await load();
     } catch (err: any) {
-      setErr(err.message || 'Falha ao alterar banner');
+      flashBannerErr(err.message || 'Falha ao alterar banner');
     } finally {
       setBannerBusyId(null);
     }
@@ -1783,13 +1845,14 @@ export function useAdminConsoleState() {
     if (!confirm(`Excluir o banner "${b.title || b.id}"?`)) return;
     setBannerBusyId(b.id);
     setErr('');
+    setBannerErr('');
     try {
       await api(`/admin/banners/${b.id}`, { method: 'DELETE' });
-      setMsg('Banner excluído.');
+      flashBannerMsg('Banner excluído.');
       if (editingBannerId === b.id) resetBannerForm();
       await load();
     } catch (err: any) {
-      setErr(err.message || 'Falha ao excluir banner');
+      flashBannerErr(err.message || 'Falha ao excluir banner');
     } finally {
       setBannerBusyId(null);
     }
@@ -1813,7 +1876,7 @@ export function useAdminConsoleState() {
       });
       setBanners(list);
     } catch (err: any) {
-      setErr(err.message || 'Falha ao reordenar');
+      flashBannerErr(err.message || 'Falha ao reordenar');
     } finally {
       setBannerBusyId(null);
     }
@@ -1967,6 +2030,9 @@ export function useAdminConsoleState() {
     setUploadingBanner,
     bannerBusyId,
     setBannerBusyId,
+    bannerErr,
+    bannerMsg,
+    bannerFormEpoch,
     admins,
     setAdmins,
     adminForm,
@@ -2101,6 +2167,7 @@ export function useAdminConsoleState() {
     uploadBannerPhoto,
     startEditBanner,
     resetBannerForm,
+    beginNewBanner,
     saveBanner,
     toggleBannerActive,
     deleteBanner,

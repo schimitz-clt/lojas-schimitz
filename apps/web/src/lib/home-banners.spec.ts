@@ -6,6 +6,8 @@ import {
   MAX_HOME_BANNERS,
   bannerAlt,
   bannerAriaLabel,
+  bannerCreateCtaLabel,
+  bannerCreatedToast,
   bannerCtaHref,
   bannerCtaLabel,
   bannerDotLabel,
@@ -17,7 +19,9 @@ import {
   clampBannerIndex,
   homeBannerCountHint,
   homeBannerLimitMessage,
+  homeBannerRowCount,
   homeBannerSlideWidthLock,
+  homeBannerSlotCounter,
   isUsableHomeBanner,
   nextBannerIndex,
   shouldShowBannerChrome,
@@ -42,6 +46,48 @@ assert.equal(canCreateHomeBanner(4), true);
 assert.equal(canCreateHomeBanner(5), false);
 assert.equal(canCreateHomeBanner(9), false);
 assert.equal(canCreateHomeBanner(Number.NaN), true);
+
+assert.equal(homeBannerRowCount(null), 0);
+assert.equal(homeBannerRowCount([]), 0);
+assert.equal(
+  homeBannerRowCount([
+    { active: true },
+    { active: false },
+    { active: true },
+    { active: false },
+    { active: false },
+  ]),
+  5,
+  'inactive rows still count toward the create cap',
+);
+assert.equal(
+  canCreateHomeBanner(
+    homeBannerRowCount([{ active: false }, { active: false }, { active: false }, { active: false }]),
+  ),
+  true,
+);
+assert.equal(
+  canCreateHomeBanner(
+    homeBannerRowCount([
+      { active: true },
+      { active: false },
+      { active: true },
+      { active: false },
+      { active: true },
+    ]),
+  ),
+  false,
+);
+
+assert.equal(homeBannerSlotCounter(0), '0 de 5');
+assert.equal(homeBannerSlotCounter(2), '2 de 5');
+assert.equal(homeBannerSlotCounter(9), '5 de 5');
+assert.equal(bannerCreateCtaLabel(0), 'Criar banner');
+assert.equal(bannerCreateCtaLabel(1), 'Criar outro banner');
+assert.equal(bannerCreateCtaLabel(4), 'Criar outro banner');
+assert.equal(bannerCreatedToast(1), 'Banner criado. Pode adicionar mais (1/5).');
+assert.equal(bannerCreatedToast(4), 'Banner criado. Pode adicionar mais (4/5).');
+assert.ok(bannerCreatedToast(5).includes('Limite de 5'));
 
 const six = Array.from({ length: 6 }, (_, i) =>
   banner({ id: `b${i}`, imageUrl: `https://cdn.example/b${i}.jpg`, sortOrder: i }),
@@ -136,9 +182,23 @@ const adminSrc = readFileSync(
 );
 assert.ok(adminSrc.includes('homeBannerCountHint'), 'admin shows 1–5 slot hint');
 assert.ok(adminSrc.includes('canCreateHomeBanner'), 'admin hides create at the 5-banner cap');
+assert.ok(adminSrc.includes('homeBannerSlotCounter'), 'admin shows N de 5 counter');
+assert.ok(adminSrc.includes('bannerCreateCtaLabel'), 'create CTA becomes Criar outro banner');
+assert.ok(adminSrc.includes('AdminPhotoFilePicker'), 'vitrine uses mobile-safe picker');
+assert.ok(adminSrc.includes('multiple={false}'), 'banner picker is single-file');
+assert.ok(!/style=\{\{\s*display:\s*'none'\s*\}\}/.test(adminSrc), 'banner file input must not be display:none');
+assert.ok(!adminSrc.includes('admin-file-hidden'), 'vitrine must not clip/1px hide file inputs');
+assert.ok(adminSrc.includes('role="alert"'), 'banner errors are loud on the vitrine block');
+assert.ok(adminSrc.includes('admin-photo-feedback'), 'banner errors stick on the form');
+assert.ok(adminSrc.includes('Criar outro banner'), 'owner can start another banner after create');
+assert.ok(adminSrc.includes('homeBannerRowCount'), 'create limit counts total rows');
 
 const adminState = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
 assert.ok(adminState.includes('homeBannerLimitMessage'), 'create is blocked at 5 on the client');
+assert.ok(adminState.includes('snapshotSelectedFiles'), 'banner upload copies FileList before clear');
+assert.ok(adminState.includes('emptyPhotoSelectionError'), 'empty banner pick is loud');
+assert.ok(adminState.includes('bannerCreatedToast'), 'create toast invites another banner');
+assert.ok(adminState.includes('homeBannerRowCount'), 'client create cap uses total rows');
 
 assert.equal(bannerImageUrl({ imageUrl: '  https://cdn.example/a.jpg  ' }), 'https://cdn.example/a.jpg');
 
