@@ -18,10 +18,18 @@ import {
   bannerTapOpensLink,
   canCreateHomeBanner,
   clampBannerIndex,
+  HOME_BANNER_ASPECT_DEFAULT,
+  HOME_BANNER_ASPECT_DESKTOP,
+  HOME_BANNER_ASPECT_MOBILE,
+  homeBannerAspectCss,
   homeBannerCountHint,
+  homeBannerFrameSize,
+  homeBannerImageFit,
   homeBannerLimitMessage,
   homeBannerLoopSlides,
+  homeBannerMinHeightFightsAspect,
   homeBannerRowCount,
+  homeBannerSlideFrameLock,
   homeBannerSlideWidthLock,
   homeBannerSlotCounter,
   homeBannerTrackLength,
@@ -192,26 +200,60 @@ assert.deepEqual(homeBannerSlideWidthLock(), [
   'min-width: 100%',
   'max-width: 100%',
 ]);
+assert.deepEqual(homeBannerSlideFrameLock(), [
+  'flex: 0 0 100%',
+  'width: 100%',
+  'min-width: 100%',
+  'max-width: 100%',
+  'height: 100%',
+  'min-height: 0',
+  'max-height: 100%',
+]);
+assert.equal(homeBannerImageFit(), 'object-fit: cover');
+assert.equal(homeBannerAspectCss(HOME_BANNER_ASPECT_MOBILE), '16 / 10');
+assert.equal(homeBannerAspectCss(HOME_BANNER_ASPECT_DESKTOP), '21 / 7');
+assert.equal(homeBannerAspectCss(HOME_BANNER_ASPECT_DEFAULT), '21 / 8');
+assert.deepEqual(homeBannerFrameSize(390, HOME_BANNER_ASPECT_MOBILE), { width: 390, height: 243.75 });
+assert.deepEqual(homeBannerFrameSize(1280, HOME_BANNER_ASPECT_DESKTOP), { width: 1280, height: 1280 * 7 / 21 });
+assert.equal(homeBannerMinHeightFightsAspect(390, 160, HOME_BANNER_ASPECT_MOBILE), false);
+assert.equal(
+  homeBannerMinHeightFightsAspect(300, 168, HOME_BANNER_ASPECT_DEFAULT),
+  true,
+  'min-height 168px on a 300px-wide 21/8 strip would fight the frame',
+);
 
 const css = readFileSync(join(__dirname, '../app/globals.css'), 'utf8');
 assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*hidden/.test(css), 'document must not scroll sideways');
 assert.ok(/\.home\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'home page hides horizontal overflow');
 assert.ok(/\.home-banners\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'banner shell does not leak sideways');
-assert.ok(
-  /\.home-banner-track[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(css),
-  'home swipe is internal scroll-snap',
-);
-assert.ok(/\.home-banner-track[\s\S]{0,280}overflow-x:\s*auto/.test(css), 'only the banner track scrolls horizontally');
+assert.ok(/\.home-banner-track[\s\S]{0,420}scroll-snap-type:\s*x mandatory/.test(css), 'home swipe is internal scroll-snap');
+assert.ok(/\.home-banner-track[\s\S]{0,420}overflow-x:\s*auto/.test(css), 'only the banner track scrolls horizontally');
 assert.ok(/\.home-banner-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'slides lock to track width');
+assert.ok(/\.home-banner-slide\s*\{[^}]*height:\s*100%/.test(css), 'slides fill the shared frame height');
+assert.ok(/\.home-banner-slide\s*\{[^}]*min-height:\s*0/.test(css), 'img intrinsic size cannot grow the flex item');
+assert.ok(/\.home-banners\s*\{[^}]*--home-banner-aspect:\s*21\s*\/\s*8/.test(css), 'one aspect token for every slide');
+assert.ok(
+  /\.home-banners-viewport[\s\S]{0,280}aspect-ratio:\s*var\(--home-banner-aspect\)/.test(css),
+  'viewport is the fixed Magalu strip; images cannot resize it',
+);
+assert.ok(/\.home-banner-img[\s\S]{0,420}object-fit:\s*cover/.test(css), 'photos crop inside the frame');
+assert.ok(/\.home-banner-img[\s\S]{0,220}position:\s*absolute/.test(css), 'img is taken out of flow so PNG ratio cannot stretch the slide');
+assert.equal(
+  /\.home-banner-slide[^}]*min-height:\s*(160|168|240)px/.test(css),
+  false,
+  'must not set a min-height that fights aspect-ratio (PDP gallery lesson)',
+);
 assert.ok(/\.home-banner-slide\s*\{[^}]*scroll-snap-stop:\s*normal/.test(css), 'soft snap — reverse fling is not locked');
 assert.equal(
   /\.home-banner-track\s*\{[^}]*scroll-behavior:\s*smooth/.test(css),
   false,
   'no CSS smooth on the track (native momentum on mobile)',
 );
-assert.ok(/\.home-banner-track[\s\S]{0,360}overscroll-behavior-x:\s*contain/.test(css), 'overscroll stays inside the track');
-assert.ok(/\.home-banner-img[\s\S]{0,280}content-visibility:\s*auto/.test(css), 'off-screen banner bitmaps skip paint');
+assert.ok(/\.home-banner-track[\s\S]{0,480}overscroll-behavior-x:\s*contain/.test(css), 'overscroll stays inside the track');
+assert.ok(/\.home-banner-img[\s\S]{0,480}content-visibility:\s*auto/.test(css), 'off-screen banner bitmaps skip paint');
 assert.ok(/\.home-banner-dots[\s\S]{0,120}position:\s*static/.test(css), 'dots sit under the banner');
+assert.ok(/@media \(max-width: 720px\)[\s\S]*\.home-banners\s*\{[^}]*--home-banner-aspect:\s*16\s*\/\s*10/.test(css), 'mobile uses one 16/10 frame');
+assert.ok(/@media \(min-width: 721px\)[\s\S]*\.home-banners\s*\{[^}]*--home-banner-aspect:\s*21\s*\/\s*7/.test(css), 'desktop uses one 21/7 frame');
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.home-banner-nav[\s\S]*display:\s*none/.test(css),
   'mobile uses swipe + dots, not side arrows',
@@ -231,9 +273,13 @@ assert.ok(src.includes('interacting.current'), 'finger down pauses programmatic 
 assert.ok(src.includes('if (!el || interacting.current) return'), 'scrollTo does not run during touch');
 assert.ok(src.includes('settleLoopRef'), 'clone jump after wrap uses the latest settle fn');
 assert.ok(src.includes('bannerImageIsPriority'), 'eager/high only on the first real slide');
+assert.ok(src.includes('onDragStart'), 'banner drag ghost must not overlay the track');
 assert.equal(src.includes('onTouchStart'), false, 'JS swipe must not fight native scroll-snap');
 assert.equal(src.includes('scrollSyncLock'), false, 'must not lock scrollLeft updates for 350ms');
 assert.ok(src.includes('bannerCtaLabel()'), 'CTA copy stays Conferir agora');
+
+const libSrc = readFileSync(join(__dirname, './home-banners.ts'), 'utf8');
+assert.ok(libSrc.includes('localizeStorefrontUploadUrl'), 'localhost loads banner PNGs same-origin');
 
 const adminSrc = readFileSync(
   join(__dirname, '../components/admin/sections/AdminVitrineSection.tsx'),

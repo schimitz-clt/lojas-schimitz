@@ -24,6 +24,7 @@ Se a imagem “não sobe”: o alerta vermelho no bloco do banner deve dizer que
 ## Público
 
 - Home mostra banners ativos em carrossel com scroll-snap (`GET /store/banners`, no máximo 5).
+- **Mesmo tamanho em todos os slides** (vitrine): o recorte é um frame fixo (`--home-banner-aspect`, 16/10 no celular e 21/7 no desktop). PNG retrato ou paisagem **não** muda a altura — `object-fit: cover` no centro.
 - Com 2+ banners o trilho **dá a volta** (último → primeiro e o inverso), estilo marketplace: um swipe, sem travar no fim e sem rebobinar os 4 PNG.
 - Swipe usa snap `mandatory` + `scroll-snap-stop: normal` e **sem** `scroll-behavior: smooth` no CSS (o dedo fica com o momentum nativo). Auto-avanço/setas pausam no toque e **não** mexem em `scrollLeft` enquanto o dedo está no banner.
 - Imagens ~2MB PNG deixam o carrossel pesado mesmo com código leve — comprimir para JPEG/WebP no Admin ajuda; o código já dá `loading="lazy"` / `decoding="async"` nos slides fora da primeira, e `fetchpriority="high"` só no 1º real.
