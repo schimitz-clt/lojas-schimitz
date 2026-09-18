@@ -1,8 +1,14 @@
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
 import { getBrowserApiBase } from './api-proxy';
-import { persistAuthSession, refreshBodyFromStorage, wipeAuthSessionStorage } from './auth-session';
+import {
+  AUTH_STORAGE_KEYS,
+  discardStaleRefreshStorage,
+  persistAuthSession,
+  refreshBodyForRequest,
+  wipeAuthSessionStorage,
+} from './auth-session';
 
-/** Browser: same-origin /api/v1 in prod; localhost API for local. Dual refresh body kept. */
+/** Browser: same-origin /api/v1 in prod; localhost API for local. Cookie-first body is empty. */
 function API() {
   return getBrowserApiBase();
 }
@@ -78,13 +84,17 @@ async function tryRefreshSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
-    // Dual-mode: body if localStorage has refresh (localhost / legacy); else cookie-only.
-    const refreshToken = localStorage.getItem('sch_refresh');
+    // Cookie-first hosts: empty body + credentials (HttpOnly sch_refresh).
+    // Drop leftover localStorage refresh so it cannot compete with the cookie.
+    // Localhost: body if localStorage still has a refresh (API cross-origin :3001).
+    const host = window.location.hostname;
+    discardStaleRefreshStorage(localStorage, host);
+    const storedRefresh = localStorage.getItem(AUTH_STORAGE_KEYS.refresh);
     try {
       const res = await fetch(`${API()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(refreshBodyFromStorage(refreshToken)),
+        body: JSON.stringify(refreshBodyForRequest(host, storedRefresh)),
         cache: 'no-store',
         credentials: 'include',
       });
@@ -178,7 +188,7 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
  * Access (curto) + user em localStorage.
  * Refresh: cookie-first em hosts não-locais (HttpOnly `sch_refresh` via credentials).
  * Em localhost ainda gravamos refresh no localStorage (API cross-origin :3001).
- * Read path dual-mode: se `sch_refresh` existir no storage, o body ainda é enviado.
+ * Cookie-first: body de refresh/logout é `{}` mesmo se restar `sch_refresh` legado.
  */
 export function saveSession(data: { accessToken: string; refreshToken?: string; user: unknown }) {
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -187,15 +197,16 @@ export function saveSession(data: { accessToken: string; refreshToken?: string; 
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
+  const host = window.location.hostname;
   const { access, refreshToken } = wipeAuthSessionStorage(localStorage);
-  // Best-effort: revoga cookie e/ou body (sempre tenta limpar HttpOnly via credentials).
+  // Best-effort: revoga cookie (credentials) e, só em localhost, body legado.
   void fetch(`${API()}/auth/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(access ? { Authorization: `Bearer ${access}` } : {}),
     },
-    body: JSON.stringify(refreshBodyFromStorage(refreshToken)),
+    body: JSON.stringify(refreshBodyForRequest(host, refreshToken)),
     cache: 'no-store',
     credentials: 'include',
   }).catch(() => undefined);

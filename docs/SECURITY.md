@@ -37,18 +37,26 @@
 ## SCH-006 — Sessão (refresh cookie) + jobs multi-réplica
 
 ### Refresh token
-- **Modo dual (intencional):** a API continua devolvendo `refreshToken` no JSON (mobile TWA,
-  clientes legados, fallback cross-origin). Em paralelo, seta cookie HttpOnly `sch_refresh`
+- **Modo dual (default no código):** a API devolve `refreshToken` no JSON **enquanto**
+  `REFRESH_JSON_TOKEN_ENABLED` estiver unset/`true` (compat localhost, clientes que ainda
+  leem o body). Em paralelo seta cookie HttpOnly `sch_refresh`
   (`Path=/`, `SameSite` configurável, `Secure` em prod/staging).
-- `POST /auth/refresh` aceita cookie HttpOnly **ou** body (cookie tem precedência — Phase 9; body é fallback).
+- **Cookie-only JSON (opt-in Railway):** `REFRESH_COOKIE_ENABLED` (default true) **e**
+  `REFRESH_JSON_TOKEN_ENABLED=false` → login/register/refresh **omitem** `refreshToken` no
+  JSON; `Set-Cookie` continua. Merge de código **não** ativa isso em prod.
+- `POST /auth/refresh` aceita cookie HttpOnly **ou** body (cookie tem precedência; body é
+  fallback no servidor — não removido).
 - `POST /auth/logout` limpa o cookie e revoga o refresh; access JWT é opcional (se expirado, ainda revoga via cookie/body).
-- Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage;
-  refresh em localStorage fica como fallback se o cookie cross-site não for enviado.
+- Web (`apps/web`): `credentials: 'include'` em fetch; access curto permanece em localStorage.
+  Hosts cookie-first (`lojasschimitz.com.br`, Android WebView) **não** gravam refresh em
+  `localStorage` e **não** enviam body `refreshToken` (stale localStorage é ignorado).
+  Localhost ainda persiste/envia body (API cross-origin `:3001`).
 - **Limite honesto:** em localhost web:3000 → api:3001 o cookie cross-site pode não colar
-  sem HTTPS + `SameSite=None`. Em produção use domínio compartilhado
-  (`REFRESH_COOKIE_DOMAIN=.lojasschimitz.com.br`) ou proxy same-site.
+  sem HTTPS + `SameSite=None`. Em produção o proxy same-origin `/api/v1` cola o cookie no
+  host da loja (`REFRESH_COOKIE_DOMAIN` no Nest é opcional; o proxy remove `Domain`).
 - Env: `REFRESH_COOKIE_ENABLED` (default true), `REFRESH_COOKIE_NAME`, `REFRESH_COOKIE_SECURE`,
-  `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_DOMAIN`, `REFRESH_COOKIE_MAX_AGE_SEC`.
+  `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_DOMAIN`, `REFRESH_COOKIE_MAX_AGE_SEC`,
+  `REFRESH_JSON_TOKEN_ENABLED` (default **true**).
 
 ### expireReservations multi-réplica
 - Job ainda é `setInterval` in-process (cada réplica agenda).
@@ -62,7 +70,8 @@
 Checklist + hardening seguro: ver `docs/MEGA-PHASE-8-SECURITY.md`.
 - Filtro global: em prod/staging, HTTP ≥500 sempre `Erro interno` (sem stack/details).
 - Storefront: headers baseline (HSTS/XFO/nosniff/…) + `poweredByHeader: false` + **CSP gradual** (`storefront-csp.ts`: `'self'` + `'unsafe-inline'`/`'unsafe-eval'` para Next + hosts Mercado Pago Brick/SDK + `img-src https:` para uploads). **Não** é nonce-strict.
-- Dual-mode refresh **mantido**. `REFRESH_JSON_TOKEN_ENABLED` default **true** (não flipar em prod).
+- Dual-mode refresh **mantido no default do código**. `REFRESH_JSON_TOKEN_ENABLED` default **true**.
+  Cookie-only JSON é opt-in: ver checklist abaixo (Railway, serviço da API).
 
 
 ## MEGA Phase 9
@@ -71,9 +80,34 @@ IDOR/BOLA + refresh cookie-prefer: ver `docs/MEGA-PHASE-9-CHECKPOINT.md`.
 - Orders/addresses: ownership por `userId`; cross-user → **404** (`ORDER_NOT_FOUND` / `ADDRESS_NOT_FOUND`).
 - PATCH `/me`: somente `name`/`phone` (sem escalada de role).
 - Admin: `RolesGuard` + `@Roles('admin')` (customer → 403).
-- Refresh: cookie HttpOnly tem precedência; body fallback; JSON `refreshToken` dual (default).
-- Opt-out JSON: `REFRESH_JSON_TOKEN_ENABLED=false` (só com cookie enabled; não ativar sem e2e).
+- Refresh: cookie HttpOnly tem precedência; body fallback **no servidor**; JSON `refreshToken` dual (default).
+- Cookie-only JSON: `REFRESH_JSON_TOKEN_ENABLED=false` no serviço **API** (Railway), com cookie enabled.
+  Merge **não** flipa prod. Rollback = unset / `true`.
 - CSRF: SameSite=Lax via proxy mitiga POST cross-site; residual se `SameSite=None` direto na API.
+
+### Flip checklist — cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false`)
+
+O default no código permanece **true** (unset = compat). Ativar é um passo de **env no Railway**,
+depois do merge, com OK explícito do dono. **Não** alterar variáveis de produção neste PR.
+
+1. Merge deste código (API + web) e aguardar deploy Railway (API **e** web).
+2. Confirmar Set-Cookie `sch_refresh` (HttpOnly) em login/register/refresh via
+   `https://lojasschimitz.com.br/api/v1/...` (proxy same-origin; `credentials: include`).
+3. No serviço **API** (não no web): setar `REFRESH_JSON_TOKEN_ENABLED=false`.
+   Redeploy/restart do serviço API se o Railway não recarregar env sozinho.
+4. Smoke **web** (`lojasschimitz.com.br` + Admin `/admin`):
+   - Login → JSON **sem** `data.refreshToken`; resposta tem `Set-Cookie: sch_refresh`.
+   - Refresh (access expirado ou `POST /auth/refresh` com body `{}`) → novo access; cookie rotaciona.
+   - Logout → cookie `Max-Age=0`; chamada protegida pede login.
+   - DevTools: **sem** `sch_refresh` em `localStorage`; access JWT (`sch_access`) ainda pode existir.
+5. Smoke **Android WebView** (same-origin `lojasschimitz.com.br`): CookieManager first-party on;
+   login → uso autenticado → logout. Esperado: cookie HttpOnly, sem body refresh.
+6. **Rollback instantâneo:** no serviço API, `REFRESH_JSON_TOKEN_ENABLED=true` ou **unset**
+   (volta a incluir `refreshToken` no JSON). Cookie continua sendo setado.
+
+Residual aceito após o flip: access JWT em `localStorage` (XSS); body refresh ainda **aceito**
+no servidor se enviado (localhost/legado); CSRF SameSite residual se alguém chamar a API
+Railway direto com `SameSite=None`.
 
 ## MASTER LOTE 4 — residual security audit (P0/P1)
 
@@ -88,5 +122,5 @@ Auditoria 2026-09-16: superfície já sólida — **sem mudança de código**.
 | Rate limit | OK (in-memory) | Global Throttler 100/min + `@Throttle` auth/admin/chat/payments; brute-force login in-process. **Sem Redis** (não inventar). Multi-réplica = limite por processo (já documentado Phase 8 M5). |
 | Admin `GET /orders?q=` | OK | Classe `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`; `@Throttle(30/min)`; `q` `@MaxLength(120)`; take≤50; source locks no spec |
 
-Residual aceito: access JWT em localStorage (XSS mitigado em parte pelo CSP gradual + cookie HttpOnly), dual-mode JSON refresh (não flipado), Throttler in-memory multi-réplica, CSP nonce-strict no Next (fase futura).
+Residual aceito: access JWT em localStorage (XSS mitigado em parte pelo CSP gradual + cookie HttpOnly), body refresh ainda aceito no servidor (fallback; JSON omit é o flip), Throttler in-memory multi-réplica, CSRF SameSite residual na API direta, CSP nonce-strict no Next (fase futura).
 

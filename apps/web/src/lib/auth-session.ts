@@ -2,19 +2,17 @@
  * Cookie-first refresh helpers (web).
  *
  * Production / same-origin (`/api/v1` on lojasschimitz.com.br, incl. Android WebView):
- * prefer HttpOnly `sch_refresh` cookie — do not persist refresh in localStorage.
+ * prefer HttpOnly `sch_refresh` cookie — do not persist refresh in localStorage,
+ * and do not send a leftover `sch_refresh` in the request body (cookie is the source).
  *
  * Localhost: browser talks to API on :3001 (cross-origin), so cookie may not attach;
  * keep refreshToken in localStorage and send it in the request body.
  *
- * Dual-mode read: if localStorage still has a legacy/body refresh, send it;
- * otherwise rely on credentials: 'include' + cookie.
+ * Missing JSON `refreshToken` (API `REFRESH_JSON_TOKEN_ENABLED=false`) is valid on
+ * cookie-first hosts — Set-Cookie carries the session. Default API flag stays true
+ * until Railway flip; this client is ready either way.
  *
  * apps/mobile is Kotlin WebView → same site URL (not Capacitor); cookie path applies.
- *
- * Phase A: JSON `refreshToken` remains the API default (`REFRESH_JSON_TOKEN_ENABLED`
- * unset/true). Cookie-first hosts ignore a body token even when present, and still
- * work when the API omits it (deprecation path — do not flip in prod).
  */
 
 export const AUTH_STORAGE_KEYS = {
@@ -45,13 +43,38 @@ export function shouldPersistRefreshInLocalStorage(hostname: string): boolean {
   return h === 'localhost' || h === '127.0.0.1';
 }
 
+/** Cookie-first: prod storefront, Admin on same host, Android WebView. */
+export function isCookieFirstHost(hostname: string): boolean {
+  return !shouldPersistRefreshInLocalStorage(hostname);
+}
+
 /**
- * Body for /auth/refresh and /auth/logout.
- * Empty object → cookie-only; non-empty → dual-mode body (+ cookie still sent).
+ * Raw body helper: include stored token if present.
+ * Prefer `refreshBodyForRequest` so cookie-first hosts never send stale storage.
  */
 export function refreshBodyFromStorage(stored: string | null | undefined): { refreshToken?: string } {
   const t = typeof stored === 'string' ? stored.trim() : '';
   return t ? { refreshToken: t } : {};
+}
+
+/**
+ * Body for /auth/refresh and /auth/logout.
+ * Cookie-first hosts: always `{}` — HttpOnly cookie is sent via credentials.
+ * Localhost: dual-mode body if storage has a token.
+ */
+export function refreshBodyForRequest(
+  hostname: string,
+  stored: string | null | undefined,
+): { refreshToken?: string } {
+  if (isCookieFirstHost(hostname)) return {};
+  return refreshBodyFromStorage(stored);
+}
+
+/** Drop leftover `sch_refresh` on cookie-first hosts (XSS surface + stale body). */
+export function discardStaleRefreshStorage(storage: SessionStorageWriter, hostname: string): void {
+  if (isCookieFirstHost(hostname)) {
+    storage.removeItem(AUTH_STORAGE_KEYS.refresh);
+  }
 }
 
 /**
@@ -68,8 +91,8 @@ export function persistAuthSession(
   storage.setItem(AUTH_STORAGE_KEYS.user, JSON.stringify(data.user));
   if (shouldPersistRefreshInLocalStorage(hostname) && data.refreshToken) {
     storage.setItem(AUTH_STORAGE_KEYS.refresh, data.refreshToken);
-  } else if (!shouldPersistRefreshInLocalStorage(hostname)) {
-    storage.removeItem(AUTH_STORAGE_KEYS.refresh);
+  } else {
+    discardStaleRefreshStorage(storage, hostname);
   }
 }
 

@@ -45,7 +45,8 @@ Em hosts **não-locais** (ex.: `lojasschimitz.com.br`, WebView Android):
 
 - Todo `fetch` da API usa `credentials: 'include'`.
 - Refresh fica no cookie HttpOnly `sch_refresh` (proxy same-origin); **não** grava refresh em `localStorage`.
-- Se ainda existir `sch_refresh` no `localStorage` (legado), o body de `/auth/refresh` e `/auth/logout` continua enviando o token (dual-mode).
+- Body de `/auth/refresh` e `/auth/logout` é `{}` nestes hosts — leftover `sch_refresh` no `localStorage` **não** é enviado (a API prefere cookie; o cliente cookie-first nem manda body).
+- JSON sem `refreshToken` (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é válido: a sessão segue no cookie.
 
 Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): o refresh ainda é persistido em `localStorage` e enviado no body.
 

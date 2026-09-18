@@ -35,7 +35,8 @@ Push `main` → Railway redeploy automático esperado (API + web). Sem migration
 ## PRODUÇÃO
 - Web já cookie-first (não grava `sch_refresh` em localStorage fora de localhost).
 - Android = WebView same-origin → cookies + `credentials: 'include'` devem funcionar.
-- `REFRESH_JSON_TOKEN_ENABLED` default **true** (compat). Só desligar após prova Set-Cookie em login/refresh/logout web+Android.
+- `REFRESH_JSON_TOKEN_ENABLED` default **true** (compat). O omit JSON é **opt-in Railway**
+  (não flipa no merge). Ver flip checklist no fim deste doc e em `docs/SECURITY.md`.
 
 ## RISCOS
 1. **CSRF residual em refresh/logout** se cookie `SameSite=None` (API direta cross-site). Mitigação prática: proxy Next same-origin reescreve para **Lax** → POST cross-site não envia cookie. CORS allowlist impede leitura da resposta por origens estranhas; side-effect CSRF em `SameSite=None` direto na API ainda é residual (rotação/revogação). Origin/Referer **não** adicionados nesta fase (sem padrão existente; risco de quebrar WebView/proxy).
@@ -44,7 +45,8 @@ Push `main` → Railway redeploy automático esperado (API + web). Sem migration
 4. Precedência cookie>body: cliente com cookie stale + body fresco usaria cookie — aceitável; web prod não manda body.
 
 ## PENDÊNCIAS
-- Ativar `REFRESH_JSON_TOKEN_ENABLED=false` só após e2e Set-Cookie (login→refresh→logout) web prod + Android WebView.
+- **Ativação prod:** `REFRESH_JSON_TOKEN_ENABLED=false` no serviço API (Railway) **depois**
+  do merge, com OK do dono. Merge sozinho **não** omite JSON em prod.
 - Opcional futuro: Origin check em `/auth/refresh` alinhado a `CORS_ORIGINS` se API for chamada cross-site com `SameSite=None`.
 - Redis throttler multi-réplica (Phase 8 M5).
 - CSP nonce-strict Next (Phase 8 M6; Phase A = CSP gradual, não nonce).
@@ -60,9 +62,28 @@ Push `main` → Railway redeploy automático esperado (API + web). Sem migration
 |-------|--------|------|
 | (1) Parar de gravar refresh em localStorage (não-localhost) | Sim (já Phase 8; reforçado comentários/tipos opcionais) | Android WebView herda same-origin |
 | (2) API aceita body; prefere cookie | Sim | `resolveRefreshToken` cookie-first |
-| (3) Omitir JSON quando cookie enabled | **Path only** | `shapeAuthSessionPayload` + `REFRESH_JSON_TOKEN_ENABLED` default true — full cookie-only JSON omit **adiado** (risco logout/refresh/localhost) |
+| (3) Omitir JSON quando cookie enabled | **Pronto no código; default true** | `issueAuthSession` + `REFRESH_JSON_TOKEN_ENABLED` default true — ativar omit em prod via Railway (checklist abaixo) |
 
-**Por que não cookie-only JSON neste turn:** sem e2e Set-Cookie comprovado neste ambiente para login+refresh+logout em web proxy e Android WebView; localhost ainda depende de body; mobile/legado podem ler JSON. Hardening + deprecation é o caminho seguro.
+**Cookie-only JSON omit:** o path está no código (`issueAuthSession` / `shouldOmitRefreshTokenInJson`).
+O default permanece true para localhost (body) e rollback instantâneo. Ativar em prod = env Railway,
+não o merge.
+
+## Flip checklist (cookie-only JSON) — dono / ops
+
+Merge **não** altera produção sozinho. Ativação = variável no serviço **API** do Railway.
+
+1. Deploy do código (API + web) já em `main`.
+2. Verificar Set-Cookie `sch_refresh` no login (DevTools → Network) em
+   `https://lojasschimitz.com.br` (proxy `/api/v1`, SameSite=Lax após rewrite).
+3. Railway → projeto Lojas Schimitz → serviço **API** → Variables:
+   `REFRESH_JSON_TOKEN_ENABLED=false`
+4. Smoke: login → refresh → logout → chamada protegida (loja + `/admin`).
+   JSON de login/refresh **sem** `refreshToken`; cookie HttpOnly presente.
+5. Android WebView: mesma origem; CookieManager first-party; `credentials: 'include'`.
+6. Rollback: `REFRESH_JSON_TOKEN_ENABLED=true` ou unset da variável.
+
+Variável exata: **`REFRESH_JSON_TOKEN_ENABLED=false`** (serviço API).
+Não tocar em secrets. Não setar no serviço web.
 
 ## CSRF — cookie refresh POST
 

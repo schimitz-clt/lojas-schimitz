@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
+  issueAuthSession,
   readRefreshFromRequest,
   refreshCookieEnabled,
   refreshCookieSameSite,
@@ -13,6 +14,7 @@ import {
   shapeAuthSessionPayload,
   shouldOmitRefreshTokenInJson,
 } from './refresh-cookie';
+import { ok } from '../../common/http';
 
 const saved = { ...process.env };
 
@@ -124,6 +126,19 @@ try {
   });
   assert.equal((full as any).refreshToken, 'r');
 
+  const dualRes = mockRes();
+  process.env.REFRESH_COOKIE_SAMESITE = 'lax';
+  delete process.env.REFRESH_COOKIE_SECURE;
+  process.env.APP_ENV = 'development';
+  const dualIssued = issueAuthSession(dualRes, {
+    accessToken: 'a',
+    refreshToken: 'r',
+    user: { id: '1' },
+  }) as any;
+  assert.equal(dualIssued.refreshToken, 'r');
+  assert.ok(String(dualRes.getHeader('Set-Cookie')).includes('sch_refresh='));
+  assert.ok(JSON.stringify(ok(dualIssued)).includes('refreshToken'));
+
   for (const keep of ['true', '1', 'on', 'TRUE', '']) {
     process.env.REFRESH_JSON_TOKEN_ENABLED = keep;
     assert.equal(refreshJsonTokenEnabled(), true, `json enabled for ${JSON.stringify(keep)}`);
@@ -146,14 +161,73 @@ try {
     user: { id: '1' },
   }) as any;
   assert.equal(omitted.refreshToken, undefined);
+  assert.equal('refreshToken' in omitted, false);
   assert.equal(omitted.accessToken, 'a');
   assert.equal(omitted.user.id, '1');
+  const omittedJson = JSON.stringify(omitted);
+  assert.ok(!omittedJson.includes('refreshToken'), omittedJson);
+  assert.ok(!omittedJson.includes('"r"'), omittedJson);
+
+  // HTTP envelope (controller: ok(issueAuthSession)) omits refreshToken, keeps access+user.
+  const omitEnvelope = ok(
+    shapeAuthSessionPayload({
+      accessToken: 'acc-omit',
+      refreshToken: 'rt-must-not-leak',
+      user: { id: 'u1', email: 'a@b.c' },
+    }),
+  );
+  assert.equal(omitEnvelope.ok, true);
+  assert.equal((omitEnvelope.data as any).accessToken, 'acc-omit');
+  assert.equal((omitEnvelope.data as any).refreshToken, undefined);
+  assert.equal('refreshToken' in (omitEnvelope.data as any), false);
+  const envelopeJson = JSON.stringify(omitEnvelope);
+  assert.ok(!envelopeJson.includes('refreshToken'), envelopeJson);
+  assert.ok(!envelopeJson.includes('rt-must-not-leak'), envelopeJson);
 
   // Cookie still preferred over body when JSON omit is active (dual-mode read).
   process.env.REFRESH_COOKIE_ENABLED = 'true';
   process.env.REFRESH_JSON_TOKEN_ENABLED = 'false';
   assert.equal(resolveRefreshToken(req, 'body-token'), 'abc/def');
   assert.equal(resolveRefreshToken(reqNoCookie, 'body-only'), 'body-only');
+
+  // issueAuthSession: Set-Cookie + omit JSON (login/register/refresh cookie-only path).
+  process.env.REFRESH_COOKIE_SAMESITE = 'lax';
+  delete process.env.REFRESH_COOKIE_SECURE;
+  process.env.APP_ENV = 'development';
+  const issuedRes = mockRes();
+  const issued = issueAuthSession(issuedRes, {
+    accessToken: 'acc-login',
+    refreshToken: 'rt-cookie-only',
+    user: { id: '1', role: 'customer' },
+  }) as any;
+  const issuedCookie = String(issuedRes.getHeader('Set-Cookie'));
+  assert.ok(issuedCookie.includes('sch_refresh='), issuedCookie);
+  assert.ok(issuedCookie.includes('HttpOnly'), issuedCookie);
+  assert.ok(issuedCookie.includes(encodeURIComponent('rt-cookie-only')) || issuedCookie.includes('rt-cookie-only'), issuedCookie);
+  assert.equal(issued.refreshToken, undefined);
+  assert.equal('refreshToken' in issued, false);
+  assert.equal(issued.accessToken, 'acc-login');
+  assert.equal(issued.user.id, '1');
+  const issuedOk = ok(issued);
+  assert.ok(!JSON.stringify(issuedOk).includes('refreshToken'));
+  assert.ok(!JSON.stringify(issuedOk).includes('rt-cookie-only'));
+
+  // Login → refresh (cookie only, empty body) → logout clear cookie.
+  const afterLoginReq = {
+    headers: { cookie: 'sch_refresh=rt-cookie-only' },
+  } as unknown as Request;
+  const resolvedFromCookieOnly = resolveRefreshToken(afterLoginReq, undefined);
+  assert.equal(resolvedFromCookieOnly, 'rt-cookie-only');
+  const resolvedCookieBeatsStaleBody = resolveRefreshToken(afterLoginReq, 'stale-localstorage');
+  assert.equal(resolvedCookieBeatsStaleBody, 'rt-cookie-only');
+
+  const refreshIssued = issueAuthSession(mockRes(), {
+    accessToken: 'acc-2',
+    refreshToken: 'rt-rotated',
+    user: { id: '1' },
+  }) as any;
+  assert.equal('refreshToken' in refreshIssued, false);
+  assert.equal(refreshIssued.accessToken, 'acc-2');
 
   // Set-Cookie still issued on login/refresh path when JSON omits refreshToken.
   process.env.REFRESH_COOKIE_SAMESITE = 'lax';

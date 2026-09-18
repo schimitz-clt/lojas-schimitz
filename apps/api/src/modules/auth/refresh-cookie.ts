@@ -1,10 +1,13 @@
 /**
  * Refresh token em cookie HttpOnly (modo dual com body).
  *
- * MEGA Phase 9:
+ * MEGA Phase 9 + cookie-only JSON omit (opt-in via env, default inalterado):
  * - Prefer cookie quando presente; body permanece fallback (localhost / legado / mobile).
- * - JSON ainda inclui `refreshToken` por default (compat). Opt-out via
- *   REFRESH_JSON_TOKEN_ENABLED=false + REFRESH_COOKIE_ENABLED (deprecation path).
+ * - JSON ainda inclui `refreshToken` por default (compat). Cookie-only JSON =
+ *   REFRESH_COOKIE_ENABLED (default true) AND REFRESH_JSON_TOKEN_ENABLED=false
+ *   → login/register/refresh omitem `refreshToken` mas ainda emitem Set-Cookie.
+ * - Default de REFRESH_JSON_TOKEN_ENABLED permanece **true** (unset = compat).
+ *   Ativar em prod é passo Railway explícito — merge de código NÃO flipa sozinho.
  * - Web same-origin / Android WebView: credentials include + cookie; não persistir
  *   refresh em localStorage fora de localhost.
  *
@@ -32,8 +35,8 @@ export function refreshCookieEnabled(): boolean {
 
 /**
  * When false AND cookie mode is on, login/register/refresh JSON omits `refreshToken`
- * (clients must use Set-Cookie). Default true — safe compat; do not flip in prod
- * until Set-Cookie path is proven for all clients (web + Android WebView).
+ * (clients must use Set-Cookie). Default true — unset/empty stays compat so rollback
+ * is instant (unset or `true` on Railway). Flip only via API service env after merge.
  */
 export function refreshJsonTokenEnabled(): boolean {
   const flag = String(process.env.REFRESH_JSON_TOKEN_ENABLED || 'true').toLowerCase().trim();
@@ -131,6 +134,18 @@ export function setRefreshCookie(res: Response, refreshToken: string) {
   } else {
     res.setHeader('Set-Cookie', [String(prev), next]);
   }
+}
+
+/**
+ * Login / register / refresh: always Set-Cookie when cookie mode is on,
+ * then optionally omit `refreshToken` from the JSON body (cookie-only path).
+ */
+export function issueAuthSession<T extends { refreshToken: string }>(
+  res: Response,
+  tokens: T,
+): T | Omit<T, 'refreshToken'> {
+  setRefreshCookie(res, tokens.refreshToken);
+  return shapeAuthSessionPayload(tokens);
 }
 
 export function clearRefreshCookie(res: Response) {
