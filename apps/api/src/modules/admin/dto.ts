@@ -141,6 +141,7 @@ export class AdminUpdateProductDto {
   @IsBoolean()
   active?: boolean;
 
+  /** Real cover URL only. Empty/null is ignored — does not delete ProductImage rows. */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUrl({ require_protocol: true })

@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { CREATE_IMAGE_URL_MAX, collectCreateImageUrls } from './admin-product-images';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  CREATE_IMAGE_URL_MAX,
+  collectCreateImageUrls,
+  coverUrlToApplyOnUpdate,
+} from './admin-product-images';
 
 assert.equal(CREATE_IMAGE_URL_MAX, 10);
 
@@ -39,5 +45,28 @@ const capped = collectCreateImageUrls(
 assert.equal(capped.length, 10);
 assert.equal(capped[0], 'https://cdn.example/0.jpg');
 assert.equal(capped[9], 'https://cdn.example/9.jpg');
+
+assert.equal(coverUrlToApplyOnUpdate(undefined), undefined);
+assert.equal(coverUrlToApplyOnUpdate(null), undefined);
+assert.equal(coverUrlToApplyOnUpdate(''), undefined);
+assert.equal(coverUrlToApplyOnUpdate('   '), undefined);
+assert.equal(coverUrlToApplyOnUpdate('https://cdn.example/cover.jpg'), 'https://cdn.example/cover.jpg');
+assert.equal(
+  coverUrlToApplyOnUpdate('  https://cdn.example/cover.jpg  '),
+  'https://cdn.example/cover.jpg',
+);
+
+const svcSrc = readFileSync(join(__dirname, 'admin-products.service.ts'), 'utf8');
+const updateAt = svcSrc.indexOf('async update(');
+const addImageAt = svcSrc.indexOf('async addImage(');
+assert.ok(updateAt > 0 && addImageAt > updateAt, 'update() before addImage()');
+const updateBlock = svcSrc.slice(updateAt, addImageAt);
+assert.equal(
+  updateBlock.includes('productImage.delete'),
+  false,
+  'product update must not delete ProductImage rows (empty imageUrl used to wipe Sansung A54)',
+);
+assert.ok(updateBlock.includes('coverUrlToApplyOnUpdate'), 'update uses coverUrlToApplyOnUpdate');
+assert.ok(svcSrc.includes('async deleteImage'), 'explicit DELETE /images/:id remains');
 
 console.log('admin-product-images unit tests ok');

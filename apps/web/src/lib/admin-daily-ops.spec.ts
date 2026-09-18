@@ -26,6 +26,7 @@ import {
   collectProductGalleryUrls,
   extraProductImageUrls,
   missingProductImageUrls,
+  applyProductSaveImageFields,
 } from './admin-daily-ops';
 
 assert.equal(nextOneClickFulfillmentStatus('paid'), 'organizing');
@@ -170,6 +171,37 @@ assert.deepEqual(
   missingProductImageUrls(['https://a', 'https://b'], [{ url: 'https://a' }]),
   ['https://b'],
 );
+
+const editEmpty = applyProductSaveImageFields(
+  { name: 'Sansung A54', price: 1, imageUrl: '', imageUrls: ['https://stale'] },
+  { isEdit: true, galleryUrls: [] },
+);
+assert.equal('imageUrl' in editEmpty, false, 'edit must omit empty imageUrl (legacy wipe)');
+assert.equal('imageUrls' in editEmpty, false, 'edit must not send imageUrls');
+assert.equal(editEmpty.name, 'Sansung A54');
+
+const editWithLocalGallery = applyProductSaveImageFields(
+  { name: 'X' },
+  { isEdit: true, galleryUrls: ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'] },
+);
+assert.equal(
+  'imageUrl' in editWithLocalGallery,
+  false,
+  'edit leaves gallery alone even when form has photos',
+);
+
+const createNone = applyProductSaveImageFields({ name: 'Y' }, { isEdit: false, galleryUrls: [] });
+assert.equal('imageUrl' in createNone, false, 'create omits imageUrl when there is no cover');
+
+const createMulti = applyProductSaveImageFields(
+  { name: 'Y' },
+  {
+    isEdit: false,
+    galleryUrls: ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'],
+  },
+);
+assert.equal(createMulti.imageUrl, 'https://cdn.example/a.jpg');
+assert.deepEqual(createMulti.imageUrls, ['https://cdn.example/b.jpg']);
 
 assert.ok(emptyPhotoQueueMessage('needs_photo').includes('Fila sem foto vazia'));
 assert.ok(emptyPhotoQueueMessage('all').includes('Nenhum produto'));

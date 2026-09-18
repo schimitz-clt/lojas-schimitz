@@ -12,7 +12,7 @@ import {
   AdminUpdateProductDto,
   MAX_PRODUCT_IMAGES,
 } from './dto';
-import { collectCreateImageUrls } from './admin-product-images';
+import { collectCreateImageUrls, coverUrlToApplyOnUpdate } from './admin-product-images';
 import { SellersService } from '../sellers/sellers.service';
 import { InventoryService } from '../inventory/inventory.service';
 
@@ -153,21 +153,21 @@ export class AdminProductsService {
           await this.inventory.setOnHandCas(tx, id, dto.stock);
         }
 
-        if (dto.imageUrl !== undefined) {
-          const url = dto.imageUrl?.trim() || '';
+        // Never delete ProductImage rows because imageUrl is empty/null.
+        // Clearing photos is DELETE /admin/products/:id/images/:imageId only.
+        const coverUrl = coverUrlToApplyOnUpdate(dto.imageUrl);
+        if (coverUrl) {
           const first = existing.images[0];
-          if (!url) {
-            if (first) await tx.productImage.delete({ where: { id: first.id } });
-          } else if (first) {
+          if (first) {
             await tx.productImage.update({
               where: { id: first.id },
-              data: { url, alt: (dto.name ?? existing.name).trim() },
+              data: { url: coverUrl, alt: (dto.name ?? existing.name).trim() },
             });
           } else {
             await tx.productImage.create({
               data: {
                 productId: id,
-                url,
+                url: coverUrl,
                 alt: (dto.name ?? existing.name).trim(),
                 position: 0,
               },

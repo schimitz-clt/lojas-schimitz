@@ -55,6 +55,7 @@ import {
   collectProductGalleryUrls,
   extraProductImageUrls,
   missingProductImageUrls,
+  applyProductSaveImageFields,
 } from '@/lib/admin-daily-ops';
 import {
   buildSalesReportCsv,
@@ -1000,10 +1001,12 @@ export function useAdminConsoleState() {
       compareAtPrice,
     };
     if (form.sku.trim()) body.sku = form.sku.trim();
+    // Edit: omit imageUrl entirely (empty string used to wipe ProductImage rows).
+    // Create: only a real cover URL. Gallery mutations go through /images.
+    applyProductSaveImageFields(body, { isEdit: Boolean(editingId), galleryUrls });
 
     try {
       if (editingId) {
-        // Fotos já são gerenciadas pelos endpoints /images; não sobrescrever capa via imageUrl.
         await api(`/admin/products/${editingId}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
@@ -1021,16 +1024,13 @@ export function useAdminConsoleState() {
         const n = refreshed ? mapProductImages(refreshed.images).length : formImages.length;
         setMsg(`Produto atualizado. Galeria: ${n} foto${n === 1 ? '' : 's'} (capa e extras mantidas).`);
       } else {
-        if (galleryUrls[0]) body.imageUrl = galleryUrls[0];
-        const extras = extraProductImageUrls(galleryUrls);
-        if (extras.length) body.imageUrls = extras;
         let created = await api<AdminProduct>('/admin/products', {
           method: 'POST',
           body: JSON.stringify(body),
         });
         const missing = created?.id
           ? missingProductImageUrls(galleryUrls, created.images)
-          : extras;
+          : extraProductImageUrls(galleryUrls);
         if (created?.id && missing.length) {
           created = (await persistNewImages(created.id, missing)) || created;
         }
