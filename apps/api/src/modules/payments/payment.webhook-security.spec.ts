@@ -108,6 +108,35 @@ async function main() {
 
   assert.equal(typeof isProdLikeEnv, 'function');
   assert.equal(typeof allowNullPaymentSimulate, 'function');
+
+  // Fail-closed: prod / Railway production never simulate, even with stray flags.
+  process.env.APP_ENV = 'production';
+  process.env.NODE_ENV = 'production';
+  process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
+  process.env.NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE = 'true';
+  delete process.env.RAILWAY_ENVIRONMENT;
+  assert.equal(allowNullPaymentSimulate(), false, 'prod never simulates');
+  assert.equal(isProdLikeEnv(), true);
+
+  process.env.APP_ENV = 'development';
+  process.env.NODE_ENV = 'development';
+  process.env.RAILWAY_ENVIRONMENT = 'production';
+  process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
+  assert.equal(isProdLikeEnv(), true, 'Railway production is prod-like');
+  assert.equal(allowNullPaymentSimulate(), false, 'Railway production never simulates');
+
+  process.env.APP_ENV = 'development';
+  process.env.NODE_ENV = 'production';
+  delete process.env.RAILWAY_ENVIRONMENT;
+  process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
+  assert.equal(allowNullPaymentSimulate(), false, 'NODE_ENV=production wins over APP_ENV=development');
+
+  process.env.APP_ENV = 'development';
+  process.env.NODE_ENV = 'development';
+  delete process.env.RAILWAY_ENVIRONMENT;
+  process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
+  assert.equal(allowNullPaymentSimulate(), true, 'local dev can still opt in');
+
   console.log('payment.webhook-security tests ok');
 }
 

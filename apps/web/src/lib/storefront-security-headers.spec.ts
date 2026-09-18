@@ -8,7 +8,7 @@ import {
   CSP_SCRIPT_HOSTS,
   STOREFRONT_CSP_HEADER_NAME,
 } from './storefront-csp';
-import { STOREFRONT_SECURITY_HEADERS } from './storefront-security-headers';
+import { STOREFRONT_PERMISSIONS_POLICY, STOREFRONT_SECURITY_HEADERS } from './storefront-security-headers';
 
 const keys = STOREFRONT_SECURITY_HEADERS.map((h) => h.key);
 for (const need of [
@@ -17,6 +17,8 @@ for (const need of [
   'Referrer-Policy',
   'Permissions-Policy',
   'Strict-Transport-Security',
+  'Cross-Origin-Opener-Policy',
+  'Cross-Origin-Resource-Policy',
   'Content-Security-Policy',
 ]) {
   assert.ok(keys.includes(need), `missing ${need}`);
@@ -24,6 +26,27 @@ for (const need of [
 assert.equal(
   STOREFRONT_SECURITY_HEADERS.find((h) => h.key === 'X-Frame-Options')?.value,
   'SAMEORIGIN',
+);
+assert.equal(
+  STOREFRONT_SECURITY_HEADERS.find((h) => h.key === 'Cross-Origin-Opener-Policy')?.value,
+  'same-origin-allow-popups',
+);
+assert.equal(
+  STOREFRONT_SECURITY_HEADERS.find((h) => h.key === 'Cross-Origin-Resource-Policy')?.value,
+  'same-origin',
+);
+assert.equal(
+  STOREFRONT_SECURITY_HEADERS.find((h) => h.key === 'Permissions-Policy')?.value,
+  STOREFRONT_PERMISSIONS_POLICY,
+);
+assert.ok(STOREFRONT_PERMISSIONS_POLICY.includes('camera=()'));
+assert.ok(STOREFRONT_PERMISSIONS_POLICY.includes('geolocation=()'));
+assert.ok(STOREFRONT_PERMISSIONS_POLICY.includes('browsing-topics=()'));
+assert.ok(STOREFRONT_PERMISSIONS_POLICY.includes('usb=()'));
+assert.ok(!STOREFRONT_PERMISSIONS_POLICY.includes('payment='), 'do not block MP wallets');
+assert.ok(
+  !keys.includes('Cross-Origin-Embedder-Policy'),
+  'COEP would break Mercado Pago Brick without CORP on MP CDNs',
 );
 assert.ok(
   STOREFRONT_SECURITY_HEADERS.find((h) => h.key === 'Strict-Transport-Security')?.value.includes(

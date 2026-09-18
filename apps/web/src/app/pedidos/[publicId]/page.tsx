@@ -26,6 +26,7 @@ import {
 } from '@/lib/delivery-eta';
 import { orderItemDisplayName, orderItemImageUrl } from '@/lib/order-card-ui';
 import MercadoPagoCardBrick from '@/components/MercadoPagoCardBrick';
+import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/payment-simulate';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -82,8 +83,8 @@ type Order = {
 };
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
-/** Dev-only: never enable in production builds. Requires matching ALLOW_NULL_PAYMENT_SIMULATE on API. */
-const ALLOW_PAYMENT_SIMULATE = process.env.NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE === 'true';
+/** Dev-only: production Next builds always false (see payment-simulate.ts). */
+const ALLOW_PAYMENT_SIMULATE = isPaymentSimulateUiEnabled();
 
 function pixQrImageSrc(qrCodeBase64?: string | null): string | null {
   if (!qrCodeBase64) return null;
@@ -416,9 +417,9 @@ export default function PedidoPage() {
       setErr('Intent sem externalId — recarregue a página.');
       return;
     }
-    const simSecret = process.env.NEXT_PUBLIC_NULL_WEBHOOK_SECRET || '';
+    const simSecret = paymentSimulateWebhookSecret();
     if (!simSecret || simSecret.length < 16) {
-      setErr('NEXT_PUBLIC_NULL_WEBHOOK_SECRET ausente/fraco — simulação bloqueada.');
+      setErr('Simulação bloqueada — secret ausente/fraco (somente dev).');
       return;
     }
     setSimulating(true);

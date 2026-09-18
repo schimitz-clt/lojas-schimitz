@@ -156,7 +156,9 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             loadWithOverviewMode = true
             userAgentString = "$userAgentString LojasSchimitzApp/1.0.3"
-            allowFileAccess = true
+            // file:///android_asset (offline.html) still works with allowFileAccess=false.
+            // This flag only gates filesystem URLs (file:///sdcard), which we do not need.
+            allowFileAccess = false
             allowContentAccess = true
             @Suppress("DEPRECATION")
             allowFileAccessFromFileURLs = false

@@ -72,6 +72,7 @@ assert.ok(ctrl.includes("Roles('admin')"), 'admin-only Roles');
 assert.ok(ctrl.includes('JwtAuthGuard') && ctrl.includes('RolesGuard'), 'guards');
 assert.ok(ctrl.includes("@Get('orders')"), 'GET orders');
 assert.ok(ctrl.includes('Throttle'), 'rate-limited orders list');
+assert.ok(/@Post\('uploads'\)[\s\S]*@Throttle/.test(ctrl) || /@Throttle[\s\S]*@Post\('uploads'\)/.test(ctrl), 'uploads throttled');
 assert.ok(ctrl.includes('buildAdminOrderWhere'), 'uses search where builder');
 assert.ok(ctrl.includes('resolveAdminOrdersTake'), 'uses take resolver');
 assert.ok(!ctrl.includes('take: 10000'), 'no unbounded dump');

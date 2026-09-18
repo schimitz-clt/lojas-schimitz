@@ -147,4 +147,11 @@ assert.deepEqual(refreshBodyForRequest('lojasschimitz.com.br', afterLogout.refre
 assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.access), null);
 assert.equal(cookieOnlyFlow.getItem(AUTH_STORAGE_KEYS.user), null);
 
+// Source lock: web logout wipes storage and POSTs /auth/logout with credentials (cookie).
+const apiSrc = require('fs').readFileSync(require('path').join(__dirname, 'api.ts'), 'utf8');
+assert.ok(apiSrc.includes('wipeAuthSessionStorage'), 'clearSession wipes local keys');
+assert.ok(apiSrc.includes('/auth/logout'), 'clearSession calls logout endpoint');
+assert.ok(apiSrc.includes("credentials: 'include'"), 'logout fetch sends sch_refresh cookie');
+assert.ok(apiSrc.includes('refreshBodyForRequest'), 'cookie-first hosts send empty body');
+
 console.log('auth-session unit tests ok');

@@ -636,6 +636,7 @@ export class AdminController {
    * Retorna `{ url }` absoluta (apex se SITE_URL/APP_URL) em GET /api/v1/uploads/:filename
    */
   @Post('uploads')
+  @Throttle({ default: { limit: 40, ttl: 60000 } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),

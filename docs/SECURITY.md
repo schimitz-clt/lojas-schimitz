@@ -124,3 +124,21 @@ Auditoria 2026-09-16: superfície já sólida — **sem mudança de código**.
 
 Residual aceito: access JWT em localStorage (XSS mitigado em parte pelo CSP gradual + cookie HttpOnly), body refresh ainda aceito no servidor (fallback; JSON omit é o flip), Throttler in-memory multi-réplica, CSRF SameSite residual na API direta, CSP nonce-strict no Next (fase futura).
 
+## 2026-09-18 — reinforcement (Security Pass + LOTE 4)
+
+Código fail-closed + headers + specs. Relatório: `docs/SECURITY-HARDENING-2026-09-18.md`.
+
+| Controle | Status |
+|----------|--------|
+| Simulate / null webhook em prod | **Fail-closed** — `NODE_ENV`/`RAILWAY_ENVIRONMENT` + strip `NEXT_PUBLIC_*` no `next build` |
+| Storefront Permissions-Policy / COOP / CORP | **OK** — COEP **não** (Brick) |
+| CSP storefront | Gradual enforce (já Phase A); nonce-strict **deferred** |
+| Android `allowFileAccess` | **false** (android_asset offline page intacta) |
+| Cookie `sch_refresh` precede body; logout limpa cookie | **Locked** em specs; dual-mode JSON **não** flipado |
+| IDOR 404 payments/orders | **Locked** em specs |
+| Throttle extra | logout 30/min; PATCH `/me` 20/min; admin uploads 40/min; Redis **deferred** |
+| Filtro 4xx/5xx prod-like | Sem stack/paths; Railway conta como prod |
+| Redis throttler / cookie-only access JWT / rotação de secrets | **Deferred** |
+
+Railway (humano): no serviço **web** confirmar ausência de `NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE` e `NEXT_PUBLIC_NULL_WEBHOOK_SECRET`. No serviço **API**: `PAYMENTS_PROVIDER=mercadopago` + webhook secret forte; não setar `ALLOW_NULL_*`.
+
