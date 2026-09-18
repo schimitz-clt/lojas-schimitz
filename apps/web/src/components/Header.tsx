@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, currentUser, userAccountLabel, waLink } from '@/lib/api';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
 
 const CEP_KEY = 'sch_cep';
 
@@ -167,6 +168,7 @@ export function Header() {
                 </span>
                 Favoritos
               </Link>
+              <CompareHeaderLink />
               <Link className="hdr-link" href="/carrinho">
                 <span className="hdr-link-ico" aria-hidden>
                   🛒
