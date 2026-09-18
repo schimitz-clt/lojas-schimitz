@@ -1966,7 +1966,8 @@
 @media (max-width: 720px) {
   .account-hub {
     padding-top: 4px;
-    padding-bottom: 12px;
+    /* Extra space so the last card clears the chat FAB + bottom tab bar. */
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 
   .account-hub-row {

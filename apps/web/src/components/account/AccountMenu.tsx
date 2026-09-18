@@ -69,10 +69,10 @@ function Icon({ name }: { name: AccountIconId }) {
     case 'support':
       return (
         <svg {...common}>
-          <path d="M5 12a7 7 0 0 1 14 0" />
-          <rect x="3.5" y="11" width="4" height="6" rx="1.4" />
-          <rect x="16.5" y="11" width="4" height="6" rx="1.4" />
-          <path d="M12 19.5v-2" />
+          <path d="M4.8 13a7.2 7.2 0 0 1 14.4 0" />
+          <path d="M4.8 13v3.2A1.8 1.8 0 0 0 6.6 18H8v-5H4.8z" />
+          <path d="M19.2 13v3.2A1.8 1.8 0 0 1 17.4 18H16v-5h3.2z" />
+          <path d="M12 20.2v-2.2" />
         </svg>
       );
     case 'admin':
