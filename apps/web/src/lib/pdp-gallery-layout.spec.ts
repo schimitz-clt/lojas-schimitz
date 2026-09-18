@@ -3,9 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PDP_GALLERY_ASPECT_CSS,
+  PDP_LIGHTBOX_TAP_SLOP_PX,
   pdpGalleryFrameSize,
   pdpGalleryHeightCapShrinksWidth,
   pdpGallerySlideWidthLock,
+  pdpGalleryTapOpensLightbox,
+  pdpLightboxOpenedTooRecently,
+  pdpLightboxOverlayCss,
+  pdpLightboxSlideWidthLock,
   pdpPageOverflowX,
 } from './pdp-gallery-layout';
 
@@ -73,5 +78,54 @@ assert.ok(/\.pdp-title-row\s*\{[^}]*display:\s*flex/.test(css), 'name and rating
 
 assert.ok(theme.includes('touch-action: pan-x'), 'photo hit-target allows horizontal swipe');
 assert.ok(theme.includes('object-position: center'), 'theme img also centers in the frame');
+
+assert.deepEqual(pdpLightboxOverlayCss(), { position: 'fixed', inset: '0', zIndex: 100 });
+assert.equal(pdpGalleryTapOpensLightbox(0, 0), true);
+assert.equal(pdpGalleryTapOpensLightbox(PDP_LIGHTBOX_TAP_SLOP_PX, 0), true);
+assert.equal(pdpGalleryTapOpensLightbox(PDP_LIGHTBOX_TAP_SLOP_PX + 1, 0), false);
+assert.ok(/\.pdp-lightbox\s*\{[^}]*position:\s*fixed/.test(theme), 'viewer is a fixed overlay');
+assert.ok(/\.pdp-lightbox\s*\{[^}]*inset:\s*0/.test(theme), 'viewer covers the viewport');
+assert.ok(/\.pdp-lightbox\s*\{[^}]*z-index:\s*100/.test(theme), 'viewer sits above sticky ATC / chat');
+assert.ok(/\.pdp-lightbox-inner\s*\{[^}]*width:\s*100%/.test(theme), 'inner pane is full width');
+assert.ok(/\.pdp-lightbox-inner\s*\{[^}]*height:\s*100%/.test(theme), 'inner pane is full height');
+assert.equal(
+  /max-height:\s*min\(70vh,\s*640px\)/.test(theme),
+  false,
+  'lightbox photo must not stay capped at 70vh/640px',
+);
+assert.ok(/\.pdp-lightbox-img\s*\{[^}]*max-height:\s*100%/.test(theme), 'lightbox photo fills the stage');
+assert.ok(/\.pdp-lightbox-close/.test(theme), 'close control is a large X');
+assert.ok(/\.pdp-lightbox-stage[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(theme), 'lightbox swipes one photo');
+assert.ok(/\.pdp-lightbox-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(theme), 'lightbox snaps one photo at a time');
+assert.ok(/\.pdp-lightbox-slide\s*\{[^}]*min-width:\s*100%/.test(theme), 'lightbox slides lock to the track');
+assert.ok(/\.pdp-lightbox-img\s*\{[^}]*pointer-events:\s*none/.test(theme), 'lightbox photo does not steal the pan');
+assert.ok(/\.pdp-lightbox-stage[\s\S]{0,500}touch-action:\s*pan-x/.test(theme), 'lightbox track is pan-x like the gallery');
+assert.ok(theme.includes('.pdp-lightbox-dots'), 'lightbox shows position dots');
+assert.equal(/\.pdp-lightbox-stage\.is-zoomed/.test(theme), false, 'lightbox must not disable snap for zoom');
+assert.deepEqual(pdpLightboxSlideWidthLock(), [
+  'flex: 0 0 100%',
+  'width: 100%',
+  'min-width: 100%',
+  'max-width: 100%',
+]);
+
+const gallerySrc = readFileSync(join(__dirname, '../components/ProductGallery.tsx'), 'utf8');
+assert.ok(gallerySrc.includes('createPortal'), 'viewer mounts on document.body (not clipped by PDP overflow)');
+assert.ok(gallerySrc.includes('openLightbox'), 'tap/Ampliar open the same viewer');
+assert.ok(gallerySrc.includes('pdp-gallery-zoomchip'), 'Ampliar chip remains');
+assert.ok(gallerySrc.includes('pdp-lightbox-close'), 'X closes the viewer');
+assert.ok(gallerySrc.includes("addEventListener('popstate'"), 'Android back closes the viewer');
+assert.ok(gallerySrc.includes('onPointerUp'), 'a tap on the photo (not a swipe) opens the viewer');
+assert.ok(gallerySrc.includes('pdp-lightbox-dots'), 'lightbox has dots under the photo');
+assert.ok(gallerySrc.includes('idxRef.current'), 'close restores the same gallery index');
+assert.equal(gallerySrc.includes('onLightboxTouchStart'), false, 'JS swipe must not fight native scroll-snap');
+assert.equal(gallerySrc.includes('setZoomed'), false, 'lightbox swipe is not gated on zoom');
+assert.ok(gallerySrc.includes('setPointerCapture'), 'photo target keeps the tap pointer');
+assert.equal(pdpLightboxOpenedTooRecently(1000, 1200), true);
+assert.equal(pdpLightboxOpenedTooRecently(1000, 1600), false);
+assert.ok(
+  /\.pdp-gallery-open img\s*\{[^}]*pointer-events:\s*none/.test(theme),
+  'gallery <img> does not steal the tap from the open target',
+);
 
 console.log('pdp-gallery-layout unit tests ok');

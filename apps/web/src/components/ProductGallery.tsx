@@ -1,16 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   clampGalleryIndex,
   galleryAriaLabel,
   galleryCloseLabel,
   galleryCounterLabel,
   galleryOpenLabel,
-  galleryZoomHint,
   nextGalleryIndex,
   type GalleryImage,
 } from '@/lib/product-gallery';
+import { pdpGalleryTapOpensLightbox, pdpLightboxOpenedTooRecently } from '@/lib/pdp-gallery-layout';
 
 type Props = {
   images: GalleryImage[];
@@ -20,12 +21,16 @@ type Props = {
 export function ProductGallery({ images, productName }: Props) {
   const [idx, setIdx] = useState(0);
   const [lightbox, setLightbox] = useState(false);
-  const [zoomed, setZoomed] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const lightboxTrackRef = useRef<HTMLDivElement | null>(null);
   const scrollSyncLock = useRef(false);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-  const touchStartX = useRef<number | null>(null);
+  const tapOrigin = useRef<{ x: number; y: number } | null>(null);
+  const openedAtMs = useRef(0);
+
+  const idxRef = useRef(0);
+  idxRef.current = idx;
 
   const total = images.length;
 
@@ -69,19 +74,52 @@ export function ProductGallery({ images, productName }: Props) {
 
   const openLightbox = useCallback(() => {
     if (!total) return;
-    setZoomed(false);
+    openedAtMs.current = Date.now();
     setLightbox(true);
   }, [total]);
 
   const closeLightbox = useCallback(() => {
     setLightbox(false);
-    setZoomed(false);
+    const n = idxRef.current;
+    window.requestAnimationFrame(() => scrollToIndex(carouselRef.current, n, false));
+  }, [scrollToIndex]);
+
+  const requestCloseLightbox = useCallback(() => {
+    if (pdpLightboxOpenedTooRecently(openedAtMs.current, Date.now())) return;
+    if (typeof window !== 'undefined' && window.history.state?.pdpLightbox) {
+      window.history.back();
+      return;
+    }
+    closeLightbox();
+  }, [closeLightbox]);
+
+  const onPhotoPointerDown = useCallback((e: React.PointerEvent) => {
+    tapOrigin.current = { x: e.clientX, y: e.clientY };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is optional */
+    }
+  }, []);
+
+  const onPhotoPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const origin = tapOrigin.current;
+      tapOrigin.current = null;
+      if (!origin) return;
+      if (!pdpGalleryTapOpensLightbox(e.clientX - origin.x, e.clientY - origin.y)) return;
+      openLightbox();
+    },
+    [openLightbox],
+  );
+
+  useEffect(() => {
+    setPortalReady(true);
   }, []);
 
   useEffect(() => {
     setIdx(0);
     setLightbox(false);
-    setZoomed(false);
     const el = carouselRef.current;
     if (el) el.scrollTo({ left: 0, behavior: 'auto' });
   }, [productName, total, images[0]?.url]);
@@ -92,13 +130,27 @@ export function ProductGallery({ images, productName }: Props) {
     document.body.style.overflow = 'hidden';
     closeBtnRef.current?.focus();
     scrollToIndex(lightboxTrackRef.current, idx, false);
+    if (!window.history.state?.pdpLightbox) {
+      window.history.pushState({ ...(window.history.state || {}), pdpLightbox: true }, '');
+    }
+    const onPop = () => closeLightbox();
+    window.addEventListener('popstate', onPop);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('popstate', onPop);
+    };
+    // idx/scroll only on open; photo changes use goTo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightbox, closeLightbox, scrollToIndex]);
+
+  useEffect(() => {
+    if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        closeLightbox();
+        requestCloseLightbox();
         return;
       }
-      if (zoomed) return;
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         go(1);
@@ -108,25 +160,86 @@ export function ProductGallery({ images, productName }: Props) {
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [closeLightbox, go, idx, lightbox, scrollToIndex, zoomed]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [go, lightbox, requestCloseLightbox]);
 
-  function onLightboxTouchStart(e: React.TouchEvent) {
-    if (zoomed) return;
-    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
-  }
+  const lightboxNode =
+    lightbox && total ? (
+      <div
+        className="pdp-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label={galleryAriaLabel(productName, idx, total)}
+        onClick={requestCloseLightbox}
+      >
+        <div className="pdp-lightbox-inner" onClick={(e) => e.stopPropagation()}>
+          <div className="pdp-lightbox-toolbar">
+            <span className="pdp-lightbox-count">{galleryCounterLabel(idx, total)}</span>
+            <div className="pdp-lightbox-actions">
+              <button
+                type="button"
+                className="pdp-lightbox-close"
+                ref={closeBtnRef}
+                onClick={requestCloseLightbox}
+                aria-label={galleryCloseLabel()}
+              >
+                ×
+              </button>
+            </div>
+          </div>
 
-  function onLightboxTouchEnd(e: React.TouchEvent) {
-    if (zoomed || touchStartX.current == null) return;
-    const x = e.changedTouches[0]?.clientX ?? touchStartX.current;
-    const dx = x - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) < 40) return;
-    go(dx < 0 ? 1 : -1);
-  }
+          <div
+            className="pdp-lightbox-stage"
+            ref={lightboxTrackRef}
+            onScroll={() => onTrackScroll(lightboxTrackRef.current)}
+          >
+            {images.map((img, i) => (
+              <div className="pdp-lightbox-slide" key={`lb-${img.url}-${i}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img.url}
+                  alt={img.alt}
+                  className="pdp-lightbox-img"
+                  width={1200}
+                  height={1200}
+                  decoding="async"
+                  draggable={false}
+                />
+              </div>
+            ))}
+          </div>
+
+          {total > 1 ? (
+            <div className="pdp-lightbox-dots" aria-hidden>
+              {images.map((_, i) => (
+                <span key={i} className={`pdp-lightbox-dot${i === idx ? ' is-on' : ''}`} />
+              ))}
+            </div>
+          ) : null}
+
+          {total > 1 ? (
+            <>
+              <button
+                type="button"
+                className="pdp-lightbox-nav pdp-lightbox-prev"
+                aria-label="Foto anterior"
+                onClick={() => go(-1)}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="pdp-lightbox-nav pdp-lightbox-next"
+                aria-label="Próxima foto"
+                onClick={() => go(1)}
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div className="pdp-gallery">
@@ -158,6 +271,8 @@ export function ProductGallery({ images, productName }: Props) {
                   className="pdp-gallery-open"
                   role="button"
                   tabIndex={0}
+                  onPointerDown={onPhotoPointerDown}
+                  onPointerUp={onPhotoPointerUp}
                   onClick={openLightbox}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -256,90 +371,7 @@ export function ProductGallery({ images, productName }: Props) {
         </div>
       ) : null}
 
-      {lightbox && total ? (
-        <div
-          className="pdp-lightbox"
-          role="dialog"
-          aria-modal="true"
-          aria-label={galleryAriaLabel(productName, idx, total)}
-          onClick={closeLightbox}
-        >
-          <div
-            className="pdp-lightbox-inner"
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={onLightboxTouchStart}
-            onTouchEnd={onLightboxTouchEnd}
-          >
-            <div className="pdp-lightbox-toolbar">
-              <span className="pdp-lightbox-count">{galleryCounterLabel(idx, total)}</span>
-              <div className="pdp-lightbox-actions">
-                <button
-                  type="button"
-                  className="pdp-lightbox-btn"
-                  onClick={() => setZoomed((z) => !z)}
-                >
-                  {galleryZoomHint(zoomed)}
-                </button>
-                <button
-                  type="button"
-                  className="pdp-lightbox-btn"
-                  ref={closeBtnRef}
-                  onClick={closeLightbox}
-                  aria-label={galleryCloseLabel()}
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-
-            <div
-              className={`pdp-lightbox-stage${zoomed ? ' is-zoomed' : ''}`}
-              ref={lightboxTrackRef}
-              onScroll={() => {
-                if (zoomed) return;
-                onTrackScroll(lightboxTrackRef.current);
-              }}
-            >
-              {images.map((img, i) => (
-                <div className="pdp-lightbox-slide" key={`lb-${img.url}-${i}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.url}
-                    alt={img.alt}
-                    className={`pdp-lightbox-img${zoomed ? ' is-zoomed' : ''}`}
-                    width={1200}
-                    height={1200}
-                    decoding="async"
-                    draggable={false}
-                    onClick={() => setZoomed((z) => !z)}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {total > 1 && !zoomed ? (
-              <>
-                <button
-                  type="button"
-                  className="pdp-carousel-nav pdp-carousel-prev"
-                  aria-label="Foto anterior"
-                  onClick={() => go(-1)}
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="pdp-carousel-nav pdp-carousel-next"
-                  aria-label="Próxima foto"
-                  onClick={() => go(1)}
-                >
-                  ›
-                </button>
-              </>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {portalReady && lightboxNode ? createPortal(lightboxNode, document.body) : null}
     </div>
   );
 }

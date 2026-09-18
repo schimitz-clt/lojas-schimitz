@@ -41,3 +41,30 @@ export function pdpGallerySlideWidthLock(): string[] {
 export function pdpPageOverflowX(): string {
   return 'hidden';
 }
+
+/** Fullscreen overlay so tap-to-ampliar is actually large (not a 70vh inset card). */
+export function pdpLightboxOverlayCss(): { position: string; inset: string; zIndex: number } {
+  return { position: 'fixed', inset: '0', zIndex: 100 };
+}
+
+/** Finger movement still counts as a tap on the main photo (opens the viewer). */
+export const PDP_LIGHTBOX_TAP_SLOP_PX = 24;
+
+export function pdpGalleryTapOpensLightbox(dx: number, dy: number): boolean {
+  const slop = PDP_LIGHTBOX_TAP_SLOP_PX;
+  return dx * dx + dy * dy <= slop * slop;
+}
+
+/** Ignore the click that follows pointerup after the overlay appears. */
+export function pdpLightboxIgnoreCloseMs(): number {
+  return 450;
+}
+
+export function pdpLightboxOpenedTooRecently(openedAtMs: number, nowMs: number): boolean {
+  return nowMs - openedAtMs < pdpLightboxIgnoreCloseMs();
+}
+
+/** Same slide-width lock as the inline gallery — swipe lives on the lightbox track. */
+export function pdpLightboxSlideWidthLock(): string[] {
+  return ['flex: 0 0 100%', 'width: 100%', 'min-width: 100%', 'max-width: 100%'];
+}
