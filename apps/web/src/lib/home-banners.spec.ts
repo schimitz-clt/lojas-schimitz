@@ -1,0 +1,145 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  BANNER_TAP_SLOP_PX,
+  MAX_HOME_BANNERS,
+  bannerAlt,
+  bannerAriaLabel,
+  bannerCtaHref,
+  bannerCtaLabel,
+  bannerDotLabel,
+  bannerImageUrl,
+  bannerNavNextLabel,
+  bannerNavPrevLabel,
+  bannerTapOpensLink,
+  canCreateHomeBanner,
+  clampBannerIndex,
+  homeBannerCountHint,
+  homeBannerLimitMessage,
+  homeBannerSlideWidthLock,
+  isUsableHomeBanner,
+  nextBannerIndex,
+  shouldShowBannerChrome,
+  takeUsableHomeBanners,
+  type HomeBanner,
+} from './home-banners';
+
+function banner(partial: Partial<HomeBanner> & Pick<HomeBanner, 'id' | 'imageUrl'>): HomeBanner {
+  return {
+    title: '',
+    alt: '',
+    linkUrl: null,
+    sortOrder: 0,
+    active: true,
+    ...partial,
+  };
+}
+
+assert.equal(MAX_HOME_BANNERS, 5);
+assert.equal(canCreateHomeBanner(0), true);
+assert.equal(canCreateHomeBanner(4), true);
+assert.equal(canCreateHomeBanner(5), false);
+assert.equal(canCreateHomeBanner(9), false);
+assert.equal(canCreateHomeBanner(Number.NaN), true);
+
+const six = Array.from({ length: 6 }, (_, i) =>
+  banner({ id: `b${i}`, imageUrl: `https://cdn.example/b${i}.jpg`, sortOrder: i }),
+);
+assert.equal(takeUsableHomeBanners(six).length, 5);
+assert.deepEqual(
+  takeUsableHomeBanners(six).map((b) => b.id),
+  ['b0', 'b1', 'b2', 'b3', 'b4'],
+);
+
+assert.equal(isUsableHomeBanner(banner({ id: 'ok', imageUrl: 'https://cdn.example/hero.jpg' })), true);
+assert.equal(isUsableHomeBanner(banner({ id: 'empty', imageUrl: '   ' })), false);
+assert.equal(isUsableHomeBanner(banner({ id: 'ph', imageUrl: 'https://placehold.co/1200x400' })), false);
+assert.equal(isUsableHomeBanner(null), false);
+
+assert.equal(takeUsableHomeBanners(null).length, 0);
+assert.equal(
+  takeUsableHomeBanners([
+    banner({ id: 'ph', imageUrl: 'https://placehold.co/x' }),
+    banner({ id: 'real', imageUrl: 'https://cdn.example/promo.jpg' }),
+  ]).map((b) => b.id).join(),
+  'real',
+);
+
+assert.equal(shouldShowBannerChrome(0), false);
+assert.equal(shouldShowBannerChrome(1), false);
+assert.equal(shouldShowBannerChrome(2), true);
+
+assert.equal(nextBannerIndex(0, 3, 1), 1);
+assert.equal(nextBannerIndex(2, 3, 1), 0);
+assert.equal(nextBannerIndex(0, 3, -1), 2);
+assert.equal(nextBannerIndex(0, 0, 1), 0);
+assert.equal(clampBannerIndex(9, 3), 2);
+assert.equal(clampBannerIndex(-1, 3), 0);
+
+assert.equal(bannerCtaLabel(), 'Conferir agora');
+assert.equal(bannerCtaHref({ linkUrl: '/departamento/ofertas' }), '/departamento/ofertas');
+assert.equal(bannerCtaHref({ linkUrl: null }), '/departamento/ofertas');
+assert.equal(bannerCtaHref({ linkUrl: '  ' }), '/departamento/ofertas');
+assert.equal(bannerAlt({ alt: '', title: 'Semana do eletro' }), 'Semana do eletro');
+assert.equal(bannerAriaLabel(0, 1), 'Destaques');
+assert.equal(bannerAriaLabel(1, 3), 'Destaques (2 de 3)');
+assert.equal(bannerNavPrevLabel(), 'Banner anterior');
+assert.equal(bannerNavNextLabel(), 'Próximo banner');
+assert.equal(bannerDotLabel(0), 'Banner 1');
+assert.equal(homeBannerLimitMessage().includes('5'), true);
+assert.ok(homeBannerCountHint(0).includes('5'));
+assert.ok(homeBannerCountHint(2).startsWith('2 de 5'));
+assert.ok(homeBannerCountHint(5).includes('Exclua'));
+
+assert.equal(bannerTapOpensLink(0, 0), true);
+assert.equal(bannerTapOpensLink(BANNER_TAP_SLOP_PX, 0), true);
+assert.equal(bannerTapOpensLink(BANNER_TAP_SLOP_PX + 1, 0), false);
+
+assert.deepEqual(homeBannerSlideWidthLock(), [
+  'flex: 0 0 100%',
+  'width: 100%',
+  'min-width: 100%',
+  'max-width: 100%',
+]);
+
+const css = readFileSync(join(__dirname, '../app/globals.css'), 'utf8');
+assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*hidden/.test(css), 'document must not scroll sideways');
+assert.ok(/\.home\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'home page hides horizontal overflow');
+assert.ok(/\.home-banners\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'banner shell does not leak sideways');
+assert.ok(
+  /\.home-banner-track[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(css),
+  'home swipe is internal scroll-snap',
+);
+assert.ok(/\.home-banner-track[\s\S]{0,280}overflow-x:\s*auto/.test(css), 'only the banner track scrolls horizontally');
+assert.ok(/\.home-banner-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'slides lock to track width');
+assert.ok(/\.home-banner-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(css), 'snaps one banner at a time');
+assert.ok(/\.home-banner-dots[\s\S]{0,120}position:\s*static/.test(css), 'dots sit under the banner');
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.home-banner-nav[\s\S]*display:\s*none/.test(css),
+  'mobile uses swipe + dots, not side arrows',
+);
+
+const src = readFileSync(join(__dirname, '../components/HomeBanners.tsx'), 'utf8');
+assert.ok(src.includes('home-banner-track'), 'carousel renders a swipe track');
+assert.ok(src.includes('takeUsableHomeBanners'), 'storefront caps usable banners at 5');
+assert.ok(src.includes('shouldShowBannerChrome'), 'single banner hides arrows/dots');
+assert.ok(src.includes('StaticPromoStrip'), 'empty API keeps the current promo as slide 1');
+assert.ok(src.includes('pauseAuto'), 'auto-advance pauses on touch');
+assert.ok(src.includes('HOME_BANNER_AUTO_MS'), 'gentle auto-advance is wired');
+assert.equal(src.includes('onTouchStart'), false, 'JS swipe must not fight native scroll-snap');
+assert.ok(src.includes('bannerCtaLabel()'), 'CTA copy stays Conferir agora');
+
+const adminSrc = readFileSync(
+  join(__dirname, '../components/admin/sections/AdminVitrineSection.tsx'),
+  'utf8',
+);
+assert.ok(adminSrc.includes('homeBannerCountHint'), 'admin shows 1–5 slot hint');
+assert.ok(adminSrc.includes('canCreateHomeBanner'), 'admin hides create at the 5-banner cap');
+
+const adminState = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
+assert.ok(adminState.includes('homeBannerLimitMessage'), 'create is blocked at 5 on the client');
+
+assert.equal(bannerImageUrl({ imageUrl: '  https://cdn.example/a.jpg  ' }), 'https://cdn.example/a.jpg');
+
+console.log('home-banners unit tests ok');

@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
+import {
+  canCreateHomeBanner,
+  homeBannerLimitMessage,
+  MAX_HOME_BANNERS,
+  takeHomeBanners,
+} from './home-banners';
 
 const DEFAULT_TITLE = 'Lojas Schimitz';
 const DEFAULT_DESCRIPTION =
@@ -131,8 +137,9 @@ export class StorefrontService {
     const rows = await this.prisma.homeBanner.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      take: MAX_HOME_BANNERS,
     });
-    return rows.map(serializeBanner);
+    return takeHomeBanners(rows).map(serializeBanner);
   }
 
   async listAdminBanners() {
@@ -144,22 +151,28 @@ export class StorefrontService {
 
   async createBanner(input: CreateBannerInput) {
     const imageUrl = assertImageUrl(input.imageUrl);
-    const maxSort = await this.prisma.homeBanner.aggregate({ _max: { sortOrder: true } });
-    const sortOrder =
-      input.sortOrder != null && Number.isFinite(input.sortOrder)
-        ? Math.trunc(input.sortOrder)
-        : (maxSort._max.sortOrder ?? -1) + 1;
-    const row = await this.prisma.homeBanner.create({
-      data: {
-        title: (input.title || '').trim().slice(0, 120),
-        alt: (input.alt || input.title || '').trim().slice(0, 160),
-        imageUrl,
-        linkUrl: normalizeLink(input.linkUrl),
-        sortOrder,
-        active: input.active !== false,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const count = await tx.homeBanner.count();
+      if (!canCreateHomeBanner(count)) {
+        throw new BadRequestException(homeBannerLimitMessage());
+      }
+      const maxSort = await tx.homeBanner.aggregate({ _max: { sortOrder: true } });
+      const sortOrder =
+        input.sortOrder != null && Number.isFinite(input.sortOrder)
+          ? Math.trunc(input.sortOrder)
+          : (maxSort._max.sortOrder ?? -1) + 1;
+      const row = await tx.homeBanner.create({
+        data: {
+          title: (input.title || '').trim().slice(0, 120),
+          alt: (input.alt || input.title || '').trim().slice(0, 160),
+          imageUrl,
+          linkUrl: normalizeLink(input.linkUrl),
+          sortOrder,
+          active: input.active !== false,
+        },
+      });
+      return serializeBanner(row);
     });
-    return serializeBanner(row);
   }
 
   async updateBanner(id: string, input: UpdateBannerInput) {
