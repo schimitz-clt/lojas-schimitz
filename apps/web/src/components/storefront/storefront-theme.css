@@ -1634,6 +1634,9 @@
   object-fit: contain;
   object-position: center;
   cursor: zoom-in;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 .pdp-lightbox-img.is-zoomed {
