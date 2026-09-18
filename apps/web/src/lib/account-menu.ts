@@ -165,6 +165,7 @@ export function accountWhatsAppHref(
 
 export type AccountMenuOptions = {
   loggedIn: boolean;
+  /** Accepted for callers; Conta hub never lists staff rows from role. */
   role?: string | null;
   whatsappHref: string;
 };
@@ -172,10 +173,10 @@ export type AccountMenuOptions = {
 /**
  * Sectioned hub rows. Guest still gets useful links + Entrar is rendered by the page.
  * Auth-gated destinations use /entrar?next= so the row is never a dead end.
+ * Customer-only: never list Admin da loja or Portal do vendedor (staff uses /admin and /vendedor directly).
  */
 export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSection[] {
   const loggedIn = Boolean(opts.loggedIn);
-  const role = (opts.role || '').trim();
   const ordersHref = loggedIn ? '/pedidos' : accountLoginHref('/pedidos');
   const dadosHref = loggedIn ? ACCOUNT_DADOS_PATH : accountLoginHref(ACCOUNT_DADOS_PATH);
   const notifHref = loggedIn ? '/notificacoes' : accountLoginHref('/notificacoes');
@@ -199,17 +200,6 @@ export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSectio
     { id: 'favorites', label: 'Favoritos', href: '/favoritos', icon: 'heart' },
     { id: 'notifications', label: 'Notificações', href: notifHref, icon: 'bell' },
   ];
-  if (role === 'admin') {
-    contaItems.push({ id: 'admin', label: 'Admin da loja', href: '/admin', icon: 'admin' });
-  }
-  if (role === 'seller' || role === 'admin') {
-    contaItems.push({
-      id: 'seller',
-      label: 'Portal do vendedor',
-      href: '/vendedor',
-      icon: 'seller',
-    });
-  }
   if (loggedIn) {
     contaItems.push({
       id: 'logout',

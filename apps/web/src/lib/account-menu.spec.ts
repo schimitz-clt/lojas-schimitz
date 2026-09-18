@@ -63,7 +63,14 @@ assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.href, '/favoritos
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.href, wa);
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.external, true);
 assert.equal(guest[2].items.find((i) => i.id === 'support')?.href, '/suporte');
-assert.ok(!guest.flatMap((s) => s.items).some((i) => i.id === 'admin'));
+function assertCustomerOnlyMenu(sections: ReturnType<typeof accountMenuSections>) {
+  const items = sections.flatMap((s) => s.items);
+  assert.ok(!items.some((i) => i.id === 'admin' || i.id === 'seller'));
+  assert.ok(!items.some((i) => i.href === '/admin' || i.href === '/vendedor'));
+  assert.ok(!items.some((i) => /admin da loja|portal do vendedor/i.test(i.label)));
+}
+
+assertCustomerOnlyMenu(guest);
 
 const member = accountMenuSections({
   loggedIn: true,
@@ -73,15 +80,22 @@ const member = accountMenuSections({
 assert.equal(member[0].items.find((i) => i.id === 'orders')?.href, '/pedidos');
 assert.equal(member[1].items.find((i) => i.id === 'profile')?.href, ACCOUNT_DADOS_PATH);
 assert.equal(member[1].items.find((i) => i.id === 'logout')?.action, 'logout');
-assert.ok(!member.flatMap((s) => s.items).some((i) => i.id === 'admin' || i.id === 'seller'));
+assertCustomerOnlyMenu(member);
 
 const admin = accountMenuSections({
   loggedIn: true,
   role: 'admin',
   whatsappHref: wa,
 });
-assert.ok(admin[1].items.some((i) => i.href === '/admin'));
-assert.ok(admin[1].items.some((i) => i.href === '/vendedor'));
+assert.equal(admin[1].items.find((i) => i.id === 'logout')?.action, 'logout');
+assertCustomerOnlyMenu(admin);
+
+const seller = accountMenuSections({
+  loggedIn: true,
+  role: 'seller',
+  whatsappHref: wa,
+});
+assertCustomerOnlyMenu(seller);
 
 assert.equal(ACCOUNT_EDIT_ADDRESS_CTA, 'Alterar endereço');
 assert.ok(!ACCOUNT_EDIT_ADDRESS_CTA.toLowerCase().includes('adicionar outro'));
@@ -171,6 +185,12 @@ assert.ok(!/magalu/i.test(dados), 'no Magalu on dados');
 const vistos = readFileSync(join(srcRoot, 'app/conta/vistos/page.tsx'), 'utf8');
 assert.ok(vistos.includes('readRecentList'), 'vistos uses existing recently-viewed');
 assert.ok(vistos.includes('ProductCard'), 'vistos shows real catalog snapshots');
+
+const menuSrc = readFileSync(join(srcRoot, 'lib/account-menu.ts'), 'utf8');
+assert.ok(!menuSrc.includes("label: 'Admin da loja'"), 'Conta hub source has no Admin da loja row');
+assert.ok(!menuSrc.includes("label: 'Portal do vendedor'"), 'Conta hub source has no Portal do vendedor row');
+assert.ok(!menuSrc.includes("href: '/admin'"), 'Conta hub does not link /admin');
+assert.ok(!menuSrc.includes("href: '/vendedor'"), 'Conta hub does not link /vendedor');
 
 const menuUi = readFileSync(join(srcRoot, 'components/account/AccountMenu.tsx'), 'utf8');
 assert.ok(menuUi.includes('account-hub-row'), 'row layout');
