@@ -208,7 +208,6 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
  * User em localStorage (não é JWT). Access/refresh: cookie HttpOnly em hosts cookie-first;
  * memória no localhost. Nunca gravar JWTs em localStorage/sessionStorage.
  * Cookie-first: body de refresh/logout é `{}` mesmo se restar `sch_refresh` legado.
- * REFRESH_JSON_TOKEN_ENABLED is an API env flag — this client does not set it.
  */
 export function saveSession(data: { accessToken: string; refreshToken?: string; user: unknown }) {
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
