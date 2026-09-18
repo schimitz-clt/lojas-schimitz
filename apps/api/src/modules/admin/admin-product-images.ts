@@ -6,6 +6,21 @@
 
 export const CREATE_IMAGE_URL_MAX = 10;
 
+/**
+ * Cover URL to apply on product UPDATE.
+ * Empty / whitespace / null / undefined → leave existing ProductImage rows alone.
+ * Clearing photos is DELETE /admin/products/:id/images/:imageId only.
+ *
+ * 2026-09-18: PATCH with imageUrl '' / null deleted the cover row (Sansung A54 gallery wiped).
+ */
+export function coverUrlToApplyOnUpdate(
+  imageUrl: string | null | undefined,
+): string | undefined {
+  if (typeof imageUrl !== 'string') return undefined;
+  const url = imageUrl.trim();
+  return url || undefined;
+}
+
 export function collectCreateImageUrls(
   input: { imageUrl?: string | null; imageUrls?: string[] | null },
   max = CREATE_IMAGE_URL_MAX,

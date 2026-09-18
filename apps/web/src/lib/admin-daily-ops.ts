@@ -289,6 +289,28 @@ export function extraProductImageUrls(urls: string[]): string[] {
   return urls.slice(1);
 }
 
+/**
+ * Image fields on product create/update JSON.
+ * UPDATE never sends imageUrl (empty string/null used to DELETE the cover ProductImage).
+ * CREATE only includes a real cover URL (+ extras). Saving name/price must not touch the gallery.
+ */
+export function applyProductSaveImageFields(
+  body: Record<string, unknown>,
+  opts: { isEdit: boolean; galleryUrls: string[] },
+): Record<string, unknown> {
+  delete body.imageUrl;
+  delete body.imageUrls;
+  if (opts.isEdit) return body;
+  const cover =
+    typeof opts.galleryUrls[0] === 'string' ? opts.galleryUrls[0].trim() : '';
+  if (cover) body.imageUrl = cover;
+  const extras = extraProductImageUrls(opts.galleryUrls).filter(
+    (url) => typeof url === 'string' && url.trim(),
+  );
+  if (extras.length) body.imageUrls = extras;
+  return body;
+}
+
 export function missingProductImageUrls(desired: string[], existing: Array<{ url?: string | null }> | null | undefined): string[] {
   const have = new Set(
     (existing || [])

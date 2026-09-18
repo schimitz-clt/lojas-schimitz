@@ -60,8 +60,11 @@ assert.ok(/\bmultiple\b/.test(catalog), 'catalog file input stays multiple');
 assert.ok(catalog.includes('Adicionar mais fotos') || catalog.includes('Adicionar fotos'), 'owner can add more photos');
 
 const adminState = readFileSync(join(srcRoot, 'components/admin/admin-console-state.ts'), 'utf8');
-assert.ok(adminState.includes('imageUrls'), 'create persists extra photos in the same request');
+assert.ok(adminState.includes('applyProductSaveImageFields'), 'save omits empty imageUrl via helper');
 assert.ok(adminState.includes('/admin/products/${'), 'edit loads/saves via product id APIs');
 assert.ok(!/if \(editingId\) \{[\s\S]{0,400}body\.imageUrl/.test(adminState), 'edit save must not send imageUrl (would replace cover)');
+
+const dailyOps = readFileSync(join(srcRoot, 'lib/admin-daily-ops.ts'), 'utf8');
+assert.ok(dailyOps.includes('body.imageUrls'), 'create persists extra photos in the same request');
 
 console.log('pdp-offer unit tests ok');
