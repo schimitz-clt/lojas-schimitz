@@ -1,0 +1,211 @@
+/**
+ * Header search suggestions — rank/filter real catalog + category results.
+ * No mock products. Network stays in the UI; this file is pure.
+ */
+
+export const SEARCH_SUGGEST_MIN = 2;
+export const SEARCH_SUGGEST_DEBOUNCE_MS = 280;
+export const SEARCH_SUGGEST_PRODUCT_LIMIT = 6;
+export const SEARCH_SUGGEST_CATEGORY_LIMIT = 3;
+
+export type SearchProductLike = {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+  price?: number | string | null;
+  category?: { name?: string | null; slug?: string | null } | null;
+  image?: string | null;
+  imageUrl?: string | null;
+  images?: { url?: string | null }[] | null;
+};
+
+export type SearchCategoryLike = {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+};
+
+export type SuggestionKind = 'category' | 'product' | 'all';
+
+export type SuggestionRow = {
+  id: string;
+  kind: SuggestionKind;
+  href: string;
+  label: string;
+  sub?: string;
+};
+
+function asText(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+export function normalizeSearchQuery(q: string | null | undefined): string {
+  return (q || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+export function shouldFetchSuggestions(q: string | null | undefined): boolean {
+  return normalizeSearchQuery(q).length >= SEARCH_SUGGEST_MIN;
+}
+
+export function catalogSearchHref(q: string | null | undefined): string {
+  const t = (q || '').trim();
+  return t ? `/produtos?q=${encodeURIComponent(t)}` : '/produtos';
+}
+
+export function productSuggestHref(slug: string): string {
+  const s = asText(slug);
+  return s ? `/produto/${encodeURIComponent(s)}` : '/produtos';
+}
+
+export function categorySuggestHref(slug: string): string {
+  const s = asText(slug);
+  return s ? `/departamento/${encodeURIComponent(s)}` : '/produtos';
+}
+
+/** Unwrap GET /products — array legacy or { items }. */
+export function productsFromListResponse(data: unknown): SearchProductLike[] {
+  if (Array.isArray(data)) {
+    return data.filter((x) => x && typeof x === 'object') as SearchProductLike[];
+  }
+  if (data && typeof data === 'object') {
+    const items = (data as { items?: unknown }).items;
+    if (Array.isArray(items)) {
+      return items.filter((x) => x && typeof x === 'object') as SearchProductLike[];
+    }
+  }
+  return [];
+}
+
+export function categoriesFromListResponse(data: unknown): SearchCategoryLike[] {
+  if (!Array.isArray(data)) return [];
+  return data.filter((x) => x && typeof x === 'object') as SearchCategoryLike[];
+}
+
+function scoreProduct(p: SearchProductLike, nq: string): number {
+  const name = normalizeSearchQuery(asText(p.name));
+  const slug = normalizeSearchQuery(asText(p.slug));
+  const cat = normalizeSearchQuery(asText(p.category?.name) || asText(p.category?.slug));
+  if (!nq) return 0;
+  if (name.startsWith(nq) || slug.startsWith(nq)) return 4;
+  if (name.includes(nq) || slug.includes(nq)) return 3;
+  if (cat.startsWith(nq)) return 2;
+  if (cat.includes(nq)) return 1;
+  return 0.5;
+}
+
+/** Rank API hits: name/slug first, then category, then other API matches. */
+export function rankProductSuggestions(
+  items: SearchProductLike[],
+  q: string,
+  limit = SEARCH_SUGGEST_PRODUCT_LIMIT,
+): SearchProductLike[] {
+  const nq = normalizeSearchQuery(q);
+  const seen = new Set<string>();
+  const scored = productsFromListResponse(items)
+    .filter((p) => asText(p.id) && asText(p.slug) && asText(p.name))
+    .map((p) => ({ p, score: scoreProduct(p, nq) }))
+    .sort((a, b) => b.score - a.score || asText(a.p.name).localeCompare(asText(b.p.name), 'pt-BR'));
+  const out: SearchProductLike[] = [];
+  for (const { p } of scored) {
+    const key = asText(p.id) || asText(p.slug);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+    if (out.length >= Math.max(1, limit)) break;
+  }
+  return out;
+}
+
+export function filterCategorySuggestions(
+  categories: SearchCategoryLike[],
+  q: string,
+  limit = SEARCH_SUGGEST_CATEGORY_LIMIT,
+): SearchCategoryLike[] {
+  const nq = normalizeSearchQuery(q);
+  if (!nq) return [];
+  const out: SearchCategoryLike[] = [];
+  const seen = new Set<string>();
+  for (const c of categoriesFromListResponse(categories)) {
+    const name = asText(c.name);
+    const slug = asText(c.slug);
+    if (!name || !slug) continue;
+    const hay = `${normalizeSearchQuery(name)} ${normalizeSearchQuery(slug)}`;
+    if (!hay.includes(nq)) continue;
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ id: asText(c.id) || slug, name, slug });
+    if (out.length >= Math.max(1, limit)) break;
+  }
+  return out;
+}
+
+export function buildSuggestionRows(input: {
+  q: string;
+  products?: SearchProductLike[];
+  categories?: SearchCategoryLike[];
+}): SuggestionRow[] {
+  const q = (input.q || '').trim();
+  const rows: SuggestionRow[] = [];
+  const cats = filterCategorySuggestions(input.categories || [], q);
+  for (const c of cats) {
+    const slug = asText(c.slug);
+    rows.push({
+      id: `cat-${slug}`,
+      kind: 'category',
+      href: categorySuggestHref(slug),
+      label: asText(c.name) || slug,
+      sub: 'Departamento',
+    });
+  }
+  const products = rankProductSuggestions(input.products || [], q);
+  for (const p of products) {
+    const id = asText(p.id) || asText(p.slug);
+    rows.push({
+      id: `p-${id}`,
+      kind: 'product',
+      href: productSuggestHref(asText(p.slug)),
+      label: asText(p.name),
+      sub: asText(p.category?.name) || undefined,
+    });
+  }
+  if (q) {
+    rows.push({
+      id: 'all',
+      kind: 'all',
+      href: catalogSearchHref(q),
+      label: `Ver todos os resultados para “${q}”`,
+    });
+  }
+  return rows;
+}
+
+/** -1 = input itself; wrap at ends. */
+export function nextSuggestionIndex(current: number, total: number, delta: number): number {
+  if (!Number.isFinite(total) || total <= 0) return -1;
+  const cur = Number.isFinite(current) ? current : -1;
+  const step = delta < 0 ? -1 : 1;
+  let next = cur + step;
+  if (next < -1) return total - 1;
+  if (next >= total) return -1;
+  return next;
+}
+
+export function suggestionsStatusLabel(opts: {
+  q: string;
+  loading: boolean;
+  count: number;
+}): string {
+  const q = opts.q.trim();
+  if (!shouldFetchSuggestions(q)) return '';
+  if (opts.loading) return `Buscando “${q}”…`;
+  if (opts.count <= 0) return `Nenhuma sugestão para “${q}”.`;
+  return opts.count === 1 ? '1 sugestão' : `${opts.count} sugestões`;
+}
+
+export function searchBoxAriaControlsId(): string {
+  return 'hdr-search-suggest';
+}

@@ -8,6 +8,7 @@ import { discountPercent } from '@/lib/storefront-pro';
 import { productCardCues, productCardKicker } from '@/lib/product-card-cues';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { CompareToggle } from '@/components/compare/CompareToggle';
+import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 
 export type Product = {
   id: string;
@@ -109,6 +110,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
 
   return (
     <article className="pcard pcard-pro">
+      <FavoriteToggle productId={p.id} variant="card" />
       <CompareToggle product={p} variant="card" />
       <Link href={`/produto/${p.slug}`} className="pcard-link">
         <div className="pcard-media">

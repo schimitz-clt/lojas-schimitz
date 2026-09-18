@@ -12,5 +12,7 @@ assert.ok(/Frete grátis em POA/.test(topbar[0]), 'topbar keeps frete');
 assert.ok(/PIX/.test(topbar[0]), 'topbar keeps PIX');
 assert.ok(header.includes('interestFreeInstallmentClaim()'), 'topbar keeps 3x claim helper');
 assert.ok(/className="btn wa[\w\s-]*"/.test(header), 'header WhatsApp contact button remains');
+assert.ok(header.includes('<SearchBox'), 'header search uses live suggestions box');
+assert.ok(!/Atendimento WhatsApp/.test(header), 'header file must not add Atendimento WhatsApp copy');
 
 console.log('storefront-copy unit tests ok');

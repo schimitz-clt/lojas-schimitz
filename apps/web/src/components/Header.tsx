@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { api, currentUser, userAccountLabel, waLink } from '@/lib/api';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
+import { SearchBox } from '@/components/SearchBox';
+import { useFavorites } from '@/components/favorites/FavoritesProvider';
+import { formatWishlistBadge } from '@/lib/wishlist-ui';
 
 const CEP_KEY = 'sch_cep';
 
@@ -15,19 +18,21 @@ function formatCep(raw: string) {
 
 export function Header() {
   const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
-  const [q, setQ] = useState('');
+  const [qInit, setQInit] = useState('');
   const [unread, setUnread] = useState(0);
   const [cartCount, setCartCount] = useState(0);
   const [cep, setCep] = useState('');
   const [editingCep, setEditingCep] = useState(false);
   const [cepDraft, setCepDraft] = useState('');
+  const { count: favCount } = useFavorites();
+  const favBadge = formatWishlistBadge(favCount);
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const fromUrl = (params.get('q') || '').trim();
       if (fromUrl && window.location.pathname.startsWith('/produtos')) {
-        setQ(fromUrl);
+        setQInit(fromUrl);
       }
     } catch {
       /* ignore */
@@ -93,28 +98,7 @@ export function Header() {
               LOJAS <span>SCHIMITZ</span>
             </Link>
 
-            <form
-              className="search"
-              action="/produtos"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const term = q.trim();
-                window.location.href = term
-                  ? `/produtos?q=${encodeURIComponent(term)}`
-                  : '/produtos';
-              }}
-            >
-              <input
-                name="q"
-                placeholder="O que você está procurando?"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label="Buscar produtos"
-              />
-              <button type="submit" className="search-submit" aria-label="Buscar">
-                🔍
-              </button>
-            </form>
+            <SearchBox initialQuery={qInit} />
 
             {editingCep ? (
               <form className="hdr-cep-form" onSubmit={saveCep}>
@@ -163,6 +147,7 @@ export function Header() {
                   ♥
                 </span>
                 Favoritos
+                {favBadge ? <span className="hdr-badge">{favBadge}</span> : null}
               </Link>
               <CompareHeaderLink />
               <Link className="hdr-link" href="/carrinho">

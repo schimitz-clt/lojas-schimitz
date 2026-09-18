@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { api, currentUser } from '@/lib/api';
+import { useFavorites } from '@/components/favorites/FavoritesProvider';
+import { formatWishlistBadge } from '@/lib/wishlist-ui';
 
 type NavItem = {
   href: string;
@@ -17,6 +19,9 @@ export function BottomNav() {
   const path = usePathname() || '/';
   const [cartCount, setCartCount] = useState(0);
   const [user, setUser] = useState<ReturnType<typeof currentUser>>(null);
+  const { count: favCount } = useFavorites();
+  const favBadge = formatWishlistBadge(favCount);
+  const favBadgeNum = favBadge ? favCount : 0;
 
   useEffect(() => {
     setUser(currentUser());
@@ -61,6 +66,7 @@ export function BottomNav() {
       href: '/favoritos',
       label: 'Favoritos',
       ico: '♥',
+      badge: favBadgeNum,
       match: (p) => p.startsWith('/favoritos'),
     },
     {

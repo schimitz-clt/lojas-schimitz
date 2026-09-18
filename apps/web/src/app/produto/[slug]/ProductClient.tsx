@@ -17,6 +17,9 @@ import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
 import { ProductGallery } from '@/components/ProductGallery';
 import { CompareToggle } from '@/components/compare/CompareToggle';
+import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
+import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
+import { rememberProductView } from '@/lib/recently-viewed';
 
 type Detail = {
   id: string;
@@ -162,6 +165,7 @@ export default function ProductPage() {
     api<Detail>(`/products/${slug}`)
       .then(async (product) => {
         setP(product);
+        rememberProductView(product);
         await Promise.all([loadReviews(product.id), loadEligibility(product.id)]);
       })
       .catch((e) => setErr(e.message));
@@ -185,17 +189,6 @@ export default function ProductPage() {
       setErr(e.message);
     } finally {
       setAdding(false);
-    }
-  }
-
-  async function fav() {
-    if (!p) return;
-    try {
-      await api('/favorites', { method: 'POST', body: JSON.stringify({ productId: p.id }) });
-      setMsg('Salvo nos favoritos.');
-      setErr('');
-    } catch (e: any) {
-      setErr(e.message);
     }
   }
 
@@ -343,9 +336,7 @@ export default function ProductPage() {
               </button>
             )}
             <CompareToggle product={p} variant="pdp" />
-            <button className="btn ghost" onClick={fav}>
-              Favoritar
-            </button>
+            <FavoriteToggle productId={p.id} variant="pdp" />
             <a
               className="btn wa"
               href={waLink(`Olá, quero o produto ${p.name}`)}
@@ -480,6 +471,8 @@ export default function ProductPage() {
           </button>
         )}
       </div>
+
+      <RecentlyViewedStrip excludeId={p.id} excludeSlug={p.slug} />
 
       {showBagToast ? (
         <div className="pdp-cart-toast" role="status" aria-live="polite">
