@@ -256,7 +256,14 @@ export function validateProductPhotoFile(
   max = 10,
 ): string | null {
   if (!file) return 'Selecione um arquivo de imagem.';
-  if (!isAllowedProductPhotoMime(file.type, file.name)) return 'Use uma imagem JPG, PNG ou WebP.';
+  if (!isAllowedProductPhotoMime(file.type, file.name)) {
+    const mime = String(file.type || '').toLowerCase();
+    const name = String(file.name || '').toLowerCase();
+    if (mime.includes('heic') || mime.includes('heif') || /\.hei[cf]$/.test(name)) {
+      return 'Este arquivo é HEIC/HEIF. Na galeria escolha JPG, ou desative “Fotos de alta eficiência” na câmera. Use JPG, PNG ou WebP.';
+    }
+    return 'Use uma imagem JPG, PNG ou WebP.';
+  }
   if (file.size > PHOTO_MAX_BYTES) return 'A foto deve ter no máximo 15 MB.';
   if (currentCount >= max) return `Limite de ${max} fotos por produto.`;
   return null;

@@ -1,5 +1,6 @@
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from './whatsapp';
 import { getBrowserApiBase } from './api-proxy';
+import { parseApiEnvelope, type ApiFail, type ApiOk } from './api-envelope';
 import {
   AUTH_STORAGE_KEYS,
   discardStaleRefreshStorage,
@@ -8,13 +9,12 @@ import {
   wipeAuthSessionStorage,
 } from './auth-session';
 
+export type { ApiFail, ApiOk } from './api-envelope';
+
 /** Browser: same-origin /api/v1 in prod; localhost API for local. Cookie-first body is empty. */
 function API() {
   return getBrowserApiBase();
 }
-
-export type ApiOk<T> = { ok: true; data: T; meta?: { requestId: string } };
-export type ApiFail = { ok: false; error: { code: string; message: string } };
 
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -142,7 +142,7 @@ function buildJsonHeaders(init: RequestInit = {}): Record<string, string> {
 export async function api<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
   const headers = buildJsonHeaders(init);
   const res = await fetch(`${API()}${path}`, { ...init, headers, cache: 'no-store', credentials: 'include' });
-  const json = (await res.json()) as ApiOk<T> | ApiFail;
+  const json = parseApiEnvelope<T>(await res.text(), res.status, 'Erro na API');
 
   const failMsg = !json.ok ? json.error.message || 'Erro na API' : 'Token inválido';
   if (responseLooksUnauthorized(res, json)) {
@@ -168,7 +168,7 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
     cache: 'no-store',
     credentials: 'include',
   });
-  const json = (await res.json()) as ApiOk<T> | ApiFail;
+  const json = parseApiEnvelope<T>(await res.text(), res.status, 'Erro no upload');
 
   const failMsg = !json.ok ? json.error.message || 'Erro no upload' : 'Token inválido';
   if (responseLooksUnauthorized(res, json)) {

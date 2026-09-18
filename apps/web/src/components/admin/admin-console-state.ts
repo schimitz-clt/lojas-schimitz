@@ -58,6 +58,11 @@ import {
   applyProductSaveImageFields,
 } from '@/lib/admin-daily-ops';
 import {
+  emptyPhotoSelectionError,
+  photoUploadProgressLabel,
+  snapshotSelectedFiles,
+} from '@/lib/admin-photo-upload';
+import {
   buildSalesReportCsv,
   salesCsvWithBom,
   salesExportFilename,
@@ -128,6 +133,7 @@ export function useAdminConsoleState() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formImages, setFormImages] = useState<FormImage[]>([]);
@@ -803,8 +809,12 @@ export function useAdminConsoleState() {
   }
 
   async function uploadPhoto(file: File | null) {
-    if (!file) return;
+    if (!file) {
+      setErr(emptyPhotoSelectionError());
+      return;
+    }
     setUploading(true);
+    setUploadProgress(photoUploadProgressLabel(1, 1));
     setErr('');
     setMsg('');
     try {
@@ -813,18 +823,26 @@ export function useAdminConsoleState() {
       setErr(e.message || 'Falha ao enviar foto');
     } finally {
       setUploading(false);
+      setUploadProgress('');
     }
   }
 
   async function uploadPhotos(files: FileList | File[] | null) {
-    if (!files || !files.length) return;
-    const list = Array.from(files);
+    const list = snapshotSelectedFiles(files);
+    if (!list.length) {
+      setErr(emptyPhotoSelectionError());
+      setUploadProgress('');
+      return;
+    }
     setUploading(true);
     setErr('');
     setMsg('');
     let count = formImages.length;
+    let index = 0;
     try {
       for (const file of list) {
+        index += 1;
+        setUploadProgress(photoUploadProgressLabel(index, list.length));
         if (count >= MAX_PRODUCT_IMAGES) {
           setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
           break;
@@ -837,6 +855,7 @@ export function useAdminConsoleState() {
       setErr(e.message || 'Falha ao enviar foto');
     } finally {
       setUploading(false);
+      setUploadProgress('');
     }
   }
 
@@ -1417,9 +1436,23 @@ export function useAdminConsoleState() {
   }
 
   async function uploadListPhotos(productId: string, files: FileList | File[] | null) {
-    if (!files || !files.length) return;
-    for (const file of Array.from(files)) {
-      await uploadListCoverPhoto(productId, file);
+    const list = snapshotSelectedFiles(files);
+    if (!list.length) {
+      setErr(emptyPhotoSelectionError());
+      setUploadProgress('');
+      return;
+    }
+    let index = 0;
+    try {
+      for (const file of list) {
+        index += 1;
+        setUploading(true);
+        setUploadProgress(photoUploadProgressLabel(index, list.length));
+        await uploadListCoverPhoto(productId, file);
+      }
+    } finally {
+      setUploading(false);
+      setUploadProgress('');
     }
   }
 
@@ -1843,6 +1876,8 @@ export function useAdminConsoleState() {
     setSaving,
     uploading,
     setUploading,
+    uploadProgress,
+    setUploadProgress,
     editingId,
     setEditingId,
     form,
