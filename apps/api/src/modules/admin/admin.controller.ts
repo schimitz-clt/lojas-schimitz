@@ -77,6 +77,7 @@ import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence } from '../mail/mail.config';
+import { peekStoreNotifyMailSnapshot } from '../notifications/store-notify-obs';
 import {
   buildAdminOrderWhere,
   resolveAdminOrdersTake,
@@ -270,6 +271,7 @@ export class AdminController {
         reconciliations,
         paidAwaitingOrg,
         uploads,
+        storeNotifyMail: peekStoreNotifyMailSnapshot(),
       }),
     );
   }

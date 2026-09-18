@@ -14,7 +14,9 @@ import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { shouldServerOrderSearch } from '@/lib/admin-order-search';
 import {
   emptyOrdersQueueMessage,
+  opsAlertCtaHintPt,
   paymentMethodBadge,
+  storePaidNotifyCardHint,
   whatsAppOpsButtonLabel,
 } from '@/lib/admin-ops-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
@@ -112,10 +114,34 @@ export function AdminPedidosSection() {
     runBulkFulfillment,
     resendStorePaidNotify,
     copyOrderField,
+    attentionAlerts,
+    selectOpsAlert,
   } = useAdminConsole();
   return (
     <>
       <div className="admin-section-panel admin-pedidos">
+      <AdminAttentionStrip
+        items={attentionAlerts.map((a) => ({
+          code: a.code,
+          severity: a.severity,
+          message: a.message,
+          recommendedAction: a.recommendedAction,
+          evidenceLine: a.evidence?.reason
+            ? `Evidência: ${a.evidence.reason}${
+                a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''
+              }${
+                a.evidence.externalReference
+                  ? ` · ref ${a.evidence.externalReference}`
+                  : ''
+              }`
+            : null,
+          ctaHint: opsAlertCtaHintPt(a),
+        }))}
+        onSelect={(code) => {
+          const a = attentionAlerts.find((x) => x.code === code);
+          if (a) selectOpsAlert(a);
+        }}
+      />
       <h3 id="admin-orders-queue" className="admin-section-heading">
         Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})
       </h3>
@@ -489,6 +515,17 @@ export function AdminPedidosSection() {
                       Pedido já pago ({orderStatusLabel(o.status)}) — reenviar aviso de venda à loja se o e-mail não chegou.
                     </span>
                   )}
+                  {(() => {
+                    const mailHint = storePaidNotifyCardHint({
+                      orderPublicId: o.publicId,
+                      lastFailure: ops?.mail?.lastStoreNotifyFailure,
+                    });
+                    return mailHint ? (
+                      <span style={{ display: 'block', fontSize: 12, color: '#ffb4b4', marginTop: 4 }}>
+                        {mailHint}
+                      </span>
+                    ) : null;
+                  })()}
                   {showEarlyPaidOps ? (
                     <a
                       className="btn wa"

@@ -16,6 +16,14 @@ import {
   resolveStoreNotifyEmailsFromEnv,
 } from './notifications.service';
 import { adminOrderPaidEmail } from '../mail/mail.templates';
+import {
+  peekStoreNotifyMailSnapshot,
+  recordStoreNotifyMailFailure,
+  recordStoreNotifyMailSuccess,
+  resetStoreNotifyMailFailuresForTests,
+  storeNotifyFailureLabelPt,
+  summarizeStoreNotifyMailAttempt,
+} from './store-notify-obs';
 
 {
   const n = buildAdminOrderPaidNotification({
@@ -234,12 +242,108 @@ function fanOutAdmins(
   assert.ok(notifSrc.includes("structuredLog('warn', 'MAIL_PROVIDER_OFF_STORE_NOTIFY'"), 'mail off + STORE_NOTIFY structured warn');
   assert.ok(notifSrc.includes("structuredLog('warn', 'STORE_EMAIL_SEND_FAILED'") || notifSrc.includes("structuredLog('error', 'STORE_EMAIL_SEND_FAILED'"), 'store email failure structured log');
   assert.ok(notifSrc.includes('STORE_EMAIL_NO_RECIPIENTS') || notifSrc.includes('STORE_EMAIL_SEND_FAILED'), 'store email observability events');
+  assert.ok(notifSrc.includes('recordStoreNotifyMailFailure'), 'store notify records last failure for GET /admin/ops');
+  assert.ok(notifSrc.includes('recordStoreNotifyMailSuccess'), 'success clears process-local failure');
+  assert.ok(notifSrc.includes('summarizeStoreNotifyMailAttempt'), 'classifies sent vs failed vs never attempted');
+  assert.ok(notifSrc.includes('mailOutcome'), 'notify-paid returns mailOutcome');
+  assert.ok(notifSrc.includes('emailsSent'), 'notify-paid returns emailsSent');
 
   const paySrc = readFileSync(join(__dirname, '../payments/payments.service.ts'), 'utf8');
   assert.ok(paySrc.includes("structuredLog('error', 'WEBHOOK_APPLY_FAILED'"), 'webhook apply failure structured error');
   assert.ok(paySrc.includes("structuredLog('error', 'WEBHOOK_FETCH_FAILED'"), 'webhook fetch failure structured error');
   assert.ok(paySrc.includes("structuredLog('warn', 'RECONCILIATION_REQUIRED'"), 'orphan reconciliation structured warn');
   console.log('admin-notify: observability structured signals — PASSOU');
+}
+
+{
+  resetStoreNotifyMailFailuresForTests();
+  assert.equal(peekStoreNotifyMailSnapshot().openCount, 0);
+  assert.equal(peekStoreNotifyMailSnapshot().last, null);
+
+  const sent = summarizeStoreNotifyMailAttempt({
+    mailConfigured: true,
+    recipientCount: 1,
+    results: [{ sent: true, mode: 'resend-http' }],
+  });
+  assert.equal(sent.mailOutcome, 'sent');
+  assert.equal(sent.event, null);
+  assert.equal(sent.emailsSent, 1);
+
+  const off = summarizeStoreNotifyMailAttempt({
+    mailConfigured: false,
+    storeNotifyConfigured: true,
+    recipientCount: 2,
+    results: [
+      { sent: false, reason: 'smtp_not_configured', mode: 'off' },
+      { sent: false, reason: 'smtp_not_configured', mode: 'off' },
+    ],
+  });
+  assert.equal(off.mailOutcome, 'provider_off');
+  assert.equal(off.event, 'MAIL_PROVIDER_OFF_STORE_NOTIFY');
+  assert.equal(off.emailsSent, 0);
+
+  const none = summarizeStoreNotifyMailAttempt({
+    mailConfigured: true,
+    recipientCount: 0,
+    results: [],
+  });
+  assert.equal(none.mailOutcome, 'no_recipients');
+  assert.equal(none.event, 'STORE_EMAIL_NO_RECIPIENTS');
+
+  const failed = summarizeStoreNotifyMailAttempt({
+    mailConfigured: true,
+    recipientCount: 1,
+    results: [{ sent: false, reason: 'send_failed', mode: 'resend-http' }],
+  });
+  assert.equal(failed.mailOutcome, 'send_failed');
+  assert.equal(failed.event, 'STORE_EMAIL_SEND_FAILED');
+
+  const dup = summarizeStoreNotifyMailAttempt({
+    mailConfigured: true,
+    recipientCount: 1,
+    results: [{ sent: false, reason: 'duplicate', mode: 'resend-http' }],
+  });
+  assert.equal(dup.mailOutcome, 'duplicate_skipped');
+  assert.equal(dup.event, null, 'duplicate is not an ops failure');
+
+  const labelFail = storeNotifyFailureLabelPt({
+    event: 'STORE_EMAIL_SEND_FAILED',
+    publicId: 'SCH-X',
+    count: 1,
+  });
+  assert.ok(labelFail.includes('FALHOU'));
+  assert.ok(labelFail.includes('SCH-X'));
+  const labelNone = storeNotifyFailureLabelPt({
+    event: 'STORE_EMAIL_NO_RECIPIENTS',
+    publicId: 'SCH-Y',
+  });
+  assert.ok(labelNone.includes('NÃO tentado'));
+
+  recordStoreNotifyMailFailure({
+    publicId: 'SCH-A',
+    orderId: '1',
+    event: 'STORE_EMAIL_SEND_FAILED',
+    reason: 'send_failed',
+    mode: 'resend-http',
+  });
+  assert.equal(peekStoreNotifyMailSnapshot().openCount, 1);
+  assert.equal(peekStoreNotifyMailSnapshot().last?.publicId, 'SCH-A');
+  recordStoreNotifyMailFailure({
+    publicId: 'SCH-B',
+    orderId: '2',
+    event: 'STORE_EMAIL_NO_RECIPIENTS',
+    reason: 'no_recipients',
+    mode: null,
+  });
+  assert.equal(peekStoreNotifyMailSnapshot().openCount, 2);
+  assert.equal(peekStoreNotifyMailSnapshot().last?.publicId, 'SCH-B');
+  recordStoreNotifyMailSuccess('SCH-B');
+  assert.equal(peekStoreNotifyMailSnapshot().openCount, 1);
+  assert.equal(peekStoreNotifyMailSnapshot().last?.publicId, 'SCH-A');
+  recordStoreNotifyMailSuccess('SCH-A');
+  assert.equal(peekStoreNotifyMailSnapshot().openCount, 0);
+  resetStoreNotifyMailFailuresForTests();
+  console.log('admin-notify: store-notify-obs classify + snapshot — PASSOU');
 }
 
 console.log('admin-notify tests ok');

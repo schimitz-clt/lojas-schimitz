@@ -20,6 +20,8 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   copyTextToClipboard,
+  sortOpsAlertsForAttention,
+  storePaidNotifyResultMessage,
 } from '@/lib/admin-ops-ui';
 import {
   type AdminSectionId,
@@ -380,6 +382,16 @@ export function useAdminConsoleState() {
         void loadReconciliations();
         return;
       }
+      if (a.section === 'mail' || a.code === 'store_notify_mail_failed' || a.code === 'mail_off_with_store_notify') {
+        const publicId = a.evidence?.ids?.[0];
+        if (publicId) setOrderJumpQ(publicId);
+        router.push(buildAdminSectionHref('pedidos'));
+        requestAnimationFrame(() => {
+          const el = document.getElementById('admin-orders-queue');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return;
+      }
       if (a.section === 'catalog' || a.code === 'placeholder_photos') {
         openCatalogPhotoQueue();
         return;
@@ -687,7 +699,10 @@ export function useAdminConsoleState() {
 
   const attentionAlerts = useMemo(() => {
     const list = ops?.alerts || [];
-    return list.filter((a) => a.severity === 'critical' || a.severity === 'high' || a.severity === 'warn');
+    const actionable = list.filter(
+      (a) => a.severity === 'critical' || a.severity === 'high' || a.severity === 'warn',
+    );
+    return sortOpsAlertsForAttention(actionable);
   }, [ops?.alerts]);
 
   function mapProductImages(images?: AdminProduct['images']): FormImage[] {
@@ -1469,13 +1484,19 @@ export function useAdminConsoleState() {
     setErr('');
     setMsg('');
     try {
-      const data = await api<{ publicId: string; emailsAttempted: number; inAppCreated: number }>(
+      const data = await api<{
+        publicId: string;
+        emailsAttempted: number;
+        emailsSent?: number;
+        inAppCreated: number;
+        mailOutcome?: string;
+        mailReason?: string;
+      }>(
         `/admin/orders/${order.id}/notify-paid`,
         { method: 'POST', body: JSON.stringify({}) },
       );
-      setMsg(
-        `Aviso loja reenviado (${data.publicId}): e-mails tentados ${data.emailsAttempted}, in-app ${data.inAppCreated}. Confira STORE_NOTIFY_EMAIL / MAIL_FROM se zero.`,
-      );
+      setMsg(storePaidNotifyResultMessage(data));
+      void loadOps();
     } catch (e: any) {
       setErr(e.message || 'Falha ao reenviar aviso da loja');
     } finally {

@@ -16,6 +16,11 @@ import {
   type UploadsDurabilitySummary,
 } from '../uploads/uploads-durability';
 
+import {
+  storeNotifyFailureActionPt,
+  storeNotifyFailureLabelPt,
+} from '../notifications/store-notify-obs';
+
 export {
   UPLOADS_PERSISTENT_ROOT,
   isUploadsDirPersistent,
@@ -249,7 +254,7 @@ export function summarizeSalesWindow(input: {
 
 export type OpsAlertSeverity = 'info' | 'warn' | 'high' | 'critical';
 
-export type OpsAlertSection = 'reconciliations' | 'orders' | 'inventory' | 'catalog';
+export type OpsAlertSection = 'reconciliations' | 'orders' | 'inventory' | 'catalog' | 'mail';
 
 export type OpsReconciliationRecent = {
   id: string;
@@ -258,6 +263,20 @@ export type OpsReconciliationRecent = {
   externalReference: string | null;
   createdAt: string;
   status: string;
+};
+
+export type OpsStoreNotifyMailFailure = {
+  at: string;
+  publicId: string;
+  orderId: string | null;
+  event: string;
+  reason: string;
+  mode: string | null;
+};
+
+export type OpsStoreNotifyMailSummary = {
+  last: OpsStoreNotifyMailFailure | null;
+  openCount: number;
 };
 
 export type OpsReconciliationsSummary = {
@@ -379,6 +398,60 @@ export function summarizePaidAwaitingOrg(input: {
 }
 
 
+/** Normalize process-local store-notify mail failures — real events only, no secrets. */
+export function summarizeStoreNotifyMailOps(input?: {
+  last?: {
+    at: string | Date;
+    publicId?: string | null;
+    orderId?: string | null;
+    event?: string | null;
+    reason?: string | null;
+    mode?: string | null;
+  } | null;
+  openCount?: number;
+}): OpsStoreNotifyMailSummary {
+  const lastRaw = input?.last ?? null;
+  const last: OpsStoreNotifyMailFailure | null = lastRaw
+    ? {
+        at:
+          lastRaw.at instanceof Date ? lastRaw.at.toISOString() : String(lastRaw.at || ''),
+        publicId: String(lastRaw.publicId || '').trim(),
+        orderId: lastRaw.orderId ? String(lastRaw.orderId) : null,
+        event: String(lastRaw.event || 'STORE_EMAIL_SEND_FAILED'),
+        reason: String(lastRaw.reason || 'send_failed'),
+        mode: lastRaw.mode == null || lastRaw.mode === '' ? null : String(lastRaw.mode),
+      }
+    : null;
+  const openCount = last
+    ? Math.max(1, Math.floor(Number(input?.openCount) || 1))
+    : 0;
+  return { last, openCount: last ? openCount : 0 };
+}
+
+/**
+ * Attention-first sort: open reconciliations, then store-mail failures, then severity.
+ * Prevents recon/mail from falling off the ATENÇÃO AGORA cap.
+ */
+export function sortOpsAlertsForAttention(alerts: OpsAlert[]): OpsAlert[] {
+  const rankCode = (code: string): number => {
+    if (code === 'open_reconciliations') return 0;
+    if (code === 'store_notify_mail_failed') return 1;
+    if (code === 'mail_off_with_store_notify') return 2;
+    return 10;
+  };
+  const rankSev = (sev: OpsAlertSeverity): number => {
+    if (sev === 'critical') return 0;
+    if (sev === 'high') return 1;
+    if (sev === 'warn') return 2;
+    return 3;
+  };
+  return [...alerts].sort((a, b) => {
+    const c = rankCode(a.code) - rankCode(b.code);
+    if (c !== 0) return c;
+    return rankSev(a.severity) - rankSev(b.severity);
+  });
+}
+
 /** Normalize open reconciliation rows for ops snapshot — no secrets. */
 export function summarizeReconciliations(input: {
   openCount: number;
@@ -433,6 +506,8 @@ export function deriveOpsAlerts(input: {
   uploadsPersistent?: boolean;
   /** Optional resolved dir for evidence (ops). */
   uploadsDir?: string;
+  /** Last process-local store-notify mail failure (real event; omit/empty = no alert). */
+  storeNotifyMail?: OpsStoreNotifyMailSummary;
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -557,9 +632,9 @@ export function deriveOpsAlerts(input: {
       code: 'open_reconciliations',
       // Always high: money-at-risk orphans need human review; moneyRisk only enriches evidence.
       severity: 'high',
-      message: `${openRecon} reconciliação(ões) de pagamento aberta(s) — revisão humana${
-        moneyRisk ? ' (possível captura sem Payment local)' : ''
-      }`,
+      message: `${openRecon} reconciliação(ões) de pagamento ABERTA(S) — conferir agora na fila${
+        moneyRisk ? ' (captura no provedor sem Payment local)' : ''
+      }. Sem estorno automático.`,
       count: openRecon,
       section: 'reconciliations',
       evidence: {
@@ -569,7 +644,29 @@ export function deriveOpsAlerts(input: {
         ids: sample.map((r) => r.id),
       },
       recommendedAction:
-        'Revisar lista Reconciliações: conferir externalReference/publicId no provedor. Não estornar/cancelar automaticamente.',
+        'Abrir fila Reconciliações. Conferir ref/publicId no Mercado Pago. Nunca estornar nem marcar pago automaticamente.',
+    });
+  }
+  const storeMail = input.storeNotifyMail;
+  const storeMailLast = storeMail?.last;
+  const storeMailCount = Math.max(0, Number(storeMail?.openCount) || (storeMailLast ? 1 : 0));
+  if (storeMailLast && storeMailCount > 0) {
+    alerts.push({
+      code: 'store_notify_mail_failed',
+      severity: 'high',
+      message: storeNotifyFailureLabelPt({
+        event: storeMailLast.event,
+        reason: storeMailLast.reason,
+        publicId: storeMailLast.publicId,
+        count: storeMailCount,
+      }),
+      count: storeMailCount,
+      section: 'mail',
+      evidence: {
+        reason: storeMailLast.event || storeMailLast.reason,
+        ids: storeMailLast.publicId ? [storeMailLast.publicId] : undefined,
+      },
+      recommendedAction: storeNotifyFailureActionPt(storeMailLast.event),
     });
   }
   if (input.mailConfigured === false && input.storeNotifyConfigured === true) {
@@ -577,10 +674,11 @@ export function deriveOpsAlerts(input: {
       code: 'mail_off_with_store_notify',
       severity: 'warn',
       message:
-        'STORE_NOTIFY_EMAIL configurado mas provider de e-mail off (MAIL_FROM + RESEND_API_KEY|SMTP) — avisos de venda não saem por e-mail',
+        'STORE_NOTIFY_EMAIL configurado mas provedor de e-mail desligado — aviso de venda NÃO é tentado por e-mail (não é falha de envio)',
       count: 0,
+      section: 'mail',
       recommendedAction:
-        'Configure MAIL_FROM + RESEND_API_KEY (ou SMTP). Não disparamos e-mail neste poll.',
+        'Configure MAIL_FROM + RESEND_API_KEY (ou SMTP). Não disparamos e-mail neste poll. Pagamento não depende de e-mail.',
     });
   } else if (input.mailConfigured === false) {
     alerts.push({
@@ -604,7 +702,7 @@ export function deriveOpsAlerts(input: {
         'Montar Volume em /data/uploads e definir UPLOADS_DIR=/data/uploads (OWNER/ops). Não movemos arquivos neste poll.',
     });
   }
-  return alerts;
+  return sortOpsAlertsForAttention(alerts);
 }
 
 export function summarizeOps(input: {
@@ -630,6 +728,8 @@ export function summarizeOps(input: {
   paidAwaitingOrg?: PaidAwaitingOrgSummary;
   /** Uploads durability snapshot (real path check only). */
   uploads?: UploadsDurabilitySummary;
+  /** Process-local last store-notify mail failure (real events only). */
+  storeNotifyMail?: OpsStoreNotifyMailSummary;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -647,6 +747,7 @@ export function summarizeOps(input: {
     input.paidAwaitingOrg ??
     summarizePaidAwaitingOrg({ orders: [] });
   const storeNotifyConfigured = Boolean(input.storeNotifyConfigured);
+  const storeNotifyMail = summarizeStoreNotifyMailOps(input.storeNotifyMail);
   const uploads = input.uploads;
   const alerts = deriveOpsAlerts({
     lowStockCount: input.lowStockCount,
@@ -663,6 +764,7 @@ export function summarizeOps(input: {
     paidAwaitingOrg,
     uploadsPersistent: uploads ? uploads.persistent : undefined,
     uploadsDir: uploads?.dir,
+    storeNotifyMail,
   });
   return {
     ...base,
@@ -679,6 +781,9 @@ export function summarizeOps(input: {
       storeNotifyConfigured,
       /** Real env mismatch hint — not an invented counter; no e-mail on ops poll. */
       providerOffWithStoreNotify: mailConfigured === false && storeNotifyConfigured === true,
+      /** Last STORE_EMAIL_* / provider-off event in this process — null when none. */
+      lastStoreNotifyFailure: storeNotifyMail.last,
+      storeNotifyFailureCount: storeNotifyMail.openCount,
     },
     /** Real UPLOADS_DIR path check — null when caller omitted (no invented durability). */
     uploads: uploads ?? null,

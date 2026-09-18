@@ -46,6 +46,8 @@ assert.ok(svc.includes("status = 'awaiting_payment'") || svc.includes('awaiting_
 assert.ok(svc.includes('adminResendStorePaidNotify'), 'admin notify-paid exists');
 assert.ok(svc.includes('POST_PAID_STATUSES'), 'notify-paid gated by POST_PAID_STATUSES');
 assert.ok(svc.includes('ORDER_NOT_PAID'), 'notify-paid rejects non post-paid');
+assert.ok(svc.includes('mailOutcome'), 'notify-paid returns mailOutcome (failed vs never attempted)');
+assert.ok(svc.includes('emailsSent'), 'notify-paid returns emailsSent');
 
 const fulfillStart = svc.indexOf('async adminUpdateFulfillmentStatus');
 assert.ok(fulfillStart >= 0, 'fulfillment method exists');
