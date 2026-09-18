@@ -88,7 +88,7 @@ export function Header() {
         <span className="topbar-sep" aria-hidden>
           ·
         </span>
-        <span>Atendimento WhatsApp</span>
+        <span>Troca em 7 dias</span>
       </div>
       <header className="header">
         <div className="wrap">

@@ -366,10 +366,10 @@ export default function ProductPage() {
               <span className="muted">Direito a arrependimento</span>
             </li>
             <li>
-              <strong>WhatsApp</strong>
+              <strong>Falar com a loja</strong>
               <span className="muted">
                 <a href={waLink(`Olá, dúvida sobre ${p.name}`)} target="_blank" rel="noreferrer">
-                  Falar com a loja
+                  WhatsApp
                 </a>
               </span>
             </li>

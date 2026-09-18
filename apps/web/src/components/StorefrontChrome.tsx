@@ -31,7 +31,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
             <div className="footer-col">
               <h3>Lojas Schimitz</h3>
               <p className="muted" style={{ margin: 0, lineHeight: 1.4 }}>
-                Eletro, celulares e casa em Porto Alegre. Chat ou WhatsApp (51) 99625-3766.
+                Eletro, celulares e casa em Porto Alegre. (51) 99625-3766.
               </p>
             </div>
             <div className="footer-col">
