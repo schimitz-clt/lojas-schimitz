@@ -1119,11 +1119,93 @@ textarea { resize: vertical; min-height: 72px; }
 .checkout-address { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
 .checkout-address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .order-card, .loyalty-card, .account-nav { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+.order-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.order-card-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.order-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.order-card-thumb-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(255,209,0,.22), transparent 70%),
+    linear-gradient(160deg, #1a1a1a 0%, #0a0a0a 100%);
+}
+.order-card-thumb-ph-mark {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: #fff;
+}
+.order-card-thumb-ph-mark em { font-style: normal; color: var(--yellow); }
+.order-card-thumb-more {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, .82);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: .02em;
+}
+.order-card-copy { min-width: 0; flex: 1; }
+.order-card-title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.order-card-status { font-size: 13px; margin-top: 2px; }
+.order-card-id {
+  font-size: 11px;
+  margin-top: 2px;
+  letter-spacing: .01em;
+  word-break: break-all;
+}
+.order-card-total {
+  font-weight: 800;
+  white-space: nowrap;
+  align-self: flex-start;
+  padding-top: 2px;
+}
 
 @media (min-width: 721px) {
   .pdp-cart-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .sf-toast { left: auto; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); }
   .recent-strip-rail { margin: 0; padding: 4px 0 10px; }
+  .order-card-thumb { width: 64px; height: 64px; flex-basis: 64px; }
+  .order-card-title { font-size: 16px; }
   /* Desktop: keep ATC with the price; description follows the buybox */
   .pdp-rating { max-width: 160px; }
   .pdp-stock { order: 3; }

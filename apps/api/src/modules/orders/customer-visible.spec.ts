@@ -14,6 +14,12 @@ const listFn = svc.slice(svc.indexOf('async list(userId'), svc.indexOf('async ge
 assert.ok(listFn.includes('where: { userId }'), 'list scopes owner');
 assert.equal(listFn.includes("status: 'paid'"), false, 'list must not filter only paid');
 assert.equal(listFn.includes('awaiting_payment'), false, 'list has no status allowlist that could drop pending');
+assert.ok(listFn.includes('serializeCustomerOrder'), 'list maps items with name + imageUrl');
+assert.ok(listFn.includes('ORDER_ITEM_CUSTOMER_SELECT'), 'list selects product cover for photo fallback');
+
+const getFn = svc.slice(svc.indexOf('async getByPublicId'), svc.indexOf('async cancel('));
+assert.ok(getFn.includes('serializeCustomerOrder'), 'detail maps items with name + imageUrl');
+assert.ok(getFn.includes('images'), 'detail includes ProductImage fallback');
 
 assert.ok(svc.includes('where: { publicId, userId }'), 'get/cancel IDOR');
 assert.ok(svc.includes("status: 'awaiting_payment'"), 'create persists awaiting_payment');

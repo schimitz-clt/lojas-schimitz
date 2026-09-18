@@ -4,13 +4,70 @@ import Link from 'next/link';
 import { api, brl, currentUser } from '@/lib/api';
 import { orderStatusLabel } from '@/lib/order-status';
 import {
+  extraItemsCount,
+  extraItemsLabel,
+  orderCardImageUrl,
+  orderCardTitleOrCode,
+} from '@/lib/order-card-ui';
+import {
   loginNextPath,
   orderRecoveryPaths,
   readLastOrderPublicId,
 } from '@/lib/order-recovery';
 
+type OrderListRow = {
+  id: string;
+  publicId: string;
+  status: string;
+  total: number | string;
+  items?: Array<{
+    id?: string;
+    name?: string;
+    productName?: string;
+    imageUrl?: string | null;
+    image?: string | null;
+  }>;
+};
+
+function OrderCardThumb({
+  src,
+  extra,
+}: {
+  src: string;
+  extra: number;
+}) {
+  const badge = extraItemsLabel(extra);
+  return (
+    <div className="order-card-thumb" aria-hidden="true">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          width={64}
+          height={64}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const el = e.currentTarget;
+            el.style.display = 'none';
+            const ph = el.parentElement?.querySelector('.order-card-thumb-ph');
+            if (ph instanceof HTMLElement) ph.style.display = 'flex';
+          }}
+        />
+      ) : null}
+      <span className="order-card-thumb-ph" style={src ? { display: 'none' } : undefined}>
+        <span className="order-card-thumb-ph-mark">
+          SCH<em>+</em>
+        </span>
+      </span>
+      {badge ? <span className="order-card-thumb-more">{badge}</span> : null}
+    </div>
+  );
+}
+
 export default function PedidosPage() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderListRow[]>([]);
   const [err, setErr] = useState('');
   const [lastPublicId, setLastPublicId] = useState<string | null>(null);
 
@@ -20,7 +77,7 @@ export default function PedidosPage() {
       return;
     }
     setLastPublicId(readLastOrderPublicId(window.localStorage));
-    api<any[]>('/orders').then(setOrders).catch((e) => setErr(e.message));
+    api<OrderListRow[]>('/orders').then(setOrders).catch((e) => setErr(e.message));
   }, []);
 
   const lastStillListed = lastPublicId && orders.some((o) => o.publicId === lastPublicId);
@@ -60,17 +117,29 @@ export default function PedidosPage() {
           <Link className="btn" href="/produtos">Ver produtos</Link>
         </div>
       ) : null}
-      {orders.map((o) => (
-        <Link key={o.id} href={`/pedidos/${o.publicId}`} className="card order-card" style={{ display: 'block', marginBottom: 10 }}>
-          <div className="body row">
-            <div>
-              <b>{o.publicId}</b>
-              <div className="muted">{orderStatusLabel(o.status)}</div>
+      {orders.map((o) => {
+        const title = orderCardTitleOrCode(o);
+        const img = orderCardImageUrl(o.items);
+        const extra = extraItemsCount(o.items);
+        return (
+          <Link
+            key={o.id}
+            href={`/pedidos/${o.publicId}`}
+            className="card order-card"
+            style={{ display: 'block', marginBottom: 10 }}
+          >
+            <div className="body order-card-inner">
+              <OrderCardThumb src={img} extra={extra} />
+              <div className="order-card-copy">
+                <div className="order-card-title">{title}</div>
+                <div className="order-card-status muted">{orderStatusLabel(o.status)}</div>
+                <div className="order-card-id muted">{o.publicId}</div>
+              </div>
+              <div className="order-card-total">{brl(o.total)}</div>
             </div>
-            <div style={{ fontWeight: 800 }}>{brl(o.total)}</div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
   );
 }

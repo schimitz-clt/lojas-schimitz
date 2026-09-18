@@ -33,6 +33,7 @@ import {
 import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
+import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -106,7 +107,18 @@ export class OrdersService {
 
     const cart = await this.prisma.cart.findFirst({
       where: { userId },
-      include: { items: { include: { product: { include: { inventory: true } } } } }, // sellerId on product
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                inventory: true,
+                images: { orderBy: { position: 'asc' as const }, take: 1 },
+              },
+            },
+          },
+        },
+      },
     });
     const cartItems = cart?.items ?? [];
 
@@ -285,6 +297,7 @@ export class OrdersService {
                 qty: i.qty,
                 unitPrice: i.product.price,
                 sellerId: i.product.sellerId || null,
+                imageUrl: i.product.images?.[0]?.url?.trim() || null,
               })),
             },
           },
@@ -344,7 +357,7 @@ export class OrdersService {
   }
 
   async list(userId: string) {
-    return this.prisma.order.findMany({
+    const rows = await this.prisma.order.findMany({
       where: { userId },
       select: {
         id: true,
@@ -352,25 +365,39 @@ export class OrdersService {
         status: true,
         total: true,
         createdAt: true,
-        items: { select: { id: true, name: true, qty: true, unitPrice: true } },
+        items: { select: ORDER_ITEM_CUSTOMER_SELECT },
         payments: { select: { id: true, status: true, method: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+    return rows.map(serializeCustomerOrder);
   }
 
   async getByPublicId(userId: string, publicId: string) {
     const order = await this.prisma.order.findFirst({
       where: { publicId, userId },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                sku: true,
+                images: {
+                  orderBy: { position: 'asc' as const },
+                  take: 1,
+                  select: { url: true, position: true },
+                },
+              },
+            },
+          },
+        },
         payments: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
-    return order;
+    return serializeCustomerOrder(order);
   }
 
   /** Somente quem ganha awaiting_payment → cancelled libera reserva. */
