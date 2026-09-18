@@ -237,19 +237,65 @@ export function listPhotoUploadSuccessMessage(name: string, promotedToCover: boo
   return `Foto adicionada a “${n}”.`;
 }
 
-const PHOTO_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PHOTO_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const PHOTO_MAX_BYTES = 15 * 1024 * 1024;
 
+/** Android WebView often sends empty MIME or application/octet-stream with a real .jpg name. */
+export function isAllowedProductPhotoMime(type?: string | null, name?: string | null): boolean {
+  const mime = String(type || '').toLowerCase().trim();
+  if (PHOTO_MIME.has(mime)) return true;
+  const n = String(name || '').toLowerCase();
+  const extOk = /\.(jpe?g|png|webp)$/.test(n);
+  if (!extOk) return false;
+  return !mime || mime === 'application/octet-stream';
+}
+
 export function validateProductPhotoFile(
-  file: { type: string; size: number } | null | undefined,
+  file: { type?: string; name?: string; size: number } | null | undefined,
   currentCount: number,
   max = 10,
 ): string | null {
   if (!file) return 'Selecione um arquivo de imagem.';
-  if (!PHOTO_MIME.has(file.type)) return 'Use uma imagem JPG, PNG ou WebP.';
+  if (!isAllowedProductPhotoMime(file.type, file.name)) return 'Use uma imagem JPG, PNG ou WebP.';
   if (file.size > PHOTO_MAX_BYTES) return 'A foto deve ter no máximo 15 MB.';
   if (currentCount >= max) return `Limite de ${max} fotos por produto.`;
   return null;
+}
+
+/** Unique gallery URLs (capa first) from form tiles + optional cover field. */
+export function collectProductGalleryUrls(
+  images: Array<{ url?: string | null }> | null | undefined,
+  coverUrl?: string | null,
+  max = 10,
+): string[] {
+  const cap = Number.isFinite(max) && max > 0 ? Math.floor(max) : 10;
+  const raw = [
+    ...(Array.isArray(images) ? images.map((img) => img?.url) : []),
+    coverUrl,
+  ];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const url = typeof item === 'string' ? item.trim() : '';
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+export function extraProductImageUrls(urls: string[]): string[] {
+  return urls.slice(1);
+}
+
+export function missingProductImageUrls(desired: string[], existing: Array<{ url?: string | null }> | null | undefined): string[] {
+  const have = new Set(
+    (existing || [])
+      .map((img) => (typeof img?.url === 'string' ? img.url.trim() : ''))
+      .filter(Boolean),
+  );
+  return desired.filter((url) => !have.has(url));
 }
 
 export function emptyPhotoQueueMessage(filter: CatalogPhotoFilter): string {

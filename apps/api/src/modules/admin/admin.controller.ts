@@ -487,6 +487,12 @@ export class AdminController {
     return ok(await this.productsService.list({ lowStock: query.lowStock }));
   }
 
+  @Get('products/:id')
+  @ApiOperation({ summary: 'Produto admin com todas as fotos da galeria' })
+  async product(@Param('id') id: string) {
+    return ok(await this.productsService.get(id));
+  }
+
   @Post('products')
   async createProduct(@Body() dto: AdminCreateProductDto) {
     return ok(await this.productsService.create(dto));

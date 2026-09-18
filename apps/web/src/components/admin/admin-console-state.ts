@@ -52,6 +52,9 @@ import {
   shouldPromoteUploadedImageToCover,
   toggleIdInList,
   validateProductPhotoFile,
+  collectProductGalleryUrls,
+  extraProductImageUrls,
+  missingProductImageUrls,
 } from '@/lib/admin-daily-ops';
 import {
   buildSalesReportCsv,
@@ -696,11 +699,9 @@ export function useAdminConsoleState() {
     setForm((f) => ({ ...f, imageUrl: images[0]?.url || '' }));
   }
 
-  function startEdit(p: AdminProduct) {
-    setEditingId(p.id);
-    setMsg('');
-    setErr('');
+  function applyProductToForm(p: AdminProduct) {
     const imgs = mapProductImages(p.images);
+    setEditingId(p.id);
     setFormImages(imgs);
     setForm({
       name: p.name,
@@ -715,6 +716,23 @@ export function useAdminConsoleState() {
       imageUrl: imgs[0]?.url || '',
       badge: p.badge || '',
     });
+  }
+
+  function startEdit(p: AdminProduct) {
+    setMsg('');
+    setErr('');
+    applyProductToForm(p);
+    void (async () => {
+      try {
+        const full = await api<AdminProduct>(`/admin/products/${p.id}`);
+        if (full?.id) {
+          applyProductToForm(full);
+          setProducts((prev) => prev.map((row) => (row.id === full.id ? { ...row, ...full } : row)));
+        }
+      } catch {
+        /* lista já tem o produto; GET completo é reforço da galeria */
+      }
+    })();
     router.push(buildAdminSectionHref('catalogo'));
     window.requestAnimationFrame(() => {
       const el = document.getElementById('admin-product-form');
@@ -905,6 +923,45 @@ export function useAdminConsoleState() {
     }
   }
 
+  async function addPhotoFromUrl(raw: string) {
+    const url = raw.trim();
+    if (!url) {
+      setErr('Informe a URL da foto.');
+      return false;
+    }
+    if (formImages.length >= MAX_PRODUCT_IMAGES) {
+      setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+      return false;
+    }
+    setErr('');
+    setMsg('');
+    try {
+      if (editingId) {
+        const updated = await api<AdminProduct>(`/admin/products/${editingId}/images`, {
+          method: 'POST',
+          body: JSON.stringify({ url }),
+        });
+        const imgs = mapProductImages(updated.images);
+        setFormImages(imgs);
+        syncCoverUrl(imgs);
+        setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setMsg(`Foto adicionada (${imgs.length}/${MAX_PRODUCT_IMAGES}).`);
+      } else {
+        setFormImages((prev) => {
+          if (prev.length >= MAX_PRODUCT_IMAGES) return prev;
+          const next = [...prev, { url, position: prev.length }];
+          setForm((f) => ({ ...f, imageUrl: next[0]?.url || f.imageUrl }));
+          return next;
+        });
+        setMsg('Foto adicionada. Salve o produto para publicar a galeria.');
+      }
+      return true;
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao adicionar foto por URL');
+      return false;
+    }
+  }
+
   async function saveProduct(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -930,7 +987,7 @@ export function useAdminConsoleState() {
       return;
     }
 
-    const coverUrl = (formImages[0]?.url || form.imageUrl).trim() || null;
+    const galleryUrls = collectProductGalleryUrls(formImages, form.imageUrl, MAX_PRODUCT_IMAGES);
     const body: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim(),
@@ -951,20 +1008,40 @@ export function useAdminConsoleState() {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
-        setMsg('Produto atualizado.');
+        let refreshed: AdminProduct | null = null;
+        try {
+          refreshed = await api<AdminProduct>(`/admin/products/${editingId}`);
+        } catch {
+          refreshed = null;
+        }
+        if (refreshed?.id) {
+          applyProductToForm(refreshed);
+          setProducts((prev) => prev.map((p) => (p.id === refreshed!.id ? { ...p, ...refreshed } : p)));
+        }
+        const n = refreshed ? mapProductImages(refreshed.images).length : formImages.length;
+        setMsg(`Produto atualizado. Galeria: ${n} foto${n === 1 ? '' : 's'} (capa e extras mantidas).`);
       } else {
-        body.imageUrl = coverUrl;
-        const created = await api<AdminProduct>('/admin/products', {
+        if (galleryUrls[0]) body.imageUrl = galleryUrls[0];
+        const extras = extraProductImageUrls(galleryUrls);
+        if (extras.length) body.imageUrls = extras;
+        let created = await api<AdminProduct>('/admin/products', {
           method: 'POST',
           body: JSON.stringify(body),
         });
-        const extraUrls = formImages.slice(1).map((img) => img.url).filter(Boolean);
-        if (created?.id && extraUrls.length) {
-          await persistNewImages(created.id, extraUrls);
+        const missing = created?.id
+          ? missingProductImageUrls(galleryUrls, created.images)
+          : extras;
+        if (created?.id && missing.length) {
+          created = (await persistNewImages(created.id, missing)) || created;
         }
-        setMsg('Produto cadastrado e já disponível na loja (se ativo).');
+        const n = created ? mapProductImages(created.images).length : galleryUrls.length;
+        setMsg(`Produto cadastrado e já disponível na loja (se ativo). Galeria: ${n} foto${n === 1 ? '' : 's'}.`);
+        if (created?.id) {
+          applyProductToForm(created);
+        } else {
+          resetForm();
+        }
       }
-      resetForm();
       await load();
     } catch (e: any) {
       setErr(e.message || 'Falha ao salvar produto');
@@ -1277,7 +1354,13 @@ export function useAdminConsoleState() {
 
   async function uploadListCoverPhoto(productId: string, file: File | null) {
     if (!file) return;
-    const product = products.find((p) => p.id === productId);
+    let product = products.find((p) => p.id === productId) || null;
+    try {
+      const live = await api<AdminProduct>(`/admin/products/${productId}`);
+      if (live?.id) product = live;
+    } catch {
+      /* usa a linha da lista se o GET falhar */
+    }
     if (!product) {
       setErr('Produto não encontrado na lista carregada. Atualize e tente de novo.');
       return;
@@ -1322,13 +1405,21 @@ export function useAdminConsoleState() {
         setFormImages(imgs);
         syncCoverUrl(imgs);
       }
-      setMsg(listPhotoUploadSuccessMessage(product.name, promote));
+      const n = mapProductImages(finalProduct.images).length;
+      setMsg(`${listPhotoUploadSuccessMessage(product.name, promote)} Galeria: ${n}/${MAX_PRODUCT_IMAGES}.`);
       void loadOps();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Falha ao enviar foto';
       setErr(message);
     } finally {
       setListPhotoBusyId(null);
+    }
+  }
+
+  async function uploadListPhotos(productId: string, files: FileList | File[] | null) {
+    if (!files || !files.length) return;
+    for (const file of Array.from(files)) {
+      await uploadListCoverPhoto(productId, file);
     }
   }
 
@@ -1932,6 +2023,8 @@ export function useAdminConsoleState() {
     runBulkFulfillment,
     pickListPhoto,
     uploadListCoverPhoto,
+    uploadListPhotos,
+    addPhotoFromUrl,
     resendStorePaidNotify,
     copyOrderField,
     saveSeller,

@@ -12,6 +12,7 @@ import {
   pixPrice,
   stockBadge,
 } from '@/lib/pricing';
+import { pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
@@ -237,27 +238,38 @@ export default function ProductPage() {
   const price = Number(p.price);
   const pix = pixPrice(price);
   const outOfStock = stock != null && stock <= 0;
+  const description = productDescriptionText(p.description);
+  const offerPills = pdpOfferPills();
 
   return (
-    <div className="pdp sf-pro-pdp" style={{ padding: '24px 0' }}>
+    <div className="pdp sf-pro-pdp">
       <div className="pdp-grid">
         <ProductGallery images={gallery} productName={p.name} />
 
         <div className="pdp-buybox">
-          {p.badge ? <div className="badge">{p.badge}</div> : null}
-          <h1 className="pdp-title">{p.name}</h1>
-          {p.seller?.name ? (
-            <p className="pdp-seller muted">
-              Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>
-            </p>
-          ) : null}
-          <div className="pdp-rating">
-            <Stars value={Math.round(avg)} />
-            <span className="muted" style={{ fontSize: 14 }}>
-              {count > 0
-                ? `${avg.toFixed(1).replace('.', ',')} · ${count} avaliação${count === 1 ? '' : 'ões'}`
-                : 'Sem avaliações ainda'}
-            </span>
+          <div className="pdp-identity">
+            {p.badge ? <div className="badge">{p.badge}</div> : null}
+            <h1 className="pdp-title">{p.name}</h1>
+            {p.seller?.name ? (
+              <p className="pdp-seller muted">
+                Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>
+              </p>
+            ) : null}
+            <div className="pdp-rating">
+              <Stars value={Math.round(avg)} />
+              <span className="muted" style={{ fontSize: 14 }}>
+                {count > 0
+                  ? `${avg.toFixed(1).replace('.', ',')} · ${count} avaliação${count === 1 ? '' : 'ões'}`
+                  : 'Sem avaliações ainda'}
+              </span>
+            </div>
+            <ul className="pdp-offer-pills" aria-label="Condições da oferta">
+              {offerPills.map((pill) => (
+                <li key={pill.id} className={`pdp-offer-pill pdp-offer-pill--${pill.tone}`}>
+                  {pill.label}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="pdp-price-block">
@@ -287,6 +299,13 @@ export default function ProductPage() {
               </p>
             </details>
           </div>
+
+          {description ? (
+            <div className="pdp-desc">
+              <h2>Descrição</h2>
+              <p className="pdp-desc-body">{description}</p>
+            </div>
+          ) : null}
 
           <p className={`pdp-stock${sb ? ` pdp-stock-${sb.tone}` : ''}`}>
             {sb ? <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span> : null}{' '}
@@ -365,15 +384,6 @@ export default function ProductPage() {
               </span>
             </li>
           </ul>
-
-          {p.description ? (
-            <div className="pdp-desc">
-              <h2>Descrição</h2>
-              <p className="muted" style={{ whiteSpace: 'pre-wrap' }}>
-                {p.description}
-              </p>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -459,7 +469,9 @@ export default function ProductPage() {
       <div className="pdp-sticky-atc" aria-label="Comprar">
         <div style={{ minWidth: 0 }}>
           <div className="price">{brl(pix)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>no PIX · {brl(price)}</div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            no PIX · 5% off · {brl(price)}
+          </div>
         </div>
         {addedToBag && !outOfStock ? (
           <Link className="btn" href="/carrinho">

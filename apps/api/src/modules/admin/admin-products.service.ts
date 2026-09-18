@@ -12,6 +12,7 @@ import {
   AdminUpdateProductDto,
   MAX_PRODUCT_IMAGES,
 } from './dto';
+import { collectCreateImageUrls } from './admin-product-images';
 import { SellersService } from '../sellers/sellers.service';
 import { InventoryService } from '../inventory/inventory.service';
 
@@ -29,6 +30,15 @@ export class AdminProductsService {
     private readonly sellers: SellersService,
     private readonly inventory: InventoryService,
   ) {}
+
+  async get(id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: productInclude,
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+    return product;
+  }
 
   list(opts?: { lowStock?: number }) {
     return this.prisma.product.findMany({
@@ -56,6 +66,7 @@ export class AdminProductsService {
       if (!cat) throw new BadRequestException('Categoria inválida');
     }
     const sellerId = await this.sellers.resolveActiveSellerId(dto.sellerId);
+    const imageUrls = collectCreateImageUrls(dto, MAX_PRODUCT_IMAGES);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -75,14 +86,14 @@ export class AdminProductsService {
             inventory: {
               create: { qtyOnHand: stock, qtyReserved: 0 },
             },
-            ...(dto.imageUrl
+            ...(imageUrls.length
               ? {
                   images: {
-                    create: {
-                      url: dto.imageUrl.trim(),
-                      alt: name,
-                      position: 0,
-                    },
+                    create: imageUrls.map((url, position) => ({
+                      url,
+                      alt: position === 0 ? name : `${name} — foto ${position + 1}`,
+                      position,
+                    })),
                   },
                 }
               : {}),
