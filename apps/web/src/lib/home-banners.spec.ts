@@ -11,6 +11,7 @@ import {
   bannerCtaHref,
   bannerCtaLabel,
   bannerDotLabel,
+  bannerImageIsPriority,
   bannerImageUrl,
   bannerNavNextLabel,
   bannerNavPrevLabel,
@@ -19,13 +20,20 @@ import {
   clampBannerIndex,
   homeBannerCountHint,
   homeBannerLimitMessage,
+  homeBannerLoopSlides,
   homeBannerRowCount,
   homeBannerSlideWidthLock,
   homeBannerSlotCounter,
+  homeBannerTrackLength,
   isUsableHomeBanner,
+  logicalFromTrackIndex,
+  loopingAdvanceTrackIndex,
+  loopingCloneJump,
+  loopingTrackIndex,
   nextBannerIndex,
   shouldShowBannerChrome,
   takeUsableHomeBanners,
+  trackIndexFromScroll,
   type HomeBanner,
 } from './home-banners';
 
@@ -123,6 +131,42 @@ assert.equal(nextBannerIndex(0, 0, 1), 0);
 assert.equal(clampBannerIndex(9, 3), 2);
 assert.equal(clampBannerIndex(-1, 3), 0);
 
+assert.equal(homeBannerTrackLength(0), 0);
+assert.equal(homeBannerTrackLength(1), 1);
+assert.equal(homeBannerTrackLength(4), 6, '4 real slides + 2 clones');
+assert.equal(loopingTrackIndex(0, 4), 1);
+assert.equal(loopingTrackIndex(3, 4), 4);
+assert.equal(loopingAdvanceTrackIndex(3, 4, 1), 5, 'last → first is the trailing clone (one snap)');
+assert.equal(loopingAdvanceTrackIndex(0, 4, -1), 0, 'first → last is the leading clone');
+assert.equal(loopingAdvanceTrackIndex(1, 4, 1), 3);
+assert.equal(loopingCloneJump(5, 4), 1);
+assert.equal(loopingCloneJump(0, 4), 4);
+assert.equal(loopingCloneJump(4, 4), null);
+assert.equal(logicalFromTrackIndex(5, 4), 0);
+assert.equal(logicalFromTrackIndex(0, 4), 3);
+assert.equal(logicalFromTrackIndex(1, 4), 0);
+assert.equal(trackIndexFromScroll(0, 390, 6), 0);
+assert.equal(trackIndexFromScroll(390, 390, 6), 1);
+assert.equal(trackIndexFromScroll(390 * 5, 390, 6), 5);
+
+const loopFour = homeBannerLoopSlides([
+  banner({ id: 'a', imageUrl: 'https://cdn.example/a.jpg' }),
+  banner({ id: 'b', imageUrl: 'https://cdn.example/b.jpg' }),
+  banner({ id: 'c', imageUrl: 'https://cdn.example/c.jpg' }),
+  banner({ id: 'd', imageUrl: 'https://cdn.example/d.jpg' }),
+]);
+assert.equal(loopFour.length, 6);
+assert.equal(loopFour[0].clone, true);
+assert.equal(loopFour[0].item.id, 'd');
+assert.equal(loopFour[1].clone, false);
+assert.equal(loopFour[1].item.id, 'a');
+assert.equal(loopFour[5].clone, true);
+assert.equal(loopFour[5].item.id, 'a');
+assert.equal(homeBannerLoopSlides([banner({ id: 'only', imageUrl: 'https://cdn.example/o.jpg' })]).length, 1);
+assert.equal(bannerImageIsPriority(false, 0), true);
+assert.equal(bannerImageIsPriority(true, 0), false, 'clone of first is not LCP');
+assert.equal(bannerImageIsPriority(false, 1), false);
+
 assert.equal(bannerCtaLabel(), 'Conferir agora');
 assert.equal(bannerCtaHref({ linkUrl: '/departamento/ofertas' }), '/departamento/ofertas');
 assert.equal(bannerCtaHref({ linkUrl: null }), '/departamento/ofertas');
@@ -159,7 +203,14 @@ assert.ok(
 );
 assert.ok(/\.home-banner-track[\s\S]{0,280}overflow-x:\s*auto/.test(css), 'only the banner track scrolls horizontally');
 assert.ok(/\.home-banner-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'slides lock to track width');
-assert.ok(/\.home-banner-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(css), 'snaps one banner at a time');
+assert.ok(/\.home-banner-slide\s*\{[^}]*scroll-snap-stop:\s*normal/.test(css), 'soft snap — reverse fling is not locked');
+assert.equal(
+  /\.home-banner-track\s*\{[^}]*scroll-behavior:\s*smooth/.test(css),
+  false,
+  'no CSS smooth on the track (native momentum on mobile)',
+);
+assert.ok(/\.home-banner-track[\s\S]{0,360}overscroll-behavior-x:\s*contain/.test(css), 'overscroll stays inside the track');
+assert.ok(/\.home-banner-img[\s\S]{0,280}content-visibility:\s*auto/.test(css), 'off-screen banner bitmaps skip paint');
 assert.ok(/\.home-banner-dots[\s\S]{0,120}position:\s*static/.test(css), 'dots sit under the banner');
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.home-banner-nav[\s\S]*display:\s*none/.test(css),
@@ -173,7 +224,15 @@ assert.ok(src.includes('shouldShowBannerChrome'), 'single banner hides arrows/do
 assert.ok(src.includes('StaticPromoStrip'), 'empty API keeps the current promo as slide 1');
 assert.ok(src.includes('pauseAuto'), 'auto-advance pauses on touch');
 assert.ok(src.includes('HOME_BANNER_AUTO_MS'), 'gentle auto-advance is wired');
+assert.ok(src.includes('homeBannerLoopSlides'), '2+ banners render wrap clones');
+assert.ok(src.includes('loopingAdvanceTrackIndex'), 'last→first advances one snap via clone');
+assert.ok(src.includes('loopingCloneJump'), 'clone snap jumps to the real slide');
+assert.ok(src.includes('interacting.current'), 'finger down pauses programmatic scroll');
+assert.ok(src.includes('if (!el || interacting.current) return'), 'scrollTo does not run during touch');
+assert.ok(src.includes('settleLoopRef'), 'clone jump after wrap uses the latest settle fn');
+assert.ok(src.includes('bannerImageIsPriority'), 'eager/high only on the first real slide');
 assert.equal(src.includes('onTouchStart'), false, 'JS swipe must not fight native scroll-snap');
+assert.equal(src.includes('scrollSyncLock'), false, 'must not lock scrollLeft updates for 350ms');
 assert.ok(src.includes('bannerCtaLabel()'), 'CTA copy stays Conferir agora');
 
 const adminSrc = readFileSync(

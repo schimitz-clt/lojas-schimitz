@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
@@ -14,19 +14,29 @@ import {
 import {
   HOME_BANNER_AUTO_MS,
   HOME_BANNER_RESUME_MS,
+  HOME_BANNER_SETTLE_MS,
   bannerAlt,
   bannerAriaLabel,
   bannerCtaHref,
   bannerCtaLabel,
   bannerDotLabel,
+  bannerImageIsPriority,
   bannerImageUrl,
   bannerNavNextLabel,
   bannerNavPrevLabel,
+  bannerScrollBehavior,
   bannerTapOpensLink,
   clampBannerIndex,
+  homeBannerLoopSlides,
+  homeBannerTrackLength,
+  logicalFromTrackIndex,
+  loopingAdvanceTrackIndex,
+  loopingCloneJump,
+  loopingTrackIndex,
   nextBannerIndex,
   shouldShowBannerChrome,
   takeUsableHomeBanners,
+  trackIndexFromScroll,
 } from '@/lib/home-banners';
 
 type HeroProduct = CatProductLike & {
@@ -147,9 +157,14 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
   const [paused, setPaused] = useState(false);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const scrollSyncLock = useRef(false);
+  const idxRef = useRef(0);
+  const interacting = useRef(false);
+  const programmatic = useRef(false);
+  const jumping = useRef(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapOrigin = useRef<{ x: number; y: number } | null>(null);
+  const settleLoopRef = useRef<() => void>(() => {});
 
   const featured = pickFeaturedHeroProduct(products || []);
 
@@ -174,34 +189,9 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const total = slides.length;
   const multi = shouldShowBannerChrome(total);
   const safeIdx = clampBannerIndex(idx, total);
-
-  const scrollToIndex = useCallback((n: number, smooth: boolean) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const w = el.clientWidth || 1;
-    scrollSyncLock.current = true;
-    el.scrollTo({ left: n * w, behavior: smooth ? 'smooth' : 'auto' });
-    window.setTimeout(() => {
-      scrollSyncLock.current = false;
-    }, 350);
-  }, []);
-
-  const goTo = useCallback(
-    (next: number) => {
-      const target = clampBannerIndex(next, total);
-      setIdx(target);
-      scrollToIndex(target, true);
-    },
-    [scrollToIndex, total],
-  );
-
-  const go = useCallback(
-    (delta: number) => {
-      if (total <= 1) return;
-      goTo(nextBannerIndex(safeIdx, total, delta));
-    },
-    [goTo, safeIdx, total],
-  );
+  const loopSlides = homeBannerLoopSlides(slides);
+  const slideSetKey = slides.map((b) => b.id).join('|');
+  idxRef.current = safeIdx;
 
   const pauseAuto = useCallback(() => {
     setPaused(true);
@@ -209,42 +199,171 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
     resumeTimer.current = setTimeout(() => setPaused(false), HOME_BANNER_RESUME_MS);
   }, []);
 
+  const scrollToTrack = useCallback(
+    (trackIdx: number, smooth: boolean) => {
+      const el = trackRef.current;
+      if (!el || interacting.current) return;
+      const w = el.clientWidth || 1;
+      programmatic.current = true;
+      el.scrollTo({ left: trackIdx * w, behavior: bannerScrollBehavior(smooth) });
+      window.setTimeout(() => {
+        programmatic.current = false;
+        if (!interacting.current) settleLoopRef.current();
+      }, smooth ? 280 : 0);
+    },
+    [],
+  );
+
+  const jumpToTrack = useCallback((trackIdx: number) => {
+    const el = trackRef.current;
+    if (!el || interacting.current) return;
+    jumping.current = true;
+    const snap = el.style.scrollSnapType;
+    el.style.scrollSnapType = 'none';
+    el.scrollTo({ left: trackIdx * (el.clientWidth || 1), behavior: 'auto' });
+    el.style.scrollSnapType = snap;
+    window.requestAnimationFrame(() => {
+      jumping.current = false;
+    });
+  }, []);
+
+  const settleLoop = useCallback(() => {
+    if (interacting.current || jumping.current) return;
+    const el = trackRef.current;
+    if (!el || total <= 1) return;
+    const trackCount = homeBannerTrackLength(total);
+    const tIdx = trackIndexFromScroll(el.scrollLeft, el.clientWidth || 1, trackCount);
+    const jump = loopingCloneJump(tIdx, total);
+    if (jump == null) {
+      const next = logicalFromTrackIndex(tIdx, total);
+      setIdx((cur) => (cur === next ? cur : next));
+      return;
+    }
+    jumpToTrack(jump);
+    const next = logicalFromTrackIndex(jump, total);
+    setIdx((cur) => (cur === next ? cur : next));
+  }, [jumpToTrack, total]);
+  settleLoopRef.current = settleLoop;
+
+  const goTo = useCallback(
+    (next: number, smooth = true) => {
+      if (interacting.current) return;
+      const target = clampBannerIndex(next, total);
+      setIdx(target);
+      scrollToTrack(loopingTrackIndex(target, total), smooth);
+    },
+    [scrollToTrack, total],
+  );
+
+  const go = useCallback(
+    (delta: number) => {
+      if (total <= 1 || interacting.current) return;
+      const current = idxRef.current;
+      const next = nextBannerIndex(current, total, delta);
+      setIdx(next);
+      scrollToTrack(loopingAdvanceTrackIndex(current, total, delta), true);
+    },
+    [scrollToTrack, total],
+  );
+
   useEffect(() => {
     return () => {
       if (resumeTimer.current) clearTimeout(resumeTimer.current);
+      if (settleTimer.current) clearTimeout(settleTimer.current);
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el || total <= 1) return;
+    jumpToTrack(loopingTrackIndex(clampBannerIndex(idxRef.current, total), total));
+  }, [jumpToTrack, slideSetKey, total]);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || total <= 1) return;
+    const onResize = () => {
+      if (interacting.current || programmatic.current || jumping.current) return;
+      jumpToTrack(loopingTrackIndex(idxRef.current, total));
+    };
+    const ro = new ResizeObserver(onResize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [jumpToTrack, total]);
 
   useEffect(() => {
     if (!multi || paused) return;
     const t = setInterval(() => {
+      if (interacting.current) return;
       setIdx((i) => {
         const next = nextBannerIndex(i, total, 1);
-        scrollToIndex(next, true);
+        scrollToTrack(loopingAdvanceTrackIndex(i, total, 1), true);
         return next;
       });
     }, HOME_BANNER_AUTO_MS);
     return () => clearInterval(t);
-  }, [multi, paused, scrollToIndex, total]);
+  }, [multi, paused, scrollToTrack, total]);
 
   useEffect(() => {
     setIdx((i) => clampBannerIndex(i, total));
   }, [total]);
 
+  const scheduleSettle = useCallback(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(settleLoop, HOME_BANNER_SETTLE_MS);
+  }, [settleLoop]);
+
   const onTrackScroll = useCallback(() => {
     const el = trackRef.current;
-    if (scrollSyncLock.current || !el) return;
-    const w = el.clientWidth || 1;
-    const next = Math.round(el.scrollLeft / w);
-    setIdx((cur) => (cur === next ? cur : next));
-  }, []);
+    if (!el || jumping.current) return;
+    if (!programmatic.current) {
+      const tIdx = trackIndexFromScroll(
+        el.scrollLeft,
+        el.clientWidth || 1,
+        homeBannerTrackLength(total),
+      );
+      const next = logicalFromTrackIndex(tIdx, total);
+      setIdx((cur) => (cur === next ? cur : next));
+    }
+    if (!interacting.current && !programmatic.current) scheduleSettle();
+  }, [scheduleSettle, total]);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || total <= 1) return;
+    const onEnd = () => {
+      if (!interacting.current && !programmatic.current) settleLoop();
+    };
+    el.addEventListener('scrollend', onEnd);
+    return () => el.removeEventListener('scrollend', onEnd);
+  }, [settleLoop, total, slideSetKey]);
+
+  const onTrackPointerDown = useCallback(() => {
+    interacting.current = true;
+    programmatic.current = false;
+    pauseAuto();
+  }, [pauseAuto]);
+
+  useEffect(() => {
+    const release = () => {
+      if (!interacting.current) return;
+      interacting.current = false;
+      scheduleSettle();
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    return () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [scheduleSettle]);
 
   const onSlidePointerDown = useCallback(
     (e: React.PointerEvent) => {
       tapOrigin.current = { x: e.clientX, y: e.clientY };
-      pauseAuto();
+      onTrackPointerDown();
     },
-    [pauseAuto],
+    [onTrackPointerDown],
   );
 
   const onSlideClick = useCallback((e: React.MouseEvent) => {
@@ -283,21 +402,23 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
           className="home-banner-track"
           ref={trackRef}
           onScroll={onTrackScroll}
-          onPointerDown={pauseAuto}
+          onPointerDown={onTrackPointerDown}
         >
-          {slides.map((b, i) => {
+          {loopSlides.map((slot) => {
+            const b = slot.item;
+            const priority = bannerImageIsPriority(slot.clone, slot.logicalIndex);
             const href = bannerCtaHref(b);
             const img = (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={bannerImageUrl(b)}
-                alt={bannerAlt(b)}
+                alt={slot.clone ? '' : bannerAlt(b)}
                 className="home-banner-img"
                 width={1400}
                 height={520}
                 sizes="100vw"
-                loading={i === 0 ? 'eager' : 'lazy'}
-                fetchPriority={i === 0 ? 'high' : undefined}
+                loading={priority ? 'eager' : 'lazy'}
+                fetchPriority={priority ? 'high' : undefined}
                 decoding="async"
                 draggable={false}
                 onError={() => {
@@ -311,11 +432,16 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
               />
             );
             return (
-              <div className="home-banner-slide" key={b.id}>
+              <div
+                className="home-banner-slide"
+                key={slot.key}
+                aria-hidden={slot.clone ? true : undefined}
+              >
                 <Link
                   href={href}
                   className="home-banner-link"
                   draggable={false}
+                  tabIndex={slot.clone ? -1 : undefined}
                   onPointerDown={onSlidePointerDown}
                   onClick={onSlideClick}
                 >
@@ -367,7 +493,7 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
               aria-selected={i === safeIdx}
               onClick={() => {
                 pauseAuto();
-                goTo(i);
+                goTo(i, false);
               }}
             />
           ))}
