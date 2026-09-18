@@ -63,3 +63,8 @@ export function pdpLightboxIgnoreCloseMs(): number {
 export function pdpLightboxOpenedTooRecently(openedAtMs: number, nowMs: number): boolean {
   return nowMs - openedAtMs < pdpLightboxIgnoreCloseMs();
 }
+
+/** Same slide-width lock as the inline gallery — swipe lives on the lightbox track. */
+export function pdpLightboxSlideWidthLock(): string[] {
+  return ['flex: 0 0 100%', 'width: 100%', 'min-width: 100%', 'max-width: 100%'];
+}
