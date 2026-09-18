@@ -1470,6 +1470,7 @@
   cursor: zoom-in;
   justify-self: stretch;
   align-self: stretch;
+  touch-action: pan-x;
 }
 
 .pdp-gallery-open img {
@@ -1627,8 +1628,7 @@
     border-radius: 0;
   }
 
-  .pdp-carousel-nav,
-  .pdp-gallery-zoomchip {
+  .pdp-carousel-nav {
     display: none;
   }
 

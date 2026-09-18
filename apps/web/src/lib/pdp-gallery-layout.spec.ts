@@ -52,10 +52,12 @@ assert.equal(
   '390px breakpoint must not reintroduce the 28vh/200px strip',
 );
 
-assert.equal(pdpPageOverflowX(), 'clip');
+assert.equal(pdpPageOverflowX(), 'hidden');
 
-assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*clip/.test(css), 'document must not scroll sideways');
-assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*clip/.test(css), 'PDP clips horizontal overflow');
+assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*hidden/.test(css), 'document must not scroll sideways');
+assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'PDP hides horizontal overflow');
+assert.ok(/\.pdp-carousel-track[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(css), 'gallery swipe is internal scroll-snap');
+assert.ok(/\.pdp-carousel-track[\s\S]{0,280}overflow-x:\s*auto/.test(css), 'only the track scrolls horizontally');
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*scroll-snap-stop:\s*always/.test(css), 'gallery snaps one photo at a time');
 assert.ok(theme.includes('scroll-snap-stop: always'), 'lightbox snaps one photo at a time');
 assert.ok(/minmax\(min\(100%,\s*140px\)/.test(css), 'trust cards cannot force a 140px×3 overflow');
@@ -64,7 +66,7 @@ assert.ok(/\.pdp-carousel-nav[\s\S]*display:\s*none/.test(css), 'mobile uses swi
 assert.ok(/\.pdp-carousel-dots[\s\S]*position:\s*static/.test(css), 'dots sit under the photo, centered');
 assert.ok(/\.pdp-sticky-atc \.btn[\s\S]*white-space:\s*nowrap/.test(css), 'sticky ATC is price left + button right');
 
-assert.ok(theme.includes('justify-self: stretch'), 'Ampliar hit-target fills the slide');
+assert.ok(theme.includes('touch-action: pan-x'), 'photo hit-target allows horizontal swipe');
 assert.ok(theme.includes('object-position: center'), 'theme img also centers in the frame');
 
 console.log('pdp-gallery-layout unit tests ok');

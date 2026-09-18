@@ -154,10 +154,17 @@ export function ProductGallery({ images, productName }: Props) {
           {total ? (
             images.map((img, i) => (
               <div className="pdp-carousel-slide" key={`${img.url}-${i}`}>
-                <button
-                  type="button"
+                <div
                   className="pdp-gallery-open"
+                  role="button"
+                  tabIndex={0}
                   onClick={openLightbox}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openLightbox();
+                    }
+                  }}
                   aria-label={galleryOpenLabel()}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -174,7 +181,7 @@ export function ProductGallery({ images, productName }: Props) {
                       e.currentTarget.style.visibility = 'hidden';
                     }}
                   />
-                </button>
+                </div>
               </div>
             ))
           ) : (

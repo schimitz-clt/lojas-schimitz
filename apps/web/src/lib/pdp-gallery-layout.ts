@@ -37,7 +37,7 @@ export function pdpGallerySlideWidthLock(): string[] {
   return ['flex: 0 0 100%', 'width: 100%', 'min-width: 100%', 'max-width: 100%'];
 }
 
-/** Page must clip sideways scroll; inner tracks still swipe one snap at a time. */
+/** Page must hide sideways scroll; inner tracks still swipe one snap at a time. */
 export function pdpPageOverflowX(): string {
-  return 'clip';
+  return 'hidden';
 }
