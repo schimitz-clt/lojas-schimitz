@@ -241,3 +241,40 @@ export function bannerTapOpensLink(dx: number, dy: number): boolean {
 export function homeBannerSlideWidthLock(): string[] {
   return ['flex: 0 0 100%', 'width: 100%', 'min-width: 100%', 'max-width: 100%'];
 }
+
+/** Shared strip ratios — every slide uses the same box; images crop, they do not resize it. */
+export const HOME_BANNER_ASPECT_DEFAULT = { w: 21, h: 8 } as const;
+export const HOME_BANNER_ASPECT_MOBILE = { w: 16, h: 10 } as const;
+export const HOME_BANNER_ASPECT_DESKTOP = { w: 21, h: 7 } as const;
+
+export function homeBannerAspectCss(aspect: { w: number; h: number }): string {
+  return `${aspect.w} / ${aspect.h}`;
+}
+
+export function homeBannerFrameSize(
+  trackWidthPx: number,
+  aspect: { w: number; h: number } = HOME_BANNER_ASPECT_DEFAULT,
+): { width: number; height: number } {
+  const width = Math.max(0, Number.isFinite(trackWidthPx) ? trackWidthPx : 0);
+  const aw = Number.isFinite(aspect.w) && aspect.w > 0 ? aspect.w : 1;
+  const ah = Number.isFinite(aspect.h) && aspect.h > 0 ? aspect.h : 1;
+  return { width, height: (width * ah) / aw };
+}
+
+/** A min-height larger than the aspect box fights the frame (PDP gallery lesson). */
+export function homeBannerMinHeightFightsAspect(
+  trackWidthPx: number,
+  minHeightPx: number,
+  aspect: { w: number; h: number } = HOME_BANNER_ASPECT_DEFAULT,
+): boolean {
+  const { height } = homeBannerFrameSize(trackWidthPx, aspect);
+  return Number.isFinite(minHeightPx) && minHeightPx > height;
+}
+
+export function homeBannerSlideFrameLock(): string[] {
+  return [...homeBannerSlideWidthLock(), 'height: 100%', 'min-height: 0', 'max-height: 100%'];
+}
+
+export function homeBannerImageFit(): string {
+  return 'object-fit: cover';
+}
