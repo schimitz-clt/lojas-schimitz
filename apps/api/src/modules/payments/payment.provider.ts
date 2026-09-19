@@ -1,7 +1,11 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
 import { isProdLikeEnv } from '../../common/prod-like-env';
-import { assertNoLiveMarketplaceSplitFields } from './mp-split-payment-guard';
+import { isMpTestCredential } from '../marketplace-mp/mp-split-sandbox';
+import {
+  assertNoLiveMarketplaceSplitFields,
+  assertSandboxApplicationFeeAllowed,
+} from './mp-split-payment-guard';
 
 export { isProdLikeEnv };
 
@@ -30,6 +34,13 @@ export type CreateIntentInput = {
   expiresInSeconds?: number;
   /** Idempotency key HTTP do provedor (não misturar com header da loja). */
   providerIdempotencyKey?: string;
+  /**
+   * Phase 2 sandbox only: seller OAuth access token (TEST-).
+   * Provider refuses APP_USR seller tokens.
+   */
+  sellerAccessToken?: string;
+  /** Absolute BRL application_fee. Only sent on the sandbox path. */
+  applicationFee?: number;
 };
 
 export type CreateIntentResult = {
@@ -69,9 +80,9 @@ export type VerifiedWebhookEvent = {
 export interface PaymentProvider {
   name: string;
   createIntent(input: CreateIntentInput): Promise<CreateIntentResult>;
-  fetchPayment(externalId: string): Promise<FetchPaymentResult>;
-  cancelIntent(externalId: string): Promise<void>;
-  refund(externalId: string, amount?: number): Promise<RefundResult>;
+  fetchPayment(externalId: string, opts?: { accessToken?: string }): Promise<FetchPaymentResult>;
+  cancelIntent(externalId: string, opts?: { accessToken?: string }): Promise<void>;
+  refund(externalId: string, amount?: number, opts?: { accessToken?: string }): Promise<RefundResult>;
   verifyWebhook(input: VerifyWebhookInput): Promise<VerifiedWebhookEvent>;
   translateStatus(providerStatus: string): DomainPaymentStatus;
 }
@@ -133,7 +144,7 @@ export class NullPaymentProvider implements PaymentProvider {
     return { externalId, status: 'pending', payload };
   }
 
-  async fetchPayment(externalId: string): Promise<FetchPaymentResult> {
+  async fetchPayment(externalId: string, _opts?: { accessToken?: string }): Promise<FetchPaymentResult> {
     const hit = nullStore.get(externalId);
     if (hit) return hit;
     return {
@@ -145,14 +156,14 @@ export class NullPaymentProvider implements PaymentProvider {
     };
   }
 
-  async cancelIntent(externalId: string): Promise<void> {
+  async cancelIntent(externalId: string, _opts?: { accessToken?: string }): Promise<void> {
     const hit = nullStore.get(externalId);
     if (hit && hit.status === 'pending') {
       nullStore.set(externalId, { ...hit, status: 'cancelled', rawStatus: 'cancelled' });
     }
   }
 
-  async refund(externalId: string, _amount?: number): Promise<RefundResult> {
+  async refund(externalId: string, _amount?: number, _opts?: { accessToken?: string }): Promise<RefundResult> {
     const hit = nullStore.get(externalId);
     if (hit) {
       nullStore.set(externalId, { ...hit, status: 'refunded', rawStatus: 'refunded' });
@@ -262,9 +273,13 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     return 'unknown';
   }
 
-  private async mpFetch(path: string, init: RequestInit & { idempotencyKey?: string } = {}) {
+  private async mpFetch(
+    path: string,
+    init: RequestInit & { idempotencyKey?: string; accessToken?: string } = {},
+  ) {
+    const bearer = init.accessToken || this.token();
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token()}`,
+      Authorization: `Bearer ${bearer}`,
       'Content-Type': 'application/json',
       ...(init.headers as Record<string, string> | undefined),
     };
@@ -334,14 +349,33 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       if (input.paymentMethodId) body.payment_method_id = input.paymentMethodId;
     }
 
-    // Phase 1 fail-closed: never send application_fee / seller collector fields.
-    // ALLOW_LIVE must not unlock a charge path in this PR.
-    assertNoLiveMarketplaceSplitFields(body);
+    const sellerToken = String(input.sellerAccessToken || '').trim();
+    const fee =
+      input.applicationFee != null && Number.isFinite(Number(input.applicationFee))
+        ? Number(input.applicationFee)
+        : null;
+    const useSandboxSplit = Boolean(sellerToken && fee != null && fee > 0);
+
+    if (useSandboxSplit) {
+      if (!isMpTestCredential(sellerToken)) {
+        const err: Error & { code?: string } = new Error(
+          'Token de vendedor live (APP_USR) bloqueado no split sandbox (Fase 2).',
+        );
+        err.code = 'PHASE2_SPLIT_FORBIDDEN';
+        throw err;
+      }
+      body.application_fee = fee;
+      assertSandboxApplicationFeeAllowed(body);
+    } else {
+      // Platform collector: no application_fee. ALLOW_LIVE does not unlock this.
+      assertNoLiveMarketplaceSplitFields(body);
+    }
 
     const json = await this.mpFetch('/v1/payments', {
       method: 'POST',
       body: JSON.stringify(body),
       idempotencyKey: input.providerIdempotencyKey || `sch-intent-${input.orderId}-${input.method}`,
+      accessToken: useSandboxSplit ? sellerToken : undefined,
     });
 
     const status = this.translateStatus(String(json.status || 'pending'));
@@ -352,6 +386,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       qrCodeBase64: poi.qr_code_base64 || null,
       ticketUrl: poi.ticket_url || null,
       paymentMethodId: json.payment_method_id,
+      splitMode: useSandboxSplit ? 'seller_oauth_v1' : 'off',
     };
 
     return {
@@ -361,8 +396,10 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
   }
 
-  async fetchPayment(externalId: string): Promise<FetchPaymentResult> {
-    const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}`);
+  async fetchPayment(externalId: string, opts?: { accessToken?: string }): Promise<FetchPaymentResult> {
+    const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}`, {
+      accessToken: opts?.accessToken,
+    });
     const status = this.translateStatus(String(json.status || ''));
     const poi = json.point_of_interaction?.transaction_data || {};
     return {
@@ -381,28 +418,30 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
   }
 
-  async cancelIntent(externalId: string): Promise<void> {
+  async cancelIntent(externalId: string, opts?: { accessToken?: string }): Promise<void> {
     try {
       await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'cancelled' }),
+        accessToken: opts?.accessToken,
       });
     } catch {
       // best-effort (#7/#12)
     }
   }
 
-  async refund(externalId: string, amount?: number): Promise<RefundResult> {
+  async refund(externalId: string, amount?: number, opts?: { accessToken?: string }): Promise<RefundResult> {
     const body = amount != null ? { amount } : {};
     const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}/refunds`, {
       method: 'POST',
       body: JSON.stringify(body),
       idempotencyKey: `sch-refund-${externalId}`,
+      accessToken: opts?.accessToken,
     });
     // Reconsulta para status definitivo
     let status: DomainPaymentStatus = 'refunded';
     try {
-      const fetched = await this.fetchPayment(externalId);
+      const fetched = await this.fetchPayment(externalId, opts);
       status = fetched.status === 'refunded' ? 'refunded' : this.translateStatus(String(json.status || 'refunded'));
     } catch {
       status = 'refunded';

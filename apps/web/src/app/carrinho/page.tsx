@@ -12,7 +12,7 @@ import { pixPrice, stockBadge } from '@/lib/pricing';
 import { cartCheckoutLabel, cartTrustItems, pixHighlight } from '@/lib/storefront-pro';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
-import { MARKETPLACE_MIXED_CART_MESSAGE_PT, isMixedSellerCart } from '@/lib/mixed-cart';
+import { mixedCartBlockMessagePt, isMixedSellerCart } from '@/lib/mixed-cart';
 
 type CartItem = {
   id: string;
@@ -178,7 +178,7 @@ export default function CartPage() {
       {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
       {mixedCart ? (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>
-          {MARKETPLACE_MIXED_CART_MESSAGE_PT}
+          {mixedCartBlockMessagePt(cart.items)}
         </div>
       ) : null}
       {!hasItems ? (

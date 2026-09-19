@@ -4,6 +4,7 @@ import { join } from 'path';
 import {
   MP_SPLIT_PAYMENT_BODY_KEYS,
   assertNoLiveMarketplaceSplitFields,
+  assertSandboxApplicationFeeAllowed,
 } from './mp-split-payment-guard';
 
 assertNoLiveMarketplaceSplitFields({
@@ -18,37 +19,68 @@ for (const key of MP_SPLIT_PAYMENT_BODY_KEYS) {
     assertNoLiveMarketplaceSplitFields({ transaction_amount: 10, [key]: 1 });
   } catch (e: unknown) {
     threw = true;
-    assert.equal((e as { code?: string }).code, 'PHASE1_SPLIT_FORBIDDEN');
+    assert.ok(
+      (e as { code?: string }).code === 'PHASE2_SPLIT_FORBIDDEN' ||
+        (e as { code?: string }).code === 'SPLIT_FIELD_FORBIDDEN',
+    );
   }
   assert.equal(threw, true, key);
 }
 
+const sandboxEnv: NodeJS.ProcessEnv = {
+  APP_ENV: 'development',
+  NODE_ENV: 'test',
+  MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+  MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false',
+  MERCADO_PAGO_ACCESS_TOKEN: 'TEST-platform',
+};
+assertSandboxApplicationFeeAllowed({ transaction_amount: 95, application_fee: 9.5 }, sandboxEnv);
+
+let liveThrew = false;
+try {
+  assertSandboxApplicationFeeAllowed(
+    { transaction_amount: 95, application_fee: 9.5 },
+    {
+      APP_ENV: 'production',
+      NODE_ENV: 'production',
+      MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+      MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'true',
+      MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-live',
+    },
+  );
+} catch (e: unknown) {
+  liveThrew = true;
+  assert.equal((e as { code?: string }).code, 'PHASE2_SPLIT_FORBIDDEN');
+}
+assert.equal(liveThrew, true);
+
 const providerSrc = readFileSync(join(__dirname, 'payment.provider.ts'), 'utf8');
 assert.ok(
   providerSrc.includes('assertNoLiveMarketplaceSplitFields'),
-  'createIntent must fail-closed on split fields',
+  'platform path must fail-closed on split fields',
 );
 assert.ok(
-  !/body\.application_fee\s*=/.test(providerSrc),
-  'createIntent must not assign application_fee',
+  providerSrc.includes('assertSandboxApplicationFeeAllowed'),
+  'sandbox path must re-check the money gate',
 );
 assert.ok(
-  !/Authorization:\s*`Bearer \$\{/.test(providerSrc) || providerSrc.includes('this.token()'),
-  'MP payments use platform token helper',
+  providerSrc.includes('sellerAccessToken'),
+  'provider may use seller TEST- token on sandbox path',
 );
 assert.ok(
-  !/sellerAccessToken|mpCredential|accessTokenEnc/.test(providerSrc),
-  'provider must not load seller tokens',
+  /body\.application_fee\s*=/.test(providerSrc),
+  'sandbox path assigns application_fee only after gate',
+);
+assert.ok(
+  providerSrc.includes('isMpTestCredential'),
+  'seller APP_USR token is refused',
 );
 
 const serviceSrc = readFileSync(join(__dirname, 'payments.service.ts'), 'utf8');
+assert.ok(serviceSrc.includes('decideSandboxSplit'), 'payments path uses Phase 2 sandbox gate');
 assert.ok(
-  !/MP_MARKETPLACE_SPLIT_ALLOW_LIVE/.test(serviceSrc),
-  'payments path must ignore ALLOW_LIVE in Phase 1',
-);
-assert.ok(
-  !/MP_MARKETPLACE_SPLIT_ENABLED/.test(serviceSrc),
-  'payments path must stay current when split flags are off',
+  serviceSrc.includes('MP_MARKETPLACE_SPLIT') === false || serviceSrc.includes('decideSandboxSplit'),
+  'split decision is centralized',
 );
 
 console.log('mp-split-payment-guard.spec ok');

@@ -38,9 +38,9 @@ Multi-seller **foundation** sem quebrar o checkout único. Evidência abaixo é 
 
 ### Importante — dinheiro ainda é manual
 
-> **Não há split automático / transfer / `application_fee` no pagamento.**  
-> OAuth de vendedor existe na Fase 1 (flag off por padrão) e **não cobra**. O ledger continua a fonte do Repasse v1 (PIX manual).  
-> Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). **Nenhum passo de dinheiro live sem OK explícito.**
+> **Não há split automático live (`APP_USR` / `ALLOW_LIVE`) no pagamento.**  
+> Fase 2 (sandbox): com `MP_MARKETPLACE_SPLIT_ENABLED=true`, `ALLOW_LIVE=false` e tokens `TEST-`, o intent de um vendedor vinculado envia `application_fee` no token do seller. Produção com credenciais live continua no collector da loja.  
+> Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). **Não ligar `ALLOW_LIVE` em production.**
 
 ## Checklist v1 — PASS / FRAGILE / FAIL
 
@@ -65,7 +65,7 @@ Idempotente: Roblox com estoque 0 → 50; produto ativo sem imagem → placehold
 |---|---|---|
 | **OpenAI billing** | Bloqueio externo | Chat cai no FAQ/catálogo sem chave. |
 | **Play Store / Android TWA** | Ops + assets | Fora de marketplace. |
-| **Split MP automático** | Fase 1 (OAuth + regra 1 seller) — **sem cobrança** | Ver [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). `application_fee` / token de seller no payment = Fase 2+. |
+| **Split MP automático** | Fase 2 sandbox (TEST- only) | Ver [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). Produção live = Fase 3 + OK explícito. |
 | **Frete por vendedor** | Planejado | Checkout continua um frete só. |
 | **Alocação de disputa** | Planejado | `charged_back` → status local `unknown`; sem rateio. |
 
@@ -89,40 +89,49 @@ npm test --workspace=@schimitz/web
 
 Admin cria o segundo vendedor pelo fluxo `/admin/marketplace` quando quiser um parceiro real. **Não** semear vendedor fake em produção.
 
-## Fase 1 — OAuth + carrinho 1 seller (código; sem dinheiro)
+## Fase 1 — OAuth + carrinho 1 seller
 
-**Status:** implementado neste repo. **Não move dinheiro.** `createIntent` continua no token da plataforma, sem `application_fee` / token de vendedor — mesmo se `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=true` (fail-closed).
+Implementado. OAuth + regra 1 seller. Sem dinheiro live.
+
+## Fase 2 — sandbox split (código; sem live)
+
+**Status:** implementado neste repo. **Não move dinheiro live.**
 
 Decisão v2.1 (locked):
 
-- Um vendedor por pedido. Carrinho misto → `400 MARKETPLACE_MIXED_CART` (PT) **sempre**, flags off também.
-- Loja própria `lojas-schimitz` permanece no collector da plataforma (sem self-split / sem OAuth de vendedor).
-- PIX 5% será absorvido pela **plataforma** no cálculo futuro da `application_fee` (Fase 2).
-- Flag `MP_MARKETPLACE_SPLIT_ENABLED` (default **false**) só libera UI `/vendedor` “Conectar Mercado Pago” + persistência OAuth + job de refresh.
+- Um vendedor por pedido. Carrinho misto → `400 MARKETPLACE_MIXED_CART` (PT) **sempre**.
+- Loja própria `lojas-schimitz` permanece no collector da plataforma (sem self-split).
+- PIX 5% absorvido pela **plataforma**: `application_fee = commissionAmount(chargeAmount, percent)` sobre o valor cobrado (PIX = 95%).
+- Split sandbox só quando `ENABLED=true` **e** `ALLOW_LIVE=false` **e** credenciais `TEST-` **e** seller `linked` **e** não é a loja própria.
+- `APP_ENV=production` + `APP_USR` → collector da plataforma (fail-closed). `ALLOW_LIVE=true` **não** abre caminho nesta fase.
 
-O que a Fase 1 faz:
+O que a Fase 2 faz:
 
-- Schema aditivo: `Seller.mpUserId` / `mpPublicKey` / `mpOAuthStatus` / `mpTokenExpiresAt` + tabela `SellerMpCredential` (AES-256-GCM, chave `MP_SELLER_CREDENTIAL_KEY`).
-- OAuth: `GET /seller/mp/connect` → redirect MP → `POST /seller/mp/callback` (code→token; HTTP real só com app MP; testes mockam HTTP).
-- Job `MpOAuthRefreshService` (SchedulerLock) — no-op com flag off.
-- Checkout / sacola: aviso PT + botão bloqueado se houver mais de um seller.
+- `createIntent` sandbox: token do seller + `application_fee`.
+- `Payment.splitMode=seller_oauth_v1`, `applicationFee`, `collectorMpUserId`.
+- Webhook GET no collector do seller; `recordOnPaid` com `source=mp_application_fee`.
+- Refund sandbox + `reverseOnRefund` (linhas `mp_application_fee` → `cancelled`).
+- Admin esconde “Marcar pago” nessas linhas.
+- Testes com HTTP MP **mockado**.
 
-O que a Fase 1 **não** faz: `application_fee` em sandbox/live, `ALLOW_LIVE=true` cobrando, seed de vendedor fake em produção, Checkout Pro.
+O que a Fase 2 **não** faz: `ALLOW_LIVE=true` em production, seed de vendedor fake em prod, Checkout Pro, multi-seller.
 
-### Ops ainda necessários para a Fase 2
+### Ops — checklist sandbox (staging only)
 
-1. App Mercado Pago tipo **Marketplace** (não o app de pagamento simples atual) com `client_id` / `client_secret` no Railway da **API**.
-2. Redirect OAuth idêntico a `MP_MARKETPLACE_REDIRECT_URI` (padrão `https://lojasschimitz.com.br/vendedor/mp/callback`).
-3. Credenciais `TEST-` primeiro; `APP_USR` marketplace só depois, sem substituir o token atual sem rollback.
-4. `MP_SELLER_CREDENTIAL_KEY` (32 bytes) para guardar tokens.
-5. Vendedor piloto com conta MP + KYC (não seed).
-6. Ligar `MP_MARKETPLACE_SPLIT_ENABLED=true` só em não-prod para testar OAuth.
-7. **Gate de dinheiro (Fase 3):** `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=true` em produção + primeiro payment com `application_fee` — precisa de OK explícito. Este PR não implementa esse caminho.
+1. App MP **Marketplace** + `MP_MARKETPLACE_CLIENT_ID` / `CLIENT_SECRET` na API (não no web).
+2. Redirect = `MP_MARKETPLACE_REDIRECT_URI`.
+3. Tokens `TEST-` (plataforma e vendedor). Nunca `APP_USR` neste exercício.
+4. `MP_SELLER_CREDENTIAL_KEY` (32 bytes).
+5. Vendedor piloto real (KYC). Conectar em `/vendedor` com `ENABLED=true`.
+6. `MP_MARKETPLACE_SPLIT_ENABLED=true` **só em staging**.
+7. `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=false` (unset ou false). **Não** ligar em production.
+8. Pedido de teste PIX com 1 seller vinculado → MP sandbox. Conferir `Payment.splitMode` e ledger `source=mp_application_fee`.
+9. **Não** este PR: ALLOW_LIVE / APP_USR / dinheiro real (Fase 3 + OK explícito).
 
 Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md).
 
-## v2 (Fase 2+)
+## v2 (Fase 3+)
 
-- Split sandbox (`application_fee` + token do seller) — **não** neste PR
+- Split live (`ALLOW_LIVE`) — **não** neste PR; precisa OK explícito
 - Relatórios de payout além do CSV
 - Frete / disputa por vendedor

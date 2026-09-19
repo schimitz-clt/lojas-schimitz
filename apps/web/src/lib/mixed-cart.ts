@@ -38,3 +38,10 @@ export function mixedCartSellerNames(items: MixedCartItem[]): string[] {
   }
   return [...map.values()];
 }
+
+/** PT alert: official message + seller names when known. */
+export function mixedCartBlockMessagePt(items: MixedCartItem[] = []): string {
+  const names = mixedCartSellerNames(items);
+  if (names.length < 2) return MARKETPLACE_MIXED_CART_MESSAGE_PT;
+  return `${MARKETPLACE_MIXED_CART_MESSAGE_PT} Vendedores neste carrinho: ${names.join(', ')}.`;
+}

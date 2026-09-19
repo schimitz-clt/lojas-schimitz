@@ -5,7 +5,7 @@
  * Ciphertext format: v1.<iv_b64url>.<tag_b64url>.<ct_b64url>
  *
  * Matches the repo secret pattern: env-held key, never logged, never returned on APIs.
- * Tokens stay in SellerMpCredential; Phase 1 createIntent must not decrypt them for charges.
+ * Tokens stay in SellerMpCredential. Phase 2 may decrypt only on the sandbox path.
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';

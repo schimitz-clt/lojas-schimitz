@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CommissionStatus, Prisma } from '@prisma/client';
+
+export type CommissionSourceValue = 'manual_pix' | 'mp_application_fee';
 import { PrismaService } from '../../prisma.service';
 import {
   COMMISSION_STATUSES,
@@ -29,8 +31,16 @@ export class CommissionsService {
   /**
    * On paid order: one CommissionLedger row per order item with sellerId.
    * Idempotent via unique orderItemId. No real payout.
+   * Phase 2: source=mp_application_fee when the payment used sandbox split.
    */
-  async recordOnPaid(orderId: string) {
+  async recordOnPaid(
+    orderId: string,
+    opts?: {
+      source?: CommissionSourceValue;
+      mpPaymentId?: string | null;
+      mpApplicationFee?: number | null;
+    },
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -71,6 +81,10 @@ export class CommissionsService {
             amount: new Prisma.Decimal(amount),
             percent: new Prisma.Decimal(percent),
             status: 'pending',
+            source: opts?.source || 'manual_pix',
+            mpPaymentId: opts?.mpPaymentId || null,
+            mpApplicationFee:
+              opts?.mpApplicationFee != null ? new Prisma.Decimal(opts.mpApplicationFee) : null,
           },
         });
         recorded += 1;
@@ -94,6 +108,9 @@ export class CommissionsService {
     status: CommissionStatus;
     payoutReference: string | null;
     payoutNote: string | null;
+    source?: CommissionSourceValue | string | null;
+    mpPaymentId?: string | null;
+    mpApplicationFee?: Prisma.Decimal | null;
     approvedAt: Date | null;
     paidAt: Date | null;
     createdAt: Date;
@@ -120,6 +137,9 @@ export class CommissionsService {
       status: r.status,
       payoutReference: r.payoutReference,
       payoutNote: r.payoutNote,
+      source: r.source ?? 'manual_pix',
+      mpPaymentId: r.mpPaymentId ?? null,
+      mpApplicationFee: r.mpApplicationFee != null ? Number(r.mpApplicationFee) : null,
       approvedAt: r.approvedAt,
       paidAt: r.paidAt,
       createdAt: r.createdAt,
@@ -197,6 +217,13 @@ export class CommissionsService {
   ) {
     const row = await this.prisma.commissionLedger.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Comissão não encontrada');
+    if (row.source === 'mp_application_fee') {
+      throw new BadRequestException({
+        message:
+          'Esta comissão já foi retida via application_fee do Mercado Pago (sandbox). Não marque PIX manual.',
+        code: 'COMMISSION_SPLIT_SOURCE',
+      });
+    }
     if (!canTransitionCommission(row.status, 'paid')) {
       throw new BadRequestException({
         message: `Não é possível marcar pago a partir de status=${row.status}`,
@@ -259,6 +286,22 @@ export class CommissionsService {
     return { items, totals };
   }
 
+  /**
+   * Refund path: cancel pending/approved mp_application_fee rows.
+   * Additive — does not delete. Idempotent.
+   */
+  async reverseOnRefund(orderId: string) {
+    const result = await this.prisma.commissionLedger.updateMany({
+      where: {
+        orderId,
+        source: 'mp_application_fee',
+        status: { in: ['pending', 'approved'] },
+      },
+      data: { status: 'cancelled' },
+    });
+    return { reversed: result.count };
+  }
+
   /** CSV of commissions for admin (typically pending for one seller). */
   async exportCsv(query: { sellerId: string; status?: string }) {
     if (!query.sellerId) {
@@ -297,6 +340,7 @@ export class CommissionsService {
       'amount',
       'percent',
       'status',
+      'source',
       'payoutReference',
       'payoutNote',
       'createdAt',
@@ -317,6 +361,7 @@ export class CommissionsService {
         esc(Number(r.amount)),
         esc(Number(r.percent)),
         esc(r.status),
+        esc(r.source),
         esc(r.payoutReference),
         esc(r.payoutNote),
         esc(r.createdAt.toISOString()),

@@ -34,7 +34,8 @@ import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
-import { assertSingleSellerCart } from '../marketplace-mp/mixed-cart';
+import { assertSingleSellerCart, uniqueSellerIds } from '../marketplace-mp/mixed-cart';
+import { customerSandboxSplitPreview } from '../marketplace-mp/mp-split-sandbox';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -406,7 +407,39 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
-    return serializeCustomerOrder(order);
+    const serialized = serializeCustomerOrder(order);
+    const sellerIds = uniqueSellerIds(order.items);
+    let marketplaceSplit: { active: boolean; bricksPublicKey: string | null } = {
+      active: false,
+      bricksPublicKey: null,
+    };
+    if (sellerIds.length === 1) {
+      const seller = await this.prisma.seller.findUnique({
+        where: { id: sellerIds[0] },
+        select: {
+          id: true,
+          slug: true,
+          mpOAuthStatus: true,
+          mpUserId: true,
+          mpPublicKey: true,
+          commissionPercent: true,
+        },
+      });
+      if (seller) {
+        marketplaceSplit = customerSandboxSplitPreview({
+          items: order.items,
+          seller: {
+            id: seller.id,
+            slug: seller.slug,
+            mpOAuthStatus: seller.mpOAuthStatus,
+            mpUserId: seller.mpUserId,
+            mpPublicKey: seller.mpPublicKey,
+            commissionPercent: seller.commissionPercent != null ? Number(seller.commissionPercent) : null,
+          },
+        });
+      }
+    }
+    return { ...serialized, marketplaceSplit };
   }
 
   /** Somente quem ganha awaiting_payment → cancelled libera reserva. */

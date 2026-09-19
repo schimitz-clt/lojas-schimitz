@@ -29,7 +29,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET/DELETE | `/cart` | user ou guest |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também) | user |
-| GET | `/orders/:publicId` | user |
+| GET | `/orders/:publicId` | user — inclui `marketplaceSplit: { active, bricksPublicKey }` (public key TEST- do seller só no sandbox; sem tokens) |
 | POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |
 | POST | `/shipping/quote` body `{ cep, subtotal }` | user |
 | GET | `/admin/shipping` | admin |
@@ -90,7 +90,7 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 | PATCH | `/admin/sellers/:id` body `{ ownerUserId?, ownerEmail?, commissionPercent? }` | admin |
 | GET | `/admin/commissions` `?status=pending|approved|paid|all&sellerId=` | admin |
 | PATCH | `/admin/commissions/:id/approve` body `{ note? }` | admin (pending → approved) |
-| PATCH | `/admin/commissions/:id/paid` body `{ payoutReference?, note? }` | admin (pending/approved → paid; PIX ref manual) |
+| PATCH | `/admin/commissions/:id/paid` body `{ payoutReference?, note? }` | admin (pending/approved → paid; PIX ref manual). **400 `COMMISSION_SPLIT_SOURCE`** se `source=mp_application_fee` |
 | GET | `/admin/commissions/export` `?sellerId=&status=` → `{ csv, filename, count }` | admin |
 
 | GET | `/admin/customers` `?q=&take=&skip=` → `{ items, total, take, skip }` CRM read-only; `q` nome/e-mail/telefone; item: `ordersCount`, `paidOrdersCount`, `paidTotal`, `lastPaidAt`, `lastOrderAt`, `city`, `uf` | admin |

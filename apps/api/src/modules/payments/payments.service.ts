@@ -38,6 +38,16 @@ import {
   orphanReconciliationReason,
   RECONCILIATION_STATUS_OPEN,
 } from './reconciliation';
+import { uniqueSellerIds } from '../marketplace-mp/mixed-cart';
+import {
+  decideSandboxSplit,
+  type SplitSellerSnapshot,
+} from '../marketplace-mp/mp-split-sandbox';
+import {
+  decryptSellerAccessToken,
+  decryptSellerAccessTokenByMpUserId,
+  listLinkedSellerAccessTokens,
+} from '../marketplace-mp/seller-mp-token';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
@@ -111,9 +121,100 @@ export class PaymentsService {
       externalId: p.externalId,
       amount: Number(p.amount),
       payload: p.payload ?? null,
+      splitMode: p.splitMode ?? 'off',
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     };
+  }
+
+  private async loadOrderSellers(items: Array<{ sellerId?: string | null }>): Promise<SplitSellerSnapshot[]> {
+    const ids = uniqueSellerIds(items);
+    if (!ids.length) return [];
+    const rows = await this.prisma.seller.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        slug: true,
+        mpOAuthStatus: true,
+        mpUserId: true,
+        mpPublicKey: true,
+        commissionPercent: true,
+      },
+    });
+    return rows.map((s) => ({
+      id: s.id,
+      slug: s.slug,
+      mpOAuthStatus: s.mpOAuthStatus,
+      mpUserId: s.mpUserId,
+      mpPublicKey: s.mpPublicKey,
+      commissionPercent: s.commissionPercent != null ? Number(s.commissionPercent) : null,
+    }));
+  }
+
+  /**
+   * Fetch MP payment trying platform token, then seller collector tokens.
+   * Needed because sandbox split charges live on the seller collector.
+   */
+  private async fetchPaymentResolvingCollector(externalId: string) {
+    const local = await this.prisma.payment.findFirst({
+      where: { externalId },
+      select: { splitMode: true, collectorMpUserId: true },
+    });
+    if (local?.splitMode === 'seller_oauth_v1' && local.collectorMpUserId) {
+      const sellerToken = await decryptSellerAccessTokenByMpUserId(this.prisma, local.collectorMpUserId);
+      if (sellerToken) {
+        try {
+          return await this.provider.fetchPayment(externalId, { accessToken: sellerToken });
+        } catch (e: any) {
+          this.log.warn(`fetchPayment seller collector falhou externalId=${externalId}: ${e?.status || e?.message || e}`);
+        }
+      }
+    }
+
+    try {
+      return await this.provider.fetchPayment(externalId);
+    } catch (platformErr: any) {
+      const status = Number(platformErr?.status || 0);
+      if (status && status !== 401 && status !== 403 && status !== 404) {
+        throw platformErr;
+      }
+      const linked = await listLinkedSellerAccessTokens(this.prisma, 20);
+      for (const row of linked) {
+        try {
+          return await this.provider.fetchPayment(externalId, { accessToken: row.accessToken });
+        } catch {
+          /* try next collector */
+        }
+      }
+      throw platformErr;
+    }
+  }
+
+  private async collectorAccessTokenForPayment(payment: {
+    splitMode?: string | null;
+    collectorMpUserId?: string | null;
+  }): Promise<string | undefined> {
+    if (payment.splitMode !== 'seller_oauth_v1' || !payment.collectorMpUserId) return undefined;
+    return (await decryptSellerAccessTokenByMpUserId(this.prisma, payment.collectorMpUserId)) || undefined;
+  }
+
+  private async recordCommissionForPayment(orderId: string, payment: {
+    splitMode?: string | null;
+    applicationFee?: unknown;
+    externalId?: string | null;
+  }) {
+    const fee =
+      payment.applicationFee != null && Number.isFinite(Number(payment.applicationFee))
+        ? Number(payment.applicationFee)
+        : null;
+    if (payment.splitMode === 'seller_oauth_v1' && fee != null) {
+      return this.commissions.recordOnPaid(orderId, {
+        source: 'mp_application_fee',
+        mpPaymentId: payment.externalId || null,
+        mpApplicationFee: fee,
+      });
+    }
+    return this.commissions.recordOnPaid(orderId);
   }
 
   async createIntent(userId: string, dto: CreatePaymentIntentDto, idempotencyKeyRaw?: string) {
@@ -145,6 +246,7 @@ export class PaymentsService {
         user: { select: { email: true } },
         payments: true,
         coupon: { select: { code: true } },
+        items: { select: { sellerId: true } },
       },
     });
     if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
@@ -244,6 +346,7 @@ export class PaymentsService {
             method: dto.method,
             status: 'pending',
             amount: chargeAmount,
+            splitMode: 'off',
           },
         });
       });
@@ -276,6 +379,32 @@ export class PaymentsService {
       Math.floor((order.reservationExpiresAt.getTime() - Date.now()) / 1000),
     );
 
+    const sellers = await this.loadOrderSellers(order.items);
+    const seller = sellers.length === 1 ? sellers[0] : null;
+    let sellerAccessToken: string | null = null;
+    if (seller && this.provider.name === 'mercadopago') {
+      sellerAccessToken = await decryptSellerAccessToken(this.prisma, seller.id);
+    }
+    const splitDecision = decideSandboxSplit({
+      env: process.env,
+      providerName: this.provider.name,
+      items: order.items,
+      seller,
+      chargeAmount: Number(payment.amount),
+      sellerAccessToken,
+    });
+
+    if (splitDecision.use && !sellerAccessToken) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'cancelled', payload: { error: 'SELLER_TOKEN_UNAVAILABLE' } as object },
+      }).catch(() => undefined);
+      throw new BadRequestException({
+        message: 'Vendedor vinculado sem credencial Mercado Pago válida. Não cobramos no collector da plataforma como se fosse split.',
+        code: 'SELLER_TOKEN_UNAVAILABLE',
+      });
+    }
+
     let remote;
     try {
       remote = await this.provider.createIntent({
@@ -289,6 +418,8 @@ export class PaymentsService {
         paymentMethodId: dto.paymentMethodId,
         expiresInSeconds,
         providerIdempotencyKey: `sch-${payment.id}`,
+        sellerAccessToken: splitDecision.use ? sellerAccessToken || undefined : undefined,
+        applicationFee: splitDecision.use ? splitDecision.applicationFee : undefined,
       });
     } catch (e: any) {
       // Falha remota: encerra pending local para não prender unique parcial (#12)
@@ -315,12 +446,19 @@ export class PaymentsService {
           externalId: remote.externalId,
           payload: remote.payload as object,
           status: remote.status === 'approved' ? 'pending' : (remote.status === 'refused' ? 'refused' : 'pending'),
+          splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
+          applicationFee: splitDecision.use ? splitDecision.applicationFee : null,
+          collectorMpUserId: splitDecision.use ? seller?.mpUserId || null : null,
           // approved imediato (ex.: card) ainda passa pelo caminho de apply via applyProviderStatus
         },
       });
     } catch (e) {
       // MP ok + persistência falhou → cancelIntent best-effort (#12)
-      await this.provider.cancelIntent(remote.externalId).catch(() => undefined);
+      await this.provider
+        .cancelIntent(remote.externalId, {
+          accessToken: splitDecision.use ? sellerAccessToken || undefined : undefined,
+        })
+        .catch(() => undefined);
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { status: 'cancelled' },
@@ -370,6 +508,8 @@ export class PaymentsService {
         provider: this.provider.name,
         couponCode: order.coupon?.code || null,
         skippedAutomaticPixDiscount,
+        splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
+        splitSkipReason: splitDecision.use ? null : splitDecision.reason,
       },
     });
     structuredLog('info', 'PAYMENT_INTENT_CREATED', {
@@ -379,6 +519,8 @@ export class PaymentsService {
       method: dto.method,
       provider: this.provider.name,
       status: payment.status,
+      splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
+      splitSkipReason: splitDecision.use ? null : splitDecision.reason,
     });
 
     return response;
@@ -494,10 +636,10 @@ export class PaymentsService {
       return { ok: true, applied: false, reason: 'no_external_id' };
     }
 
-    // Reconsulta fora do lock
+    // Reconsulta fora do lock (plataforma ou collector do vendedor no split sandbox)
     let fetched;
     try {
-      fetched = await this.provider.fetchPayment(verified.externalId);
+      fetched = await this.fetchPaymentResolvingCollector(verified.externalId);
     } catch (e: any) {
       this.log.error(`fetchPayment falhou para ${verified.externalId}`);
       structuredLog('error', 'WEBHOOK_FETCH_FAILED', {
@@ -768,7 +910,11 @@ export class PaymentsService {
           meta: { orderId: payment.orderId },
         });
         // Compensação best-effort
-        await this.provider.refund(info.externalId).catch(() => undefined);
+        await this.provider
+          .refund(info.externalId, undefined, {
+            accessToken: await this.collectorAccessTokenForPayment(payment),
+          })
+          .catch(() => undefined);
         return { applied: false, reason: 'orphan_after_cancel' };
       }
 
@@ -802,7 +948,7 @@ export class PaymentsService {
         await this.loyalty.creditEarnOnPaid(payment.orderId).catch((e: any) => {
           this.log.warn(`cashback earn falhou para ${payment.orderId}: ${e?.message || e}`);
         });
-        await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
+        await this.recordCommissionForPayment(payment.orderId, payment).catch((e: any) => {
           this.log.warn(`commission ledger falhou para ${payment.orderId}: ${e?.message || e}`);
         });
         structuredLog('info', 'PAYMENT_APPROVED', {
@@ -817,7 +963,7 @@ export class PaymentsService {
 
       const current = await this.prisma.order.findUnique({ where: { id: payment.orderId } });
       if (shouldRecordCommissionOnApprove({ casWon: false, orderStatus: current?.status })) {
-        await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
+        await this.recordCommissionForPayment(payment.orderId, payment).catch((e: any) => {
           this.log.warn(`commission ledger retry falhou para ${payment.orderId}: ${e?.message || e}`);
         });
       }
@@ -846,7 +992,11 @@ export class PaymentsService {
           entityId: paymentId,
           meta: { orderId: payment.orderId },
         });
-        await this.provider.refund(info.externalId).catch(() => undefined);
+        await this.provider
+          .refund(info.externalId, undefined, {
+            accessToken: await this.collectorAccessTokenForPayment(payment),
+          })
+          .catch(() => undefined);
         return { applied: false, reason: 'orphan_after_cancel' };
       }
       return { applied: true, reason: 'approved_payment_only' };
@@ -968,11 +1118,16 @@ export class PaymentsService {
       throw new BadRequestException({ message: 'Pagamento sem externalId', code: 'PAYMENT_NO_EXTERNAL_ID' });
     }
 
-    // I/O remoto fora do lock (#10/#12)
-    const remote = await this.provider.refund(payment.externalId);
+    // I/O remoto fora do lock (#10/#12) — seller collector token when sandbox split
+    const collectorToken = await this.collectorAccessTokenForPayment(payment);
+    const remote = await this.provider.refund(payment.externalId, undefined, {
+      accessToken: collectorToken,
+    });
     if (remote.status !== 'refunded') {
       // Reconsulta
-      const fetched = await this.provider.fetchPayment(payment.externalId);
+      const fetched = await this.provider.fetchPayment(payment.externalId, {
+        accessToken: collectorToken,
+      });
       if (fetched.status !== 'refunded') {
         throw new BadRequestException({
           message: 'Provedor não confirmou estorno',
@@ -1038,6 +1193,10 @@ export class PaymentsService {
       entityId: payment.orderId,
       meta: { paymentId },
     });
+
+    await this.commissions.reverseOnRefund(payment.orderId).catch((e: any) => {
+      this.log.warn(`commission reverse falhou para ${payment.orderId}: ${e?.message || e}`);
+    });
   }
 
   /**
@@ -1047,7 +1206,7 @@ export class PaymentsService {
   async expirePendingForOrder(orderId: string): Promise<string[]> {
     const pendings = await this.prisma.payment.findMany({
       where: { orderId, status: 'pending' },
-      select: { id: true, externalId: true },
+      select: { id: true, externalId: true, splitMode: true, collectorMpUserId: true },
     });
     const externalIds: string[] = [];
     for (const p of pendings) {
@@ -1064,7 +1223,13 @@ export class PaymentsService {
   async cancelRemoteBestEffort(externalIds: string[]) {
     for (const id of externalIds) {
       try {
-        await this.provider.cancelIntent(id);
+        const payment = await this.prisma.payment.findFirst({
+          where: { externalId: id },
+          select: { splitMode: true, collectorMpUserId: true },
+        });
+        await this.provider.cancelIntent(id, {
+          accessToken: payment ? await this.collectorAccessTokenForPayment(payment) : undefined,
+        });
       } catch (e) {
         this.log.warn(`cancelIntent best-effort falhou: ${id}`);
       }

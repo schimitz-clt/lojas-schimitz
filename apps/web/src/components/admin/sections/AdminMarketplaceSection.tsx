@@ -114,7 +114,8 @@ export function AdminMarketplaceSection() {
       <div className="admin-section-panel">
       <p className="admin-section-intro">
         Fundação multi-seller. Checkout único continua igual. Repasse v1: ledger + PIX manual
-        (sem split MP) — ver docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
+        (sem split MP em produção) — sandbox Fase 2 só com TEST- e ALLOW_LIVE=false. Ver
+        docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
       </p>
       <section className="admin-card-pro">
         <div className="body">
@@ -250,9 +251,10 @@ export function AdminMarketplaceSection() {
         <div className="body">
           <h2>Comissões / Repasse (v1)</h2>
           <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
-            Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> (use a
-            referência E2E ao marcar pago). Sem split Mercado Pago no pagamento (Fase 1 = OAuth
-            opcional, flag off). Ver docs/MARKETPLACE.md.
+            Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> nas linhas
+            <code>manual_pix</code>. Linhas <code>mp_application_fee</code> (sandbox) já foram
+            retidas no Mercado Pago — não marcar PIX. Sem split Mercado Pago em produção. Ver
+            docs/MARKETPLACE.md.
           </p>
           <div className="admin-toolbar" style={{ marginBottom: 12 }}>
           <div className="admin-toolbar__row">
@@ -313,8 +315,16 @@ export function AdminMarketplaceSection() {
                     <div className="admin-dense-row__meta">
                       {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
                       {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
+                      {c.source === 'mp_application_fee'
+                        ? ' · split MP sandbox (application_fee)'
+                        : ''}
                     </div>
-                {c.status === 'pending' || c.status === 'approved' ? (
+                {c.source === 'mp_application_fee' ? (
+                  <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
+                    Comissão retida via application_fee. Não marcar PIX manual.
+                  </p>
+                ) : null}
+                {c.source !== 'mp_application_fee' && (c.status === 'pending' || c.status === 'approved') ? (
                   <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
                     <label className="admin-owner-field">
                       Ref. PIX / nota

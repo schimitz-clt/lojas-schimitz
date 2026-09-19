@@ -82,6 +82,7 @@ type Order = {
   coupon?: { code?: string | null } | null;
   payments?: Payment[];
   statusHistory?: StatusHistory[];
+  marketplaceSplit?: { active?: boolean; bricksPublicKey?: string | null } | null;
 };
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
@@ -391,7 +392,7 @@ export default function PedidoPage() {
     if (!o || paying) {
       throw new Error(paying ? 'Pagamento em andamento' : 'Pedido indisponível');
     }
-    if (!isCardBrickAvailable(MP_PUBLIC_KEY)) {
+    if (!isCardBrickAvailable(o.marketplaceSplit?.active ? (o.marketplaceSplit.bricksPublicKey || '') : MP_PUBLIC_KEY)) {
       const msg = CARD_UNAVAILABLE_COPY;
       setErr(msg);
       throw new Error(msg);
@@ -468,6 +469,8 @@ export default function PedidoPage() {
   const pendingPay = awaiting || o.status === 'draft';
   const skipAutoPix = isPixPromoCollidingCouponCode(o.coupon?.code);
   const pixChargePreview = skipAutoPix ? Number(o.total) : pixPrice(o.total);
+  const brickPublicKey =
+    o.marketplaceSplit?.active ? o.marketplaceSplit.bricksPublicKey || '' : MP_PUBLIC_KEY;
   // Recompute with definite order (after load) — same rule as showPixUi above.
   const showPixPayUi = showPixGate(intent?.payment?.status, o.status, intent?.payment?.method);
   const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
@@ -573,10 +576,10 @@ export default function PedidoPage() {
               <input type="radio" checked={method === 'card'} onChange={() => setMethod('card')} /> Cartão (valor integral {brl(o.total)})
             </label>
             {method === 'card' ? (
-              isCardBrickAvailable(MP_PUBLIC_KEY) ? (
+              isCardBrickAvailable(brickPublicKey) ? (
                 <div style={{ marginBottom: 12 }}>
                   <MercadoPagoCardBrick
-                    publicKey={MP_PUBLIC_KEY}
+                    publicKey={brickPublicKey}
                     amount={Number(o.total)}
                     onSubmitPayment={createCardIntentFromBrick}
                     onError={(msg) => setErr(msg)}
@@ -592,7 +595,9 @@ export default function PedidoPage() {
                   {CARD_UNAVAILABLE_COPY}
                   <br />
                   <span className="muted" style={{ fontSize: 13 }}>
-                    Falta <code>NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY</code> no serviço web (Railway).
+                    {o.marketplaceSplit?.active
+                      ? 'Pagamento sandbox do vendedor sem public key TEST-. Use PIX neste pedido.'
+                      : 'Falta NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY no serviço web (Railway).'}
                   </span>
                 </div>
               )

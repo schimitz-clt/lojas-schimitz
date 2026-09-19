@@ -4,7 +4,7 @@
  */
 
 const SECRET_KEY_RE =
-  /^(password|passwd|pwd|secret|token|accessToken|refreshToken|accessTokenEnc|refreshTokenEnc|authorization|api[_-]?key|apikey|openai|chat_api_key|private[_-]?key|cookie|set-cookie|credit[_-]?card|cvv|pin|client[_-]?secret|mpAccessToken)$/i;
+  /^(password|passwd|pwd|secret|token|accessToken|refreshToken|sellerAccessToken|accessTokenEnc|refreshTokenEnc|authorization|api[_-]?key|apikey|openai|chat_api_key|private[_-]?key|cookie|set-cookie|credit[_-]?card|cvv|pin|client[_-]?secret|mpAccessToken)$/i;
 
 const SECRET_VALUE_HINT_RE =
   /\b(sk-[a-zA-Z0-9]{10,}|Bearer\s+[A-Za-z0-9\-._~+/]+=*|-----BEGIN [A-Z ]+PRIVATE KEY-----)\b/i;

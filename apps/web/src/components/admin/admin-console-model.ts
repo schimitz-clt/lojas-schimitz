@@ -55,6 +55,9 @@ export type AdminCommission = {
   createdAt: string;
   payoutReference?: string | null;
   payoutNote?: string | null;
+  source?: 'manual_pix' | 'mp_application_fee' | string | null;
+  mpPaymentId?: string | null;
+  mpApplicationFee?: number | null;
   approvedAt?: string | null;
   paidAt?: string | null;
   seller: { id: string; name: string; slug: string };
