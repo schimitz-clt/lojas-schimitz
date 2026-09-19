@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   CHAT_MESSAGE_MAX_LENGTH,
   classifyIntent,
@@ -168,5 +170,8 @@ assert.ok(Array.isArray(planCompare.tools[0]?.args.refs));
 assert.ok((planCompare.tools[0]?.args.refs as string[]).length >= 2);
 
 assert.equal(extractCategoryHint('aspirador'), 'eletrodomesticos');
+
+const chatSvc = readFileSync(join(__dirname, 'chat.service.ts'), 'utf8');
+assert.ok(/privateTools:\s*\[\]/.test(chatSvc), 'public chat status does not enumerate private tools');
 
 console.log('chat alfa routing tests ok');

@@ -22,5 +22,10 @@ export function isProdLikeEnv(env: EnvLike = process.env): boolean {
   return false;
 }
 
+/** Railway production only (not staging / PR). Null payment provider must never boot here. */
+export function isRailwayProductionEnv(env: EnvLike = process.env): boolean {
+  return flag(env.RAILWAY_ENVIRONMENT) === 'production' || flag(env.RAILWAY_ENVIRONMENT_NAME) === 'production';
+}
+
 /** Alias used by Swagger / exception filter. */
 export const isProdLikeAppEnv = isProdLikeEnv;

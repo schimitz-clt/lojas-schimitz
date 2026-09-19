@@ -144,3 +144,17 @@ Código fail-closed + headers + specs. Relatório: `docs/SECURITY-HARDENING-2026
 
 Railway (humano): no serviço **web** confirmar ausência de `NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATE` e `NEXT_PUBLIC_NULL_WEBHOOK_SECRET`. No serviço **API**: `PAYMENTS_PROVIDER=mercadopago` + webhook secret forte; não setar `ALLOW_NULL_*`.
 
+## 2026-09-19 — Phase B (CSP + FRAGILE)
+
+Relatório: `docs/SECURITY-CSP-2026-09-19.md`.
+
+| Controle | Status |
+|----------|--------|
+| CSP storefront enforce | Gradual **produção** (sem localhost; `js.mercadopago.com`; `upgrade-insecure-requests`; `report-uri`) |
+| CSP Report-Only | Probe sem `'unsafe-eval'` — **não** bloqueia. Não promover sem smoke PIX/Brick |
+| Collector | `POST /api/v1/security/csp-report` → 204 + log `csp_violation` |
+| HSTS | `preload` + `includeSubDomains` |
+| OptionalJwt + seller IDOR + inventory/reviews públicos | Fail-closed / 404 / sem `qtyReserved` / sem `user.id` |
+| Null provider em Railway production | Override `ALLOW_NULL_PROVIDER_IN_PROD` **ignorado** |
+| Cookie-only / Conta / PIX math | **Inalterados** |
+

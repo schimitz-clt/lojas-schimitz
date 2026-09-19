@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next';
-import { STOREFRONT_SECURITY_HEADERS } from './src/lib/storefront-security-headers';
+import { buildStorefrontSecurityHeaders } from './src/lib/storefront-security-headers';
 import { stripPublicDevOnlyFlags } from './src/lib/strip-public-dev-flags';
 
 /** Fail-closed: never inline simulate / null-webhook public flags in `next build`. */
@@ -11,7 +11,7 @@ if (strippedPublicDevFlags.length > 0) {
   );
 }
 
-/** Phase 8 baseline headers + Phase A gradual CSP (see storefront-csp.ts). */
+/** Phase 8 baseline + Phase B CSP (enforce gradual + Report-Only probe). */
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        headers: STOREFRONT_SECURITY_HEADERS,
+        headers: buildStorefrontSecurityHeaders(),
       },
     ];
   },

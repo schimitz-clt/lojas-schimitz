@@ -281,10 +281,13 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token inválido, expirado ou revogado');
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: matched.id },
+    const revoked = await this.prisma.refreshToken.updateMany({
+      where: { id: matched.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    if (revoked.count !== 1) {
+      throw new UnauthorizedException('Refresh token inválido, expirado ou revogado');
+    }
 
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || user.status !== 'active') {

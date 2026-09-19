@@ -19,7 +19,7 @@ export class ReviewsService {
     return this.prisma.review.findMany({
       where: { productId, status: 'published' },
       include: {
-        user: { select: { id: true, name: true } },
+        user: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

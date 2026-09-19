@@ -94,9 +94,10 @@ export class SellerPortalService {
 
     const gate = assertSellerCanUpdateProduct(seller.id, product.sellerId);
     if (!gate.ok) {
-      throw new ForbiddenException({
-        message: 'Você não pode editar produtos de outro vendedor',
-        code: gate.code,
+      // Same 404 as customer IDOR — do not enumerate another seller's product (F6).
+      throw new NotFoundException({
+        message: 'Produto não encontrado',
+        code: 'PRODUCT_NOT_FOUND',
       });
     }
 

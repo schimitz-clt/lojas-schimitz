@@ -44,7 +44,7 @@ Provider: `AiProvider` / `OpenAiCompatibleProvider` (`apps/api/src/modules/chat/
 ## Endpoints
 
 - `POST /api/v1/chat` — igual ao de antes + campos aditivos `level`, `tools`, `intent`. JWT opcional (`Authorization: Bearer`) só para tools de pedido do **próprio** `userId`.
-- `GET /api/v1/chat/status` — `{ name, phase, mode, llmConfigured, tools, privateTools }` (sem segredos).
+- `GET /api/v1/chat/status` — `{ name, phase, mode, llmConfigured, tools, privateTools: [] }`. `privateTools` fica vazio no status público (tools de pedido continuam só com JWT).
 
 ## Tools
 

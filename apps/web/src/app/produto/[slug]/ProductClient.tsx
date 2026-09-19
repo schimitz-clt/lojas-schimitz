@@ -16,6 +16,7 @@ import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } fr
 import { PdpSkeleton } from '@/components/Skeleton';
 import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
+import { resolveProductStock } from '@/lib/product-media';
 import { ProductGallery } from '@/components/ProductGallery';
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
@@ -37,7 +38,7 @@ export type ProductDetail = {
   stock?: number | null;
   image?: string | null;
   imageUrl?: string | null;
-  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
   sku?: string | null;
@@ -49,7 +50,7 @@ type Review = {
   body: string;
   createdAt: string;
   updatedAt?: string;
-  user: { id: string; name: string };
+  user: { id?: string; name: string };
 };
 
 type Eligibility = {
@@ -225,10 +226,7 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!p) return <PdpSkeleton />;
 
-  const stockFromInv =
-    p.inventory != null ? Math.max(0, p.inventory.qtyOnHand - p.inventory.qtyReserved) : null;
-  const stock =
-    typeof p.stock === 'number' ? p.stock : p.stock === null ? null : stockFromInv;
+  const stock = resolveProductStock(p);
   const sb = stockBadge(stock);
   const stockLabel =
     stock == null

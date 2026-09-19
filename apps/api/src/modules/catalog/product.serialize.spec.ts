@@ -57,7 +57,10 @@ import {
   assert.equal(out.image, 'https://placehold.co/800x800/1a1a1a/f5c518?text=Roblox');
   assert.equal(out.imageUrl, out.image);
   assert.ok(out.images?.[0]?.url);
-  assert.ok(out.inventory);
+  assert.deepEqual(out.inventory, { available: 50 });
+  assert.equal('qtyOnHand' in (out.inventory as object), false);
+  assert.equal('qtyReserved' in (out.inventory as object), false);
+  assert.equal('warehouse' in (out.inventory as object), false);
   assert.equal(out.seller?.name, 'Lojas Schimitz');
   assert.deepEqual(out.seller, { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' });
   assert.ok(!('status' in (out.seller as object)));

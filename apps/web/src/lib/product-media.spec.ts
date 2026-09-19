@@ -22,6 +22,8 @@ assert.equal(resolveProductStock({ stock: 7 }), 7);
 assert.equal(resolveProductStock({ inventory: { qtyOnHand: 10, qtyReserved: 3 } }), 7);
 assert.equal(resolveProductStock({ inventory: { qtyOnHand: 2, qtyReserved: 9 } }), 0);
 assert.equal(resolveProductStock({ stock: 4, inventory: { qtyOnHand: 99, qtyReserved: 0 } }), 4);
+assert.equal(resolveProductStock({ inventory: { available: 6 } }), 6, 'public catalog inventory.available');
+assert.equal(resolveProductStock({ stock: 2, inventory: { available: 99 } }), 2, 'flat stock wins');
 
 assert.equal(stockCompareLabel(null), 'Sob consulta');
 assert.equal(stockCompareLabel(undefined), 'Sob consulta');

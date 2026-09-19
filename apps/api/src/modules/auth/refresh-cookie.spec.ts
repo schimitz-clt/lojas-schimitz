@@ -317,6 +317,12 @@ try {
   );
   assert.ok(jwtGuard.includes('resolveAccessToken'), 'JwtAuthGuard accepts access cookie');
 
+  const authSvc = require('fs').readFileSync(require('path').join(__dirname, 'auth.service.ts'), 'utf8');
+  assert.ok(
+    /updateMany\(\{\s*where: \{ id: matched\.id, revokedAt: null \}/.test(authSvc),
+    'refresh revoke is CAS (revokedAt IS NULL)',
+  );
+
   console.log('refresh-cookie unit tests ok');
 } finally {
   for (const k of Object.keys(process.env)) {
