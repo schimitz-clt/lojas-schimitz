@@ -1,8 +1,14 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
 import { isProdLikeEnv, isRailwayProductionEnv } from '../../common/prod-like-env';
-import { isSandboxEligibleCredential } from '../marketplace-mp/mp-split-sandbox';
+import { isLiveSplitMoneyPathAllowed } from '../marketplace-mp/mp-split-live';
 import {
+  isLiveAppUsrCredential,
+  isSandboxEligibleCredential,
+  isSandboxSplitMoneyPathAllowed,
+} from '../marketplace-mp/mp-split-sandbox';
+import {
+  assertLiveApplicationFeeAllowed,
   assertNoLiveMarketplaceSplitFields,
   assertSandboxApplicationFeeAllowed,
 } from './mp-split-payment-guard';
@@ -40,12 +46,12 @@ export type CreateIntentInput = {
   /** Idempotency key HTTP do provedor (não misturar com header da loja). */
   providerIdempotencyKey?: string;
   /**
-   * Phase 2 sandbox only: seller OAuth access token.
-   * TEST- is always eligible. APP_USR is eligible only on a Phase 2 sandbox host
-   * (staging / non-production). Production live APP_USR seller tokens are refused.
+   * Seller OAuth access token for gated split.
+   * Sandbox: TEST- always, or APP_USR on a Phase 2 sandbox host.
+   * Live (Phase 3): APP_USR only when ENABLED + ALLOW_LIVE + prod-like.
    */
   sellerAccessToken?: string;
-  /** Absolute BRL application_fee. Only sent on the sandbox path. */
+  /** Absolute BRL application_fee. Only sent on a gated sandbox or live path. */
   applicationFee?: number;
 };
 
@@ -362,46 +368,61 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       input.applicationFee != null && Number.isFinite(Number(input.applicationFee))
         ? Number(input.applicationFee)
         : null;
-    const useSandboxSplit = Boolean(sellerToken && fee != null && fee > 0);
+    const wantsSplit = Boolean(sellerToken && fee != null && fee > 0);
+    let useSandboxSplit = false;
+    let useLiveSplit = false;
 
-    if (useSandboxSplit) {
-      if (!isSandboxEligibleCredential(sellerToken)) {
+    if (wantsSplit) {
+      const sandboxOk =
+        isSandboxEligibleCredential(sellerToken) && isSandboxSplitMoneyPathAllowed();
+      const liveOk = isLiveAppUsrCredential(sellerToken) && isLiveSplitMoneyPathAllowed();
+      if (sandboxOk) {
+        useSandboxSplit = true;
+        body.application_fee = fee;
+        assertSandboxApplicationFeeAllowed(body);
+      } else if (liveOk) {
+        useLiveSplit = true;
+        body.application_fee = fee;
+        assertLiveApplicationFeeAllowed(body);
+      } else {
         const err: Error & { code?: string } = new Error(
-          'Token de vendedor live (APP_USR) bloqueado no split sandbox (Fase 2).',
+          isLiveAppUsrCredential(sellerToken)
+            ? 'Token de vendedor live (APP_USR) bloqueado: split live exige ENABLED + ALLOW_LIVE + produção + APP_USR.'
+            : 'Token de vendedor bloqueado no split sandbox (Fase 2).',
         );
         err.code = 'PHASE2_SPLIT_FORBIDDEN';
         throw err;
       }
-      body.application_fee = fee;
-      assertSandboxApplicationFeeAllowed(body);
     } else {
-      // Platform collector: no application_fee. ALLOW_LIVE does not unlock this.
+      // Platform collector: no application_fee unless a gated path assigned it.
       assertNoLiveMarketplaceSplitFields(body);
     }
 
+    const useSellerSplit = useSandboxSplit || useLiveSplit;
     const idempotencyKey = input.providerIdempotencyKey || `sch-intent-${input.orderId}-${input.method}`;
     let json: any;
-    let splitMode: PaymentSplitModeValue = useSandboxSplit ? 'seller_oauth_v1' : 'off';
+    let splitMode: PaymentSplitModeValue = useSellerSplit ? 'seller_oauth_v1' : 'off';
     let splitFeeSkippedReason: string | null = null;
     try {
       json = await this.mpFetch('/v1/payments', {
         method: 'POST',
         body: JSON.stringify(body),
         idempotencyKey,
-        accessToken: useSandboxSplit ? sellerToken : undefined,
+        accessToken: useSellerSplit ? sellerToken : undefined,
       });
     } catch (e: unknown) {
       if (
         !shouldRetryPixWithoutApplicationFee({
           method: input.method,
           usedSandboxSplit: useSandboxSplit,
+          usedLiveSplit: useLiveSplit,
           err: e,
         })
       ) {
         throw e;
       }
-      // One retry: same sandbox host, no application_fee, platform collector.
-      // Production live APP_USR never satisfies shouldRetryPixWithoutApplicationFee.
+      // One retry: no application_fee, platform collector. Honest ledger_only —
+      // not a silent 100% take. Live PIX may not auto-split cash at MP.
       const retryBody = { ...body };
       delete retryBody.application_fee;
       assertNoLiveMarketplaceSplitFields(retryBody);

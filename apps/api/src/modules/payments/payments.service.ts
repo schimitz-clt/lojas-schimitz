@@ -36,6 +36,8 @@ import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
 import { shouldRecordCommissionOnApprove } from './commission-on-approve';
 import {
   commissionOptsForPayment,
+  isMpApplicationFeeRejected,
+  isMpUnauthorizedLiveCredentials,
   persistSplitFromRemote,
 } from './pix-application-fee-fallback';
 import {
@@ -43,10 +45,8 @@ import {
   RECONCILIATION_STATUS_OPEN,
 } from './reconciliation';
 import { uniqueSellerIds } from '../marketplace-mp/mixed-cart';
-import {
-  decideSandboxSplit,
-  type SplitSellerSnapshot,
-} from '../marketplace-mp/mp-split-sandbox';
+import { decideMarketplaceSplit } from '../marketplace-mp/mp-split-live';
+import { type SplitSellerSnapshot } from '../marketplace-mp/mp-split-sandbox';
 import {
   decryptSellerAccessToken,
   decryptSellerAccessTokenByMpUserId,
@@ -378,7 +378,7 @@ export class PaymentsService {
     if (seller && this.provider.name === 'mercadopago') {
       sellerAccessToken = await decryptSellerAccessToken(this.prisma, seller.id);
     }
-    const splitDecision = decideSandboxSplit({
+    const splitDecision = decideMarketplaceSplit({
       env: process.env,
       providerName: this.provider.name,
       items: order.items,
@@ -424,8 +424,24 @@ export class PaymentsService {
         actorId: userId,
         entity: 'Payment',
         entityId: payment.id,
-        meta: { orderId: order.id, error: String(e?.message || e) },
+        meta: {
+          orderId: order.id,
+          error: String(e?.message || e),
+          splitPath: splitDecision.use ? splitDecision.path : 'none',
+        },
       });
+      const liveCardSplitFailed =
+        splitDecision.use &&
+        splitDecision.path === 'live' &&
+        dto.method === 'card' &&
+        (isMpApplicationFeeRejected(e) || isMpUnauthorizedLiveCredentials(e));
+      if (liveCardSplitFailed) {
+        throw new BadRequestException({
+          message:
+            'Não foi possível aplicar o split Mercado Pago neste cartão. Tente outro cartão ou pague com PIX.',
+          code: 'LIVE_SPLIT_CARD_FAILED',
+        });
+      }
       throw new BadRequestException({
         message: 'Falha ao criar intenção no provedor',
         code: 'PROVIDER_INTENT_FAILED',
@@ -519,6 +535,7 @@ export class PaymentsService {
         couponCode: order.coupon?.code || null,
         skippedAutomaticPixDiscount,
         splitMode: persistedSplit.splitMode,
+        splitPath: splitDecision.use ? splitDecision.path : 'none',
         splitSkipReason: splitDecision.use ? persistedSplit.splitFeeSkippedReason : splitDecision.reason,
         splitFeeSkippedReason: persistedSplit.splitFeeSkippedReason,
       },
@@ -531,6 +548,7 @@ export class PaymentsService {
       provider: this.provider.name,
       status: payment.status,
       splitMode: persistedSplit.splitMode,
+      splitPath: splitDecision.use ? splitDecision.path : 'none',
       splitSkipReason: splitDecision.use ? persistedSplit.splitFeeSkippedReason : splitDecision.reason,
       splitFeeSkippedReason: persistedSplit.splitFeeSkippedReason,
     });

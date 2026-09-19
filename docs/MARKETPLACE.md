@@ -38,9 +38,9 @@ Multi-seller **foundation** sem quebrar o checkout único. Evidência abaixo é 
 
 ### Importante — dinheiro ainda é manual
 
-> **Não há split automático live (`APP_USR` / `ALLOW_LIVE`) no pagamento.**  
-> Fase 2 (sandbox): com `MP_MARKETPLACE_SPLIT_ENABLED=true`, `ALLOW_LIVE=false` e tokens `TEST-`, o intent de um vendedor vinculado envia `application_fee` no token do seller. Produção com credenciais live continua no collector da loja.  
-> Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). **Não ligar `ALLOW_LIVE` em production.**
+> Fase 2 (sandbox): `ENABLED=true`, `ALLOW_LIVE=false` e credenciais de teste → `application_fee` no token do seller.  
+> Fase 3 (código): `ENABLED=true` + `ALLOW_LIVE=true` + produção + `APP_USR` → mesmo split live. Sem essas flags, produção continua fail-closed.  
+> Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). Ligar `ALLOW_LIVE` no Railway é passo de **ops** (depois do merge + segundo OK de deploy). Rollback: `ALLOW_LIVE=false`.
 
 ## Checklist v1 — PASS / FRAGILE / FAIL
 
@@ -65,7 +65,7 @@ Idempotente: Roblox com estoque 0 → 50; produto ativo sem imagem → placehold
 |---|---|---|
 | **OpenAI billing** | Bloqueio externo | Chat cai no FAQ/catálogo sem chave. |
 | **Play Store / Android TWA** | Ops + assets | Fora de marketplace. |
-| **Split MP automático** | Fase 2 sandbox (TEST- only) | Ver [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). Produção live = Fase 3 + OK explícito. |
+| **Split MP automático** | Fase 3 código (env Railway ainda off) | Ver [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md). Live só com ENABLED+ALLOW_LIVE+APP_USR. |
 | **Frete por vendedor** | Planejado | Checkout continua um frete só. |
 | **Alocação de disputa** | Planejado | `charged_back` → status local `unknown`; sem rateio. |
 
@@ -102,8 +102,8 @@ Decisão v2.1 (locked):
 - Um vendedor por pedido. Carrinho misto → `400 MARKETPLACE_MIXED_CART` (PT) **sempre**.
 - Loja própria `lojas-schimitz` permanece no collector da plataforma (sem self-split).
 - PIX 5% absorvido pela **plataforma**: `application_fee = commissionAmount(chargeAmount, percent)` sobre o valor cobrado (PIX = 95%).
-- Split sandbox só quando `ENABLED=true` **e** `ALLOW_LIVE=false` **e** credenciais `TEST-` **e** seller `linked` **e** não é a loja própria.
-- `APP_ENV=production` + `APP_USR` → collector da plataforma (fail-closed). `ALLOW_LIVE=true` **não** abre caminho nesta fase.
+- Split sandbox só quando `ENABLED=true` **e** `ALLOW_LIVE=false` **e** credenciais de teste **e** seller `linked` **e** não é a loja própria.
+- `APP_ENV=production` + `APP_USR` **sem** `ALLOW_LIVE` → collector da plataforma (fail-closed).
 
 O que a Fase 2 faz:
 
@@ -114,7 +114,7 @@ O que a Fase 2 faz:
 - Admin esconde “Marcar pago” nessas linhas.
 - Testes com HTTP MP **mockado**.
 
-O que a Fase 2 **não** faz: `ALLOW_LIVE=true` em production, seed de vendedor fake em prod, Checkout Pro, multi-seller.
+O que a Fase 2 **não** faz: ligar ALLOW_LIVE no Railway, seed de vendedor fake em prod, Checkout Pro, multi-seller.
 
 ### Ops — checklist sandbox (staging only)
 
@@ -124,14 +124,25 @@ O que a Fase 2 **não** faz: `ALLOW_LIVE=true` em production, seed de vendedor f
 4. `MP_SELLER_CREDENTIAL_KEY` (32 bytes).
 5. Vendedor piloto real (KYC). Conectar em `/vendedor` com `ENABLED=true`.
 6. `MP_MARKETPLACE_SPLIT_ENABLED=true` **só em staging**.
-7. `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=false` (unset ou false). **Não** ligar em production.
+7. `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=false` (unset ou false) neste exercício de sandbox.
 8. Pedido de teste PIX com 1 seller vinculado → MP sandbox. Conferir `Payment.splitMode` e ledger `source=mp_application_fee`.
-9. **Não** este PR: ALLOW_LIVE / APP_USR / dinheiro real (Fase 3 + OK explícito).
+9. Rollback sandbox: `ENABLED=false`. Live em production: ver Fase 3 (ops + segundo OK).
 
 Plano: [`MARKETPLACE-MP-SPLIT-PLAN.md`](./MARKETPLACE-MP-SPLIT-PLAN.md).
 
-## v2 (Fase 3+)
+## Fase 3 — live `application_fee` (código; env off)
 
-- Split live (`ALLOW_LIVE`) — **não** neste PR; precisa OK explícito
+**Status:** código no repo. **OK explícito 2026-09-19** para implementar o caminho. Merge **não** liga Railway.
+
+Gates (todas): `ENABLED=true` + `ALLOW_LIVE=true` + produção/prod-like + credenciais `APP_USR` + seller linked não-casa + 1 seller.
+
+- Mesmas regras de `commissionAmount` / PIX 5% do sandbox.
+- PIX live que o MP recusar fee → `ledger_only` + QR + comissão pendente (vendedor pago via ledger). **PIX live pode não auto-split cash no MP.**
+- Cartão live que o MP recusar fee → falha o intent (não assenta 100% na plataforma).
+- Rollback: `MP_MARKETPLACE_SPLIT_ALLOW_LIVE=false`.
+
+## v2 (Fase 4+)
+
 - Relatórios de payout além do CSV
 - Frete / disputa por vendedor
+- Multi-seller no mesmo pedido

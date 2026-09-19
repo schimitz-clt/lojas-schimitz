@@ -35,7 +35,7 @@ import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
 import { assertSingleSellerCart, uniqueSellerIds } from '../marketplace-mp/mixed-cart';
-import { customerSandboxSplitPreview } from '../marketplace-mp/mp-split-sandbox';
+import { customerMarketplaceSplitPreview } from '../marketplace-mp/mp-split-live';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -426,7 +426,7 @@ export class OrdersService {
         },
       });
       if (seller) {
-        marketplaceSplit = customerSandboxSplitPreview({
+        marketplaceSplit = customerMarketplaceSplitPreview({
           items: order.items,
           seller: {
             id: seller.id,
