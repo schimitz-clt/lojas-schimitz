@@ -1590,7 +1590,7 @@ export function useAdminConsoleState() {
     const percentRaw = (percentDraft[seller.id] ??
       (seller.commissionPercent != null ? String(seller.commissionPercent) : '')).trim();
     const commissionPercent = percentRaw === '' ? null : Number(percentRaw.replace(',', '.'));
-    if (percentRaw && (Number.isNaN(commissionPercent) || commissionPercent < 0)) {
+    if (commissionPercent != null && (Number.isNaN(commissionPercent) || commissionPercent < 0)) {
       setErr('Comissão % inválida');
       return;
     }
