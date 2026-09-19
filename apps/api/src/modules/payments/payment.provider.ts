@@ -1,6 +1,6 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
-import { isProdLikeEnv } from '../../common/prod-like-env';
+import { isProdLikeEnv, isRailwayProductionEnv } from '../../common/prod-like-env';
 import { isMpTestCredential } from '../marketplace-mp/mp-split-sandbox';
 import {
   assertNoLiveMarketplaceSplitFields,
@@ -593,6 +593,12 @@ export function createPaymentProviderFromEnv(): PaymentProvider {
   const mode = (process.env.PAYMENTS_PROVIDER || 'null').toLowerCase();
   if (mode === 'mercadopago' || mode === 'mp') {
     return new MercadoPagoPaymentProvider();
+  }
+  if (isRailwayProductionEnv()) {
+    // Override ALLOW_NULL_PROVIDER_IN_PROD is ignored on Railway production (F14).
+    throw new Error(
+      'PAYMENTS_PROVIDER=null proibido em Railway production (ALLOW_NULL_PROVIDER_IN_PROD ignorado). Configure mercadopago + secrets.',
+    );
   }
   if (isProdLikeEnv() && process.env.ALLOW_NULL_PROVIDER_IN_PROD !== 'true') {
     // Não sobe provider null em prod/staging sem override explícito (evita simulateApprove público).

@@ -23,6 +23,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SellersModule } from './modules/sellers/sellers.module';
+import { SecurityModule } from './modules/security/security.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { SellersModule } from './modules/sellers/sellers.module';
     StorefrontModule,
     NotificationsModule,
     SellersModule,
+    SecurityModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -12,7 +12,7 @@ import {
 } from './chat.intent';
 import { appendTurn, getConversation, type ChatTurn } from './chat.memory';
 import { buildSystemPrompt } from './chat.prompt';
-import { llmAllowed, llmKeyPresent, privateToolNames, publicToolNames, resolveChatAiMode } from './ai.flags';
+import { llmAllowed, llmKeyPresent, publicToolNames, resolveChatAiMode } from './ai.flags';
 import { logChatTurn } from './ai.observe';
 import { createAiProvider, type AiChatMessage, type AiProvider } from './ai.provider';
 import { planChatTurn } from './ai.router';
@@ -42,7 +42,8 @@ export class ChatService {
       mode,
       llmConfigured: llmKeyPresent(),
       tools: publicToolNames(mode),
-      privateTools: privateToolNames(mode),
+      // Campo estável para clientes antigos; nomes de tools privadas não são enumerados (F11).
+      privateTools: [],
     };
   }
 

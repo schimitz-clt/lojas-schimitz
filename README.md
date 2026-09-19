@@ -18,9 +18,9 @@ Loja Next.js no ar. Chat IA Phase 1 no site (FAQ + catalogo + WhatsApp).
 | Estoque atômico | SCH-002 |
 | Reserva / cancelamento / expiração 30 min | SCH-002 |
 | Cupom reserved vs used | SCH-002 |
-| Pagamento Mercado Pago | TODO SCH-003 |
-| Frete real | TODO SCH-004 |
-| Admin profissional | TODO SCH-005 |
+| Pagamento Mercado Pago | SCH-003 — Payments API + Card Brick + PIX (não Checkout Pro) |
+| Frete | SCH-004 — regras CEP / carrier `propria` (Melhor Envio ainda stub) |
+| Admin profissional | SCH-005 — JWT + role admin |
 | Chat IA (widget + POST /chat) | Phase 1 |
 | Marketplace v1 (Seller + Vendido por) | SCH-008 |
 | Rastreio (trackingCode no admin/cliente) | SCH-008 |

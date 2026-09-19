@@ -35,10 +35,19 @@ export function primaryImageUrl(images: ImageLike[] | null | undefined): string 
   return null;
 }
 
+/** Public inventory: available qty only — never qtyOnHand / qtyReserved (F12). */
+export function publicInventoryView(
+  inventory: InventoryLike,
+): { available: number | null } | null | undefined {
+  if (inventory === undefined) return undefined;
+  if (inventory == null) return null;
+  return { available: availableStock(inventory) };
+}
+
 /**
  * Enrich a Prisma product (with images + inventory includes) with flat fields
  * expected by public clients: stock, image, imageUrl.
- * Keeps nested images/inventory/seller for the web storefront.
+ * Nested inventory on the public API is `{ available }` only.
  */
 export function serializePublicProduct<T extends Record<string, unknown>>(product: T): T & {
   stock: number | null;
@@ -58,10 +67,12 @@ export function serializePublicProduct<T extends Record<string, unknown>>(produc
           slug: rawSeller.slug,
         }
       : rawSeller;
+  const publicInventory = publicInventoryView(inventory);
   return {
     ...product,
     ...(images ? { images } : {}),
     ...(rawSeller !== undefined ? { seller } : {}),
+    ...(inventory !== undefined ? { inventory: publicInventory } : {}),
     stock: availableStock(inventory),
     image,
     imageUrl: image,

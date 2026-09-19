@@ -11,7 +11,7 @@ export type ProductMediaLike = {
   image?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
-  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
 };
 
 /** First usable catalog photo (nested images, then flat image/imageUrl). */
@@ -31,7 +31,10 @@ export function resolveProductImageUrl(p: ProductMediaLike): string {
 export function resolveProductStock(p: ProductMediaLike): number | null {
   if (typeof p.stock === 'number') return p.stock;
   if (p.stock === null) return null;
-  if (p.inventory) return Math.max(0, p.inventory.qtyOnHand - p.inventory.qtyReserved);
+  if (typeof p.inventory?.available === 'number') return Math.max(0, p.inventory.available);
+  if (p.inventory && typeof p.inventory.qtyOnHand === 'number') {
+    return Math.max(0, p.inventory.qtyOnHand - (p.inventory.qtyReserved ?? 0));
+  }
   return null;
 }
 

@@ -137,6 +137,22 @@ async function main() {
   process.env.ALLOW_NULL_PAYMENT_SIMULATE = 'true';
   assert.equal(allowNullPaymentSimulate(), true, 'local dev can still opt in');
 
+  // F14 — Railway production ignores ALLOW_NULL_PROVIDER_IN_PROD.
+  process.env.APP_ENV = 'development';
+  process.env.NODE_ENV = 'development';
+  process.env.RAILWAY_ENVIRONMENT = 'production';
+  process.env.ALLOW_NULL_PROVIDER_IN_PROD = 'true';
+  process.env.PAYMENTS_PROVIDER = 'null';
+  let railwayNullBlocked = false;
+  try {
+    createPaymentProviderFromEnv();
+  } catch (e: any) {
+    railwayNullBlocked = String(e.message).includes('Railway production');
+  }
+  assert.equal(railwayNullBlocked, true, 'null provider blocked on Railway production even with override');
+  delete process.env.RAILWAY_ENVIRONMENT;
+  delete process.env.ALLOW_NULL_PROVIDER_IN_PROD;
+
   console.log('payment.webhook-security tests ok');
 }
 

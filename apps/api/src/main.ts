@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import { json as expressJson } from 'express';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
@@ -26,6 +27,9 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
+  // Browser CSP reports use these types (Nest default JSON parser is application/json only).
+  app.use(expressJson({ type: 'application/csp-report', limit: '32kb' }));
+  app.use(expressJson({ type: 'application/reports+json', limit: '32kb' }));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

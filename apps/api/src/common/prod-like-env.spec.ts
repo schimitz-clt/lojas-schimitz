@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { isProdLikeEnv } from './prod-like-env';
+import { isProdLikeEnv, isRailwayProductionEnv } from './prod-like-env';
 
 assert.equal(isProdLikeEnv({}), false);
 assert.equal(isProdLikeEnv({ APP_ENV: 'development', NODE_ENV: 'development' }), false);
@@ -50,6 +50,16 @@ assert.equal(
     RAILWAY_ENVIRONMENT: 'pr-123',
   }),
   false,
+);
+
+assert.equal(isRailwayProductionEnv({}), false);
+assert.equal(isRailwayProductionEnv({ RAILWAY_ENVIRONMENT: 'staging' }), false);
+assert.equal(isRailwayProductionEnv({ RAILWAY_ENVIRONMENT: 'production' }), true);
+assert.equal(isRailwayProductionEnv({ RAILWAY_ENVIRONMENT_NAME: 'production' }), true);
+assert.equal(
+  isRailwayProductionEnv({ APP_ENV: 'development', RAILWAY_ENVIRONMENT: 'production' }),
+  true,
+  'Railway production wins over APP_ENV',
 );
 
 console.log('prod-like-env tests ok');
