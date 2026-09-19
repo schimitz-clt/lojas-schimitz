@@ -126,4 +126,4 @@ Inclui: `ALLOW_LIVE=true` em Railway **production**, credentials `APP_USR` marke
 
 O PIX **pode recusar** `application_fee` (`You cannot use application_fee with this payment.`). Cartão costuma aceitar. Causa comum no Brasil: o app MP ainda é **Checkout Pro**, não modelo **Marketplace** (painel MP → Produto integrado).
 
-Em staging, se o MP recusar a fee no PIX, o checkout tenta **uma vez** sem `application_fee` no collector da plataforma e grava a % no ledger (`splitMode=ledger_only`, `source=pending_manual_or_pix_no_fee`). O cliente ainda vê o QR. Isso **não** liga split live e **não** usa `ALLOW_LIVE`.
+Em staging, se o MP recusar a fee no PIX (`application_fee` ou `Unauthorized use of live credentials` em token APP_USR de teste), o checkout tenta **uma vez** sem `application_fee` no collector da plataforma e grava a % no ledger (`splitMode=ledger_only`, `source=pending_manual_or_pix_no_fee`). O cliente ainda vê o QR. Isso **não** liga split live e **não** usa `ALLOW_LIVE`.

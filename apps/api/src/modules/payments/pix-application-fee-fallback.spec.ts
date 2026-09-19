@@ -4,9 +4,12 @@
 import assert from 'assert';
 import {
   PIX_APPLICATION_FEE_SKIP_REASON,
+  PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON,
   commissionOptsForPayment,
   isMpApplicationFeeRejected,
+  isMpUnauthorizedLiveCredentials,
   persistSplitFromRemote,
+  pixFeeFallbackSkipReason,
   shouldRetryPixWithoutApplicationFee,
 } from './pix-application-fee-fallback';
 
@@ -33,6 +36,31 @@ assert.equal(
 assert.equal(isMpApplicationFeeRejected({ message: 'card token invalid' }), false);
 assert.equal(isMpApplicationFeeRejected({ message: 'application_fee is 9.50' }), false);
 assert.equal(isMpApplicationFeeRejected(null), false);
+
+assert.equal(
+  isMpUnauthorizedLiveCredentials({ message: 'Unauthorized use of live credentials' }),
+  true,
+);
+assert.equal(
+  isMpUnauthorizedLiveCredentials({
+    message: 'Mercado Pago HTTP 401',
+    payload: { message: 'Unauthorised use of live credential', error: 'unauthorized' },
+  }),
+  true,
+);
+assert.equal(
+  isMpUnauthorizedLiveCredentials({
+    payload: { cause: [{ description: 'uso não autorizado de credenciais live' }] },
+  }),
+  true,
+);
+assert.equal(isMpUnauthorizedLiveCredentials({ message: 'Unauthorized' }), false);
+assert.equal(isMpUnauthorizedLiveCredentials({ message: 'invalid credentials' }), false);
+assert.equal(isMpUnauthorizedLiveCredentials(null), false);
+assert.equal(
+  pixFeeFallbackSkipReason({ message: 'Unauthorized use of live credentials' }),
+  PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON,
+);
 
 const sandboxEnv: NodeJS.ProcessEnv = {
   APP_ENV: 'staging',
@@ -70,6 +98,26 @@ assert.equal(
   }),
   false,
 );
+const liveCredErr = { message: 'Unauthorized use of live credentials' };
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'pix',
+    usedSandboxSplit: true,
+    err: liveCredErr,
+    env: sandboxEnv,
+  }),
+  true,
+  'staging PIX+fee must retry on unauthorized live credentials',
+);
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'card',
+    usedSandboxSplit: true,
+    err: liveCredErr,
+    env: sandboxEnv,
+  }),
+  false,
+);
 assert.equal(
   shouldRetryPixWithoutApplicationFee({
     method: 'pix',
@@ -85,6 +133,22 @@ assert.equal(
   }),
   false,
   'production live APP_USR must not retry a fee path',
+);
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'pix',
+    usedSandboxSplit: true,
+    err: liveCredErr,
+    env: {
+      APP_ENV: 'production',
+      NODE_ENV: 'production',
+      MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+      MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false',
+      MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-live',
+    },
+  }),
+  false,
+  'production live APP_USR must not retry unauthorized-live-credentials either',
 );
 
 const ledger = persistSplitFromRemote({

@@ -4,7 +4,10 @@
  */
 import assert from 'assert';
 import { MercadoPagoPaymentProvider } from './payment.provider';
-import { PIX_APPLICATION_FEE_SKIP_REASON } from './pix-application-fee-fallback';
+import {
+  PIX_APPLICATION_FEE_SKIP_REASON,
+  PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON,
+} from './pix-application-fee-fallback';
 
 const saved: Record<string, string | undefined> = {};
 function setEnv(k: string, v: string | undefined) {
@@ -21,7 +24,11 @@ function restore() {
 
 type Captured = { url: string; auth: string; body: Record<string, unknown>; idem: string };
 
-function mockFetchFeeThenSuccess(captured: Captured[]) {
+function mockFetchFeeThenSuccess(
+  captured: Captured[],
+  feeMessage = 'You cannot use application_fee with this payment.',
+  status = 400,
+) {
   const orig = globalThis.fetch;
   globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     const headers = (init?.headers || {}) as Record<string, string>;
@@ -35,11 +42,11 @@ function mockFetchFeeThenSuccess(captured: Captured[]) {
     if ('application_fee' in body) {
       return new Response(
         JSON.stringify({
-          message: 'You cannot use application_fee with this payment.',
-          error: 'bad_request',
-          status: 400,
+          message: feeMessage,
+          error: status === 401 ? 'unauthorized' : 'bad_request',
+          status,
         }),
-        { status: 400 },
+        { status },
       );
     }
     return new Response(
@@ -95,6 +102,35 @@ async function main() {
     assert.equal(result.payload.splitFeeSkippedReason, PIX_APPLICATION_FEE_SKIP_REASON);
     assert.equal(result.payload.expectedApplicationFee, 9.5);
     assert.equal(result.payload.qrCode, '00020126FALLBACKPIX');
+
+    captured.length = 0;
+    globalThis.fetch = orig;
+    const liveCredOrig = mockFetchFeeThenSuccess(
+      captured,
+      'Unauthorized use of live credentials',
+      401,
+    );
+    const liveCredResult = await p.createIntent({
+      orderId: 'ord-pix-live-cred',
+      publicId: 'SCH-PIX-LIVE-CRED',
+      method: 'pix',
+      amount: 95,
+      payerEmail: 'a@b.c',
+      sellerAccessToken: 'APP_USR-seller-test',
+      applicationFee: 9.5,
+      providerIdempotencyKey: 'sch-pay-pix-live-cred',
+    });
+    assert.equal(captured.length, 2, 'unauthorized live credentials also retries once');
+    assert.equal(captured[0].body.application_fee, 9.5);
+    assert.ok(!('application_fee' in captured[1].body));
+    assert.equal(captured[1].auth, 'Bearer APP_USR-platform-test');
+    assert.equal(liveCredResult.splitMode, 'ledger_only');
+    assert.equal(
+      liveCredResult.splitFeeSkippedReason,
+      PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON,
+    );
+    assert.equal(liveCredResult.payload.qrCode, '00020126FALLBACKPIX');
+    globalThis.fetch = liveCredOrig;
 
     captured.length = 0;
     setEnv('APP_ENV', 'production');
