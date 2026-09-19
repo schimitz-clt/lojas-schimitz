@@ -26,6 +26,7 @@ function ProdutosInner() {
   const router = useRouter();
   const q = sp.get('q') || '';
   const category = sp.get('category') || '';
+  const seller = (sp.get('seller') || '').trim().toLowerCase();
   const minPrice = sp.get('minPrice') || '';
   const maxPrice = sp.get('maxPrice') || '';
   const sort = parseCatalogSort(sp.get('sort'));
@@ -67,9 +68,10 @@ function ProdutosInner() {
     if (minPrice) params.set('minPrice', minPrice);
     if (maxPrice) params.set('maxPrice', maxPrice);
     if (sort && sort !== 'relevance') params.set('sort', sort);
+    if (seller) params.set('seller', seller);
     const qs = params.toString();
     return qs ? `/products?${qs}` : '/products';
-  }, [q, category, minPrice, maxPrice, sort]);
+  }, [q, category, minPrice, maxPrice, sort, seller]);
 
   useEffect(() => {
     setLoading(true);
@@ -97,6 +99,7 @@ function ProdutosInner() {
         minPrice,
         maxPrice,
         sort,
+        seller,
         ...next,
       };
       Object.entries(merged).forEach(([k, v]) => {
@@ -105,7 +108,7 @@ function ProdutosInner() {
       const qs = params.toString();
       router.push(qs ? `/produtos?${qs}` : '/produtos');
     },
-    [router, q, category, minPrice, maxPrice, sort],
+    [router, q, category, minPrice, maxPrice, sort, seller],
   );
 
   function applySheet(e: { preventDefault(): void }) {
@@ -150,10 +153,22 @@ function ProdutosInner() {
       pushFilters({ sort: 'relevance' });
       return;
     }
+    if (chip.clearKey === 'seller') {
+      pushFilters({ seller: '' });
+      return;
+    }
     clearAll();
   }
 
-  const hasExtraFilters = Boolean(category || minPrice || maxPrice || (sort && sort !== 'relevance'));
+  const sellerName = useMemo(() => {
+    if (!seller) return null;
+    const hit = products.find((p) => p.seller?.slug === seller);
+    return hit?.seller?.name || null;
+  }, [products, seller]);
+
+  const hasExtraFilters = Boolean(
+    category || seller || minPrice || maxPrice || (sort && sort !== 'relevance'),
+  );
   const hasAnyFilter = Boolean(q || hasExtraFilters);
   const chips = buildFilterChips({
     q,
@@ -162,8 +177,10 @@ function ProdutosInner() {
     minPrice,
     maxPrice,
     sort,
+    seller,
+    sellerName,
   });
-  const filterCount = activeFilterCount({ q, category, minPrice, maxPrice, sort });
+  const filterCount = activeFilterCount({ q, category, minPrice, maxPrice, sort, seller, sellerName });
   const heading = searchResultsHeading(q, total, {
     loading,
     categoryName: categoryName || (category ? category : null),

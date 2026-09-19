@@ -95,6 +95,8 @@ export function AdminMarketplaceSection() {
     setPayoutDraft,
     ownerDraft,
     setOwnerDraft,
+    percentDraft,
+    setPercentDraft,
     ownerBusyId,
     sellerForm,
     setSellerForm,
@@ -151,6 +153,15 @@ export function AdminMarketplaceSection() {
                 <option value="suspended">Suspenso</option>
               </select>
             </label>
+            <label>
+              Comissão % (opcional)
+              <input
+                inputMode="decimal"
+                value={sellerForm.commissionPercent}
+                onChange={(e) => setSellerForm({ ...sellerForm, commissionPercent: e.target.value })}
+                placeholder="10"
+              />
+            </label>
             <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeller}>
               {savingSeller ? 'Salvando...' : 'Criar vendedor'}
             </button>
@@ -169,6 +180,9 @@ export function AdminMarketplaceSection() {
                     <div className="admin-dense-row__meta">
                       /{s.slug}
                       {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
+                      {s.commissionPercent != null && s.commissionPercent !== ''
+                        ? ` · comissão ${s.commissionPercent}%`
+                        : ' · comissão 10% (padrão)'}
                       {s.owner?.email ? ` · dono ${s.owner.email}` : ' · sem dono'}
                     </div>
                   <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
@@ -181,13 +195,25 @@ export function AdminMarketplaceSection() {
                       placeholder="vendedor@email.com"
                     />
                   </label>
+                  <label className="admin-owner-field">
+                    Comissão %
+                    <input
+                      inputMode="decimal"
+                      value={
+                        percentDraft[s.id] ??
+                        (s.commissionPercent != null ? String(s.commissionPercent) : '')
+                      }
+                      onChange={(e) => setPercentDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                      placeholder="10"
+                    />
+                  </label>
                   <button
                     type="button"
                     className="btn admin-btn-primary-accent"
                     disabled={ownerBusyId === s.id}
                     onClick={() => void setSellerOwner(s)}
                   >
-                    {ownerBusyId === s.id ? '...' : 'Vincular dono'}
+                    {ownerBusyId === s.id ? '...' : 'Salvar dono / %'}
                   </button>
                   </div>
                 </div>

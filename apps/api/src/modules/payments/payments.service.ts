@@ -33,6 +33,7 @@ import {
 } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
+import { shouldRecordCommissionOnApprove } from './commission-on-approve';
 import {
   orphanReconciliationReason,
   RECONCILIATION_STATUS_OPEN,
@@ -802,7 +803,7 @@ export class PaymentsService {
           this.log.warn(`cashback earn falhou para ${payment.orderId}: ${e?.message || e}`);
         });
         await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
-          this.log.warn(`commission stub falhou para ${payment.orderId}: ${e?.message || e}`);
+          this.log.warn(`commission ledger falhou para ${payment.orderId}: ${e?.message || e}`);
         });
         structuredLog('info', 'PAYMENT_APPROVED', {
           paymentId,
@@ -815,6 +816,11 @@ export class PaymentsService {
       }
 
       const current = await this.prisma.order.findUnique({ where: { id: payment.orderId } });
+      if (shouldRecordCommissionOnApprove({ casWon: false, orderStatus: current?.status })) {
+        await this.commissions.recordOnPaid(payment.orderId).catch((e: any) => {
+          this.log.warn(`commission ledger retry falhou para ${payment.orderId}: ${e?.message || e}`);
+        });
+      }
       if (current?.status === 'paid') {
         await this.audit.log('payment.approved', {
           entity: 'Payment',

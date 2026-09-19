@@ -10,6 +10,7 @@ import {
   parseMoneyBound,
   parsePage,
   parsePageSize,
+  parseSellerSlug,
   parseSort,
   sortProductsByNumericPrice,
   toNumericPrice,
@@ -47,6 +48,7 @@ import {
 {
   const where = buildProductWhere({ q: 'tv', category: 'eletro', minPrice: '100', maxPrice: '2000' });
   assert.equal(where.active, true);
+  assert.deepEqual(where.seller, { status: 'active' });
   assert.deepEqual(where.category, { slug: 'eletro' });
   assert.deepEqual(where.price, { gte: 100, lte: 2000 });
   assert.ok(Array.isArray(where.OR));
@@ -58,9 +60,20 @@ import {
 {
   const bare = buildProductWhere({});
   assert.equal(bare.active, true);
+  assert.deepEqual(bare.seller, { status: 'active' });
   assert.equal('OR' in bare, false);
   assert.equal('price' in bare, false);
   console.log('catalog.query: empty filters — PASSOU');
+}
+
+{
+  assert.equal(parseSellerSlug('lojas-schimitz'), 'lojas-schimitz');
+  assert.equal(parseSellerSlug('Lojas-Schimitz'), 'lojas-schimitz');
+  assert.equal(parseSellerSlug('nope!'), undefined);
+  assert.equal(parseSellerSlug(''), undefined);
+  const bySeller = buildProductWhere({ seller: 'lojas-schimitz' });
+  assert.deepEqual(bySeller.seller, { status: 'active', slug: 'lojas-schimitz' });
+  console.log('catalog.query: seller slug + active-only — PASSOU');
 }
 
 {

@@ -8,6 +8,8 @@ import { randomUUID } from 'crypto';
 import { canTransitionCommission, commissionAmount, resolveCommissionPercent } from './commissions.constants';
 import { sellerOwnsCommission } from './commissions.authz';
 import { DEFAULT_SELLER_ID, DEFAULT_SELLER_SLUG } from '../sellers/sellers.constants';
+import { CommissionsService } from './commissions.service';
+import { PrismaService } from '../../prisma.service';
 
 const prisma = new PrismaClient();
 
@@ -106,34 +108,16 @@ async function main() {
   const percent = resolveCommissionPercent(Number(def.commissionPercent));
   const amount = commissionAmount(Number(item.unitPrice) * item.qty, percent);
 
-  const ledger = await prisma.commissionLedger.create({
-    data: {
-      sellerId: def.id,
-      orderId: order.id,
-      orderItemId: item.id,
-      amount,
-      percent,
-      status: 'pending',
-    },
-  });
+  const svc = new CommissionsService(prisma as unknown as PrismaService);
+  const first = await svc.recordOnPaid(order.id);
+  assert.equal(first.recorded, 1, 'recordOnPaid creates one ledger row');
+  const second = await svc.recordOnPaid(order.id);
+  assert.equal(second.recorded, 0, 'recordOnPaid is idempotent (unique orderItemId)');
 
-  // Idempotent: second insert must fail unique
-  let dup = false;
-  try {
-    await prisma.commissionLedger.create({
-      data: {
-        sellerId: def.id,
-        orderId: order.id,
-        orderItemId: item.id,
-        amount,
-        percent,
-        status: 'pending',
-      },
-    });
-  } catch {
-    dup = true;
-  }
-  assert.equal(dup, true, 'unique orderItemId');
+  const ledger = await prisma.commissionLedger.findUnique({ where: { orderItemId: item.id } });
+  assert.ok(ledger);
+  assert.equal(Number(ledger!.amount), amount);
+  assert.equal(ledger!.status, 'pending');
 
   const pending = await prisma.commissionLedger.findMany({
     where: { orderId: order.id, status: 'pending' },

@@ -1,6 +1,8 @@
 import assert from 'assert';
 import {
   canSetSellerStatus,
+  isPublicSellerVisible,
+  publicSellerListItem,
   publicSellerShape,
   slugifySellerName,
   DEFAULT_SELLER_SLUG,
@@ -24,5 +26,26 @@ const pub = publicSellerShape({
 });
 assert.deepEqual(pub, { id: '1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' });
 assert.ok(!('status' in pub));
+
+assert.equal(isPublicSellerVisible('active'), true);
+assert.equal(isPublicSellerVisible('pending'), false);
+assert.equal(isPublicSellerVisible('suspended'), false);
+assert.equal(isPublicSellerVisible(null), false);
+
+const listed = publicSellerListItem({
+  id: '1',
+  name: 'Lojas Schimitz',
+  slug: 'lojas-schimitz',
+  productCount: 9,
+});
+assert.deepEqual(listed, {
+  id: '1',
+  name: 'Lojas Schimitz',
+  slug: 'lojas-schimitz',
+  productCount: 9,
+});
+assert.ok(!('owner' in listed));
+assert.ok(!('commissionPercent' in listed));
+assert.ok(!('status' in listed));
 
 console.log('sellers.spec ok');

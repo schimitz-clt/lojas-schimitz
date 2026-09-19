@@ -193,7 +193,7 @@ export type FilterChip = {
   id: string;
   label: string;
   /** Query key to clear (empty string = clear all except preserved) */
-  clearKey: 'q' | 'category' | 'minPrice' | 'maxPrice' | 'price' | 'sort' | 'all';
+  clearKey: 'q' | 'category' | 'minPrice' | 'maxPrice' | 'price' | 'sort' | 'seller' | 'all';
 };
 
 export type FilterChipInput = {
@@ -203,6 +203,8 @@ export type FilterChipInput = {
   minPrice?: string;
   maxPrice?: string;
   sort?: string;
+  seller?: string;
+  sellerName?: string | null;
 };
 
 /** Active filter chips for catalog sticky bar (API-backed filters only). */
@@ -225,6 +227,12 @@ export function buildFilterChips(input: FilterChipInput): FilterChip[] {
   const sort = parseCatalogSort(input.sort);
   if (sort !== 'relevance') {
     chips.push({ id: 'sort', label: catalogSortLabel(sort), clearKey: 'sort' });
+  }
+
+  const seller = (input.seller || '').trim();
+  if (seller) {
+    const name = (input.sellerName || '').trim() || seller;
+    chips.push({ id: 'seller', label: `Vendido por ${name}`, clearKey: 'seller' });
   }
   return chips;
 }

@@ -11,6 +11,7 @@ import {
   DEFAULT_SELLER_NAME,
   DEFAULT_SELLER_SLUG,
   canSetSellerStatus,
+  publicSellerListItem,
   publicSellerShape,
   slugifySellerName,
   type SellerStatusValue,
@@ -64,6 +65,28 @@ export class SellersService {
         owner: { select: { id: true, name: true, email: true } },
       },
     });
+  }
+
+  /** Public directory: active sellers only. No owner / commission / status leak. */
+  async listPublic() {
+    const rows = await this.prisma.seller.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        _count: { select: { products: { where: { active: true } } } },
+      },
+    });
+    return rows.map((s) =>
+      publicSellerListItem({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        productCount: s._count.products,
+      }),
+    );
   }
 
   async create(dto: CreateSellerInput) {

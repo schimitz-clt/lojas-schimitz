@@ -13,6 +13,8 @@ export type ProductListQuery = {
   category?: string;
   minPrice?: string;
   maxPrice?: string;
+  /** Public seller slug (active sellers only). */
+  seller?: string;
   sort?: string;
   page?: string;
   pageSize?: string;
@@ -89,10 +91,19 @@ export function sortProductsByNumericPrice<T extends { price: unknown }>(
   });
 }
 
+/** Accept a public seller slug (`lojas-schimitz`). Rejects junk / injection-shaped input. */
+export function parseSellerSlug(raw?: string): string | undefined {
+  const s = (raw || '').trim().toLowerCase();
+  if (!s || s.length > 80) return undefined;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s)) return undefined;
+  return s;
+}
+
 /** Prisma-compatible where fragment for public catalog list. */
 export function buildProductWhere(input: ProductListQuery) {
   const q = (input.q || '').trim();
   const category = (input.category || '').trim();
+  const sellerSlug = parseSellerSlug(input.seller);
   const minPrice = parseMoneyBound(input.minPrice);
   const maxPrice = parseMoneyBound(input.maxPrice);
 
@@ -103,6 +114,10 @@ export function buildProductWhere(input: ProductListQuery) {
 
   return {
     active: true,
+    seller: {
+      status: 'active' as const,
+      ...(sellerSlug ? { slug: sellerSlug } : {}),
+    },
     ...(category ? { category: { slug: category } } : {}),
     ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
     ...(q

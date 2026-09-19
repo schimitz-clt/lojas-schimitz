@@ -50,7 +50,7 @@ import {
       },
     ],
     inventory: { qtyOnHand: 50, qtyReserved: 0, warehouse: 'origin-91250' },
-    seller: { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' },
+    seller: { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz', status: 'active' },
   };
   const out = serializePublicProduct(raw);
   assert.equal(out.stock, 50);
@@ -59,6 +59,8 @@ import {
   assert.ok(out.images?.[0]?.url);
   assert.ok(out.inventory);
   assert.equal(out.seller?.name, 'Lojas Schimitz');
+  assert.deepEqual(out.seller, { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' });
+  assert.ok(!('status' in (out.seller as object)));
   console.log('product.serialize: roblox-like shape — PASSOU');
 }
 

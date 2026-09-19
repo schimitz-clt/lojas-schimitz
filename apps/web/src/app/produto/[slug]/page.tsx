@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
-import ProductClient from './ProductClient';
+import ProductClient, { type ProductDetail } from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
-import { fetchProductMeta, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
+import { fetchProductMeta, fetchPublicProduct, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -49,7 +49,7 @@ export default async function Page({ params }: Props) {
   if (alias) {
     permanentRedirect(`/produto/${encodeURIComponent(alias)}`);
   }
-  const product = await fetchProductMeta(slug);
+  const [product, initial] = await Promise.all([fetchProductMeta(slug), fetchPublicProduct(slug)]);
   const origin = siteOrigin();
 
   const jsonLd = [];
@@ -91,7 +91,7 @@ export default async function Page({ params }: Props) {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <ProductClient />
+      <ProductClient initial={initial && typeof initial.slug === 'string' ? (initial as ProductDetail) : null} />
     </>
   );
 }

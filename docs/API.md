@@ -23,8 +23,9 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/me/loyalty` | user (SCHIMITZ+ saldo + extrato) |
 | GET/POST/PATCH/DELETE | `/me/addresses` | user |
 | GET | `/categories` | público |
-| GET | `/products` `?q=&category=` → items com `stock`, `image`, `imageUrl` (+ nested images/inventory/seller) | público |
-| GET | `/products/:slug` → mesmo shape (stock = disponível; image = URL primária) | público |
+| GET | `/products` `?q=&category=&seller=&minPrice=&maxPrice=&sort=&page=&pageSize=` → items com `stock`, `image`, `imageUrl` (+ nested images/inventory/seller). Só produtos de vendedor `active`. `seller` = slug público | público |
+| GET | `/products/:slug` → mesmo shape (stock = disponível; image = URL primária). 404 se vendedor não estiver `active` | público |
+| GET | `/sellers` → `[{ id, name, slug, productCount }]` vendedores **active** (sem PII / comissão / dono) | público |
 | GET/DELETE | `/cart` | user ou guest |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` | user |
