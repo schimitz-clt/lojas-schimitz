@@ -34,10 +34,11 @@ async function main() {
     if (url.includes('/refunds')) {
       return new Response(JSON.stringify({ id: 9, status: 'approved' }), { status: 201 });
     }
+    const alreadyRefunded = captured.some((c) => c.url.includes('/refunds'));
     return new Response(
       JSON.stringify({
         id: 333,
-        status: url.includes('/refunds') ? 'refunded' : 'approved',
+        status: alreadyRefunded ? 'refunded' : 'approved',
         transaction_amount: 95,
         external_reference: 'SCH-WH',
       }),

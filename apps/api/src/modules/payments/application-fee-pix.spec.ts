@@ -25,10 +25,12 @@ assert.equal(applicationFeeFromCharge(pixIntentChargeAmount(33.33, null), 10), 3
 assert.equal(pixIntentChargeAmount(95, 'PIX5'), 95);
 assert.equal(applicationFeeFromCharge(pixIntentChargeAmount(95, 'PIX5'), 10), 9.5);
 
-// Rounding: half-cent style
-assert.equal(roundMoney(9.995), 10);
-assert.equal(commissionAmount(10.15, 10), 1.02);
-assert.equal(applicationFeeFromCharge(10.15, 12.5), 1.27);
+// Rounding: same helpers as checkout / ledger
+assert.equal(roundMoney(9.994), 9.99);
+assert.equal(roundMoney(9.996), 10);
+assert.equal(commissionAmount(199.9, 10), 19.99);
+assert.equal(applicationFeeFromCharge(50, 12.5), 6.25);
+assert.equal(applicationFeeFromCharge(33.33, 10), 3.33);
 
 // Fee must stay below charge
 assert.ok(applicationFeeFromCharge(95, 10) < 95);
