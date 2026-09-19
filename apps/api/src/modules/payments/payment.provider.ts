@@ -7,7 +7,7 @@ import {
   assertSandboxApplicationFeeAllowed,
 } from './mp-split-payment-guard';
 import {
-  PIX_APPLICATION_FEE_SKIP_REASON,
+  pixFeeFallbackSkipReason,
   shouldRetryPixWithoutApplicationFee,
   type PaymentSplitModeValue,
 } from './pix-application-fee-fallback';
@@ -411,7 +411,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
         idempotencyKey: `${idempotencyKey}-nfee`,
       });
       splitMode = 'ledger_only';
-      splitFeeSkippedReason = PIX_APPLICATION_FEE_SKIP_REASON;
+      splitFeeSkippedReason = pixFeeFallbackSkipReason(e);
     }
 
     const status = this.translateStatus(String(json.status || 'pending'));

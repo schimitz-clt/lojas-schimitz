@@ -1,9 +1,11 @@
 /**
  * PIX + application_fee fallback (staging / Phase 2 sandbox only).
  *
- * Mercado Pago may reject application_fee on PIX
- * ("You cannot use application_fee with this payment.") when the app is
- * Checkout Pro instead of Marketplace, or when that account cannot fee PIX.
+ * Mercado Pago may reject seller-token + application_fee on PIX with:
+ *   - "You cannot use application_fee with this payment." (Checkout Pro /
+ *     PIX fee unsupported)
+ *   - "Unauthorized use of live credentials" (APP_USR test-account tokens
+ *     treated as live on the fee/split path)
  * We retry once without the fee on the platform collector and keep commission
  * on the ledger. Production live APP_USR never takes this path.
  */
@@ -11,6 +13,8 @@
 import { isSandboxSplitMoneyPathAllowed } from '../marketplace-mp/mp-split-sandbox';
 
 export const PIX_APPLICATION_FEE_SKIP_REASON = 'mp_pix_application_fee_rejected' as const;
+export const PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON =
+  'mp_unauthorized_live_credentials' as const;
 
 export type PaymentSplitModeValue = 'off' | 'seller_oauth_v1' | 'ledger_only';
 
@@ -20,9 +24,7 @@ export type CommissionSourceValue =
   | 'pending_manual_or_pix_no_fee';
 
 export function isMpApplicationFeeRejected(err: unknown): boolean {
-  const texts = collectErrorTexts(err);
-  if (!texts.length) return false;
-  const blob = texts.join(' ').toLowerCase();
+  const blob = errorBlob(err);
   if (!blob.includes('application_fee')) return false;
   return (
     blob.includes('cannot use') ||
@@ -35,6 +37,36 @@ export function isMpApplicationFeeRejected(err: unknown): boolean {
     blob.includes('não pode') ||
     blob.includes('nao pode')
   );
+}
+
+/**
+ * MP treats some APP_USR test-account tokens as live when application_fee
+ * is present. Require live + credential so a bare 401 "Unauthorized" does not retry.
+ */
+export function isMpUnauthorizedLiveCredentials(err: unknown): boolean {
+  const blob = errorBlob(err);
+  if (!blob) return false;
+  const unauthorized =
+    blob.includes('unauthorized') ||
+    blob.includes('unauthorised') ||
+    blob.includes('não autorizad') ||
+    blob.includes('nao autorizad');
+  const live = blob.includes('live') || blob.includes('produção') || blob.includes('producao');
+  const credential = blob.includes('credential') || blob.includes('credencia');
+  return unauthorized && live && credential;
+}
+
+export function isPixSandboxFeeFallbackError(err: unknown): boolean {
+  return isMpApplicationFeeRejected(err) || isMpUnauthorizedLiveCredentials(err);
+}
+
+export function pixFeeFallbackSkipReason(err: unknown): string {
+  if (isMpUnauthorizedLiveCredentials(err)) return PIX_UNAUTHORIZED_LIVE_CREDENTIALS_SKIP_REASON;
+  return PIX_APPLICATION_FEE_SKIP_REASON;
+}
+
+function errorBlob(err: unknown): string {
+  return collectErrorTexts(err).join(' ').toLowerCase();
 }
 
 function collectErrorTexts(err: unknown): string[] {
@@ -70,7 +102,10 @@ function collectErrorTexts(err: unknown): string[] {
   return texts;
 }
 
-/** PIX-only, sandbox money path only, and only after an application_fee rejection. */
+/**
+ * PIX-only, sandbox money path only, after application_fee rejection
+ * or unauthorized-live-credentials on the seller+fee attempt.
+ */
 export function shouldRetryPixWithoutApplicationFee(input: {
   method: string;
   usedSandboxSplit: boolean;
@@ -80,7 +115,7 @@ export function shouldRetryPixWithoutApplicationFee(input: {
   if (input.method !== 'pix') return false;
   if (!input.usedSandboxSplit) return false;
   if (!isSandboxSplitMoneyPathAllowed(input.env)) return false;
-  return isMpApplicationFeeRejected(input.err);
+  return isPixSandboxFeeFallbackError(input.err);
 }
 
 export function persistSplitFromRemote(input: {
