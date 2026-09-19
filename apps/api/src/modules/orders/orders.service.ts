@@ -34,6 +34,7 @@ import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
+import { assertSingleSellerCart } from '../marketplace-mp/mixed-cart';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -194,6 +195,9 @@ export class OrdersService {
     });
 
     if (!cart || cart.items.length === 0) throw new BadRequestException('Carrinho vazio');
+
+    // v2.1: one seller per order — always, even when split flags are off.
+    assertSingleSellerCart(cart.items.map((i) => ({ sellerId: i.product.sellerId })));
 
     for (const item of cart.items) {
       if (item.qty < 1) throw new BadRequestException('Quantidade inválida');

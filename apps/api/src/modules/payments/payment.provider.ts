@@ -1,6 +1,7 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
 import { isProdLikeEnv } from '../../common/prod-like-env';
+import { assertNoLiveMarketplaceSplitFields } from './mp-split-payment-guard';
 
 export { isProdLikeEnv };
 
@@ -332,6 +333,10 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       body.installments = input.installments || 1;
       if (input.paymentMethodId) body.payment_method_id = input.paymentMethodId;
     }
+
+    // Phase 1 fail-closed: never send application_fee / seller collector fields.
+    // ALLOW_LIVE must not unlock a charge path in this PR.
+    assertNoLiveMarketplaceSplitFields(body);
 
     const json = await this.mpFetch('/v1/payments', {
       method: 'POST',

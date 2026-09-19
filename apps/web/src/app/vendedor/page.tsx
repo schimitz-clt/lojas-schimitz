@@ -7,6 +7,14 @@ import { useSessionUser } from '@/lib/use-session-user';
 import { loginNextPath } from '@/lib/order-recovery';
 import { orderStatusLabel } from '@/lib/order-status';
 
+type SellerMpStatus = {
+  connectEnabled: boolean;
+  houseBrand: boolean;
+  oauthStatus: string;
+  linked: boolean;
+  mpUserId: string | null;
+};
+
 type SellerMe = {
   id: string;
   name: string;
@@ -14,6 +22,7 @@ type SellerMe = {
   status: string;
   commissionPercent: number | null;
   productCount: number;
+  mp?: SellerMpStatus;
 };
 
 type SellerProduct = {
@@ -64,6 +73,7 @@ export default function VendedorPage() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [mpBusy, setMpBusy] = useState(false);
   const [edits, setEdits] = useState<Record<string, { price: string; stock: string }>>({});
 
   const load = useCallback(async () => {
@@ -102,6 +112,28 @@ export default function VendedorPage() {
     }
     void load();
   }, [load, ready, user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const flag = new URLSearchParams(window.location.search).get('mp');
+    if (flag === 'ok') setMsg('Conta Mercado Pago conectada.');
+    if (flag === 'denied') setErr('Conexão Mercado Pago cancelada.');
+    if (flag === 'error') setErr('Não foi possível conectar o Mercado Pago. Tente de novo.');
+  }, []);
+
+  async function connectMercadoPago() {
+    setMpBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const data = await api<{ authorizationUrl: string }>('/seller/mp/connect');
+      if (!data.authorizationUrl) throw new Error('URL de autorização ausente');
+      window.location.href = data.authorizationUrl;
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : 'Falha ao iniciar conexão Mercado Pago');
+      setMpBusy(false);
+    }
+  }
 
   async function saveProduct(e: FormEvent, productId: string) {
     e.preventDefault();
@@ -172,6 +204,40 @@ export default function VendedorPage() {
 
       {me ? (
         <>
+          {me.mp?.connectEnabled ? (
+            <section className="card" style={{ marginBottom: 20 }}>
+              <div className="body">
+                <h2 style={{ marginTop: 0, fontSize: 18 }}>Mercado Pago</h2>
+                <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+                  Conecte a conta do vendedor para o split automático (Fase 1 — vínculo só; o
+                  pagamento ainda entra no collector da loja). A loja própria não faz self-split.
+                </p>
+                {me.mp.linked ? (
+                  <p style={{ marginBottom: 0 }}>
+                    Conta conectada
+                    {me.mp.mpUserId ? ` · collector ${me.mp.mpUserId}` : ''}. Status:{' '}
+                    <b>{me.mp.oauthStatus}</b>
+                  </p>
+                ) : (
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={mpBusy}
+                    onClick={() => void connectMercadoPago()}
+                  >
+                    {mpBusy ? '…' : 'Conectar Mercado Pago'}
+                  </button>
+                )}
+                {me.mp.oauthStatus === 'expired' || me.mp.oauthStatus === 'revoked' ? (
+                  <p className="muted" style={{ fontSize: 13, marginBottom: 0, marginTop: 8 }}>
+                    Vínculo {me.mp.oauthStatus === 'expired' ? 'expirado' : 'revogado'}. Conecte de
+                    novo.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           <section className="card" style={{ marginBottom: 20 }}>
             <div className="body">
               <h2 style={{ marginTop: 0, fontSize: 18 }}>Meus produtos</h2>
