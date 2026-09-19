@@ -2,14 +2,20 @@
  * Phase 2 sandbox split gate.
  *
  * application_fee + seller access token are used ONLY when:
- *   ENABLED + ALLOW_LIVE=false + TEST- credentials + linked non-house seller.
+ *   ENABLED + ALLOW_LIVE=false + sandbox-eligible credentials + linked non-house seller.
  *
- * Production APP_ENV + live APP_USR never takes this path — even if ENABLED
- * or ALLOW_LIVE is accidentally true. Phase 3 is the only live-money gate
- * and is not implemented here.
+ * Sandbox-eligible credentials:
+ *   - literal TEST- prefix (always)
+ *   - APP_USR from Mercado Pago "credenciais de teste" on a Phase 2 sandbox host
+ *     (APP_ENV=staging / development / test — not production). MP now issues
+ *     test Access Tokens and Public Keys as APP_USR-… for test_user accounts.
+ *
+ * Production APP_ENV / Railway production + APP_USR never takes this path —
+ * even if ENABLED or ALLOW_LIVE is accidentally true. Phase 3 is the only
+ * live-money gate and is not implemented here.
  */
 
-import { isProdLikeEnv } from '../../common/prod-like-env';
+import { isRailwayProductionEnv } from '../../common/prod-like-env';
 import { commissionAmount, resolveCommissionPercent } from '../commissions/commissions.constants';
 import { isHouseBrandSeller } from './mp-oauth.public';
 import {
@@ -42,12 +48,14 @@ export type SandboxSplitDecision =
       percent: number;
     };
 
+/** Literal TEST- prefix. Always sandbox-eligible. */
 export function isMpTestCredential(token: string | null | undefined): boolean {
   return String(token || '')
     .trim()
     .startsWith('TEST-');
 }
 
+/** APP_USR- prefix. Live in production; test-account format in Phase 2 sandbox hosts. */
 export function isLiveAppUsrCredential(token: string | null | undefined): boolean {
   return String(token || '')
     .trim()
@@ -61,6 +69,44 @@ export function isProductionAppEnv(env: NodeJS.ProcessEnv = process.env): boolea
   return app === 'production' || app === 'prod';
 }
 
+/**
+ * True production money host. Staging is NOT included (unlike isProdLikeEnv).
+ * Railway production counts even if APP_ENV is mis-set.
+ */
+export function isProductionLiveMoneyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isProductionAppEnv(env) || isRailwayProductionEnv(env);
+}
+
+/**
+ * Host where Phase 2 may treat APP_USR as Mercado Pago "credenciais de teste".
+ * Fail-closed: unknown / production hosts are not sandbox hosts for APP_USR.
+ */
+export function isPhase2SandboxHostEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (isProductionLiveMoneyEnv(env)) return false;
+  const app = String(env.APP_ENV || '')
+    .toLowerCase()
+    .trim();
+  if (app === 'staging' || app === 'development' || app === 'dev' || app === 'test') {
+    return true;
+  }
+  const node = String(env.NODE_ENV || '')
+    .toLowerCase()
+    .trim();
+  return node === 'test' || node === 'development';
+}
+
+/**
+ * Credential usable on the Phase 2 sandbox money path.
+ * TEST- is always eligible. APP_USR is eligible only on a sandbox host.
+ */
+export function isSandboxEligibleCredential(
+  token: string | null | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (isMpTestCredential(token)) return true;
+  return isLiveAppUsrCredential(token) && isPhase2SandboxHostEnv(env);
+}
+
 export function platformAccessToken(env: NodeJS.ProcessEnv = process.env): string {
   return String(env.MERCADO_PAGO_ACCESS_TOKEN || env.MP_ACCESS_TOKEN || '').trim();
 }
@@ -72,12 +118,7 @@ export function platformAccessToken(env: NodeJS.ProcessEnv = process.env): strin
 export function isSandboxSplitMoneyPathAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
   if (!isMarketplaceSplitEnabled(env)) return false;
   if (isMarketplaceSplitAllowLive(env)) return false;
-
-  const token = platformAccessToken(env);
-  if (isProductionAppEnv(env) && isLiveAppUsrCredential(token)) return false;
-  if (isProdLikeEnv(env) && isLiveAppUsrCredential(token)) return false;
-  if (!isMpTestCredential(token)) return false;
-  return true;
+  return isSandboxEligibleCredential(platformAccessToken(env), env);
 }
 
 export type SplitSellerSnapshot = {
@@ -118,7 +159,7 @@ export function decideSandboxSplit(input: {
     if (isMarketplaceSplitAllowLive(env) && isMarketplaceSplitEnabled(env)) {
       return { use: false, reason: 'allow_live_blocks_phase2' };
     }
-    if (isProductionAppEnv(env) && isLiveAppUsrCredential(platformAccessToken(env))) {
+    if (isProductionLiveMoneyEnv(env) && isLiveAppUsrCredential(platformAccessToken(env))) {
       return { use: false, reason: 'production_live_credentials' };
     }
     if (!isMarketplaceSplitEnabled(env)) {
@@ -143,7 +184,7 @@ export function decideSandboxSplit(input: {
   }
 
   if (input.sellerAccessToken != null) {
-    if (!isMpTestCredential(input.sellerAccessToken)) {
+    if (!isSandboxEligibleCredential(input.sellerAccessToken, env)) {
       return { use: false, reason: 'seller_token_not_test' };
     }
   }
@@ -162,14 +203,19 @@ export function decideSandboxSplit(input: {
   };
 }
 
-/** Customer-safe Brick key preview. Never returns APP_USR public keys. */
+/**
+ * Customer-safe Brick key preview.
+ * Production live APP_USR keys are never returned. Staging test-account
+ * APP_USR public keys are returned when the sandbox path is active.
+ */
 export function customerSandboxSplitPreview(input: {
   env?: NodeJS.ProcessEnv;
   items: CartSellerRef[];
   seller: SplitSellerSnapshot | null;
 }): { active: boolean; bricksPublicKey: string | null } {
+  const env = input.env || process.env;
   const decision = decideSandboxSplit({
-    env: input.env,
+    env,
     providerName: 'mercadopago',
     items: input.items,
     seller: input.seller,
@@ -179,7 +225,7 @@ export function customerSandboxSplitPreview(input: {
     return { active: false, bricksPublicKey: null };
   }
   const key = String(input.seller?.mpPublicKey || '').trim();
-  if (!key || !isMpTestCredential(key)) {
+  if (!key || !isSandboxEligibleCredential(key, env)) {
     return { active: true, bricksPublicKey: null };
   }
   return { active: true, bricksPublicKey: key };

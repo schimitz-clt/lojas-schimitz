@@ -36,6 +36,18 @@ const sandboxEnv: NodeJS.ProcessEnv = {
 };
 assertSandboxApplicationFeeAllowed({ transaction_amount: 95, application_fee: 9.5 }, sandboxEnv);
 
+const stagingAppUsrEnv: NodeJS.ProcessEnv = {
+  APP_ENV: 'staging',
+  NODE_ENV: 'production',
+  MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+  MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false',
+  MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-platform-test',
+};
+assertSandboxApplicationFeeAllowed(
+  { transaction_amount: 95, application_fee: 9.5 },
+  stagingAppUsrEnv,
+);
+
 let liveThrew = false;
 try {
   assertSandboxApplicationFeeAllowed(
@@ -53,6 +65,24 @@ try {
   assert.equal((e as { code?: string }).code, 'PHASE2_SPLIT_FORBIDDEN');
 }
 assert.equal(liveThrew, true);
+
+let prodAppUsrThrew = false;
+try {
+  assertSandboxApplicationFeeAllowed(
+    { transaction_amount: 95, application_fee: 9.5 },
+    {
+      APP_ENV: 'production',
+      NODE_ENV: 'production',
+      MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+      MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false',
+      MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-live',
+    },
+  );
+} catch (e: unknown) {
+  prodAppUsrThrew = true;
+  assert.equal((e as { code?: string }).code, 'PHASE2_SPLIT_FORBIDDEN');
+}
+assert.equal(prodAppUsrThrew, true);
 
 const providerSrc = readFileSync(join(__dirname, 'payment.provider.ts'), 'utf8');
 assert.ok(
@@ -72,8 +102,8 @@ assert.ok(
   'sandbox path assigns application_fee only after gate',
 );
 assert.ok(
-  providerSrc.includes('isMpTestCredential'),
-  'seller APP_USR token is refused',
+  providerSrc.includes('isSandboxEligibleCredential'),
+  'seller token is classified by sandbox-eligible helper (TEST- or staging APP_USR)',
 );
 
 const serviceSrc = readFileSync(join(__dirname, 'payments.service.ts'), 'utf8');

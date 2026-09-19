@@ -1,7 +1,7 @@
 /** SCH-003 — contrato do adapter de pagamento (#11). Sem SDK no domínio. */
 
 import { isProdLikeEnv, isRailwayProductionEnv } from '../../common/prod-like-env';
-import { isMpTestCredential } from '../marketplace-mp/mp-split-sandbox';
+import { isSandboxEligibleCredential } from '../marketplace-mp/mp-split-sandbox';
 import {
   assertNoLiveMarketplaceSplitFields,
   assertSandboxApplicationFeeAllowed,
@@ -35,8 +35,9 @@ export type CreateIntentInput = {
   /** Idempotency key HTTP do provedor (não misturar com header da loja). */
   providerIdempotencyKey?: string;
   /**
-   * Phase 2 sandbox only: seller OAuth access token (TEST-).
-   * Provider refuses APP_USR seller tokens.
+   * Phase 2 sandbox only: seller OAuth access token.
+   * TEST- is always eligible. APP_USR is eligible only on a Phase 2 sandbox host
+   * (staging / non-production). Production live APP_USR seller tokens are refused.
    */
   sellerAccessToken?: string;
   /** Absolute BRL application_fee. Only sent on the sandbox path. */
@@ -357,7 +358,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     const useSandboxSplit = Boolean(sellerToken && fee != null && fee > 0);
 
     if (useSandboxSplit) {
-      if (!isMpTestCredential(sellerToken)) {
+      if (!isSandboxEligibleCredential(sellerToken)) {
         const err: Error & { code?: string } = new Error(
           'Token de vendedor live (APP_USR) bloqueado no split sandbox (Fase 2).',
         );

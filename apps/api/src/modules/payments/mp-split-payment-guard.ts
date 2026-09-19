@@ -1,7 +1,7 @@
 /**
  * Phase 2: Payments API body may carry application_fee only on the sandbox path.
  * marketplace_fee / collector_id / sponsor_id / disbursements stay forbidden.
- * Production APP_USR + ALLOW_LIVE never unlocks a charge path in this PR.
+ * Production live APP_USR + ALLOW_LIVE never unlocks a charge path in this PR.
  */
 
 import { isSandboxSplitMoneyPathAllowed } from '../marketplace-mp/mp-split-sandbox';
@@ -35,7 +35,7 @@ export function assertNoLiveMarketplaceSplitFields(body: Record<string, unknown>
   assertNoUnsupportedMarketplaceSplitFields(body);
   if (Object.prototype.hasOwnProperty.call(body, 'application_fee') && body.application_fee != null) {
     const err: Error & { code?: string } = new Error(
-      'application_fee só é permitido no caminho sandbox (TEST- + ENABLED + ALLOW_LIVE=false).',
+      'application_fee só é permitido no caminho sandbox (ENABLED + ALLOW_LIVE=false + credenciais de teste).',
     );
     err.code = 'PHASE2_SPLIT_FORBIDDEN';
     throw err;
@@ -44,7 +44,7 @@ export function assertNoLiveMarketplaceSplitFields(body: Record<string, unknown>
 
 /**
  * When application_fee is present, the Phase 2 sandbox money-path must be open.
- * ALLOW_LIVE / production APP_USR never satisfies this.
+ * ALLOW_LIVE / production live APP_USR never satisfies this.
  */
 export function assertSandboxApplicationFeeAllowed(
   body: Record<string, unknown>,
@@ -56,7 +56,7 @@ export function assertSandboxApplicationFeeAllowed(
   }
   if (!isSandboxSplitMoneyPathAllowed(env)) {
     const err: Error & { code?: string } = new Error(
-      'application_fee bloqueado: sandbox split só com ENABLED + ALLOW_LIVE=false + credenciais TEST-.',
+      'application_fee bloqueado: sandbox split só com ENABLED + ALLOW_LIVE=false + credenciais de teste (TEST- ou APP_USR de staging).',
     );
     err.code = 'PHASE2_SPLIT_FORBIDDEN';
     throw err;

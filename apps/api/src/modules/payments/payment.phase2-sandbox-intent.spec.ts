@@ -1,6 +1,6 @@
 /**
- * Phase 2 sandbox: mocked MP HTTP — seller TEST- token + application_fee.
- * Production live APP_USR stays on the platform collector.
+ * Phase 2 sandbox: mocked MP HTTP — seller TEST- / staging APP_USR test token
+ * + application_fee. Production live APP_USR stays on the platform collector.
  */
 import assert from 'assert';
 import { MercadoPagoPaymentProvider } from './payment.provider';
@@ -73,10 +73,34 @@ async function main() {
     assert.ok(!('collector_id' in captured[0].body));
 
     captured.length = 0;
+    setEnv('APP_ENV', 'staging');
+    setEnv('NODE_ENV', 'production');
+    setEnv('MERCADO_PAGO_ACCESS_TOKEN', 'APP_USR-platform-test');
+    setEnv('MP_MARKETPLACE_SPLIT_ENABLED', 'true');
+    setEnv('MP_MARKETPLACE_SPLIT_ALLOW_LIVE', 'false');
+    await p.createIntent({
+      orderId: 'ord-3',
+      publicId: 'SCH-PHASE2-STAGING',
+      method: 'pix',
+      amount: 95,
+      payerEmail: 'a@b.c',
+      sellerAccessToken: 'APP_USR-seller-test',
+      applicationFee: 9.5,
+    });
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].auth, 'Bearer APP_USR-seller-test');
+    assert.equal(captured[0].body.application_fee, 9.5);
+
+    captured.length = 0;
+    setEnv('APP_ENV', 'production');
+    setEnv('NODE_ENV', 'production');
+    setEnv('MERCADO_PAGO_ACCESS_TOKEN', 'APP_USR-platform-live');
+    setEnv('MP_MARKETPLACE_SPLIT_ENABLED', 'true');
+    setEnv('MP_MARKETPLACE_SPLIT_ALLOW_LIVE', 'false');
     let liveSellerThrew = false;
     try {
       await p.createIntent({
-        orderId: 'ord-3',
+        orderId: 'ord-3b',
         publicId: 'SCH-LIVE-SELLER',
         method: 'pix',
         amount: 95,
@@ -91,10 +115,6 @@ async function main() {
     assert.equal(captured.length, 0);
 
     captured.length = 0;
-    setEnv('APP_ENV', 'production');
-    setEnv('NODE_ENV', 'production');
-    setEnv('MERCADO_PAGO_ACCESS_TOKEN', 'APP_USR-platform-live');
-    setEnv('MP_MARKETPLACE_SPLIT_ENABLED', 'true');
     setEnv('MP_MARKETPLACE_SPLIT_ALLOW_LIVE', 'true');
     await p.createIntent({
       orderId: 'ord-4',

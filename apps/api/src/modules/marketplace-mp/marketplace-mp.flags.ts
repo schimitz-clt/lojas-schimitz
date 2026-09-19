@@ -2,7 +2,8 @@
  * Mercado Pago marketplace split flags.
  *
  * ENABLED: OAuth UI + credential storage + refresh job + Phase 2 sandbox path
- *   (only together with ALLOW_LIVE=false and TEST- credentials).
+ *   (only together with ALLOW_LIVE=false and sandbox-eligible credentials:
+ *   TEST- always, or APP_USR from MP credenciais de teste on staging / non-prod).
  * ALLOW_LIVE: reserved for Phase 3. Phase 2 reads it only to KEEP IT FALSE —
  *   true never sends application_fee / seller token (fail-closed).
  * Default for both: false (unset / empty / anything except explicit true).
@@ -15,7 +16,7 @@ function envFlagTrue(name: string): boolean {
   return raw === 'true' || raw === '1' || raw === 'on';
 }
 
-/** OAuth connect UI + refresh job + sandbox split gate (with extra TEST- checks). */
+/** OAuth connect UI + refresh job + sandbox split gate (with extra credential checks). */
 export function isMarketplaceSplitEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = String(env.MP_MARKETPLACE_SPLIT_ENABLED || '')
     .toLowerCase()
