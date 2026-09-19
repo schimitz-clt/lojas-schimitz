@@ -53,8 +53,12 @@ const webCsp = readFileSync(
 assert.ok(webCsp.includes("/api/v1/security/csp-report"));
 
 const mainTs = readFileSync(join(__dirname, '../../main.ts'), 'utf8');
-assert.ok(mainTs.includes("application/csp-report"));
+assert.ok(mainTs.includes('applyHttpBodyParsers'));
+assert.ok(mainTs.includes('bodyParser: false'));
 assert.ok(mainTs.includes('SecurityModule') === false, 'module is registered in app.module, not main');
+const bodyParsers = readFileSync(join(__dirname, '../../common/http-body-parsers.ts'), 'utf8');
+assert.ok(bodyParsers.includes("application/csp-report"));
+assert.ok(bodyParsers.includes('application/reports+json'));
 const appMod = readFileSync(join(__dirname, '../../app.module.ts'), 'utf8');
 assert.ok(appMod.includes('SecurityModule'));
 

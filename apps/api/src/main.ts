@@ -3,14 +3,17 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
-import { json as expressJson } from 'express';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { applyHttpBodyParsers } from './common/http-body-parsers';
 import { setupSwagger, shouldEnableSwagger } from './common/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // bodyParser: false — register json + urlencoded + CSP report types ourselves.
+  // CSP-only typed parsers (PR #60) left application/json bodies empty in prod.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  applyHttpBodyParsers(app);
   const prefix = process.env.API_PREFIX || 'api/v1';
   app.setGlobalPrefix(prefix);
   const swaggerOn = shouldEnableSwagger();
@@ -27,9 +30,6 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
-  // Browser CSP reports use these types (Nest default JSON parser is application/json only).
-  app.use(expressJson({ type: 'application/csp-report', limit: '32kb' }));
-  app.use(expressJson({ type: 'application/reports+json', limit: '32kb' }));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
