@@ -51,7 +51,7 @@ assert.ok(!/split automático do Mercado Pago já/.test(page), 'must not claim l
 assert.ok(page.includes('PIX manual'), 'hub says payouts are manual PIX');
 assert.ok(page.includes('MARKETPLACE_PHASE1_NOTE') || page.includes('Fase 1'), 'hub mentions Phase 1');
 assert.ok(MARKETPLACE_PHASE1_NOTE.includes('MP_MARKETPLACE_SPLIT_ENABLED'));
-assert.ok(!MARKETPLACE_V1_NOT_BUILT.some((i) => i === 'OAuth de vendedores'));
+assert.ok(MARKETPLACE_V1_NOT_BUILT.every((item) => !/oauth/i.test(item)));
 assert.ok(page.includes('portal do vendedor'), 'hub links /vendedor');
 assert.ok(page.includes('Vendido por'), 'hub mentions PDP seller label');
 

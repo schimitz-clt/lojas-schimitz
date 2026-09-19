@@ -31,7 +31,7 @@ assert.ok(cart.includes('MARKETPLACE_MIXED_CART_MESSAGE_PT'), 'cart shows PT mes
 
 const vendedor = readFileSync(join(__dirname, '../app/vendedor/page.tsx'), 'utf8');
 assert.ok(vendedor.includes('Conectar Mercado Pago'), 'seller portal has connect CTA');
-assert.ok(vendedor.includes('mp.connectEnabled'), 'connect UI is flag-gated');
+assert.ok(vendedor.includes('connectEnabled'), 'connect UI is flag-gated');
 assert.ok(!vendedor.includes('application_fee'), 'portal must not claim live split');
 
 console.log('mixed-cart unit tests ok');

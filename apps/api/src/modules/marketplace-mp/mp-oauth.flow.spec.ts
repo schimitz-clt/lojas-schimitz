@@ -26,7 +26,7 @@ function mockPrisma() {
     seller: {},
     cred: null,
   };
-  const prisma = {
+  const prisma: any = {
     seller: {
       findFirst: async () => null,
       findMany: async () => [] as unknown[],
