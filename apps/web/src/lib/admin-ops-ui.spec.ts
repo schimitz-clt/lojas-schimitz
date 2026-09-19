@@ -79,8 +79,14 @@ assert.equal(opsAlertSeverityLabelPt('high'), 'URGENTE');
 assert.equal(opsAlertSeverityLabelPt('warn'), 'ATENÇÃO');
 assert.equal(opsAlertSeverityLabelPt('info'), 'INFO');
 
-assert.ok(opsAlertCtaHintPt({ code: 'open_reconciliations', severity: 'high', section: 'reconciliations' }).includes('Reconciliações'));
-assert.ok(opsAlertCtaHintPt({ code: 'store_notify_mail_failed', severity: 'high', section: 'mail' }).includes('reenviar'));
+assert.ok(
+  opsAlertCtaHintPt({ code: 'open_reconciliations', severity: 'high', section: 'reconciliations' })?.includes(
+    'Reconciliações',
+  ),
+);
+assert.ok(
+  opsAlertCtaHintPt({ code: 'store_notify_mail_failed', severity: 'high', section: 'mail' })?.includes('reenviar'),
+);
 
 {
   const sorted = sortOpsAlertsForAttention([

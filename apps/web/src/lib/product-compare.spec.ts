@@ -53,6 +53,14 @@ const d = snapshotFromProduct({
 
 assert.ok(a && b && c && d);
 assert.equal(snapshotFromProduct({ name: 'nope' }), null);
+const publicInv = snapshotFromProduct({
+  id: '5',
+  slug: 'tv-e',
+  name: 'TV E',
+  price: 300,
+  inventory: { available: 6 },
+});
+assert.equal(publicInv?.stock, 6, 'public catalog inventory.available');
 assert.equal(a.price, 1000);
 assert.equal(a.compareAtPrice, 1200);
 assert.equal(a.categoryName, 'TVs e Áudio');
