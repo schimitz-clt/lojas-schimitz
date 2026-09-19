@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import {
   MARKETPLACE_PHASE1_NOTE,
+  MARKETPLACE_PHASE2_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   marketplaceIntro,
   marketplaceSellersHeading,
@@ -102,8 +103,8 @@ export default async function MarketplacePage() {
             ))}
           </ul>
           <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>
-            {MARKETPLACE_PHASE1_NOTE} O repasse ao vendedor, quando houver, continua PIX manual
-            pela loja.
+            {MARKETPLACE_PHASE1_NOTE} {MARKETPLACE_PHASE2_NOTE} O repasse v1 (PIX manual) continua
+            para linhas sem application_fee.
           </p>
         </div>
       </section>

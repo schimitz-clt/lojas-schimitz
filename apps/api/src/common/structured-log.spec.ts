@@ -6,6 +6,7 @@ const red = redactSecrets({
   password: 'hunter2',
   apiKey: 'sk-live-abcdef',
   note: 'ok',
+  sellerAccessToken: 'TEST-secret-token',
   nested: { refreshToken: 'abc', path: '/health' },
   authHeader: 'Bearer eyJhbGciOiJIUzI1NiJ9.xxx',
 });
@@ -14,6 +15,7 @@ assert.equal(red.requestId, 'req-1');
 assert.equal(red.password, '[REDACTED]');
 assert.equal(red.apiKey, '[REDACTED]');
 assert.equal(red.note, 'ok');
+assert.equal(red.sellerAccessToken, '[REDACTED]');
 assert.deepEqual(red.nested, { refreshToken: '[REDACTED]', path: '/health' });
 assert.equal(red.authHeader, '[REDACTED]');
 assert.equal(JSON.stringify(red).includes('hunter2'), false);

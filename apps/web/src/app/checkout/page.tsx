@@ -15,7 +15,7 @@ import {
 import { TrustBadges } from '@/components/TrustBadges';
 import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
 import {
-  MARKETPLACE_MIXED_CART_MESSAGE_PT,
+  mixedCartBlockMessagePt,
   isMixedSellerCart,
 } from '@/lib/mixed-cart';
 
@@ -507,7 +507,7 @@ export default function CheckoutPage() {
 
       {mixedCart ? (
         <div className="alert checkout-err" role="alert" style={{ marginTop: 12 }}>
-          {MARKETPLACE_MIXED_CART_MESSAGE_PT}{' '}
+          {mixedCartBlockMessagePt(cart.items)}{' '}
           <Link href="/carrinho">Voltar à sacola</Link> para remover itens.
         </div>
       ) : null}

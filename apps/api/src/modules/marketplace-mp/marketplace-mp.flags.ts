@@ -1,8 +1,10 @@
 /**
  * Mercado Pago marketplace split flags.
  *
- * Phase 1: ENABLED only unlocks OAuth UI + credential storage + refresh job.
- * ALLOW_LIVE is reserved for Phase 2 and MUST NOT be read by createIntent.
+ * ENABLED: OAuth UI + credential storage + refresh job + Phase 2 sandbox path
+ *   (only together with ALLOW_LIVE=false and TEST- credentials).
+ * ALLOW_LIVE: reserved for Phase 3. Phase 2 reads it only to KEEP IT FALSE —
+ *   true never sends application_fee / seller token (fail-closed).
  * Default for both: false (unset / empty / anything except explicit true).
  */
 
@@ -13,7 +15,7 @@ function envFlagTrue(name: string): boolean {
   return raw === 'true' || raw === '1' || raw === 'on';
 }
 
-/** OAuth connect UI + refresh job. Does not authorize charges or application_fee. */
+/** OAuth connect UI + refresh job + sandbox split gate (with extra TEST- checks). */
 export function isMarketplaceSplitEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = String(env.MP_MARKETPLACE_SPLIT_ENABLED || '')
     .toLowerCase()
@@ -22,8 +24,8 @@ export function isMarketplaceSplitEnabled(env: NodeJS.ProcessEnv = process.env):
 }
 
 /**
- * Reserved Phase 2 switch. Phase 1 code must not use this to send
- * application_fee or seller access tokens on payments.
+ * Phase 3 live-money switch. Phase 2 must treat true as "do not send
+ * application_fee" (keep the current platform-collector path).
  */
 export function isMarketplaceSplitAllowLive(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = String(env.MP_MARKETPLACE_SPLIT_ALLOW_LIVE || '')

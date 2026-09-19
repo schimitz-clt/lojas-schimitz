@@ -1,6 +1,7 @@
 /**
  * Mercado Pago OAuth HTTP helpers. fetchImpl is injectable for unit tests.
- * Never used by createIntent (Phase 1 fail-closed).
+ * OAuth HTTP only. Payment charges use seller tokens from SellerMpCredential
+ * on the Phase 2 sandbox path — not this client.
  */
 
 export type MpTokenResponse = {

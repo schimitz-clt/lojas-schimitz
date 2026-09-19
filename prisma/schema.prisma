@@ -152,9 +152,9 @@ model Seller {
   status            SellerStatus @default(pending)
   ownerUserId       String?
   owner             User?        @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-  /** Stub for marketplace v2 payouts — not used in checkout yet. */
+  /** Used for ledger + sandbox application_fee (Phase 2). */
   commissionPercent Decimal?     @db.Decimal(5, 2)
-  /** MP collector_id after OAuth. Unused for charges in Phase 1. */
+  /** MP collector_id after OAuth. */
   mpUserId          String?      @unique
   mpPublicKey       String?
   mpOAuthStatus     SellerMpOAuthStatus @default(pending)
@@ -174,7 +174,7 @@ model Seller {
 
 /**
  * Encrypted Mercado Pago seller tokens (AES-256-GCM envelope).
- * Never returned on APIs. Phase 1 stores only — createIntent must not use these.
+ * Never returned on APIs. Phase 2 createIntent may decrypt only on the sandbox path.
  */
 model SellerMpCredential {
   id              String   @id @default(uuid())
@@ -353,21 +353,27 @@ model OrderItem {
 }
 
 model Payment {
-  id         String         @id @default(uuid())
-  orderId    String
-  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  provider   String         @default("mercadopago")
-  method     PaymentMethod
-  status     PaymentStatus  @default(pending)
-  externalId String?
-  amount     Decimal        @db.Decimal(12, 2)
-  payload    Json?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  events     PaymentEvent[]
+  id                String           @id @default(uuid())
+  orderId           String
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider          String           @default("mercadopago")
+  method            PaymentMethod
+  status            PaymentStatus    @default(pending)
+  externalId        String?
+  amount            Decimal          @db.Decimal(12, 2)
+  payload           Json?
+  /** MP collector_id when splitMode=seller_oauth_v1. */
+  collectorMpUserId String?
+  /** Snapshot of application_fee sent to MP (sandbox Phase 2). */
+  applicationFee    Decimal?         @db.Decimal(12, 2)
+  splitMode         PaymentSplitMode @default(off)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  events            PaymentEvent[]
 
   @@index([orderId])
   @@index([externalId])
+  @@index([collectorMpUserId])
 }
 
 model PaymentEvent {
@@ -566,6 +572,16 @@ model Notification {
   @@index([userId, readAt])
 }
 
+enum PaymentSplitMode {
+  off
+  seller_oauth_v1
+}
+
+enum CommissionSource {
+  manual_pix
+  mp_application_fee
+}
+
 enum CommissionStatus {
   pending
   approved
@@ -591,6 +607,10 @@ model CommissionLedger {
   payoutReference String?          @db.VarChar(120)
   /** Optional admin note when approving / marking paid. */
   payoutNote      String?          @db.VarChar(500)
+  /** manual_pix = Repasse v1; mp_application_fee = sandbox/live split snapshot. */
+  source          CommissionSource @default(manual_pix)
+  mpPaymentId     String?
+  mpApplicationFee Decimal?        @db.Decimal(12, 2)
   approvedAt      DateTime?
   paidAt          DateTime?
   createdAt       DateTime         @default(now())

@@ -5,6 +5,7 @@ import {
   MARKETPLACE_MIXED_CART_CODE,
   MARKETPLACE_MIXED_CART_MESSAGE_PT,
   isMixedSellerCart,
+  mixedCartBlockMessagePt,
   mixedCartSellerNames,
   uniqueCartSellerIds,
 } from './mixed-cart';
@@ -19,15 +20,24 @@ assert.equal(isMixedSellerCart([house], true), true);
 assert.deepEqual(mixedCartSellerNames([house, partner]), ['Lojas Schimitz', 'Parceiro']);
 assert.ok(MARKETPLACE_MIXED_CART_MESSAGE_PT.includes('único vendedor'));
 assert.equal(MARKETPLACE_MIXED_CART_CODE, 'MARKETPLACE_MIXED_CART');
+assert.ok(mixedCartBlockMessagePt([house, partner]).includes('Lojas Schimitz'));
+assert.ok(mixedCartBlockMessagePt([house, partner]).includes('Parceiro'));
+assert.equal(mixedCartBlockMessagePt([house]), MARKETPLACE_MIXED_CART_MESSAGE_PT);
 
 const checkout = readFileSync(join(__dirname, '../app/checkout/page.tsx'), 'utf8');
 assert.ok(checkout.includes('isMixedSellerCart'), 'checkout detects mixed cart');
-assert.ok(checkout.includes('MARKETPLACE_MIXED_CART_MESSAGE_PT'), 'checkout shows PT message');
+assert.ok(
+  checkout.includes('mixedCartBlockMessagePt') || checkout.includes('MARKETPLACE_MIXED_CART_MESSAGE_PT'),
+  'checkout shows PT message',
+);
 assert.ok(checkout.includes('mixedCart'), 'checkout blocks confirm when mixed');
 
 const cart = readFileSync(join(__dirname, '../app/carrinho/page.tsx'), 'utf8');
 assert.ok(cart.includes('isMixedSellerCart'), 'cart detects mixed cart');
-assert.ok(cart.includes('MARKETPLACE_MIXED_CART_MESSAGE_PT'), 'cart shows PT message');
+assert.ok(
+  cart.includes('mixedCartBlockMessagePt') || cart.includes('MARKETPLACE_MIXED_CART_MESSAGE_PT'),
+  'cart shows PT message',
+);
 
 const vendedor = readFileSync(join(__dirname, '../app/vendedor/page.tsx'), 'utf8');
 assert.ok(vendedor.includes('Conectar Mercado Pago'), 'seller portal has connect CTA');

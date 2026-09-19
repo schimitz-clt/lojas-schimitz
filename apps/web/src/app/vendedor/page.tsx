@@ -209,8 +209,9 @@ export default function VendedorPage() {
               <div className="body">
                 <h2 style={{ marginTop: 0, fontSize: 18 }}>Mercado Pago</h2>
                 <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
-                  Conecte a conta do vendedor para o split automático (Fase 1 — vínculo só; o
-                  pagamento ainda entra no collector da loja). A loja própria não faz self-split.
+                  Conecte a conta do vendedor (OAuth). Split sandbox só em staging com credenciais
+                  TEST-; em produção o pagamento continua no collector da loja. A loja própria não
+                  faz self-split.
                 </p>
                 {me.mp.linked ? (
                   <p style={{ marginBottom: 0 }}>

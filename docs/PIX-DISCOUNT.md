@@ -37,4 +37,8 @@ O **5% automático no intent PIX** (`method=pix`) é a promo real “pague com P
 
 Pedido total R$ 100 (sem cupom) → PIX cobra R$ 95 → no approve: `discount += 5`, `total = 95` → cashback 1% sobre R$ 95.
 
+## Marketplace split (Fase 2 sandbox)
+
+A plataforma absorve o 5% no `application_fee`: a fee é `commissionAmount(chargeAmount, percent)` sobre o valor **cobrado**. Ex.: 10% de R$ 95 = **R$ 9,50** (não R$ 10,00 sobre o total cheio). Cartão (sem 5%) usa o total integral. Loja própria nunca faz split.
+
 Pedido R$ 100 + cupom `PIX5` → `order.total` = R$ 95 → PIX cobra R$ 95 (não R$ 90,25). Cartão cobra R$ 95.
