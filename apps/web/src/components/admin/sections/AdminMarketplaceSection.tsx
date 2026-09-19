@@ -252,9 +252,9 @@ export function AdminMarketplaceSection() {
           <h2>Comissões / Repasse (v1)</h2>
           <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
             Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> nas linhas
-            <code>manual_pix</code>. Linhas <code>mp_application_fee</code> (sandbox) já foram
-            retidas no Mercado Pago — não marcar PIX. Sem split Mercado Pago em produção. Ver
-            docs/MARKETPLACE.md.
+            <code>manual_pix</code> e <code>pending_manual_or_pix_no_fee</code> (PIX sem fee no
+            MP). Linhas <code>mp_application_fee</code> (sandbox) já foram retidas no Mercado
+            Pago — não marcar PIX. Sem split Mercado Pago em produção. Ver docs/MARKETPLACE.md.
           </p>
           <div className="admin-toolbar" style={{ marginBottom: 12 }}>
           <div className="admin-toolbar__row">
@@ -317,7 +317,9 @@ export function AdminMarketplaceSection() {
                       {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
                       {c.source === 'mp_application_fee'
                         ? ' · split MP sandbox (application_fee)'
-                        : ''}
+                        : c.source === 'pending_manual_or_pix_no_fee'
+                          ? ' · comissão no ledger (PIX sem application_fee)'
+                          : ''}
                     </div>
                 {c.source === 'mp_application_fee' ? (
                   <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>

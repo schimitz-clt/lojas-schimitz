@@ -105,6 +105,14 @@ assert.ok(
   providerSrc.includes('isSandboxEligibleCredential'),
   'seller token is classified by sandbox-eligible helper (TEST- or staging APP_USR)',
 );
+assert.ok(
+  providerSrc.includes('shouldRetryPixWithoutApplicationFee'),
+  'PIX fee rejection retries only through the sandbox-gated helper',
+);
+assert.ok(
+  providerSrc.includes('ledger_only'),
+  'fee-rejected PIX persists an honest ledger_only splitMode',
+);
 
 const serviceSrc = readFileSync(join(__dirname, 'payments.service.ts'), 'utf8');
 assert.ok(serviceSrc.includes('decideSandboxSplit'), 'payments path uses Phase 2 sandbox gate');

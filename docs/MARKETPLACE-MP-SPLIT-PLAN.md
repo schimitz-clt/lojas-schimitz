@@ -13,12 +13,12 @@
 | Peça | Onde | Comportamento |
 |---|---|---|
 | Intent (default) | `MercadoPagoPaymentProvider.createIntent` | Token da plataforma, **sem** `application_fee`. |
-| Intent (sandbox Fase 2) | mesmo método | Se ENABLED + ALLOW_LIVE=false + credenciais `TEST-` + seller `linked` + pedido 1 seller não-casa: Bearer do vendedor + `application_fee = commissionAmount(chargeAmount, percent)`. |
+| Intent (sandbox Fase 2) | mesmo método | Se ENABLED + ALLOW_LIVE=false + credenciais `TEST-` / APP_USR de staging + seller `linked` + pedido 1 seller não-casa: Bearer do vendedor + `application_fee = commissionAmount(chargeAmount, percent)`. PIX: se o MP recusar a fee, **uma** retentativa sem fee no collector da plataforma (`splitMode=ledger_only`). |
 | Token plataforma | `MERCADO_PAGO_ACCESS_TOKEN` / `MP_ACCESS_TOKEN` | Collector da loja própria e fallback. |
 | Brick | `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY` ou `Order.marketplaceSplit.bricksPublicKey` (TEST- do seller) | Public key da mesma conta do token usado no intent. |
 | Webhook | `POST /webhooks/mercadopago` | HMAC → GET payment (plataforma **ou** token do seller collector) → `applyProviderStatus`. |
 | Pedido pago | `OrdersService.transitionFromAwaiting` (CAS) | `awaiting_payment` → `paid`. |
-| Comissão | `CommissionsService.recordOnPaid` | Ledger por item. `source=mp_application_fee` quando o payment foi sandbox split. |
+| Comissão | `CommissionsService.recordOnPaid` | Ledger por item. `source=mp_application_fee` no split sandbox; `pending_manual_or_pix_no_fee` se o PIX caiu no fallback sem fee. |
 | Repasse v1 | Admin `PATCH /admin/commissions/:id/paid` | PIX manual. **Bloqueado** se `source=mp_application_fee`. |
 | Refund | `POST /admin/payments/:id/refund` | Estorno integral; no split sandbox usa token do seller; **reverte** ledger `mp_application_fee` (status `cancelled`). |
 | PIX 5% | `pixIntentChargeAmount` | Desconto da plataforma. `application_fee` é calculada sobre o **valor cobrado** (95%), não sobre o total cheio. |
@@ -69,8 +69,8 @@ Schema aditivo (Fase 1 + 2):
 ```text
 Seller              mpUserId, mpPublicKey, mpOAuthStatus, mpTokenExpiresAt
 SellerMpCredential  accessTokenEnc, refreshTokenEnc
-Payment             collectorMpUserId, applicationFee, splitMode (off|seller_oauth_v1)
-CommissionLedger    source (manual_pix|mp_application_fee), mpPaymentId, mpApplicationFee
+Payment             collectorMpUserId, applicationFee, splitMode (off|seller_oauth_v1|ledger_only)
+CommissionLedger    source (manual_pix|mp_application_fee|pending_manual_or_pix_no_fee), mpPaymentId, mpApplicationFee
 ```
 
 ---
@@ -118,4 +118,12 @@ Inclui: `ALLOW_LIVE=true` em Railway **production**, credentials `APP_USR` marke
 1. Modelo A — um seller por pedido; carrinho misto bloqueado (PT).
 2. PIX 5% absorvido pela **plataforma** no cálculo da `application_fee`.
 3. Loja própria `lojas-schimitz` **nunca** faz self-split.
-4. Fase 2: só sandbox / TEST-. Sem live money.
+4. Fase 2: só sandbox / TEST- (e APP_USR de teste em staging). Sem live money.
+
+---
+
+## 9. PIX e `application_fee` (admin / vendedor)
+
+O PIX **pode recusar** `application_fee` (`You cannot use application_fee with this payment.`). Cartão costuma aceitar. Causa comum no Brasil: o app MP ainda é **Checkout Pro**, não modelo **Marketplace** (painel MP → Produto integrado).
+
+Em staging, se o MP recusar a fee no PIX, o checkout tenta **uma vez** sem `application_fee` no collector da plataforma e grava a % no ledger (`splitMode=ledger_only`, `source=pending_manual_or_pix_no_fee`). O cliente ainda vê o QR. Isso **não** liga split live e **não** usa `ALLOW_LIVE`.

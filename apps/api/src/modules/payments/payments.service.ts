@@ -35,6 +35,10 @@ import { structuredLog } from '../../common/structured-log';
 import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
 import { shouldRecordCommissionOnApprove } from './commission-on-approve';
 import {
+  commissionOptsForPayment,
+  persistSplitFromRemote,
+} from './pix-application-fee-fallback';
+import {
   orphanReconciliationReason,
   RECONCILIATION_STATUS_OPEN,
 } from './reconciliation';
@@ -203,18 +207,7 @@ export class PaymentsService {
     applicationFee?: unknown;
     externalId?: string | null;
   }) {
-    const fee =
-      payment.applicationFee != null && Number.isFinite(Number(payment.applicationFee))
-        ? Number(payment.applicationFee)
-        : null;
-    if (payment.splitMode === 'seller_oauth_v1' && fee != null) {
-      return this.commissions.recordOnPaid(orderId, {
-        source: 'mp_application_fee',
-        mpPaymentId: payment.externalId || null,
-        mpApplicationFee: fee,
-      });
-    }
-    return this.commissions.recordOnPaid(orderId);
+    return this.commissions.recordOnPaid(orderId, commissionOptsForPayment(payment));
   }
 
   async createIntent(userId: string, dto: CreatePaymentIntentDto, idempotencyKeyRaw?: string) {
@@ -439,6 +432,20 @@ export class PaymentsService {
       });
     }
 
+    const persistedSplit = persistSplitFromRemote({
+      decidedUse: splitDecision.use,
+      decidedFee: splitDecision.use ? splitDecision.applicationFee : null,
+      sellerMpUserId: seller?.mpUserId || null,
+      remoteSplitMode:
+        remote.splitMode ||
+        (typeof remote.payload?.splitMode === 'string' ? remote.payload.splitMode : null),
+      remoteSkipReason:
+        remote.splitFeeSkippedReason ??
+        (typeof remote.payload?.splitFeeSkippedReason === 'string'
+          ? remote.payload.splitFeeSkippedReason
+          : null),
+    });
+
     try {
       payment = await this.prisma.payment.update({
         where: { id: payment.id },
@@ -446,9 +453,9 @@ export class PaymentsService {
           externalId: remote.externalId,
           payload: remote.payload as object,
           status: remote.status === 'approved' ? 'pending' : (remote.status === 'refused' ? 'refused' : 'pending'),
-          splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
-          applicationFee: splitDecision.use ? splitDecision.applicationFee : null,
-          collectorMpUserId: splitDecision.use ? seller?.mpUserId || null : null,
+          splitMode: persistedSplit.splitMode,
+          applicationFee: persistedSplit.applicationFee,
+          collectorMpUserId: persistedSplit.collectorMpUserId,
           // approved imediato (ex.: card) ainda passa pelo caminho de apply via applyProviderStatus
         },
       });
@@ -456,7 +463,10 @@ export class PaymentsService {
       // MP ok + persistência falhou → cancelIntent best-effort (#12)
       await this.provider
         .cancelIntent(remote.externalId, {
-          accessToken: splitDecision.use ? sellerAccessToken || undefined : undefined,
+          accessToken:
+            persistedSplit.splitMode === 'seller_oauth_v1'
+              ? sellerAccessToken || undefined
+              : undefined,
         })
         .catch(() => undefined);
       await this.prisma.payment.update({
@@ -508,8 +518,9 @@ export class PaymentsService {
         provider: this.provider.name,
         couponCode: order.coupon?.code || null,
         skippedAutomaticPixDiscount,
-        splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
-        splitSkipReason: splitDecision.use ? null : splitDecision.reason,
+        splitMode: persistedSplit.splitMode,
+        splitSkipReason: splitDecision.use ? persistedSplit.splitFeeSkippedReason : splitDecision.reason,
+        splitFeeSkippedReason: persistedSplit.splitFeeSkippedReason,
       },
     });
     structuredLog('info', 'PAYMENT_INTENT_CREATED', {
@@ -519,8 +530,9 @@ export class PaymentsService {
       method: dto.method,
       provider: this.provider.name,
       status: payment.status,
-      splitMode: splitDecision.use ? 'seller_oauth_v1' : 'off',
-      splitSkipReason: splitDecision.use ? null : splitDecision.reason,
+      splitMode: persistedSplit.splitMode,
+      splitSkipReason: splitDecision.use ? persistedSplit.splitFeeSkippedReason : splitDecision.reason,
+      splitFeeSkippedReason: persistedSplit.splitFeeSkippedReason,
     });
 
     return response;

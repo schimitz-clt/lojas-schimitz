@@ -9,6 +9,7 @@ assert.equal(canTransitionCommission('cancelled', 'pending'), false);
 const src = require('fs').readFileSync(require('path').join(__dirname, 'commissions.service.ts'), 'utf8');
 assert.ok(src.includes('reverseOnRefund'), 'refund must reverse mp_application_fee rows');
 assert.ok(src.includes("source: 'mp_application_fee'"), 'recordOnPaid accepts split source');
+assert.ok(src.includes('pending_manual_or_pix_no_fee'), 'refund also reverses PIX-no-fee ledger rows');
 assert.ok(src.includes('COMMISSION_SPLIT_SOURCE'), 'markPaid blocked for split source');
 
 const paySrc = require('fs').readFileSync(
