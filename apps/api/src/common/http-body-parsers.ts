@@ -4,7 +4,7 @@ const JSON_LIMIT = '1mb';
 const CSP_REPORT_LIMIT = '32kb';
 
 /** Express / Nest adapter that exposes `.use()`. */
-export type BodyParserApp = { use: (...args: unknown[]) => unknown };
+export type BodyParserApp = { use: (...handlers: any[]) => unknown };
 
 /**
  * Nest defaults (json + urlencoded) plus CSP report Content-Types.

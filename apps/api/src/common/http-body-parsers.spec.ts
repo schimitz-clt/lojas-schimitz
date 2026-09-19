@@ -4,11 +4,23 @@ import { readFileSync } from 'fs';
 import { createServer, request as httpRequest } from 'http';
 import { join } from 'path';
 import express, { json as expressJson } from 'express';
-import { Body, Controller, Module, Post, UnauthorizedException, ValidationPipe } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { BadRequestException, Controller, Module, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { LoginDto } from '../modules/auth/dto';
 import { applyHttpBodyParsers } from './http-body-parsers';
+
+async function loginDtoOutcome(body: unknown): Promise<{ status: number; details: string[]; code: string }> {
+  const dto = plainToInstance(LoginDto, body ?? {});
+  const errors = await validate(dto);
+  const details = errors.flatMap((e) => Object.values(e.constraints || {}));
+  if (details.length) {
+    return { status: 400, details, code: 'VALIDATION_ERROR' };
+  }
+  return { status: 401, details: [], code: 'INVALID_CREDENTIALS' };
+}
 
 const LOGIN_JSON = { email: 'schimitzclaiton@gmail.com', password: 'wrongpass1' };
 
@@ -77,12 +89,19 @@ async function expressEcho(apply: (app: express.Express) => void, contentType: s
 @Controller('auth')
 class LoginProbeController {
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    // Parsed + validated body: auth would reject a wrong password (not IsEmail).
+  async login(@Req() req: { body?: unknown }) {
+    // tsx does not emit design:paramtypes; validate the same LoginDto the pipe uses.
+    const outcome = await loginDtoOutcome(req.body);
+    if (outcome.status === 400) {
+      throw new BadRequestException({
+        code: outcome.code,
+        message: outcome.details[0],
+        details: outcome.details,
+      });
+    }
     throw new UnauthorizedException({
-      code: 'INVALID_CREDENTIALS',
-      message: `Credenciais inválidas`,
-      emailSeen: Boolean(dto.email),
+      code: outcome.code,
+      message: 'Credenciais inválidas',
     });
   }
 }
@@ -146,13 +165,6 @@ async function main() {
     logger: false,
   });
   applyHttpBodyParsers(app);
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   const port = Number(new URL(url).port);
