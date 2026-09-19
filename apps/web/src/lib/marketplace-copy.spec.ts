@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   MARKETPLACE_PHASE1_NOTE,
   MARKETPLACE_PHASE2_NOTE,
+  MARKETPLACE_PHASE3_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   isHouseBrandOnly,
   marketplaceIntro,
@@ -52,10 +53,14 @@ assert.ok(!/split automático do Mercado Pago já/.test(page), 'must not claim l
 assert.ok(page.includes('PIX manual'), 'hub says payouts are manual PIX');
 assert.ok(page.includes('MARKETPLACE_PHASE1_NOTE') || page.includes('Fase 1'), 'hub mentions Phase 1');
 assert.ok(page.includes('MARKETPLACE_PHASE2_NOTE') || page.includes('Fase 2'), 'hub mentions Phase 2 sandbox');
+assert.ok(page.includes('MARKETPLACE_PHASE3_NOTE') || page.includes('Fase 3'), 'hub mentions Phase 3 live gate');
 assert.ok(MARKETPLACE_PHASE1_NOTE.includes('MP_MARKETPLACE_SPLIT_ENABLED'));
 assert.ok(MARKETPLACE_PHASE2_NOTE.includes('ALLOW_LIVE=false'));
 assert.ok(MARKETPLACE_PHASE2_NOTE.includes('TEST-'));
 assert.ok(!MARKETPLACE_PHASE2_NOTE.includes('ALLOW_LIVE=true'));
+assert.ok(MARKETPLACE_PHASE3_NOTE.includes('ALLOW_LIVE=true'));
+assert.ok(MARKETPLACE_PHASE3_NOTE.includes('ledger_only'));
+assert.ok(MARKETPLACE_PHASE3_NOTE.includes('Rollback'));
 assert.ok(MARKETPLACE_V1_NOT_BUILT.every((item) => !/oauth/i.test(item)));
 assert.ok(page.includes('portal do vendedor'), 'hub links /vendedor');
 assert.ok(page.includes('Vendido por'), 'hub mentions PDP seller label');
@@ -68,6 +73,9 @@ assert.ok(admin.includes('Comissão %'), 'admin can set commission percent');
 assert.ok(admin.includes('Criar vendedor'), 'admin can create sellers');
 assert.ok(admin.includes('Vincular dono') || admin.includes('Salvar dono'), 'admin can assign owner');
 assert.ok(admin.includes('Exportar CSV'), 'admin can export commission CSV');
-assert.ok(admin.includes('sem split MP') || admin.includes('Sem split Mercado Pago'), 'admin does not claim MP split');
+assert.ok(
+  admin.includes('ALLOW_LIVE') || admin.includes('split live'),
+  'admin mentions gated live split, not a silent claim that it is already on',
+);
 
 console.log('marketplace-copy unit tests ok');

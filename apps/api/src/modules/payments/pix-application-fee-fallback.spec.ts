@@ -151,6 +151,58 @@ assert.equal(
   'production live APP_USR must not retry unauthorized-live-credentials either',
 );
 
+const liveEnv: NodeJS.ProcessEnv = {
+  APP_ENV: 'production',
+  NODE_ENV: 'production',
+  MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+  MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'true',
+  MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-live',
+};
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'pix',
+    usedSandboxSplit: false,
+    usedLiveSplit: true,
+    err: feeErr,
+    env: liveEnv,
+  }),
+  true,
+  'live PIX+fee retries ledger_only when ALLOW_LIVE is on',
+);
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'pix',
+    usedSandboxSplit: false,
+    usedLiveSplit: true,
+    err: liveCredErr,
+    env: liveEnv,
+  }),
+  true,
+  'live PIX retries ledger_only on unauthorized live credentials',
+);
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'card',
+    usedSandboxSplit: false,
+    usedLiveSplit: true,
+    err: feeErr,
+    env: liveEnv,
+  }),
+  false,
+  'live card must not retry without fee',
+);
+assert.equal(
+  shouldRetryPixWithoutApplicationFee({
+    method: 'pix',
+    usedSandboxSplit: false,
+    usedLiveSplit: true,
+    err: feeErr,
+    env: { ...liveEnv, MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false' },
+  }),
+  false,
+  'live PIX retry stays fail-closed without ALLOW_LIVE',
+);
+
 const ledger = persistSplitFromRemote({
   decidedUse: true,
   decidedFee: 9.5,

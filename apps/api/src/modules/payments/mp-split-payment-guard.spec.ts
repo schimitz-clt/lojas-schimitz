@@ -3,6 +3,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   MP_SPLIT_PAYMENT_BODY_KEYS,
+  assertLiveApplicationFeeAllowed,
+  assertMarketplaceApplicationFeeAllowed,
   assertNoLiveMarketplaceSplitFields,
   assertSandboxApplicationFeeAllowed,
 } from './mp-split-payment-guard';
@@ -84,6 +86,41 @@ try {
 }
 assert.equal(prodAppUsrThrew, true);
 
+const liveEnv: NodeJS.ProcessEnv = {
+  APP_ENV: 'production',
+  NODE_ENV: 'production',
+  MP_MARKETPLACE_SPLIT_ENABLED: 'true',
+  MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'true',
+  MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-live',
+};
+assertLiveApplicationFeeAllowed({ transaction_amount: 95, application_fee: 9.5 }, liveEnv);
+assertMarketplaceApplicationFeeAllowed({ transaction_amount: 95, application_fee: 9.5 }, liveEnv);
+assertMarketplaceApplicationFeeAllowed({ transaction_amount: 95, application_fee: 9.5 }, sandboxEnv);
+
+let liveOffThrew = false;
+try {
+  assertLiveApplicationFeeAllowed(
+    { transaction_amount: 95, application_fee: 9.5 },
+    { ...liveEnv, MP_MARKETPLACE_SPLIT_ALLOW_LIVE: 'false' },
+  );
+} catch (e: unknown) {
+  liveOffThrew = true;
+  assert.equal((e as { code?: string }).code, 'LIVE_SPLIT_FORBIDDEN');
+}
+assert.equal(liveOffThrew, true, 'ALLOW_LIVE=false never satisfies live fee assert');
+
+let liveEnabledOffThrew = false;
+try {
+  assertLiveApplicationFeeAllowed(
+    { transaction_amount: 95, application_fee: 9.5 },
+    { ...liveEnv, MP_MARKETPLACE_SPLIT_ENABLED: 'false' },
+  );
+} catch (e: unknown) {
+  liveEnabledOffThrew = true;
+  assert.equal((e as { code?: string }).code, 'LIVE_SPLIT_FORBIDDEN');
+}
+assert.equal(liveEnabledOffThrew, true, 'ENABLED=false never satisfies live fee assert');
+
 const providerSrc = readFileSync(join(__dirname, 'payment.provider.ts'), 'utf8');
 assert.ok(
   providerSrc.includes('assertNoLiveMarketplaceSplitFields'),
@@ -107,17 +144,25 @@ assert.ok(
 );
 assert.ok(
   providerSrc.includes('shouldRetryPixWithoutApplicationFee'),
-  'PIX fee rejection retries only through the sandbox-gated helper',
+  'PIX fee rejection retries only through the gated helper',
 );
 assert.ok(
   providerSrc.includes('ledger_only'),
   'fee-rejected PIX persists an honest ledger_only splitMode',
 );
+assert.ok(
+  providerSrc.includes('assertLiveApplicationFeeAllowed'),
+  'live path must re-check the live money gate',
+);
+assert.ok(
+  providerSrc.includes('isLiveSplitMoneyPathAllowed'),
+  'provider consults the Phase 3 live gate',
+);
 
 const serviceSrc = readFileSync(join(__dirname, 'payments.service.ts'), 'utf8');
-assert.ok(serviceSrc.includes('decideSandboxSplit'), 'payments path uses Phase 2 sandbox gate');
+assert.ok(serviceSrc.includes('decideMarketplaceSplit'), 'payments path uses unified split gate');
 assert.ok(
-  serviceSrc.includes('MP_MARKETPLACE_SPLIT') === false || serviceSrc.includes('decideSandboxSplit'),
+  serviceSrc.includes('MP_MARKETPLACE_SPLIT') === false || serviceSrc.includes('decideMarketplaceSplit'),
   'split decision is centralized',
 );
 

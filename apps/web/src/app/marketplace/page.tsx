@@ -4,6 +4,7 @@ import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import {
   MARKETPLACE_PHASE1_NOTE,
   MARKETPLACE_PHASE2_NOTE,
+  MARKETPLACE_PHASE3_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   marketplaceIntro,
   marketplaceSellersHeading,
@@ -13,7 +14,7 @@ import { fetchPublicSellers } from '@/lib/storefront';
 export const metadata: Metadata = {
   title: 'Marketplace',
   description:
-    'Marketplace Lojas Schimitz — catálogo com Vendido por, checkout unificado e portal do vendedor. Sem split automático do Mercado Pago.',
+    'Marketplace Lojas Schimitz — catálogo com Vendido por, checkout unificado e portal do vendedor. Split Mercado Pago só com flags de produção (ops).',
   alternates: { canonical: '/marketplace' },
 };
 
@@ -103,8 +104,8 @@ export default async function MarketplacePage() {
             ))}
           </ul>
           <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>
-            {MARKETPLACE_PHASE1_NOTE} {MARKETPLACE_PHASE2_NOTE} O repasse v1 (PIX manual) continua
-            para linhas sem application_fee.
+            {MARKETPLACE_PHASE1_NOTE} {MARKETPLACE_PHASE2_NOTE} {MARKETPLACE_PHASE3_NOTE} O
+            repasse v1 (PIX manual) continua para linhas sem application_fee.
           </p>
         </div>
       </section>

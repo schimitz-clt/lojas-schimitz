@@ -11,8 +11,8 @@
  *     test Access Tokens and Public Keys as APP_USR-… for test_user accounts.
  *
  * Production APP_ENV / Railway production + APP_USR never takes this path —
- * even if ENABLED or ALLOW_LIVE is accidentally true. Phase 3 is the only
- * live-money gate and is not implemented here.
+ * even if ENABLED or ALLOW_LIVE is accidentally true. Phase 3 live money
+ * is implemented in mp-split-live.ts (ALLOW_LIVE + prod-like + APP_USR).
  */
 
 import { isRailwayProductionEnv } from '../../common/prod-like-env';
@@ -113,7 +113,7 @@ export function platformAccessToken(env: NodeJS.ProcessEnv = process.env): strin
 
 /**
  * Money-path gate for Phase 2. Does not inspect seller state.
- * ALLOW_LIVE=true never unlocks charges in this phase.
+ * ALLOW_LIVE=true never unlocks the sandbox money path (see mp-split-live.ts).
  */
 export function isSandboxSplitMoneyPathAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
   if (!isMarketplaceSplitEnabled(env)) return false;

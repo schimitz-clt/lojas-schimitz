@@ -113,9 +113,10 @@ export function AdminMarketplaceSection() {
     <>
       <div className="admin-section-panel">
       <p className="admin-section-intro">
-        Fundação multi-seller. Checkout único continua igual. Repasse v1: ledger + PIX manual
-        (sem split MP em produção) — sandbox Fase 2 só com TEST- e ALLOW_LIVE=false. Ver
-        docs/MARKETPLACE.md. Produtos existentes ficam na Lojas Schimitz.
+        Fundação multi-seller. Checkout único continua igual. Split live MP só com
+        ENABLED+ALLOW_LIVE+APP_USR em produção (ops). Sandbox Fase 2: credenciais de
+        teste e ALLOW_LIVE=false. Ver docs/MARKETPLACE.md. Produtos existentes ficam
+        na Lojas Schimitz.
       </p>
       <section className="admin-card-pro">
         <div className="body">

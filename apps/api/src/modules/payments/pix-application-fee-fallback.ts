@@ -1,15 +1,21 @@
 /**
- * PIX + application_fee fallback (staging / Phase 2 sandbox only).
+ * PIX + application_fee fallback.
  *
  * Mercado Pago may reject seller-token + application_fee on PIX with:
  *   - "You cannot use application_fee with this payment." (Checkout Pro /
  *     PIX fee unsupported)
- *   - "Unauthorized use of live credentials" (APP_USR test-account tokens
- *     treated as live on the fee/split path)
+ *   - "Unauthorized use of live credentials"
  * We retry once without the fee on the platform collector and keep commission
- * on the ledger. Production live APP_USR never takes this path.
+ * on the ledger (`splitMode=ledger_only`). This is NOT a silent 100% take:
+ * the intended fee is persisted and payout is manual via the ledger.
+ *
+ * Allowed only when a gated money path was already open:
+ *   - Phase 2 sandbox (ENABLED + ALLOW_LIVE=false + test credentials)
+ *   - Phase 3 live (ENABLED + ALLOW_LIVE=true + prod-like + APP_USR)
+ * Production without ALLOW_LIVE stays fail-closed (no fee, no retry).
  */
 
+import { isLiveSplitMoneyPathAllowed } from '../marketplace-mp/mp-split-live';
 import { isSandboxSplitMoneyPathAllowed } from '../marketplace-mp/mp-split-sandbox';
 
 export const PIX_APPLICATION_FEE_SKIP_REASON = 'mp_pix_application_fee_rejected' as const;
@@ -103,19 +109,22 @@ function collectErrorTexts(err: unknown): string[] {
 }
 
 /**
- * PIX-only, sandbox money path only, after application_fee rejection
- * or unauthorized-live-credentials on the seller+fee attempt.
+ * PIX-only, after application_fee rejection or unauthorized-live-credentials
+ * on a seller+fee attempt. Sandbox or live money-path must already be open.
+ * Card never retries (would settle 100% on the platform without a fee).
  */
 export function shouldRetryPixWithoutApplicationFee(input: {
   method: string;
   usedSandboxSplit: boolean;
+  usedLiveSplit?: boolean;
   err: unknown;
   env?: NodeJS.ProcessEnv;
 }): boolean {
   if (input.method !== 'pix') return false;
-  if (!input.usedSandboxSplit) return false;
-  if (!isSandboxSplitMoneyPathAllowed(input.env)) return false;
-  return isPixSandboxFeeFallbackError(input.err);
+  if (!isPixSandboxFeeFallbackError(input.err)) return false;
+  if (input.usedSandboxSplit && isSandboxSplitMoneyPathAllowed(input.env)) return true;
+  if (input.usedLiveSplit && isLiveSplitMoneyPathAllowed(input.env)) return true;
+  return false;
 }
 
 export function persistSplitFromRemote(input: {

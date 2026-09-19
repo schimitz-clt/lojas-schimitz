@@ -1,11 +1,11 @@
 /**
  * Mercado Pago marketplace split flags.
  *
- * ENABLED: OAuth UI + credential storage + refresh job + Phase 2 sandbox path
- *   (only together with ALLOW_LIVE=false and sandbox-eligible credentials:
- *   TEST- always, or APP_USR from MP credenciais de teste on staging / non-prod).
- * ALLOW_LIVE: reserved for Phase 3. Phase 2 reads it only to KEEP IT FALSE —
- *   true never sends application_fee / seller token (fail-closed).
+ * ENABLED: OAuth UI + credential storage + refresh job + split money-path gate
+ *   (sandbox when ALLOW_LIVE=false + test credentials; live when ALLOW_LIVE=true
+ *   + production/prod-like + APP_USR).
+ * ALLOW_LIVE: Phase 3 live-money switch. Default false. true only sends
+ *   application_fee together with ENABLED + prod-like host + live APP_USR.
  * Default for both: false (unset / empty / anything except explicit true).
  */
 
@@ -25,8 +25,8 @@ export function isMarketplaceSplitEnabled(env: NodeJS.ProcessEnv = process.env):
 }
 
 /**
- * Phase 3 live-money switch. Phase 2 must treat true as "do not send
- * application_fee" (keep the current platform-collector path).
+ * Phase 3 live-money switch. Combined with ENABLED + prod-like + APP_USR
+ * unlocks seller-token + application_fee. Alone it does nothing.
  */
 export function isMarketplaceSplitAllowLive(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = String(env.MP_MARKETPLACE_SPLIT_ALLOW_LIVE || '')
