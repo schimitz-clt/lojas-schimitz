@@ -8,8 +8,10 @@ import { randomUUID } from 'crypto';
 import {
   DEFAULT_SELLER_ID,
   DEFAULT_SELLER_SLUG,
+  publicSellerListItem,
   publicSellerShape,
 } from './sellers.constants';
+import { buildProductWhere } from '../catalog/catalog.query';
 
 const prisma = new PrismaClient();
 
@@ -82,6 +84,49 @@ async function main() {
         data: { status: 'suspended' },
       });
       assert.equal(suspended.status, 'suspended');
+
+      const hiddenSku = `TMP-HID-${randomUUID().slice(0, 8)}`;
+      const hidden = await prisma.product.create({
+        data: {
+          sku: hiddenSku,
+          name: 'Temp hidden seller product',
+          slug: hiddenSku.toLowerCase(),
+          description: 'temp',
+          price: 11,
+          active: true,
+          sellerId: partner.id,
+        },
+      });
+      try {
+        const listed = await prisma.product.findMany({
+          where: buildProductWhere({}),
+          select: { id: true },
+        });
+        assert.equal(
+          listed.some((p) => p.id === hidden.id),
+          false,
+          'suspended seller products must not appear in public catalog',
+        );
+        const publicRows = await prisma.seller.findMany({
+          where: { status: 'active' },
+          select: { id: true, name: true, slug: true, status: true },
+        });
+        assert.ok(publicRows.every((s) => s.status === 'active'));
+        assert.equal(
+          publicRows.some((s) => s.id === partner.id),
+          false,
+          'suspended seller must not be in public directory',
+        );
+        const card = publicSellerListItem({
+          id: def.id,
+          name: def.name,
+          slug: def.slug,
+          productCount: 1,
+        });
+        assert.ok(!('status' in card));
+      } finally {
+        await prisma.product.delete({ where: { id: hidden.id } }).catch(() => undefined);
+      }
     } finally {
       await prisma.seller.delete({ where: { id: partner.id } }).catch(() => undefined);
     }

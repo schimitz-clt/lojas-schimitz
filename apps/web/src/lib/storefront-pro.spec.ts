@@ -98,6 +98,9 @@ assert.ok(chips.some((c) => c.clearKey === 'price'));
 assert.ok(chips.some((c) => c.clearKey === 'sort'));
 assert.equal(activeFilterCount({ q: 'a', sort: 'relevance' }), 1);
 assert.equal(activeFilterCount({}), 0);
+const sellerChip = buildFilterChips({ seller: 'lojas-schimitz', sellerName: 'Lojas Schimitz' });
+assert.ok(sellerChip.some((c) => c.clearKey === 'seller' && c.label === 'Vendido por Lojas Schimitz'));
+assert.equal(activeFilterCount({ seller: 'lojas-schimitz' }), 1);
 
 const suggestions = emptySearchSuggestions();
 assert.ok(suggestions.length >= 4);

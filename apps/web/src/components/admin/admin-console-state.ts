@@ -194,7 +194,13 @@ export function useAdminConsoleState() {
   const [payoutDraft, setPayoutDraft] = useState<Record<string, string>>({});
   const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
   const [ownerBusyId, setOwnerBusyId] = useState<string | null>(null);
-  const [sellerForm, setSellerForm] = useState({ name: '', slug: '', status: 'pending' as 'pending' | 'active' | 'suspended' });
+  const [sellerForm, setSellerForm] = useState({
+    name: '',
+    slug: '',
+    status: 'pending' as 'pending' | 'active' | 'suspended',
+    commissionPercent: '',
+  });
+  const [percentDraft, setPercentDraft] = useState<Record<string, string>>({});
   const [savingSeller, setSavingSeller] = useState(false);
   const [sellerBusyId, setSellerBusyId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<AdminCustomerListItem[]>([]);
@@ -1544,9 +1550,12 @@ export function useAdminConsoleState() {
           name: sellerForm.name.trim(),
           slug: sellerForm.slug.trim() || undefined,
           status: sellerForm.status,
+          commissionPercent: sellerForm.commissionPercent.trim()
+            ? Number(String(sellerForm.commissionPercent).replace(',', '.'))
+            : undefined,
         }),
       });
-      setSellerForm({ name: '', slug: '', status: 'pending' });
+      setSellerForm({ name: '', slug: '', status: 'pending', commissionPercent: '' });
       setMsg('Vendedor criado.');
       await load();
     } catch (err: any) {
@@ -1578,6 +1587,13 @@ export function useAdminConsoleState() {
 
   async function setSellerOwner(seller: AdminSeller) {
     const email = (ownerDraft[seller.id] ?? seller.owner?.email ?? '').trim();
+    const percentRaw = (percentDraft[seller.id] ??
+      (seller.commissionPercent != null ? String(seller.commissionPercent) : '')).trim();
+    const commissionPercent = percentRaw === '' ? null : Number(percentRaw.replace(',', '.'));
+    if (percentRaw && (Number.isNaN(commissionPercent) || commissionPercent < 0)) {
+      setErr('Comissão % inválida');
+      return;
+    }
     setOwnerBusyId(seller.id);
     setErr('');
     setMsg('');
@@ -1586,9 +1602,16 @@ export function useAdminConsoleState() {
         method: 'PATCH',
         body: JSON.stringify({
           ownerEmail: email || null,
+          commissionPercent,
         }),
       });
-      setMsg(email ? `Dono vinculado: ${email}` : 'Dono removido');
+      setMsg(
+        email
+          ? `Dono vinculado: ${email}`
+          : percentRaw
+            ? `Comissão atualizada: ${percentRaw}%`
+            : 'Dono removido',
+      );
       await load();
     } catch (err: any) {
       setErr(err.message || 'Falha ao vincular dono');
@@ -2055,6 +2078,8 @@ export function useAdminConsoleState() {
     setPayoutDraft,
     ownerDraft,
     setOwnerDraft,
+    percentDraft,
+    setPercentDraft,
     ownerBusyId,
     setOwnerBusyId,
     sellerForm,

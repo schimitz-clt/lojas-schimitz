@@ -10,6 +10,7 @@ import {
   parsePageSize,
   parseSort,
 } from './catalog.query';
+import { isPublicSellerVisible, publicSellerShape } from '../sellers/sellers.constants';
 
 /** Soft-merged duplicate slugs → canonical active product (never invent SKUs). */
 const PRODUCT_SLUG_ALIASES: Record<string, string> = {
@@ -39,6 +40,7 @@ export class CatalogController {
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('sort') sort?: string,
+    @Query('seller') seller?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '24',
   ) {
@@ -46,7 +48,7 @@ export class CatalogController {
     const pageNum = parsePage(page);
     const skip = (pageNum - 1) * take;
     const sortKey = parseSort(sort);
-    const where = buildProductWhere({ q, category, minPrice, maxPrice });
+    const where = buildProductWhere({ q, category, minPrice, maxPrice, seller });
     const orderBy = buildProductOrderBy(sortKey);
 
     const [data, total] = await this.prisma.$transaction([
@@ -90,7 +92,7 @@ export class CatalogController {
       images: { orderBy: { position: 'asc' as const } },
       inventory: true,
       category: true,
-      seller: { select: { id: true, name: true, slug: true } },
+      seller: { select: { id: true, name: true, slug: true, status: true } },
     };
     let data = await this.prisma.product.findUnique({ where: { slug }, include });
     if ((!data || !data.active) && PRODUCT_SLUG_ALIASES[slug]) {
@@ -100,6 +102,14 @@ export class CatalogController {
       });
     }
     if (!data || !data.active) throw new NotFoundException('Produto não encontrado');
-    return ok(serializePublicProduct(data));
+    if (!isPublicSellerVisible(data.seller?.status)) {
+      throw new NotFoundException('Produto não encontrado');
+    }
+    return ok(
+      serializePublicProduct({
+        ...data,
+        seller: publicSellerShape(data.seller),
+      }),
+    );
   }
 }

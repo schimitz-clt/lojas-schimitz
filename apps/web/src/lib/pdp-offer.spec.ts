@@ -39,7 +39,13 @@ assert.equal(pdpDescriptionNeedsCollapse('x'.repeat(361)), true);
 
 const srcRoot = join(__dirname, '..');
 const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 'utf8');
+assert.ok(pdp.includes('Vendido por'), 'PDP shows Vendido por');
+assert.ok(pdp.includes('initial'), 'PDP accepts SSR initial product so Vendido por is in first HTML');
 assert.ok(pdp.includes('productDescriptionText'), 'PDP uses trimmed Admin description');
+
+const pdpPage = readFileSync(join(srcRoot, 'app/produto/[slug]/page.tsx'), 'utf8');
+assert.ok(pdpPage.includes('fetchPublicProduct'), 'PDP server page loads public product for SSR');
+assert.ok(pdpPage.includes('initial='), 'PDP server page passes initial product to client');
 assert.ok(pdp.includes('pdpOfferPills'), 'PDP shows Pix 5% / 3x chips');
 assert.ok(pdp.includes('className="pdp-title"'), 'PDP keeps h1.pdp-title');
 assert.ok(pdp.includes('pdp-desc'), 'PDP keeps description block');

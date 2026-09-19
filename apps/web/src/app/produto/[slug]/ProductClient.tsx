@@ -23,7 +23,7 @@ import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { rememberProductView } from '@/lib/recently-viewed';
 import { ProductShareButton } from '@/components/ProductShareButton';
 
-type Detail = {
+export type ProductDetail = {
   id: string;
   name: string;
   slug: string;
@@ -116,9 +116,11 @@ function formatReviewDate(iso: string) {
   }
 }
 
-export default function ProductPage() {
+export default function ProductPage({ initial = null }: { initial?: ProductDetail | null }) {
   const { slug } = useParams<{ slug: string }>();
-  const [p, setP] = useState<Detail | null>(null);
+  const [p, setP] = useState<ProductDetail | null>(() =>
+    initial && (!slug || initial.slug === slug) ? initial : null,
+  );
   const [reviews, setReviews] = useState<Review[]>([]);
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [rating, setRating] = useState(5);
@@ -167,7 +169,7 @@ export default function ProductPage() {
     setDescOpen(false);
     setMsg('');
     setErr('');
-    api<Detail>(`/products/${slug}`)
+    api<ProductDetail>(`/products/${slug}`)
       .then(async (product) => {
         setP(product);
         rememberProductView(product);
@@ -208,7 +210,7 @@ export default function ProductPage() {
         body: JSON.stringify({ rating, body: body.trim() || undefined }),
       });
       setMsg(eligibility?.myReview ? 'Avaliação atualizada.' : 'Avaliação publicada. Obrigado!');
-      const refreshed = await api<Detail>(`/products/${p.slug}`);
+      const refreshed = await api<ProductDetail>(`/products/${p.slug}`);
       setP(refreshed);
       await Promise.all([loadReviews(p.id), loadEligibility(p.id)]);
     } catch (e: any) {

@@ -1,4 +1,9 @@
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import {
+  normalizePublicSellers,
+  uniqueSellersFromProducts,
+  type PublicSellerCard,
+} from '@/lib/marketplace-copy';
 
 /** Tipos e fetch server-side para SEO / banners (storefront). */
 
@@ -134,6 +139,46 @@ export async function fetchProductMeta(slug: string): Promise<ProductSeo | null>
   }
 }
 
+/** Full public product payload for PDP SSR (includes seller). */
+export async function fetchPublicProduct(slug: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(`${API}/products/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { ok?: boolean; data?: Record<string, unknown> };
+    if (!json.ok || !json.data) return null;
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
+/** Active sellers for /marketplace. Falls back to unique sellers on the catalog if GET /sellers is missing. */
+export async function fetchPublicSellers(): Promise<PublicSellerCard[]> {
+  try {
+    const res = await fetch(`${API}/sellers`, { next: { revalidate: 60 } });
+    if (res.ok) {
+      const json = (await res.json()) as { ok?: boolean; data?: unknown };
+      const listed = normalizePublicSellers(json.data);
+      if (json.ok && listed.length) return listed;
+    }
+  } catch {
+    /* fall through to catalog */
+  }
+  try {
+    const res = await fetch(`${API}/products?page=1&pageSize=60`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as {
+      ok?: boolean;
+      data?: { items?: Array<{ seller?: { id?: string; name?: string; slug?: string } | null }> };
+    };
+    if (!json.ok) return [];
+    return uniqueSellersFromProducts(json.data?.items || []);
+  } catch {
+    return [];
+  }
+}
 
 export async function fetchCategoryMeta(slug: string): Promise<{
   name: string;

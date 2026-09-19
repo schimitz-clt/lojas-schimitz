@@ -1,29 +1,38 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import {
+  MARKETPLACE_V1_NOT_BUILT,
+  marketplaceIntro,
+  marketplaceSellersHeading,
+} from '@/lib/marketplace-copy';
+import { fetchPublicSellers } from '@/lib/storefront';
 
 export const metadata: Metadata = {
   title: 'Marketplace',
   description:
-    'Marketplace Lojas Schimitz — catálogo de produtos e vendedores parceiros em Porto Alegre.',
+    'Marketplace Lojas Schimitz — catálogo com Vendido por, checkout unificado e portal do vendedor. Sem split automático do Mercado Pago.',
   alternates: { canonical: '/marketplace' },
 };
 
-export default function MarketplacePage() {
+export default async function MarketplacePage() {
+  const sellers = await fetchPublicSellers();
+  const heading = marketplaceSellersHeading(sellers);
+  const intro = marketplaceIntro(sellers);
+
   return (
     <div style={{ padding: '22px 0', maxWidth: 760 }}>
       <h1>Marketplace</h1>
       <p className="muted" style={{ marginBottom: 18 }}>
-        Compre na Lojas Schimitz com o mesmo checkout, frete e pagamento de sempre. Produtos
-        podem ser da loja própria ou de vendedores parceiros — sempre com a etiqueta{' '}
-        <strong style={{ color: 'var(--text)' }}>Vendido por</strong> na página do produto.
+        {intro} PIX 5% off e {interestFreeInstallmentClaim().toLowerCase()} no checkout único da
+        loja.
       </p>
 
       <section className="hero" style={{ padding: 22, marginBottom: 18 }} aria-label="Catálogo">
         <h2 style={{ marginTop: 0, fontSize: 20 }}>Catálogo</h2>
         <p className="muted" style={{ marginBottom: 14 }}>
-          Eletro, celulares, informática, eletrodomésticos, casa e esporte. Ofertas no padrão das
-          grandes, com PIX 5% off e {interestFreeInstallmentClaim().toLowerCase()}.
+          Eletro, celulares, informática, eletrodomésticos, casa e esporte. O pedido, o frete e o
+          pagamento (PIX ou cartão) continuam unificados — um carrinho, um pedido.
         </p>
         <div className="actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <Link className="btn" href="/produtos">
@@ -38,23 +47,61 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      <section
-        className="card"
-        style={{ marginBottom: 18 }}
-        aria-label="Vendedores parceiros"
-      >
+      <section className="card" style={{ marginBottom: 18 }} aria-label={heading}>
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Vendedores parceiros</h2>
-          <p className="muted" style={{ marginTop: 0, lineHeight: 1.6 }}>
-            O marketplace v1 já conecta o catálogo a vendedores. Cada anúncio mostra quem vende.
-            Checkout, frete e pagamento continuam unificados na Lojas Schimitz.
-          </p>
-          <p className="muted" style={{ lineHeight: 1.6 }}>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>{heading}</h2>
+          {sellers.length ? (
+            <ul style={{ margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
+              {sellers.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/produtos?seller=${encodeURIComponent(s.slug)}`} style={{ color: 'var(--primary-dark)' }}>
+                    {s.name}
+                  </Link>
+                  {s.productCount != null ? (
+                    <span className="muted"> · {s.productCount} produto(s)</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted" style={{ marginTop: 0 }}>
+              Nenhum vendedor ativo listado no momento.
+            </p>
+          )}
+          <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0 }}>
             É vendedor e já tem acesso? Entre no{' '}
             <Link href="/vendedor" style={{ color: 'var(--primary-dark)' }}>
               portal do vendedor
             </Link>
-            .
+            . Novos parceiros entram só pelo admin (criar vendedor + vincular dono) — não criamos
+            vendedores fictícios no catálogo.
+          </p>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 18 }} aria-label="O que o marketplace v1 faz">
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>O que já funciona (v1)</h2>
+          <ul className="muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            <li>Etiqueta <strong style={{ color: 'var(--text)' }}>Vendido por</strong> no catálogo e na página do produto</li>
+            <li>Admin: criar / listar / ativar / suspender vendedores e vincular dono</li>
+            <li>Portal /vendedor: meus produtos, pedidos e comissões (só os seus)</li>
+            <li>Ledger de comissão no pedido pago + repasse PIX manual (aprovar / marcar pago / CSV)</li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 18 }} aria-label="O que o v1 não faz">
+        <div className="body">
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>O que o v1 não faz</h2>
+          <ul className="muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            {MARKETPLACE_V1_NOT_BUILT.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>
+            Split automático Mercado Pago ainda não está ligado. O repasse ao vendedor, quando
+            houver, é PIX manual pela loja.
           </p>
         </div>
       </section>

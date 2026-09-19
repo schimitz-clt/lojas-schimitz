@@ -49,9 +49,19 @@ export function serializePublicProduct<T extends Record<string, unknown>>(produc
   const images = rewritePublicUploadUrls(rawImages);
   const inventory = (product as { inventory?: InventoryLike }).inventory;
   const image = rewritePublicUploadUrl(primaryImageUrl(images ?? rawImages));
+  const rawSeller = (product as { seller?: Record<string, unknown> | null }).seller;
+  const seller =
+    rawSeller && typeof rawSeller === 'object'
+      ? {
+          id: rawSeller.id,
+          name: rawSeller.name,
+          slug: rawSeller.slug,
+        }
+      : rawSeller;
   return {
     ...product,
     ...(images ? { images } : {}),
+    ...(rawSeller !== undefined ? { seller } : {}),
     stock: availableStock(inventory),
     image,
     imageUrl: image,

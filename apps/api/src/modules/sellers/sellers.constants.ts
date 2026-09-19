@@ -10,6 +10,26 @@ export function publicSellerShape(s: { id: string; name: string; slug: string })
   return { id: s.id, name: s.name, slug: s.slug };
 }
 
+/** Public catalog / directory: only active sellers are visible. */
+export function isPublicSellerVisible(status?: string | null): boolean {
+  return status === 'active';
+}
+
+/** Directory card: no owner email, commission, or status. */
+export function publicSellerListItem(s: {
+  id: string;
+  name: string;
+  slug: string;
+  productCount?: number;
+}) {
+  return {
+    id: s.id,
+    name: s.name,
+    slug: s.slug,
+    productCount: s.productCount ?? 0,
+  };
+}
+
 export function canSetSellerStatus(from: string, to: string): boolean {
   if (!(SELLER_STATUSES as readonly string[]).includes(to)) return false;
   if (from === to) return true;
