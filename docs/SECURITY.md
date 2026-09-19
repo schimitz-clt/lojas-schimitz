@@ -157,4 +157,5 @@ Relatório: `docs/SECURITY-CSP-2026-09-19.md`.
 | OptionalJwt + seller IDOR + inventory/reviews públicos | Fail-closed / 404 / sem `qtyReserved` / sem `user.id` |
 | Null provider em Railway production | Override `ALLOW_NULL_PROVIDER_IN_PROD` **ignorado** |
 | Cookie-only / Conta / PIX math | **Inalterados** |
+| API JSON body (hotfix pós-#60) | `bodyParser: false` + `applyHttpBodyParsers` (json 1mb + urlencoded + CSP types). Sem isso login/register 400 IsEmail |
 

@@ -68,6 +68,30 @@ Não cobrar de verdade. Não ligar `ALLOW_LIVE`.
 - `frame-src https:` amplo — só se 3DS de emissor falhar ao vivo (não evidenciado; Report-Only avisa).
 - COEP, nonce-strict, flip cookie-only JSON, Redis, multer 2.x, Play.
 
+## Hotfix — JSON body parser (pós-#60)
+
+`express.json({ type: 'application/csp-report' })` / `application/reports+json` **sem** um parser default de `application/json` deixou `req.body` vazio em todo POST JSON (`ValidationPipe` via campos `undefined`). CSP da loja **não** muda. Cookie-only **não** muda.
+
+**Antes (quebrado, live após #60):**
+
+```bash
+curl -sS -X POST "$API/api/v1/auth/login" \
+  -H 'content-type: application/json' \
+  -d '{"email":"user@example.com","password":"wrongpass1"}'
+# 400 VALIDATION_ERROR
+# details: ["email must be an email", "password must be a string"]
+```
+
+**Depois (esperado):**
+
+```bash
+# mesma request → 401 Credenciais inválidas (senha errada), NÃO IsEmail
+curl -sS -X POST "$API/api/v1/security/csp-report" \
+  -H 'content-type: application/csp-report' \
+  -d '{"csp-report":{"document-uri":"https://lojasschimitz.com.br/"}}'
+# 204
+```
+
 ## Testes
 
 ```bash
