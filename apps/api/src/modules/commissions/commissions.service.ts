@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { CommissionStatus, Prisma } from '@prisma/client';
 
-export type CommissionSourceValue = 'manual_pix' | 'mp_application_fee';
+export type CommissionSourceValue =
+  | 'manual_pix'
+  | 'mp_application_fee'
+  | 'pending_manual_or_pix_no_fee';
 import { PrismaService } from '../../prisma.service';
 import {
   COMMISSION_STATUSES,
@@ -32,6 +35,7 @@ export class CommissionsService {
    * On paid order: one CommissionLedger row per order item with sellerId.
    * Idempotent via unique orderItemId. No real payout.
    * Phase 2: source=mp_application_fee when the payment used sandbox split.
+   * PIX without MP fee: source=pending_manual_or_pix_no_fee (still tracks %).
    */
   async recordOnPaid(
     orderId: string,
@@ -287,14 +291,14 @@ export class CommissionsService {
   }
 
   /**
-   * Refund path: cancel pending/approved mp_application_fee rows.
+   * Refund path: cancel pending/approved split / PIX-no-fee rows.
    * Additive — does not delete. Idempotent.
    */
   async reverseOnRefund(orderId: string) {
     const result = await this.prisma.commissionLedger.updateMany({
       where: {
         orderId,
-        source: 'mp_application_fee',
+        source: { in: ['mp_application_fee', 'pending_manual_or_pix_no_fee'] },
         status: { in: ['pending', 'approved'] },
       },
       data: { status: 'cancelled' },

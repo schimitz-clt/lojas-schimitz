@@ -362,7 +362,7 @@ model Payment {
   externalId        String?
   amount            Decimal          @db.Decimal(12, 2)
   payload           Json?
-  /** MP collector_id when splitMode=seller_oauth_v1. */
+  /** MP collector_id when splitMode=seller_oauth_v1 (seller token + fee). */
   collectorMpUserId String?
   /** Snapshot of application_fee sent to MP (sandbox Phase 2). */
   applicationFee    Decimal?         @db.Decimal(12, 2)
@@ -575,11 +575,15 @@ model Notification {
 enum PaymentSplitMode {
   off
   seller_oauth_v1
+  /** PIX sandbox: MP rejected application_fee; commission tracked in ledger only. */
+  ledger_only
 }
 
 enum CommissionSource {
   manual_pix
   mp_application_fee
+  /** Expected marketplace % when PIX could not send application_fee. */
+  pending_manual_or_pix_no_fee
 }
 
 enum CommissionStatus {
@@ -607,7 +611,7 @@ model CommissionLedger {
   payoutReference String?          @db.VarChar(120)
   /** Optional admin note when approving / marking paid. */
   payoutNote      String?          @db.VarChar(500)
-  /** manual_pix = Repasse v1; mp_application_fee = sandbox/live split snapshot. */
+  /** manual_pix = Repasse v1; mp_application_fee = sandbox fee withheld; pending_manual_or_pix_no_fee = PIX without MP fee. */
   source          CommissionSource @default(manual_pix)
   mpPaymentId     String?
   mpApplicationFee Decimal?        @db.Decimal(12, 2)

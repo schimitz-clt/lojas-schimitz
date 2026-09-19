@@ -6,6 +6,11 @@ import {
   assertNoLiveMarketplaceSplitFields,
   assertSandboxApplicationFeeAllowed,
 } from './mp-split-payment-guard';
+import {
+  PIX_APPLICATION_FEE_SKIP_REASON,
+  shouldRetryPixWithoutApplicationFee,
+  type PaymentSplitModeValue,
+} from './pix-application-fee-fallback';
 
 export { isProdLikeEnv };
 
@@ -48,6 +53,8 @@ export type CreateIntentResult = {
   externalId: string;
   status: DomainPaymentStatus;
   payload: Record<string, unknown>;
+  splitMode?: PaymentSplitModeValue;
+  splitFeeSkippedReason?: string | null;
 };
 
 export type FetchPaymentResult = {
@@ -372,12 +379,40 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       assertNoLiveMarketplaceSplitFields(body);
     }
 
-    const json = await this.mpFetch('/v1/payments', {
-      method: 'POST',
-      body: JSON.stringify(body),
-      idempotencyKey: input.providerIdempotencyKey || `sch-intent-${input.orderId}-${input.method}`,
-      accessToken: useSandboxSplit ? sellerToken : undefined,
-    });
+    const idempotencyKey = input.providerIdempotencyKey || `sch-intent-${input.orderId}-${input.method}`;
+    let json: any;
+    let splitMode: PaymentSplitModeValue = useSandboxSplit ? 'seller_oauth_v1' : 'off';
+    let splitFeeSkippedReason: string | null = null;
+    try {
+      json = await this.mpFetch('/v1/payments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        idempotencyKey,
+        accessToken: useSandboxSplit ? sellerToken : undefined,
+      });
+    } catch (e: unknown) {
+      if (
+        !shouldRetryPixWithoutApplicationFee({
+          method: input.method,
+          usedSandboxSplit: useSandboxSplit,
+          err: e,
+        })
+      ) {
+        throw e;
+      }
+      // One retry: same sandbox host, no application_fee, platform collector.
+      // Production live APP_USR never satisfies shouldRetryPixWithoutApplicationFee.
+      const retryBody = { ...body };
+      delete retryBody.application_fee;
+      assertNoLiveMarketplaceSplitFields(retryBody);
+      json = await this.mpFetch('/v1/payments', {
+        method: 'POST',
+        body: JSON.stringify(retryBody),
+        idempotencyKey: `${idempotencyKey}-nfee`,
+      });
+      splitMode = 'ledger_only';
+      splitFeeSkippedReason = PIX_APPLICATION_FEE_SKIP_REASON;
+    }
 
     const status = this.translateStatus(String(json.status || 'pending'));
     const poi = json.point_of_interaction?.transaction_data || {};
@@ -387,13 +422,19 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       qrCodeBase64: poi.qr_code_base64 || null,
       ticketUrl: poi.ticket_url || null,
       paymentMethodId: json.payment_method_id,
-      splitMode: useSandboxSplit ? 'seller_oauth_v1' : 'off',
+      splitMode,
+      splitFeeSkippedReason,
     };
+    if (splitMode === 'ledger_only' && fee != null) {
+      payload.expectedApplicationFee = fee;
+    }
 
     return {
       externalId: String(json.id),
       status,
       payload,
+      splitMode,
+      splitFeeSkippedReason,
     };
   }
 
