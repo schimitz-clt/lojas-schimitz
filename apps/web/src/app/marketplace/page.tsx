@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import {
+  MARKETPLACE_PHASE1_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   marketplaceIntro,
   marketplaceSellersHeading,
@@ -87,6 +88,7 @@ export default async function MarketplacePage() {
             <li>Admin: criar / listar / ativar / suspender vendedores e vincular dono</li>
             <li>Portal /vendedor: meus produtos, pedidos e comissões (só os seus)</li>
             <li>Ledger de comissão no pedido pago + repasse PIX manual (aprovar / marcar pago / CSV)</li>
+            <li>Checkout com um vendedor por pedido (carrinho misto bloqueado)</li>
           </ul>
         </div>
       </section>
@@ -100,8 +102,8 @@ export default async function MarketplacePage() {
             ))}
           </ul>
           <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>
-            Split automático Mercado Pago ainda não está ligado. O repasse ao vendedor, quando
-            houver, é PIX manual pela loja.
+            {MARKETPLACE_PHASE1_NOTE} O repasse ao vendedor, quando houver, continua PIX manual
+            pela loja.
           </p>
         </div>
       </section>

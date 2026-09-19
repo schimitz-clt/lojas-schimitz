@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma.service';
 import { assertSellerCanUpdateProduct } from './seller-portal.authz';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
+import { sellerMpPublicStatus } from '../marketplace-mp/mp-oauth.public';
 
 @Injectable()
 export class SellerPortalService {
@@ -49,6 +50,7 @@ export class SellerPortalService {
       commissionPercent:
         seller.commissionPercent != null ? Number(seller.commissionPercent) : null,
       productCount,
+      mp: sellerMpPublicStatus(seller),
     };
   }
 

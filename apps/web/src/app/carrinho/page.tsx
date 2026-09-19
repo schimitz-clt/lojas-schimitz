@@ -12,6 +12,7 @@ import { pixPrice, stockBadge } from '@/lib/pricing';
 import { cartCheckoutLabel, cartTrustItems, pixHighlight } from '@/lib/storefront-pro';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { MARKETPLACE_MIXED_CART_MESSAGE_PT, isMixedSellerCart } from '@/lib/mixed-cart';
 
 type CartItem = {
   id: string;
@@ -23,6 +24,8 @@ type CartItem = {
   lineTotal: number;
   image?: string | null;
   stock?: number | null;
+  sellerId?: string | null;
+  seller?: { id: string; name: string; slug: string } | null;
 };
 
 type Cart = {
@@ -31,6 +34,7 @@ type Cart = {
   items: CartItem[];
   subtotal: number;
   itemCount: number;
+  mixedSellers?: boolean;
 };
 
 function CartThumb({ item }: { item: CartItem }) {
@@ -166,11 +170,17 @@ export default function CartPage() {
   const pixSubtotal = pixPrice(cart.subtotal);
   const loggedIn = Boolean(user);
   const checkoutHref = cartCheckoutHref(loggedIn);
+  const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
 
   return (
     <div className="cart-page sf-pro-cart" style={{ padding: '24px 0' }}>
       <h1 style={{ marginTop: 0 }}>Sacola</h1>
       {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
+      {mixedCart ? (
+        <div className="alert" role="alert" style={{ marginBottom: 12 }}>
+          {MARKETPLACE_MIXED_CART_MESSAGE_PT}
+        </div>
+      ) : null}
       {!hasItems ? (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="body">
@@ -210,6 +220,7 @@ export default function CartPage() {
                   )}
                   <div className="muted" style={{ marginTop: 2 }}>
                     {brl(i.price)} × {i.qty}
+                    {i.seller?.name ? ` · ${i.seller.name}` : ''}
                   </div>
                   <div style={{ fontWeight: 700, marginTop: 4 }}>{brl(i.lineTotal)}</div>
                   {sb ? (
@@ -328,9 +339,15 @@ export default function CartPage() {
                   Cadastre o endereço acima (ou no próximo passo) para calcular frete e pagar.
                 </p>
               ) : null}
-              <Link className="btn cart-checkout-btn" href={checkoutHref}>
-                {cartCheckoutLabel(loggedIn)}
-              </Link>
+              {mixedCart ? (
+                <button className="btn cart-checkout-btn" type="button" disabled>
+                  {cartCheckoutLabel(loggedIn)}
+                </button>
+              ) : (
+                <Link className="btn cart-checkout-btn" href={checkoutHref}>
+                  {cartCheckoutLabel(loggedIn)}
+                </Link>
+              )}
               <Link
                 className="btn ghost cart-keep-shopping"
                 href="/produtos"
@@ -354,9 +371,15 @@ export default function CartPage() {
                 {brl(cart.subtotal)}
               </div>
             </div>
-            <Link className="btn cart-checkout-btn" href={checkoutHref}>
-              {cartCheckoutLabel(loggedIn)}
-            </Link>
+            {mixedCart ? (
+              <button className="btn cart-checkout-btn" type="button" disabled>
+                {cartCheckoutLabel(loggedIn)}
+              </button>
+            ) : (
+              <Link className="btn cart-checkout-btn" href={checkoutHref}>
+                {cartCheckoutLabel(loggedIn)}
+              </Link>
+            )}
           </div>
         </>
       ) : null}

@@ -28,7 +28,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/sellers` → `[{ id, name, slug, productCount }]` vendedores **active** (sem PII / comissão / dono) | público |
 | GET/DELETE | `/cart` | user ou guest |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
-| POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` | user |
+| POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também) | user |
 | GET | `/orders/:publicId` | user |
 | POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |
 | POST | `/shipping/quote` body `{ cep, subtotal }` | user |
@@ -79,11 +79,14 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 | POST | `/chat` body `{ message, conversationId? }` → reply + handoff + produtos reais + `level`/`tools`/`intent` (Alfa). JWT opcional só para pedido do próprio user | público (20/min) |
 | GET | `/chat/status` → `{ mode, llmConfigured, tools }` (sem segredos) | público |
 
-| GET | `/seller/me` | seller owner (JWT) |
+| GET | `/seller/me` | seller owner (JWT) — inclui `mp` (`connectEnabled`, `houseBrand`, `oauthStatus`, `linked`, `mpUserId`) |
 | GET | `/seller/products` | seller owner |
 | PATCH | `/seller/products/:id` body `{ price?, stock? }` | seller owner (own products only) |
 | GET | `/seller/orders` | seller owner (read-only) |
 | GET | `/seller/commissions` | seller owner (own ledger + totals, read-only) |
+| GET | `/seller/mp` | seller owner — status OAuth (sem tokens) |
+| GET | `/seller/mp/connect` | seller owner — URL OAuth; **404 `MP_CONNECT_DISABLED`** se `MP_MARKETPLACE_SPLIT_ENABLED` off; **400 `HOUSE_BRAND_NO_SELF_SPLIT`** na loja própria |
+| POST | `/seller/mp/callback` body `{ code, state }` | seller owner — troca code→token (HTTP MP); tokens só em `SellerMpCredential` criptografado |
 | PATCH | `/admin/sellers/:id` body `{ ownerUserId?, ownerEmail?, commissionPercent? }` | admin |
 | GET | `/admin/commissions` `?status=pending|approved|paid|all&sellerId=` | admin |
 | PATCH | `/admin/commissions/:id/approve` body `{ note? }` | admin (pending → approved) |

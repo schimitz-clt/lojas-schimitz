@@ -11,11 +11,13 @@ export type PublicSellerCard = {
 };
 
 export const MARKETPLACE_V1_NOT_BUILT = [
-  'split automático do Mercado Pago',
-  'OAuth de vendedores',
+  'split automático do Mercado Pago (application_fee / token de vendedor no pagamento)',
   'frete por vendedor',
   'chargeback por vendedor',
 ] as const;
+
+export const MARKETPLACE_PHASE1_NOTE =
+  'Fase 1: vendedores parceiros podem conectar Mercado Pago (OAuth) quando MP_MARKETPLACE_SPLIT_ENABLED=true. Carrinho com mais de um vendedor é bloqueado no checkout. A loja própria (lojas-schimitz) não faz self-split. Não há cobrança com split — o PIX 5% continua absorvido pela plataforma no cálculo futuro da application_fee.';
 
 export function uniqueSellersFromProducts(
   items: Array<{ seller?: { id?: string; name?: string; slug?: string } | null }>,

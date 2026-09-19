@@ -1,6 +1,6 @@
 # Plano — Split automático Mercado Pago (Marketplace v2)
 
-**Status:** plano para revisão. **Nenhum código deste repo cria split, transfer ou OAuth live.**  
+**Status:** Fase 1 implementada (OAuth + schema + carrinho 1 seller). **Nenhum código deste repo cria split, transfer ou payment com `application_fee`.**  
 **Checkout atual:** Payments API (`POST /v1/payments`) + Card Payment Brick + PIX — **não** Checkout Pro.  
 **Collector atual:** um único `MERCADO_PAGO_ACCESS_TOKEN` da plataforma recebe 100% de `transaction_amount`.
 
@@ -28,7 +28,7 @@
 
 `PAYMENTS_PROVIDER=null` é só adapter de teste/local. **Não** é evidência de marketplace.
 
-Reservado (não ligar): `MP_MARKETPLACE_SPLIT_ENABLED` / `MP_MARKETPLACE_SPLIT_ALLOW_LIVE` em `.env.example`. Default mental: **false**. O provider **não lê** esses flags hoje — de propósito.
+Flags em `.env.example` (default **false**): `MP_MARKETPLACE_SPLIT_ENABLED` libera só OAuth/UI/job; `MP_MARKETPLACE_SPLIT_ALLOW_LIVE` está documentado e **o provider não lê** — de propósito (Fase 1 fail-closed).
 
 ---
 
@@ -161,14 +161,15 @@ Isso inclui (são o mesmo gate, não “vários OKs escondidos”):
 - Este plano.
 - Sem OAuth routes, sem colunas, sem mudança no body MP.
 
-### Fase 1 — OAuth + dados (ainda sem dinheiro)
+### Fase 1 — OAuth + dados (ainda sem dinheiro) — **FEITO**
 
-- App MP marketplace + redirect.
-- Tabela de credenciais + `mpUserId`.
-- `/vendedor` botão “Conectar Mercado Pago” (sandbox).
-- Refresh job do `refresh_token`.
+- Schema aditivo Seller MP + `SellerMpCredential` (AES-256-GCM).
+- `/vendedor` botão “Conectar Mercado Pago” (gated; default hidden).
+- Refresh job do `refresh_token` (SchedulerLock; no-op com flag off).
 - Flag `MP_MARKETPLACE_SPLIT_ENABLED` só libera a UI de vínculo.
+- Carrinho misto → `MARKETPLACE_MIXED_CART` (sempre).
 - Testes de troca de code → token **mockando HTTP**, sem charge.
+- **Ops (fora do código):** app MP Marketplace + redirect + `client_id`/`client_secret` + `MP_SELLER_CREDENTIAL_KEY`.
 
 ### Fase 2 — sandbox split (ainda sem live)
 
@@ -208,8 +209,17 @@ Até esses OKs, o caminho correto é **Repasse v1 (PIX manual)** + este plano.
 
 ---
 
-## 9. Decisão desta entrega
+## 9. Decisão locked (v2.1) + estado da Fase 1
 
-- **Não** scaffold de OAuth, **não** `application_fee` no provider, **não** transfer.
-- v1 fechado com evidência + página `/marketplace` honesta.
-- Próximo código de split só depois da revisão deste arquivo.
+Decisão do usuário (locked):
+
+1. Modelo **A** — um seller por pedido; carrinho misto bloqueado (PT).
+2. PIX 5% absorvido pela **plataforma** no cálculo futuro da `application_fee`.
+3. Loja própria `lojas-schimitz` **nunca** faz self-split (collector da plataforma).
+4. Só Fase 1 agora — sem dinheiro live.
+
+Estado do código:
+
+- OAuth + credencial criptografada + job de refresh + regra de carrinho: **sim**.
+- `application_fee` / token de seller em `createIntent`: **não** (fail-closed; `ALLOW_LIVE` não abre caminho).
+- Gate único de dinheiro (Fase 3) continua exigindo OK explícito.

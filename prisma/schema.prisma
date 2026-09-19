@@ -24,6 +24,14 @@ enum SellerStatus {
   suspended
 }
 
+/** Mercado Pago OAuth link for marketplace v2 Phase 1 (no live split). */
+enum SellerMpOAuthStatus {
+  pending
+  linked
+  expired
+  revoked
+}
+
 enum ProductCondition {
   new
   used
@@ -146,15 +154,36 @@ model Seller {
   owner             User?        @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   /** Stub for marketplace v2 payouts — not used in checkout yet. */
   commissionPercent Decimal?     @db.Decimal(5, 2)
+  /** MP collector_id after OAuth. Unused for charges in Phase 1. */
+  mpUserId          String?      @unique
+  mpPublicKey       String?
+  mpOAuthStatus     SellerMpOAuthStatus @default(pending)
+  mpTokenExpiresAt  DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  products    Product[]
-  orderItems  OrderItem[]
-  commissions CommissionLedger[]
+  products     Product[]
+  orderItems   OrderItem[]
+  commissions  CommissionLedger[]
+  mpCredential SellerMpCredential?
 
   @@index([status])
   @@index([ownerUserId])
+  @@index([mpOAuthStatus])
+}
+
+/**
+ * Encrypted Mercado Pago seller tokens (AES-256-GCM envelope).
+ * Never returned on APIs. Phase 1 stores only — createIntent must not use these.
+ */
+model SellerMpCredential {
+  id              String   @id @default(uuid())
+  sellerId        String   @unique
+  seller          Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  accessTokenEnc  String
+  refreshTokenEnc String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Category {

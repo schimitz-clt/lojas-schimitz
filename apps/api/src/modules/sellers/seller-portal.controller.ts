@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
-import { IsInt, IsNumber, IsOptional, Min, ValidateIf } from 'class-validator';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ok } from '../../common/http';
 import { SellerPortalService } from './seller-portal.service';
+import { MpOAuthService } from '../marketplace-mp/mp-oauth.service';
 
 export class SellerUpdateProductDto {
   @IsOptional()
@@ -22,10 +23,23 @@ export class SellerUpdateProductDto {
   stock?: number;
 }
 
+export class SellerMpCallbackDto {
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  state!: string;
+}
+
 @Controller('seller')
 @UseGuards(JwtAuthGuard)
 export class SellerPortalController {
-  constructor(private readonly portal: SellerPortalService) {}
+  constructor(
+    private readonly portal: SellerPortalService,
+    private readonly mpOAuth: MpOAuthService,
+  ) {}
 
   @Get('me')
   async me(@CurrentUser('sub') userId: string) {
@@ -54,5 +68,20 @@ export class SellerPortalController {
   @Get('commissions')
   async commissions(@CurrentUser('sub') userId: string) {
     return ok(await this.portal.listCommissions(userId));
+  }
+
+  @Get('mp')
+  async mpStatus(@CurrentUser('sub') userId: string) {
+    return ok(await this.mpOAuth.statusForUser(userId));
+  }
+
+  @Get('mp/connect')
+  async mpConnect(@CurrentUser('sub') userId: string) {
+    return ok(await this.mpOAuth.startConnect(userId));
+  }
+
+  @Post('mp/callback')
+  async mpCallback(@CurrentUser('sub') userId: string, @Body() dto: SellerMpCallbackDto) {
+    return ok(await this.mpOAuth.completeCallback(userId, dto));
   }
 }

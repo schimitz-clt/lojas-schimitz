@@ -4,6 +4,8 @@ import { randomUUID } from 'crypto';
 import { AddCartItemDto, UpdateCartItemDto } from './dto';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 import { availableQty } from '../inventory/inventory.math';
+import { isMixedSellerCart } from '../marketplace-mp/mixed-cart';
+import { publicSellerShape } from '../sellers/sellers.constants';
 
 @Injectable()
 export class CartService {
@@ -53,6 +55,7 @@ export class CartService {
             include: {
               images: { orderBy: { position: 'asc' as const }, take: 1 },
               inventory: true,
+              seller: { select: { id: true, name: true, slug: true } },
             },
           },
         },
@@ -75,6 +78,8 @@ export class CartService {
           ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
           : 0,
         lineTotal: price * item.qty,
+        sellerId: item.product.sellerId,
+        seller: item.product.seller ? publicSellerShape(item.product.seller) : null,
       };
     });
     const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
@@ -84,6 +89,7 @@ export class CartService {
       items,
       subtotal,
       itemCount: items.reduce((s, i) => s + i.qty, 0),
+      mixedSellers: isMixedSellerCart(items),
     };
   }
 

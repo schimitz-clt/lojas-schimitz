@@ -14,6 +14,10 @@ import {
 } from '@/components/CheckoutAddressSection';
 import { TrustBadges } from '@/components/TrustBadges';
 import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
+import {
+  MARKETPLACE_MIXED_CART_MESSAGE_PT,
+  isMixedSellerCart,
+} from '@/lib/mixed-cart';
 
 type CartItem = {
   id: string;
@@ -23,8 +27,10 @@ type CartItem = {
   price: number;
   lineTotal: number;
   image?: string | null;
+  sellerId?: string | null;
+  seller?: { id: string; name: string; slug: string } | null;
 };
-type Cart = { items: CartItem[]; subtotal: number };
+type Cart = { items: CartItem[]; subtotal: number; mixedSellers?: boolean };
 type CouponPreview = { code: string; discount: number; finalSubtotal: number; collidesWithPixPromo?: boolean };
 type Loyalty = { balance: number; label: string; rate: number };
 type FreightQuote = {
@@ -211,7 +217,8 @@ export default function CheckoutPage() {
   );
   const pixTotal = skipAutoPix ? displayTotal : pixPrice(displayTotal);
   const pixSave = skipAutoPix ? 0 : pixSavings(displayTotal);
-  const canConfirm = Boolean(addressId) && !loading;
+  const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
+  const canConfirm = Boolean(addressId) && !loading && !mixedCart;
   const supportHref = waLink('Olá! Preciso de ajuda no checkout da Lojas Schimitz.');
 
   return (
@@ -266,6 +273,7 @@ export default function CheckoutPage() {
                     <div className="checkout-line-meta muted">
                       <span>
                         Qtd. {i.qty} · und. {brl(i.price)}
+                        {i.seller?.name ? ` · ${i.seller.name}` : ''}
                       </span>
                       <span className="checkout-line-subtotal">{brl(i.lineTotal)}</span>
                     </div>
@@ -496,6 +504,13 @@ export default function CheckoutPage() {
           </ol>
         </div>
       </section>
+
+      {mixedCart ? (
+        <div className="alert checkout-err" role="alert" style={{ marginTop: 12 }}>
+          {MARKETPLACE_MIXED_CART_MESSAGE_PT}{' '}
+          <Link href="/carrinho">Voltar à sacola</Link> para remover itens.
+        </div>
+      ) : null}
 
       {err ? (
         <div className="alert checkout-err" id={errId} role="alert" style={{ marginTop: 12 }}>

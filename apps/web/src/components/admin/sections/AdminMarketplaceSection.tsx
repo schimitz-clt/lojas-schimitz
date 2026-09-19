@@ -251,7 +251,8 @@ export function AdminMarketplaceSection() {
           <h2>Comissões / Repasse (v1)</h2>
           <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
             Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> (use a
-            referência E2E ao marcar pago). Sem split Mercado Pago — ver docs/MARKETPLACE.md.
+            referência E2E ao marcar pago). Sem split Mercado Pago no pagamento (Fase 1 = OAuth
+            opcional, flag off). Ver docs/MARKETPLACE.md.
           </p>
           <div className="admin-toolbar" style={{ marginBottom: 12 }}>
           <div className="admin-toolbar__row">

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  MARKETPLACE_PHASE1_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   isHouseBrandOnly,
   marketplaceIntro,
@@ -48,6 +49,9 @@ assert.ok(page.includes('MARKETPLACE_V1_NOT_BUILT'), 'hub lists what v1 does not
 assert.ok(page.includes('checkout único') || page.includes('unificados'), 'hub says checkout is unified');
 assert.ok(!/split automático do Mercado Pago já/.test(page), 'must not claim live MP split');
 assert.ok(page.includes('PIX manual'), 'hub says payouts are manual PIX');
+assert.ok(page.includes('MARKETPLACE_PHASE1_NOTE') || page.includes('Fase 1'), 'hub mentions Phase 1');
+assert.ok(MARKETPLACE_PHASE1_NOTE.includes('MP_MARKETPLACE_SPLIT_ENABLED'));
+assert.ok(MARKETPLACE_V1_NOT_BUILT.every((item) => !/oauth/i.test(item)));
 assert.ok(page.includes('portal do vendedor'), 'hub links /vendedor');
 assert.ok(page.includes('Vendido por'), 'hub mentions PDP seller label');
 
