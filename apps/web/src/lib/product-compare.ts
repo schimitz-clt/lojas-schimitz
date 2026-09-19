@@ -4,7 +4,12 @@
  */
 
 import { installmentLine, pixPrice, toNumber } from '@/lib/pricing';
-import { resolveProductImageUrl, resolveProductStock, stockCompareLabel } from '@/lib/product-media';
+import {
+  resolveProductImageUrl,
+  resolveProductStock,
+  stockCompareLabel,
+  type ProductInventoryLike,
+} from '@/lib/product-media';
 
 export const COMPARE_MAX = 3;
 export const COMPARE_STORAGE_KEY = 'sch_compare_v1';
@@ -33,7 +38,7 @@ export type ProductCompareLike = {
   image?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
-  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  inventory?: ProductInventoryLike | null;
   category?: { name?: string | null; slug?: string | null } | null;
   seller?: { name?: string | null; slug?: string | null } | null;
   badge?: string | null;

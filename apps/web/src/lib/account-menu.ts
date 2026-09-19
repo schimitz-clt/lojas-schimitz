@@ -81,7 +81,7 @@ export function accountAddressFormOpen(opts: {
 }
 
 /** Prefer the default address, otherwise the first in the list (API already sorts default first). */
-export function accountAddressToEdit<T extends { isDefault?: boolean }>(
+export function accountAddressToEdit<T extends { id?: string; isDefault?: boolean }>(
   addresses: T[] | null | undefined,
 ): T | null {
   const list = addresses || [];

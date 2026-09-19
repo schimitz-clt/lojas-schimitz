@@ -6,12 +6,22 @@
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 
+/**
+ * Public catalog serializes `{ available }` only (F12).
+ * Admin/seller payloads may still include qtyOnHand / qtyReserved.
+ */
+export type ProductInventoryLike = {
+  qtyOnHand?: number;
+  qtyReserved?: number;
+  available?: number | null;
+};
+
 export type ProductMediaLike = {
   images?: { url?: string | null; position?: number }[] | null;
   image?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
-  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
+  inventory?: ProductInventoryLike | null;
 };
 
 /** First usable catalog photo (nested images, then flat image/imageUrl). */
