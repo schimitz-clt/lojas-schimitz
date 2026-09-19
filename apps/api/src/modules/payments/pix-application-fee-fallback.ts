@@ -52,7 +52,7 @@ export function isMpUnauthorizedLiveCredentials(err: unknown): boolean {
     blob.includes('não autorizad') ||
     blob.includes('nao autorizad');
   const live = blob.includes('live') || blob.includes('produção') || blob.includes('producao');
-  const credential = blob.includes('credential') || blob.includes('credencial');
+  const credential = blob.includes('credential') || blob.includes('credencia');
   return unauthorized && live && credential;
 }
 
