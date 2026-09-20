@@ -1,8 +1,8 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { OptionalJwtGuard } from '../../common/guards/optional-jwt.guard';
 import { ok } from '../../common/http';
 import { ShippingService } from './shipping.service';
 
@@ -23,15 +23,14 @@ class QuoteShippingDto {
 }
 
 @ApiTags('shipping')
-@ApiBearerAuth('access-token')
 @Controller('shipping')
-@UseGuards(JwtAuthGuard)
+@UseGuards(OptionalJwtGuard)
 export class ShippingController {
   constructor(private readonly shipping: ShippingService) {}
 
-  /** Cotação de frete própria para o checkout (antes de confirmar o pedido). */
+  /** Cotação da entrega própria (PDP + checkout). Sem transportadora externa. */
   @Post('quote')
-  @ApiOperation({ summary: 'Cotar frete por CEP + subtotal' })
+  @ApiOperation({ summary: 'Cotar frete por CEP + subtotal (público / opcionalmente autenticado)' })
   async quote(@Body() dto: QuoteShippingDto) {
     const data = await this.shipping.quoteDetailed({
       cep: dto.cep,

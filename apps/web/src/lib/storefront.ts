@@ -4,6 +4,8 @@ import {
   uniqueSellersFromProducts,
   type PublicSellerCard,
 } from '@/lib/marketplace-copy';
+import { catalogProductsFromResponse } from '@/lib/home-shelves';
+import { pickRelatedProducts, RELATED_PRODUCTS_MAX } from '@/lib/pdp-trust';
 
 /** Tipos e fetch server-side para SEO / banners (storefront). */
 
@@ -152,6 +154,54 @@ export async function fetchPublicProduct(slug: string): Promise<Record<string, u
   } catch {
     return null;
   }
+}
+
+async function fetchCatalogItems(query: { category?: string; pageSize?: number }): Promise<Record<string, unknown>[]> {
+  const params = new URLSearchParams();
+  params.set('page', '1');
+  params.set('pageSize', String(query.pageSize ?? 24));
+  if (query.category) params.set('category', query.category);
+  try {
+    const res = await fetch(`${API}/products?${params.toString()}`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { ok?: boolean; data?: unknown };
+    if (!json.ok) return [];
+    return catalogProductsFromResponse(json.data);
+  } catch {
+    return [];
+  }
+}
+
+export function publicProductCategorySlug(product: unknown): string | null {
+  if (!product || typeof product !== 'object') return null;
+  const cat = (product as { category?: { slug?: unknown } | null }).category;
+  return typeof cat?.slug === 'string' && cat.slug.trim() ? cat.slug.trim() : null;
+}
+
+export function publicProductId(product: unknown): string | null {
+  if (!product || typeof product !== 'object') return null;
+  const id = (product as { id?: unknown }).id;
+  return typeof id === 'string' && id.trim() ? id.trim() : null;
+}
+
+/** Same-category (then catalog fill) products for the PDP related rail. */
+export async function fetchRelatedCatalogProducts(input: {
+  id?: string | null;
+  slug?: string | null;
+  categorySlug?: string | null;
+}): Promise<Record<string, unknown>[]> {
+  const categorySlug = String(input.categorySlug || '').trim();
+  const categoryItems = categorySlug ? await fetchCatalogItems({ category: categorySlug, pageSize: 24 }) : [];
+  let pool = categoryItems;
+  if (categoryItems.length < 2) {
+    const all = await fetchCatalogItems({ pageSize: 24 });
+    pool = [...categoryItems, ...all];
+  }
+  return pickRelatedProducts(
+    { id: input.id, slug: input.slug, categorySlug },
+    pool,
+    RELATED_PRODUCTS_MAX,
+  ).items;
 }
 
 /** Active sellers for /marketplace. Falls back to unique sellers on the catalog if GET /sellers is missing. */

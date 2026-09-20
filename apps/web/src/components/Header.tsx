@@ -8,14 +8,7 @@ import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
 import { SearchBox } from '@/components/SearchBox';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
 import { formatWishlistBadge } from '@/lib/wishlist-ui';
-
-const CEP_KEY = 'sch_cep';
-
-function formatCep(raw: string) {
-  const d = raw.replace(/\D/g, '').slice(0, 8);
-  if (d.length <= 5) return d;
-  return `${d.slice(0, 5)}-${d.slice(5)}`;
-}
+import { STOREFRONT_CEP_KEY, formatCepInput } from '@/lib/pdp-trust';
 
 export function Header() {
   const { user } = useSessionUser();
@@ -39,7 +32,7 @@ export function Header() {
       /* ignore */
     }
     try {
-      const saved = localStorage.getItem(CEP_KEY) || '';
+      const saved = localStorage.getItem(STOREFRONT_CEP_KEY) || '';
       setCep(saved);
       setCepDraft(saved);
     } catch {
@@ -69,13 +62,13 @@ export function Header() {
 
   function saveCep(e?: { preventDefault(): void }) {
     e?.preventDefault();
-    const next = formatCep(cepDraft);
+    const next = formatCepInput(cepDraft);
     const digits = next.replace(/\D/g, '');
     if (digits.length !== 8) return;
     setCep(next);
     setCepDraft(next);
     try {
-      localStorage.setItem(CEP_KEY, next);
+      localStorage.setItem(STOREFRONT_CEP_KEY, next);
     } catch {
       /* ignore */
     }
@@ -110,7 +103,7 @@ export function Header() {
                   inputMode="numeric"
                   placeholder="00000-000"
                   value={cepDraft}
-                  onChange={(e) => setCepDraft(formatCep(e.target.value))}
+                  onChange={(e) => setCepDraft(formatCepInput(e.target.value))}
                   aria-label="Informe seu CEP"
                   autoFocus
                 />

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   computeShippingQuote,
   DEFAULT_SHIPPING_SETTINGS,
@@ -112,5 +114,9 @@ const q91250 = computeShippingQuote({
   rules: poaRules,
 });
 assert(q91250.price === 0, 'warehouse CEP 91250 free');
+
+const ctrl = readFileSync(join(__dirname, 'shipping.controller.ts'), 'utf8');
+assert(ctrl.includes('OptionalJwtGuard'), 'PDP/checkout quote is guest-safe');
+assert(!ctrl.includes('JwtAuthGuard'), 'quote must not require login');
 
 console.log('shipping.quote.spec.ts OK');
