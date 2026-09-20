@@ -261,7 +261,7 @@ export default function ProductPage({
         <div className="pdp-gallery-col">
           <ProductGallery images={gallery} productName={p.name} />
           <div className="pdp-gallery-tools">
-            <FavoriteToggle productId={p.id} variant="pdp" />
+            <FavoriteToggle productId={p.id} product={p} variant="pdp" />
             <ProductShareButton productName={p.name} productSlug={p.slug} variant="icon" />
           </div>
         </div>
@@ -401,7 +401,7 @@ export default function ProductPage({
               </button>
             )}
             <CompareToggle product={p} variant="pdp" />
-            <FavoriteToggle productId={p.id} variant="pdp" />
+            <FavoriteToggle productId={p.id} product={p} variant="pdp" />
             <a
               className="btn wa pdp-cta-wa"
               href={waLink(`Olá, quero o produto ${p.name}`)}

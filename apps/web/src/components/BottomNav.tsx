@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
-import { formatWishlistBadge } from '@/lib/wishlist-ui';
+import { formatWishlistBadge, isWishlistPath } from '@/lib/wishlist-ui';
 
 type NavItem = {
   href: string;
@@ -62,18 +62,18 @@ export function BottomNav() {
       match: (p) => p.startsWith('/carrinho') || p.startsWith('/checkout'),
     },
     {
-      href: '/favoritos',
-      label: 'Favoritos',
+      href: '/conta/salvos',
+      label: 'Salvos',
       ico: '♥',
       badge: favBadgeNum,
-      match: (p) => p.startsWith('/favoritos'),
+      match: (p) => isWishlistPath(p),
     },
     {
       href: contaHref,
       label: 'Conta',
       iconSrc: '/android-chrome-192x192.png',
       match: (p) =>
-        p.startsWith('/conta') ||
+        (p.startsWith('/conta') && !isWishlistPath(p)) ||
         p.startsWith('/entrar') ||
         p.startsWith('/cadastro') ||
         p.startsWith('/pedidos'),

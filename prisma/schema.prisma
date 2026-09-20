@@ -433,6 +433,7 @@ model Review {
   @@index([status, createdAt])
 }
 
+/** Lista de desejos (Salvos) do cliente logado. Visitante não grava aqui. */
 model Favorite {
   id        String   @id @default(uuid())
   userId    String
@@ -443,6 +444,7 @@ model Favorite {
 
   @@unique([userId, productId])
   @@index([productId])
+  @@index([userId, createdAt])
 }
 
 

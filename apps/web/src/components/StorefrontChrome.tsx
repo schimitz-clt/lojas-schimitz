@@ -52,7 +52,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
                   <a href="/departamento/ofertas">Ofertas</a>
                 </li>
                 <li>
-                  <a href="/favoritos">Favoritos</a>
+                  <a href="/conta/salvos">Salvos</a>
                 </li>
                 <li>
                   <a href="/comparar">Comparar</a>

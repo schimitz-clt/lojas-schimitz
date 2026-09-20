@@ -24,7 +24,7 @@ Abra http://localhost:3000
 - `/produto/[slug]`
 - `/carrinho`
 - `/entrar` `/cadastro` `/conta`
-- `/favoritos` `/pedidos`
+- `/conta` `/conta/salvos` `/favoritos` `/pedidos`
 - `/admin` (role admin)
 
 
