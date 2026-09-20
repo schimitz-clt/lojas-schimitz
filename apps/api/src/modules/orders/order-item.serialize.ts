@@ -8,6 +8,7 @@ import { primaryImageUrl, type ImageLike } from '../catalog/product.serialize';
 
 export type OrderItemProductSnap = {
   sku?: string | null;
+  description?: string | null;
   images?: ImageLike[] | null;
 };
 
@@ -19,8 +20,13 @@ export type OrderItemSerializeSource = {
   unitPrice: unknown;
   sellerId?: string | null;
   imageUrl?: string | null;
+  description?: string | null;
   product?: OrderItemProductSnap | null;
 };
+
+function asText(value?: string | null): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
 
 /** Prisma select used by customer list/detail so historical rows can fall back by productId. */
 export const ORDER_ITEM_CUSTOMER_SELECT = {
@@ -34,6 +40,7 @@ export const ORDER_ITEM_CUSTOMER_SELECT = {
   product: {
     select: {
       sku: true,
+      description: true,
       images: {
         orderBy: { position: 'asc' as const },
         take: 1,
@@ -79,12 +86,14 @@ export function resolveOrderItemImageUrl(item: {
 
 export function serializeCustomerOrderItem(item: OrderItemSerializeSource) {
   const imageUrl = resolveOrderItemImageUrl(item);
+  const description = asText(item.description) || asText(item.product?.description);
   return {
     id: item.id,
     productId: item.productId ?? null,
     sku: item.product?.sku ?? null,
     name: item.name,
     productName: item.name,
+    description,
     qty: item.qty,
     unitPrice: item.unitPrice,
     sellerId: item.sellerId ?? null,

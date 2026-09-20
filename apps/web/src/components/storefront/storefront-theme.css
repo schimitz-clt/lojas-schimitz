@@ -1919,6 +1919,78 @@
   font-weight: 800;
 }
 
+.account-hub-progress-product {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  margin: 4px 0 8px;
+}
+
+.account-hub-progress-thumb {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border-radius: 14px;
+}
+
+.account-hub-progress-thumb img {
+  object-fit: contain;
+  background: #fff;
+}
+
+.account-hub-progress-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-hub-progress-name {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--sf-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.account-hub-progress-desc {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--sf-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.account-hub-progress-extra {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--sf-ink);
+}
+
+.account-hub-progress-code {
+  margin: 4px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+
+.account-hub-progress-pay {
+  margin: 0;
+  font-size: 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .account-hub-sections {
   display: flex;
   flex-direction: column;

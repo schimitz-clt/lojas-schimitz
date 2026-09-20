@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, clearSession, waLink } from '@/lib/api';
 import { AccountMenu } from '@/components/account/AccountMenu';
+import { OrderCardThumb } from '@/components/order/OrderCardThumb';
 import {
   ACCOUNT_HUB_TITLE,
   ACCOUNT_WHATSAPP_HELP_TEXT,
@@ -16,6 +17,7 @@ import { useSessionUser } from '@/lib/use-session-user';
 import { orderStatusLabel } from '@/lib/order-status';
 import { orderRecoveryPaths } from '@/lib/order-recovery';
 import { pickInProgressOrder } from '@/lib/pix-payment-ui';
+import { inProgressOrderCardSummary, type OrderCardItemLike } from '@/lib/order-card-ui';
 
 type CustomerOrder = {
   id: string;
@@ -23,6 +25,7 @@ type CustomerOrder = {
   status: string;
   total: number;
   payments?: { status: string; method: string }[];
+  items?: OrderCardItemLike[] | null;
 };
 
 export default function ContaPage() {
@@ -59,6 +62,7 @@ export default function ContaPage() {
   const activePay =
     activeOrder?.payments?.find((p) => p.status === 'approved') ||
     activeOrder?.payments?.find((p) => p.status === 'pending');
+  const activeCard = activeOrder ? inProgressOrderCardSummary(activeOrder) : null;
 
   function logout() {
     clearSession();
@@ -93,12 +97,29 @@ export default function ContaPage() {
               <p className="muted" style={{ marginBottom: 0 }}>
                 Carregando pedidos...
               </p>
-            ) : activeOrder && activePaths ? (
+            ) : activeOrder && activePaths && activeCard ? (
               <>
-                <p style={{ margin: '4px 0' }}>
-                  Código: <b>{activeOrder.publicId}</b>
-                </p>
-                <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+                <div className="account-hub-progress-product">
+                  <OrderCardThumb
+                    src={activeCard.imageUrl}
+                    extra={0}
+                    badge={null}
+                    className="account-hub-progress-thumb"
+                  />
+                  <div className="account-hub-progress-copy">
+                    <div className="account-hub-progress-name">{activeCard.title}</div>
+                    {activeCard.description ? (
+                      <p className="account-hub-progress-desc">{activeCard.description}</p>
+                    ) : null}
+                    {activeCard.extraLabel ? (
+                      <p className="account-hub-progress-extra">{activeCard.extraLabel}</p>
+                    ) : null}
+                    {activeCard.publicId ? (
+                      <p className="account-hub-progress-code muted">{activeCard.publicId}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <p className="account-hub-progress-pay muted">
                   {orderStatusLabel(activeOrder.status)}
                   {activePay?.method === 'pix' && activePay.status === 'approved'
                     ? ' · PIX aprovado'

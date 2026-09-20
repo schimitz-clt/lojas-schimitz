@@ -70,9 +70,23 @@ const serialized = serializeCustomerOrderItem({
 assert.equal(serialized.productName, 'Sansung A54');
 assert.equal(serialized.name, 'Sansung A54');
 assert.equal(serialized.sku, 'A54');
+assert.equal(serialized.description, '');
 assert.equal(serialized.imageUrl, live);
 assert.equal(serialized.image, live);
 assert.equal('product' in serialized, false, 'do not leak nested product on customer payload');
+
+assert.equal(
+  serializeCustomerOrderItem({
+    id: 'i1d',
+    productId: 'p1',
+    name: 'Sansung A54',
+    qty: 1,
+    unitPrice: '1899.00',
+    product: { sku: 'A54', description: '  Dual chip 128GB, tela 6.4"  ', images: [] },
+  }).description,
+  'Dual chip 128GB, tela 6.4"',
+  'catalog description is additive on customer item',
+);
 
 const order = serializeCustomerOrder({
   id: 'o1',
@@ -104,5 +118,9 @@ const svc = readFileSync(join(__dirname, 'orders.service.ts'), 'utf8');
 assert.ok(svc.includes('serializeCustomerOrder'), 'list/get map through serializer');
 assert.ok(svc.includes('ORDER_ITEM_CUSTOMER_SELECT') || svc.includes('order-item.serialize'), 'customer select/include wired');
 assert.ok(svc.includes('imageUrl:'), 'create snapshots cover URL on OrderItem');
+
+const serializeSrc = readFileSync(join(__dirname, 'order-item.serialize.ts'), 'utf8');
+assert.ok(serializeSrc.includes('description: true'), 'customer select includes catalog description');
+assert.ok(serializeSrc.includes('description,'), 'serializer emits description');
 
 console.log('order-item.serialize: snapshot + live fallback + customer shape — PASSOU');

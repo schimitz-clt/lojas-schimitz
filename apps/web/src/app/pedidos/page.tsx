@@ -6,10 +6,10 @@ import { useSessionUser } from '@/lib/use-session-user';
 import { orderStatusLabel } from '@/lib/order-status';
 import {
   extraItemsCount,
-  extraItemsLabel,
   orderCardImageUrl,
   orderCardTitleOrCode,
 } from '@/lib/order-card-ui';
+import { OrderCardThumb } from '@/components/order/OrderCardThumb';
 import {
   loginNextPath,
   orderRecoveryPaths,
@@ -29,43 +29,6 @@ type OrderListRow = {
     image?: string | null;
   }>;
 };
-
-function OrderCardThumb({
-  src,
-  extra,
-}: {
-  src: string;
-  extra: number;
-}) {
-  const badge = extraItemsLabel(extra);
-  return (
-    <div className="order-card-thumb" aria-hidden="true">
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt=""
-          width={64}
-          height={64}
-          loading="lazy"
-          decoding="async"
-          onError={(e) => {
-            const el = e.currentTarget;
-            el.style.display = 'none';
-            const ph = el.parentElement?.querySelector('.order-card-thumb-ph');
-            if (ph instanceof HTMLElement) ph.style.display = 'flex';
-          }}
-        />
-      ) : null}
-      <span className="order-card-thumb-ph" style={src ? { display: 'none' } : undefined}>
-        <span className="order-card-thumb-ph-mark">
-          SCH<em>+</em>
-        </span>
-      </span>
-      {badge ? <span className="order-card-thumb-more">{badge}</span> : null}
-    </div>
-  );
-}
 
 export default function PedidosPage() {
   const { user, ready } = useSessionUser();
