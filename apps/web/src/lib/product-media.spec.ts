@@ -29,6 +29,8 @@ assert.equal(stockCompareLabel(null), 'Sob consulta');
 assert.equal(stockCompareLabel(undefined), 'Sob consulta');
 assert.equal(stockCompareLabel(0), 'Esgotado');
 assert.equal(stockCompareLabel(3), 'Últimas unidades (3)');
+assert.equal(stockCompareLabel(4), 'Em estoque (4)');
+assert.equal(stockCompareLabel(5), 'Em estoque (5)');
 assert.equal(stockCompareLabel(12), 'Em estoque (12)');
 
 console.log('product-media unit tests ok');

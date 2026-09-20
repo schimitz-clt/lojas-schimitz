@@ -5,12 +5,13 @@
 
 import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
 import { catalogProductsFromResponse } from '@/lib/home-shelves';
+import { LOW_STOCK_LABEL, LOW_STOCK_MAX, shouldShowLowStock } from '@/lib/low-stock';
 
 /** Same localStorage key as the header CEP control. */
 export const STOREFRONT_CEP_KEY = 'sch_cep';
 
 export const RELATED_PRODUCTS_MAX = 8;
-export const PDP_LOW_STOCK_MAX = 3;
+export const PDP_LOW_STOCK_MAX = LOW_STOCK_MAX;
 
 export type PdpTrustLine = {
   id: 'troca' | 'devolucao';
@@ -222,15 +223,12 @@ export function pdpFreightResultCopy(q: PdpFreightQuote): { title: string; detai
 
 /** Urgency only for a real numeric stock of 1–3. No fake “N pessoas vendo”. */
 export function pdpLowStockUrgency(stock: number | null | undefined): string | null {
-  if (typeof stock !== 'number' || !Number.isFinite(stock)) return null;
-  const n = Math.floor(stock);
-  if (n <= 0 || n > PDP_LOW_STOCK_MAX) return null;
-  return 'Últimas unidades';
+  return shouldShowLowStock(stock) ? LOW_STOCK_LABEL : null;
 }
 
 export function pdpStockLine(stock: number | null | undefined): string {
   if (typeof stock !== 'number' || !Number.isFinite(stock)) return 'Estoque sob consulta';
   if (stock <= 0) return 'Esgotado';
-  if (stock <= PDP_LOW_STOCK_MAX) return `Últimas unidades · ${stock} restantes`;
+  if (shouldShowLowStock(stock)) return `${LOW_STOCK_LABEL} · ${stock} restantes`;
   return `Em estoque · ${stock} unidades`;
 }

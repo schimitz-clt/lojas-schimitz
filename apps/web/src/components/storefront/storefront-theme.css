@@ -1996,3 +1996,11 @@
     min-height: 54px;
   }
 }
+
+.footer-trust strong {
+  color: var(--sf-yellow);
+}
+
+.footer-trust a:hover {
+  color: var(--sf-yellow);
+}

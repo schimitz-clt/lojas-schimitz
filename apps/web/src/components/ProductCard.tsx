@@ -24,7 +24,7 @@ export type Product = {
   image?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
-  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
   createdAt?: string | Date | null;

@@ -287,6 +287,35 @@ button, input, select, textarea { font: inherit; }
 .footer-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .footer-col a:hover { color: var(--yellow); }
 .footer-copy { margin: 0; font-size: 12px; color: rgba(255,255,255,.45); }
+.footer-trust {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.footer-trust li {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.footer-trust strong {
+  color: var(--yellow);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.footer-trust span,
+.footer-trust a {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.footer-trust a:hover { color: var(--yellow); }
 
 .form { display: grid; gap: 10px; max-width: 420px; }
 input, textarea, select {
@@ -1727,6 +1756,20 @@ textarea { resize: vertical; min-height: 72px; }
   }
   .footer-col:first-child { grid-column: 1 / -1; }
   .footer-col p { font-size: 12.5px !important; }
+  .footer-trust {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+  }
+  .footer-trust li {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .footer-trust li:last-child { border-bottom: 0; padding-bottom: 4px; }
+  .footer-trust strong { font-size: 10.5px; }
+  .footer-trust span,
+  .footer-trust a { font-size: 13.5px; }
 
   .pdp {
     padding-top: 0;

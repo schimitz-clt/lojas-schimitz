@@ -58,6 +58,18 @@ export function storeWhatsAppDigits(envValue?: string | null): string {
   return toWhatsAppDigits(envValue) || DEFAULT_STORE_WHATSAPP;
 }
 
+/** Human PT-BR display, e.g. 5551996253766 → (51) 99625-3766. */
+export function formatWhatsAppDisplay(raw?: string | null): string {
+  const d = storeWhatsAppDigits(raw);
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) {
+    const ddd = d.slice(2, 4);
+    const local = d.slice(4);
+    const split = local.length === 9 ? 5 : 4;
+    return `(${ddd}) ${local.slice(0, split)}-${local.slice(split)}`;
+  }
+  return d;
+}
+
 export function waMeUrl(digits: string, text: string): string {
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }

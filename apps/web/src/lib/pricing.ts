@@ -1,5 +1,7 @@
 /** Storefront display helpers (PIX 5% + parcelamento). Backend authority: apps/api/src/common/pricing.ts — see docs/PIX-DISCOUNT.md */
 
+import { LOW_STOCK_LABEL, shouldShowLowStock } from '@/lib/low-stock';
+
 export const PIX_DISCOUNT = 0.05;
 
 /**
@@ -81,7 +83,8 @@ export function stockBadge(stock: number | null | undefined): {
   tone: StockTone;
 } | null {
   if (stock == null) return null;
+  if (typeof stock !== 'number' || !Number.isFinite(stock)) return null;
   if (stock <= 0) return { label: 'Esgotado', tone: 'out' };
-  if (stock <= 5) return { label: 'Últimas unidades', tone: 'low' };
+  if (shouldShowLowStock(stock)) return { label: LOW_STOCK_LABEL, tone: 'low' };
   return null;
 }
