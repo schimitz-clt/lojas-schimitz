@@ -139,7 +139,7 @@ export function offersShelfCopy(metric: OfferMetric): Omit<HomeShelfView, 'items
     return {
       id: 'offers',
       title: 'Ofertas',
-      subtitle: 'Preço menor que o de → ou selo do catálogo — sem % inventado',
+      subtitle: 'Preço menor que o de → ou selo do catálogo',
       href: '/departamento/ofertas',
       linkLabel: 'Ver todas',
       metric: 'deal',
@@ -148,7 +148,7 @@ export function offersShelfCopy(metric: OfferMetric): Omit<HomeShelfView, 'items
   return {
     id: 'offers',
     title: 'Ofertas',
-    subtitle: 'Menores preços do catálogo (sem promoção cadastrada)',
+    subtitle: 'Menores preços do catálogo',
     href: '/departamento/ofertas',
     linkLabel: 'Ver todas',
     metric: 'lowest_price',
@@ -190,7 +190,7 @@ export function featuredShelfCopy(metric: FeaturedMetric): Omit<HomeShelfView, '
   return {
     id: 'featured',
     title: 'Em destaque',
-    subtitle: 'Sem vendas nem avaliações suficientes — destaques mais recentes',
+    subtitle: 'Destaques recentes do catálogo',
     href: '/produtos?sort=newest',
     linkLabel: 'Ver catálogo',
     metric: 'newest',

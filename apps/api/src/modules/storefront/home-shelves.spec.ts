@@ -123,7 +123,7 @@ function p(partial: P): P {
 {
   assert.equal(offersShelfCopy('deal').title, 'Ofertas');
   assert.ok(!/\d+\s*%/.test(offersShelfCopy('lowest_price').subtitle), 'no invented discount %');
-  assert.ok(offersShelfCopy('lowest_price').subtitle.includes('sem promoção'));
+  assert.ok(offersShelfCopy('lowest_price').subtitle.includes('Menores preços'));
   assert.equal(newestShelfCopy().title, 'Novidades');
   assert.equal(featuredShelfCopy('paid_qty').title, 'Mais vendidos');
   assert.equal(featuredShelfCopy('rating_count').title, 'Mais vendidos');
