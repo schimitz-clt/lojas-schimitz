@@ -30,7 +30,7 @@ import {
   NotificationsService,
   buildAdminFulfillmentNotification,
 } from '../notifications/notifications.service';
-import { computeCheckoutTotals, roundMoney } from '../../common/pricing';
+import { computeCheckoutTotals, normalizeCouponCode, roundMoney } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
@@ -224,12 +224,13 @@ export class OrdersService {
     const subtotal = roundMoney(rawSubtotal);
     let couponDiscount = 0;
     let couponId: string | undefined;
+    const couponCode = normalizeCouponCode(dto.couponCode) || cart.couponCode || '';
 
-    if (dto.couponCode) {
+    if (couponCode) {
       // Payment method is not known at order create (chosen later on the pay page).
       // Colliding codes like PIX5 still apply here so card checkouts keep the 5%.
       // Anti-stack with automatic PIX 5% is the createIntent gate.
-      const validated = await this.coupons.validate(dto.couponCode, subtotal);
+      const validated = await this.coupons.validate(couponCode, subtotal);
       couponDiscount = Number(validated.discount);
       couponId = validated.id;
     }
@@ -254,7 +255,7 @@ export class OrdersService {
     const totals = computeCheckoutTotals({
       subtotal,
       couponDiscount,
-      couponCode: dto.couponCode,
+      couponCode: couponCode || dto.couponCode,
       cashbackUsed: requestedCashback > 0 ? requestedCashback : 0,
       freight: quote.price,
     });
@@ -326,6 +327,7 @@ export class OrdersService {
           note: 'order_created',
         });
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+        await tx.cart.update({ where: { id: cart.id }, data: { couponCode: null } });
         return tx.order.findUniqueOrThrow({
           where: { id: created.id },
           include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },

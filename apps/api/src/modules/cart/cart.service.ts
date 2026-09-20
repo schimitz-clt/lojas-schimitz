@@ -6,10 +6,16 @@ import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 import { availableQty } from '../inventory/inventory.math';
 import { isMixedSellerCart } from '../marketplace-mp/mixed-cart';
 import { publicSellerShape } from '../sellers/sellers.constants';
+import { CouponsService } from '../coupons/coupons.service';
+import { evaluateCoupon, isPermanentCouponFailure } from '../coupons/coupon-evaluate';
+import { isPixPromoCollidingCouponCode, normalizeCouponCode, roundMoney } from '../../common/pricing';
 
 @Injectable()
 export class CartService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(CouponsService) private readonly coupons: CouponsService,
+  ) {}
 
   private async resolveCart(userId?: string, guestToken?: string) {
     if (userId) {
@@ -63,8 +69,8 @@ export class CartService {
     };
   }
 
-  private format(cart: Awaited<ReturnType<typeof this.resolveCart>>) {
-    const items = cart.items.map((item) => {
+  private mapItems(cart: Awaited<ReturnType<typeof this.resolveCart>>) {
+    return cart.items.map((item) => {
       const price = Number(item.product.price);
       return {
         id: item.id,
@@ -82,12 +88,78 @@ export class CartService {
         seller: item.product.seller ? publicSellerShape(item.product.seller) : null,
       };
     });
-    const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
+  }
+
+  private async attachCoupon(
+    cartId: string,
+    storedCode: string | null | undefined,
+    subtotal: number,
+  ) {
+    const code = normalizeCouponCode(storedCode);
+    if (!code) {
+      return { coupon: null as null, couponError: null as null, discount: 0 };
+    }
+    const row = await this.prisma.coupon.findUnique({ where: { code } });
+    const evaluated = evaluateCoupon(
+      row
+        ? {
+            code: row.code,
+            type: row.type,
+            value: Number(row.value),
+            active: row.active,
+            minSubtotal: row.minSubtotal == null ? null : Number(row.minSubtotal),
+            startsAt: row.startsAt,
+            endsAt: row.endsAt,
+            maxUses: row.maxUses,
+            usedCount: row.usedCount,
+            reservedCount: row.reservedCount,
+          }
+        : null,
+      subtotal,
+    );
+    if (!evaluated.ok) {
+      if (isPermanentCouponFailure(evaluated.code)) {
+        await this.prisma.cart.update({
+          where: { id: cartId },
+          data: { couponCode: null },
+        });
+      }
+      return {
+        coupon: null,
+        couponError: { code: evaluated.code, message: evaluated.message },
+        discount: 0,
+      };
+    }
+    return {
+      coupon: {
+        id: row!.id,
+        code: row!.code,
+        type: row!.type,
+        value: Number(row!.value),
+        discount: evaluated.discount,
+        finalSubtotal: evaluated.finalSubtotal,
+        minSubtotal: row!.minSubtotal == null ? null : Number(row!.minSubtotal),
+        endsAt: row!.endsAt,
+        collidesWithPixPromo: isPixPromoCollidingCouponCode(row!.code),
+      },
+      couponError: null,
+      discount: evaluated.discount,
+    };
+  }
+
+  private async format(cart: Awaited<ReturnType<typeof this.resolveCart>>) {
+    const items = this.mapItems(cart);
+    const subtotal = roundMoney(items.reduce((s, i) => s + i.lineTotal, 0));
+    const attached = await this.attachCoupon(cart.id, cart.couponCode, subtotal);
     return {
       id: cart.id,
       guestToken: cart.guestToken,
       items,
       subtotal,
+      discount: attached.discount,
+      total: roundMoney(Math.max(0, subtotal - attached.discount)),
+      coupon: attached.coupon,
+      couponError: attached.couponError,
       itemCount: items.reduce((s, i) => s + i.qty, 0),
       mixedSellers: isMixedSellerCart(items),
     };
@@ -96,6 +168,34 @@ export class CartService {
   async getCart(userId?: string, guestToken?: string) {
     const cart = await this.resolveCart(userId, guestToken);
     return this.format(cart);
+  }
+
+  async applyCoupon(code: string, userId?: string, guestToken?: string) {
+    const cart = await this.resolveCart(userId, guestToken);
+    const items = this.mapItems(cart);
+    if (items.length === 0) {
+      throw new BadRequestException({ message: 'Sacola vazia', code: 'CART_EMPTY' });
+    }
+    const subtotal = roundMoney(items.reduce((s, i) => s + i.lineTotal, 0));
+    const validated = await this.coupons.validate(code, subtotal);
+    if (normalizeCouponCode(cart.couponCode) !== validated.code) {
+      await this.prisma.cart.update({
+        where: { id: cart.id },
+        data: { couponCode: validated.code },
+      });
+    }
+    return this.getCart(userId, cart.guestToken ?? guestToken);
+  }
+
+  async removeCoupon(userId?: string, guestToken?: string) {
+    const cart = await this.resolveCart(userId, guestToken);
+    if (cart.couponCode) {
+      await this.prisma.cart.update({
+        where: { id: cart.id },
+        data: { couponCode: null },
+      });
+    }
+    return this.getCart(userId, cart.guestToken ?? guestToken);
   }
 
   async addItem(dto: AddCartItemDto, userId?: string, guestToken?: string) {
@@ -162,6 +262,12 @@ export class CartService {
   async clear(userId?: string, guestToken?: string) {
     const cart = await this.resolveCart(userId, guestToken);
     await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    if (cart.couponCode) {
+      await this.prisma.cart.update({
+        where: { id: cart.id },
+        data: { couponCode: null },
+      });
+    }
     return this.getCart(userId, cart.guestToken ?? guestToken);
   }
 
@@ -199,6 +305,14 @@ export class CartService {
     const userCart = await this.resolveCart(userId);
 
     await this.prisma.$transaction(async (tx) => {
+      const nextCoupon = guestCart.couponCode || userCart.couponCode || null;
+      if (nextCoupon && nextCoupon !== userCart.couponCode) {
+        await tx.cart.update({
+          where: { id: userCart.id },
+          data: { couponCode: nextCoupon },
+        });
+      }
+
       for (const item of guestCart.items) {
         const product = item.product;
         if (!product || !product.active) continue;

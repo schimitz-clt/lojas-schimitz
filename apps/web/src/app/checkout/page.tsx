@@ -18,6 +18,8 @@ import {
   mixedCartBlockMessagePt,
   isMixedSellerCart,
 } from '@/lib/mixed-cart';
+import { CartCouponField } from '@/components/CartCouponField';
+import { cartDiscountAmount } from '@/lib/cart-coupon';
 
 type CartItem = {
   id: string;
@@ -30,7 +32,14 @@ type CartItem = {
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string } | null;
 };
-type Cart = { items: CartItem[]; subtotal: number; mixedSellers?: boolean };
+type Cart = {
+  items: CartItem[];
+  subtotal: number;
+  discount?: number;
+  coupon?: { code: string; discount: number; finalSubtotal: number; collidesWithPixPromo?: boolean } | null;
+  couponError?: { code: string; message: string } | null;
+  mixedSellers?: boolean;
+};
 type CouponPreview = { code: string; discount: number; finalSubtotal: number; collidesWithPixPromo?: boolean };
 type Loyalty = { balance: number; label: string; rate: number };
 type FreightQuote = {
@@ -78,7 +87,16 @@ export default function CheckoutPage() {
       router.replace(loginNextPath('/checkout'));
       return;
     }
-    api<Cart>('/cart').then(setCart).catch((e) => setErr(e.message));
+    api<Cart>('/cart')
+      .then((data) => {
+        setCart(data);
+        if (data.coupon?.code) {
+          setCoupon(data.coupon.code);
+          setCouponPreview(data.coupon);
+        }
+        if (data.couponError?.message) setCouponErr(data.couponError.message);
+      })
+      .catch((e) => setErr(e.message));
     api<CheckoutAddress[]>('/me/addresses')
       .then((list) => {
         setAddresses(list);
@@ -125,7 +143,7 @@ export default function CheckoutPage() {
   }, [cart, addressId, addresses]);
 
   async function applyCoupon() {
-    if (!cart || !coupon.trim()) {
+    if (!coupon.trim()) {
       setCouponPreview(null);
       setCouponErr('');
       return;
@@ -133,14 +151,36 @@ export default function CheckoutPage() {
     setValidating(true);
     setCouponErr('');
     try {
-      const data = await api<CouponPreview>('/coupons/validate', {
+      const data = await api<Cart>('/cart/coupon', {
         method: 'POST',
-        body: JSON.stringify({ code: coupon.trim(), subtotal: cart.subtotal }),
+        body: JSON.stringify({ code: coupon.trim() }),
       });
-      setCouponPreview(data);
+      setCart(data);
+      if (data.coupon) {
+        setCoupon(data.coupon.code);
+        setCouponPreview(data.coupon);
+      } else {
+        setCouponPreview(null);
+      }
+      setCouponErr(data.couponError?.message || '');
     } catch (e: any) {
       setCouponPreview(null);
       setCouponErr(e.message || 'Cupom inválido');
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function removeCoupon() {
+    setValidating(true);
+    setCouponErr('');
+    try {
+      const data = await api<Cart>('/cart/coupon', { method: 'DELETE' });
+      setCart(data);
+      setCoupon('');
+      setCouponPreview(null);
+    } catch (e: any) {
+      setCouponErr(e.message || 'Não foi possível remover o cupom');
     } finally {
       setValidating(false);
     }
@@ -178,7 +218,7 @@ export default function CheckoutPage() {
         headers: { 'Idempotency-Key': key },
         body: JSON.stringify({
           addressId,
-          couponCode: coupon.trim() || undefined,
+          couponCode: couponPreview?.code || coupon.trim() || undefined,
           cashbackAmount: cashbackNum > 0 ? cashbackNum : undefined,
         }),
       });
@@ -204,7 +244,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const couponDiscount = couponPreview?.discount ?? 0;
+  const couponDiscount = cartDiscountAmount(couponPreview, cart.discount);
   const cashbackNum = Math.max(0, Number(String(cashbackAmount).replace(',', '.')) || 0);
   const cashbackApplied = Math.min(cashbackNum, Math.max(0, cart.subtotal - couponDiscount));
   const freightPrice = freight?.price ?? 0;
@@ -346,36 +386,28 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      <div style={{ marginTop: 12 }}>
-        <label htmlFor="checkout-coupon">Cupom (opcional)</label>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <input
+      <section className="checkout-section card" aria-labelledby="checkout-coupon-heading">
+        <div className="body">
+          <h2 id="checkout-coupon-heading" className="checkout-section-title">
+            Cupom
+          </h2>
+          <CartCouponField
             id="checkout-coupon"
-            placeholder="Ex.: BEMVINDO10"
             value={coupon}
-            onChange={(e) => {
-              setCoupon(e.target.value);
+            onChange={(v) => {
+              setCoupon(v);
               setCouponPreview(null);
               setCouponErr('');
             }}
-            style={{ flex: 1, minWidth: 160 }}
-            autoComplete="off"
+            applied={couponPreview ? { code: couponPreview.code, discount: couponDiscount } : null}
+            error={couponErr}
+            busy={validating}
+            onApply={applyCoupon}
+            onRemove={removeCoupon}
+            showLabel={false}
           />
-          <button
-            type="button"
-            className="btn ghost"
-            disabled={validating || !coupon.trim()}
-            onClick={applyCoupon}
-          >
-            {validating ? 'Validando...' : 'Aplicar cupom'}
-          </button>
         </div>
-        {couponErr ? (
-          <div className="alert" style={{ marginTop: 8 }} role="alert">
-            {couponErr}
-          </div>
-        ) : null}
-      </div>
+      </section>
 
       {loyalty && loyalty.balance > 0 ? (
         <div style={{ marginTop: 12 }}>

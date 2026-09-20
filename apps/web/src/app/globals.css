@@ -1364,6 +1364,37 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-carousel-ph-hint { font-size: 13px; color: var(--muted); font-weight: 600; }
 
 .cart-summary { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.cart-coupon { margin: 0 0 12px; }
+.cart-coupon label { display: block; font-weight: 700; margin-bottom: 8px; }
+.cart-coupon-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.cart-coupon-row input {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 44px;
+}
+.cart-coupon-row .btn { min-height: 44px; }
+.cart-coupon-applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fafafa;
+}
+.cart-coupon-applied-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 .cart-checkout-btn { width: 100%; background: var(--yellow); color: var(--ink); }
 .cart-checkout-btn:hover { background: var(--yellow-deep); color: var(--ink); }
 .cart-sticky-checkout { display: none; }

@@ -6,18 +6,14 @@ import {
   isPixPromoCollidingCouponCode,
   PIX_PROMO_COLLIDING_COUPON_CODES,
 } from '../../common/pricing';
+import { evaluateCoupon } from './coupon-evaluate';
 
-function calcDiscount(type: string, value: number, subtotal: number) {
-  let discount = type === 'percent' ? subtotal * (value / 100) : value;
-  discount = Math.min(discount, subtotal);
-  return Math.round(discount * 100) / 100;
-}
-
-assert.equal(calcDiscount('percent', 5, 200), 10);
-assert.equal(calcDiscount('fixed', 30, 200), 30);
-assert.equal(calcDiscount('fixed', 50, 40), 40);
-assert.equal(calcDiscount('percent', 100, 99.9), 99.9);
 assert.equal(couponDiscountAmount('percent', 5, 200), 10);
+assert.equal(evaluateCoupon({
+  type: 'percent',
+  value: 10,
+  active: true,
+}, 200).ok, true);
 
 assert.deepEqual([...PIX_PROMO_COLLIDING_COUPON_CODES], ['PIX5']);
 assert.equal(isPixPromoCollidingCouponCode('PIX5'), true);
@@ -34,5 +30,7 @@ assert.ok(
   /where: \{ code: 'PIX5' \}[\s\S]{0,80}update: \{ active: false/.test(seed),
   'seed must not re-activate PIX5',
 );
+assert.ok(seed.includes("where: { code: 'SCHIMITZ10' }"), 'seed upserts SCHIMITZ10 pilot');
+assert.ok(seed.includes("code: 'SCHIMITZ10'"), 'seed creates SCHIMITZ10');
 
 console.log('coupon validate math tests ok');
