@@ -27,6 +27,7 @@ export type Product = {
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
+  createdAt?: string | Date | null;
 };
 
 function ProductImage({

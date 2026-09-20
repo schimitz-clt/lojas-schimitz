@@ -69,6 +69,7 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
 | GET | `/store/settings` | público (SEO) |
 | GET | `/store/banners` | público (banners ativos) |
+| GET | `/store/shelves` | público — prateleiras da home `{ shelves: [{ id, title, subtitle, href, linkLabel, metric, items }] }`. `items` = mesmo shape de `GET /products`. Sem mock. Rails vazias omitidas. Semântica: `docs/HOME-SHELVES.md` |
 | GET/PATCH | `/admin/store/settings` body `{ siteTitle, siteDescription, ogImageUrl? }` | admin |
 | GET/POST | `/admin/banners` | admin |
 | PATCH | `/admin/banners/reorder` body `{ orderedIds: string[] }` | admin |

@@ -1,12 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
+import { PAID_REVENUE_STATUSES } from '../admin/admin-sales-report';
+import { buildProductWhere } from '../catalog/catalog.query';
+import { serializePublicProducts } from '../catalog/product.serialize';
 import {
   canCreateHomeBanner,
   homeBannerLimitMessage,
   MAX_HOME_BANNERS,
   takeHomeBanners,
 } from './home-banners';
+import {
+  HOME_SHELF_LIMIT,
+  assembleHomeShelves,
+  visibleHomeShelves,
+  type SoldQtyRow,
+} from './home-shelves';
 
 const DEFAULT_TITLE = 'Lojas Schimitz';
 const DEFAULT_DESCRIPTION =
@@ -140,6 +150,95 @@ export class StorefrontService {
       take: MAX_HOME_BANNERS,
     });
     return takeHomeBanners(rows).map(serializeBanner);
+  }
+
+  /**
+   * Home rails from the live catalog + paid-order qty.
+   * Empty rails are omitted (storefront hides them).
+   */
+  async listPublicShelves() {
+    const where = buildProductWhere({});
+    const paidStatuses = [...PAID_REVENUE_STATUSES] as OrderStatus[];
+    const select = {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      compareAtPrice: true,
+      badge: true,
+      ratingAvg: true,
+      ratingCount: true,
+      active: true,
+      createdAt: true,
+      images: {
+        orderBy: { position: 'asc' as const },
+        take: 1,
+        select: { url: true, position: true, alt: true },
+      },
+      inventory: { select: { qtyOnHand: true, qtyReserved: true } },
+      category: { select: { id: true, name: true, slug: true } },
+      seller: { select: { id: true, name: true, slug: true } },
+    };
+
+    const [dealRows, cheapRows, newestRows, ratedRows, soldGroups] = await Promise.all([
+      this.prisma.product.findMany({
+        where: {
+          ...where,
+          OR: [{ compareAtPrice: { not: null } }, { badge: { not: null } }],
+        },
+        select,
+        take: 40,
+      }),
+      this.prisma.product.findMany({
+        where,
+        orderBy: [{ price: 'asc' }, { id: 'asc' }],
+        select,
+        take: HOME_SHELF_LIMIT,
+      }),
+      this.prisma.product.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        select,
+        take: HOME_SHELF_LIMIT,
+      }),
+      this.prisma.product.findMany({
+        where,
+        orderBy: [{ ratingCount: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
+        select,
+        take: HOME_SHELF_LIMIT,
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['productId'],
+        where: { order: { status: { in: paidStatuses } } },
+        _sum: { qty: true },
+      }),
+    ]);
+
+    const soldRows: SoldQtyRow[] = soldGroups.map((g) => ({
+      productId: g.productId,
+      qty: g._sum.qty ?? 0,
+    }));
+    const topSoldIds = soldRows
+      .filter((r) => r.qty > 0)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, HOME_SHELF_LIMIT)
+      .map((r) => r.productId);
+    const soldProductRows = topSoldIds.length
+      ? await this.prisma.product.findMany({
+          where: { ...where, id: { in: topSoldIds } },
+          select,
+        })
+      : [];
+
+    const byId = new Map<string, (typeof dealRows)[number]>();
+    for (const row of [...dealRows, ...cheapRows, ...newestRows, ...ratedRows, ...soldProductRows]) {
+      byId.set(row.id, row);
+    }
+    const items = serializePublicProducts([...byId.values()]);
+    const shelves = assembleHomeShelves(items, soldRows, HOME_SHELF_LIMIT);
+    return {
+      shelves: visibleHomeShelves(shelves),
+    };
   }
 
   async listAdminBanners() {

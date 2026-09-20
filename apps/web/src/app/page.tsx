@@ -5,10 +5,17 @@ import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
+import { HomeShelves } from '@/components/HomeShelves';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
+import {
+  parseHomeShelvesPayload,
+  shelvesFromCatalog,
+  visibleHomeShelves,
+  type HomeShelfView,
+} from '@/lib/home-shelves';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -29,24 +36,6 @@ function SectionHead({
     <div className={`section-head${accent ? ' section-head-accent' : ''}`}>
       <h2 id={id}>{title}</h2>
       {href && linkLabel ? <Link href={href}>{linkLabel}</Link> : null}
-    </div>
-  );
-}
-
-function ProductRail({
-  products,
-  priorityCount = 0,
-  keyPrefix,
-}: {
-  products: Product[];
-  priorityCount?: number;
-  keyPrefix: string;
-}) {
-  return (
-    <div className="grid grid-vitrine grid-rail">
-      {products.map((p, i) => (
-        <ProductCard key={`${keyPrefix}-${p.id}`} p={p} priority={i < priorityCount} />
-      ))}
     </div>
   );
 }
@@ -82,33 +71,49 @@ function CategoryStrip({ products }: { products: Product[] }) {
 function HomeInner() {
   const q = useSearchParams().get('q') || '';
   const [products, setProducts] = useState<Product[]>([]);
+  const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     setErr('');
-    const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products';
-    api<Product[] | ListResponse>(path)
-      .then((d) => setProducts(Array.isArray(d) ? d : d.items || []))
-      .catch((e) => setErr(e instanceof Error ? e.message : 'Erro ao carregar'))
-      .finally(() => setLoading(false));
+    const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
+    let cancelled = false;
+    (async () => {
+      try {
+        const catalog = await api<Product[] | ListResponse>(path);
+        const items = Array.isArray(catalog) ? catalog : catalog.items || [];
+        if (cancelled) return;
+        setProducts(items);
+        if (q) {
+          setShelves(null);
+          return;
+        }
+        try {
+          const payload = await api<unknown>('/store/shelves');
+          if (cancelled) return;
+          const parsed = parseHomeShelvesPayload<Product>(payload);
+          setShelves(parsed ?? shelvesFromCatalog(items));
+        } catch {
+          if (cancelled) return;
+          setShelves(shelvesFromCatalog(items));
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setErr(e instanceof Error ? e.message : 'Erro ao carregar');
+        setProducts([]);
+        setShelves(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [q]);
 
-  const offers = useMemo(
-    () => products.filter((p) => p.compareAtPrice || p.badge).slice(0, 10),
-    [products],
-  );
-  const bestsellers = useMemo(() => {
-    const ranked = [...products].sort(
-      (a, b) => Number(b.ratingCount ?? 0) - Number(a.ratingCount ?? 0),
-    );
-    return ranked.slice(0, 10);
-  }, [products]);
-  const recommendations = useMemo(() => {
-    const rest = products.filter((p) => !bestsellers.slice(0, 4).some((b) => b.id === p.id));
-    return (rest.length ? rest : products).slice(0, 10);
-  }, [products, bestsellers]);
+  const visibleShelves = useMemo(() => visibleHomeShelves(shelves), [shelves]);
 
   if (q) {
     return (
@@ -174,34 +179,8 @@ function HomeInner() {
         </div>
       ) : null}
 
-      {/* 3–5. Vitrines */}
-      {!loading && products.length > 0 ? (
-        <>
-          <section className="home-rail home-rail-offers" id="ofertas">
-            <SectionHead
-              title="Ofertas do dia"
-              href="/departamento/ofertas"
-              linkLabel="Ver todas"
-              accent
-            />
-            <ProductRail
-              products={offers.length ? offers : products.slice(0, 10)}
-              priorityCount={4}
-              keyPrefix="o"
-            />
-          </section>
-
-          <section className="home-rail">
-            <SectionHead title="Mais vendidos" href="/produtos?sort=relevance" linkLabel="Ver catálogo" />
-            <ProductRail products={bestsellers} keyPrefix="b" />
-          </section>
-
-          <section className="home-rail">
-            <SectionHead title="Recomendados para você" href="/produtos" linkLabel="Explorar" />
-            <ProductRail products={recommendations} keyPrefix="r" />
-          </section>
-        </>
-      ) : null}
+      {/* 3–5. Prateleiras Magalu — Ofertas / Novidades / Mais vendidos */}
+      {!loading && visibleShelves.length > 0 ? <HomeShelves shelves={visibleShelves} /> : null}
 
       <RecentlyViewedStrip />
 
