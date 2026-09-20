@@ -22,16 +22,24 @@ const out = serializeFavoriteItem(row);
 assert.equal(out.id, 'fav-1');
 assert.equal(out.productId, row.productId);
 assert.equal(out.createdAt.toISOString(), createdAt.toISOString());
-assert.equal(out.product.stock, 10);
-assert.equal(out.product.image, 'https://cdn.example/roblox.jpg');
-assert.equal(out.product.imageUrl, out.product.image);
-assert.deepEqual(out.product.inventory, { available: 10 });
-assert.deepEqual(out.product.seller, { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' });
-assert.ok(!('status' in (out.product.seller as object)));
-assert.equal('qtyOnHand' in (out.product.inventory as object), false);
+const product = out.product as {
+  stock: number | null;
+  image: string | null;
+  imageUrl: string | null;
+  inventory: { available: number | null } | null;
+  seller: { id: string; name: string; slug: string };
+  slug: string;
+};
+assert.equal(product.stock, 10);
+assert.equal(product.image, 'https://cdn.example/roblox.jpg');
+assert.equal(product.imageUrl, product.image);
+assert.deepEqual(product.inventory, { available: 10 });
+assert.deepEqual(product.seller, { id: 's1', name: 'Lojas Schimitz', slug: 'lojas-schimitz' });
+assert.ok(!('status' in product.seller));
+assert.equal('qtyOnHand' in (product.inventory as object), false);
 
 const list = serializeFavoriteItems([row]);
 assert.equal(list.length, 1);
-assert.equal(list[0].product.slug, 'roblox');
+assert.equal((list[0].product as unknown as { slug: string }).slug, 'roblox');
 
 console.log('favorites.serialize unit tests ok');
