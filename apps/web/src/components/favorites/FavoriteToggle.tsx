@@ -53,6 +53,7 @@ export function FavoriteToggle({ productId, product, variant = 'card' }: Props) 
         aria-busy={busy || undefined}
         aria-label={wishlistToggleLabel(on)}
         title={wishlistToggleLabel(on)}
+        data-testid="wishlist-heart"
       >
         <span aria-hidden className="fav-toggle-ico">
           <HeartIcon filled={on} />

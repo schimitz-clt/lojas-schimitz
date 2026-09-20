@@ -1158,7 +1158,7 @@
   top: 8px;
   right: 8px;
   left: auto;
-  z-index: 3;
+  z-index: 5;
 }
 
 .fav-toggle-card .fav-toggle-txt {
