@@ -155,6 +155,10 @@ import {
   assert.ok(pdp.includes('pdp-sticky-atc'), 'sticky bag bar stays');
   assert.ok(pdp.includes('ProductShareButton'), 'share stays');
   assert.ok(pdp.includes('pixPrice('), 'PIX stack stays');
+  assert.ok(
+    pdp.includes('Keep the SSR product') || pdp.includes('if (!existing) setErr'),
+    'client refresh failure must not replace a loaded PDP with a fetch alert',
+  );
   assert.ok(!/pessoas vendo|visualizando agora/i.test(pdp), 'no fake viewer counts');
   assert.ok(!/Melhor Envio|Correios API/i.test(pdp), 'no invented carrier');
 

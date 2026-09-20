@@ -190,7 +190,13 @@ export default function ProductPage({
         rememberProductView(product);
         await Promise.all([loadReviews(product.id), loadEligibility(product.id)]);
       })
-      .catch((e) => setErr(e.message));
+      .catch((e) => {
+        // Keep the SSR product if the client refresh fails (CORS/rede). Do not scare the buybox.
+        setP((existing) => {
+          if (!existing) setErr(e.message);
+          return existing;
+        });
+      });
   }, [slug, loadReviews, loadEligibility]);
 
   async function add() {
