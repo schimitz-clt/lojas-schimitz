@@ -564,6 +564,71 @@ textarea { resize: vertical; min-height: 72px; }
 .section-head-tight { margin-top: 6px; margin-bottom: 6px; }
 .home-rail { margin: 10px 0 22px; }
 .home-rail-offers { margin-top: 6px; }
+
+/* —— Home product shelves (horizontal snap rails; page overflow-x stays hidden) —— */
+.home-shelves { max-width: 100%; min-width: 0; }
+.home-shelf {
+  margin: 10px 0 22px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.home-shelf-head { align-items: flex-start; }
+.home-shelf-heading { min-width: 0; }
+.home-shelf-heading h2 { margin: 0; }
+.home-shelf-sub {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 550;
+}
+.home-shelf-viewport {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+}
+.home-shelf-rail {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 4px 2px 12px;
+  margin: 0;
+}
+.home-shelf-rail::-webkit-scrollbar { display: none; }
+.home-shelf-rail > .pcard {
+  flex: 0 0 min(68vw, 220px);
+  width: min(68vw, 220px);
+  max-width: 220px;
+  min-width: 0;
+  height: auto;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.home-shelf-nav {
+  display: none;
+  position: absolute;
+  top: 42%;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.home-shelf-prev { left: 4px; }
+.home-shelf-next { right: 4px; }
+.home-shelf-nav:hover { background: var(--yellow); }
 .home-search-head { padding: 14px 0 6px; }
 .home-search-head h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.03em; }
 .home-benefits { margin: 28px 0 8px; }
@@ -1614,6 +1679,16 @@ textarea { resize: vertical; min-height: 72px; }
   .section-head { margin: 6px 0 12px; }
   .section-head h2 { font-size: 18px; }
   .home-rail { margin: 8px 0 20px; }
+  .home-shelf { margin: 8px 0 20px; }
+  .home-shelf-rail {
+    gap: 12px;
+    margin: 0 -12px;
+    padding: 4px 12px 14px;
+  }
+  .home-shelf-rail > .pcard {
+    flex: 0 0 min(68vw, 220px);
+    width: min(68vw, 220px);
+  }
   .home-benefits { margin: 22px 0 6px; }
   .cat-strip {
     gap: 12px;
@@ -1698,12 +1773,18 @@ textarea { resize: vertical; min-height: 72px; }
   .cat-chip-label { font-size: 12.5px; }
   .section-head h2 { font-size: 24px; }
   .home-rail { margin: 14px 0 28px; }
+  .home-shelf { margin: 14px 0 28px; }
   .pcard-body { padding: 14px 14px 6px; }
   .pcard-title { font-size: 14px; min-height: 2.6em; }
   .pcard-price { font-size: 22px; }
   .pcard-cta { padding: 10px 14px 14px; }
   .pcard-btn { min-height: 44px; font-size: 14px; }
   .grid-rail { /* desktop keeps multi-column grid via .grid-vitrine */ }
+  .home-shelf-rail > .pcard {
+    flex: 0 0 220px;
+    width: 220px;
+  }
+  .home-shelf-nav { display: grid; place-items: center; }
 }
 
 /* —— Checkout BETA (confiança / conversão) —— */

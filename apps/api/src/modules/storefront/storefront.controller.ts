@@ -17,4 +17,10 @@ export class StorefrontController {
   async banners() {
     return ok(await this.storefront.listPublicBanners());
   }
+
+  /** Prateleiras da home (Ofertas / Novidades / Mais vendidos) — catálogo real */
+  @Get('store/shelves')
+  async shelves() {
+    return ok(await this.storefront.listPublicShelves());
+  }
 }

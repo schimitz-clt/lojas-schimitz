@@ -65,6 +65,7 @@ export class CatalogController {
           ratingAvg: true,
           ratingCount: true,
           active: true,
+          createdAt: true,
           images: { orderBy: { position: 'asc' }, take: 1, select: { url: true, position: true, alt: true } },
           inventory: { select: { qtyOnHand: true, qtyReserved: true } },
           category: { select: { id: true, name: true, slug: true } },
