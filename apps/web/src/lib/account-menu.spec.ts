@@ -5,6 +5,7 @@ import {
   ACCOUNT_EDIT_ADDRESS_CTA,
   ACCOUNT_DADOS_PATH,
   ACCOUNT_HUB_TITLE,
+  ACCOUNT_SALVOS_PATH,
   ACCOUNT_VISTOS_PATH,
   ACCOUNT_WHATSAPP_HELP_TEXT,
   accountAddressFormFrom,
@@ -23,6 +24,7 @@ import {
 assert.equal(ACCOUNT_HUB_TITLE, 'Sua conta');
 assert.equal(ACCOUNT_DADOS_PATH, '/conta/dados');
 assert.equal(ACCOUNT_VISTOS_PATH, '/conta/vistos');
+assert.equal(ACCOUNT_SALVOS_PATH, '/conta/salvos');
 assert.ok(ACCOUNT_WHATSAPP_HELP_TEXT.includes('Lojas Schimitz'));
 assert.ok(!/magalu/i.test(ACCOUNT_WHATSAPP_HELP_TEXT));
 
@@ -59,7 +61,8 @@ assert.ok(!guest.flatMap((s) => s.items).some((i) => i.action === 'logout'));
 assert.equal(guest[0].items.find((i) => i.id === 'orders')?.href, accountLoginHref('/pedidos'));
 assert.equal(guest[0].items.find((i) => i.id === 'recent')?.href, ACCOUNT_VISTOS_PATH);
 assert.equal(guest[1].items.find((i) => i.id === 'profile')?.href, accountLoginHref(ACCOUNT_DADOS_PATH));
-assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.href, '/favoritos');
+assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.href, ACCOUNT_SALVOS_PATH);
+assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.label, 'Salvos');
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.href, wa);
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.external, true);
 assert.equal(guest[2].items.find((i) => i.id === 'support')?.href, '/suporte');
@@ -79,6 +82,8 @@ const member = accountMenuSections({
 });
 assert.equal(member[0].items.find((i) => i.id === 'orders')?.href, '/pedidos');
 assert.equal(member[1].items.find((i) => i.id === 'profile')?.href, ACCOUNT_DADOS_PATH);
+assert.equal(member[1].items.find((i) => i.id === 'favorites')?.href, ACCOUNT_SALVOS_PATH);
+assert.equal(member[1].items.find((i) => i.id === 'favorites')?.label, 'Salvos');
 assert.equal(member[1].items.find((i) => i.id === 'logout')?.action, 'logout');
 assertCustomerOnlyMenu(member);
 

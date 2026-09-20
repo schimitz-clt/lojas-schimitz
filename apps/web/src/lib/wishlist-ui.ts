@@ -1,12 +1,17 @@
 /**
- * Wishlist / favoritos display helpers. Server-side favorites stay the authority.
+ * Wishlist / Salvos display helpers. Server Favorite is the authority when logged in.
+ * Guest hearts may live in localStorage (see wishlist-guest.ts) until login sync.
  * No invented stock — cards reuse live product fields from GET /favorites.
  */
 
+import { loginNextPath } from '@/lib/order-recovery';
+import { pixPrice, toNumber } from '@/lib/pricing';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 
 export const FAVORITES_EVENT = 'sch-favorites-updated';
 export const FAVORITES_MAX_BADGE = 99;
+export const WISHLIST_PATH = '/conta/salvos';
+export const WISHLIST_LEGACY_PATH = '/favoritos';
 
 export type WishlistProductLike = {
   id?: string | null;
@@ -18,7 +23,7 @@ export type WishlistProductLike = {
   image?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
-  inventory?: { qtyOnHand: number; qtyReserved: number } | null;
+  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
   category?: { slug?: string | null; name?: string | null } | null;
   seller?: { id?: string; name?: string | null; slug?: string | null } | null;
   badge?: string | null;
@@ -41,19 +46,28 @@ function asText(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+export function wishlistLoginHref(nextPath = WISHLIST_PATH): string {
+  return loginNextPath(nextPath);
+}
+
+export function wishlistProductHref(product: WishlistProductLike | null | undefined): string {
+  const slug = asText(product?.slug);
+  return slug ? `/produto/${encodeURIComponent(slug)}` : '/produtos';
+}
+
 /** Empty state — logged-out vs empty list. */
 export function wishlistEmptyCopy(loggedIn: boolean): WishlistEmptyCopy {
   if (!loggedIn) {
     return {
-      title: 'Entre para ver seus favoritos',
-      body: 'Os favoritos ficam salvos na sua conta Lojas Schimitz. Entre e toque em Favoritar na página do produto.',
-      ctaHref: '/entrar?next=/favoritos',
+      title: 'Entre para ver seus salvos',
+      body: 'A lista de desejos fica na sua conta Lojas Schimitz. Visitante: o coração pode marcar neste aparelho; ao entrar, sincronizamos na conta.',
+      ctaHref: wishlistLoginHref(),
       ctaLabel: 'Entrar',
     };
   }
   return {
-    title: 'Nenhum favorito ainda',
-    body: 'Toque em Favoritar na página do produto para guardar itens aqui. Sem estoque inventado — só o catálogo real.',
+    title: 'Nenhum produto salvo',
+    body: 'Toque no coração do produto para guardar aqui. Só entram itens reais do catálogo.',
     ctaHref: '/produtos',
     ctaLabel: 'Ver produtos',
   };
@@ -61,14 +75,32 @@ export function wishlistEmptyCopy(loggedIn: boolean): WishlistEmptyCopy {
 
 export function wishlistHeading(count: number, loggedIn: boolean): { title: string; subtitle: string } {
   if (!loggedIn) {
-    return { title: 'Favoritos', subtitle: 'Entre na conta para ver os itens salvos.' };
+    if (count > 0) {
+      return {
+        title: 'Salvos',
+        subtitle:
+          count === 1
+            ? '1 produto neste aparelho — entre para guardar na conta.'
+            : `${count} produtos neste aparelho — entre para guardar na conta.`,
+      };
+    }
+    return { title: 'Salvos', subtitle: 'Entre na conta para ver a lista de desejos.' };
   }
   if (count <= 0) {
-    return { title: 'Favoritos', subtitle: 'Nenhum item salvo no momento.' };
+    return { title: 'Salvos', subtitle: 'Nenhum item na lista de desejos.' };
   }
   return {
-    title: 'Favoritos',
+    title: 'Salvos',
     subtitle: count === 1 ? '1 produto salvo' : `${count} produtos salvos`,
+  };
+}
+
+export function wishlistGuestBanner(): { title: string; body: string; ctaHref: string; ctaLabel: string } {
+  return {
+    title: 'Só neste aparelho',
+    body: 'Estes itens ainda não estão na conta. Entre para gravar a lista de desejos no servidor.',
+    ctaHref: wishlistLoginHref(),
+    ctaLabel: 'Entrar e guardar',
   };
 }
 
@@ -80,19 +112,23 @@ export function formatWishlistBadge(count: number): string | null {
 }
 
 export function wishlistAddToast(): string {
-  return 'Salvo nos favoritos.';
+  return 'Salvo na lista de desejos.';
 }
 
 export function wishlistRemoveToast(): string {
-  return 'Removido dos favoritos.';
+  return 'Removido dos salvos.';
 }
 
 export function wishlistNeedLoginToast(): string {
-  return 'Entre para salvar favoritos.';
+  return 'Entre para guardar os salvos na conta.';
+}
+
+export function wishlistGuestSavedToast(): string {
+  return 'Marcado neste aparelho. Entre para guardar na conta.';
 }
 
 export function wishlistAlreadyToast(): string {
-  return 'Este produto já está nos favoritos.';
+  return 'Este produto já está nos salvos.';
 }
 
 export function wishlistAddToCartLabel(opts: {
@@ -111,7 +147,7 @@ export function wishlistRemoveLabel(): string {
 }
 
 export function wishlistToggleLabel(inList: boolean): string {
-  return inList ? 'Nos favoritos' : 'Favoritar';
+  return inList ? 'Salvo' : 'Salvar';
 }
 
 /** Map API / network errors to Portuguese UI copy. */
@@ -132,10 +168,10 @@ export function wishlistErrorMessage(err: unknown, action: 'add' | 'remove' | 'l
     return wishlistAlreadyToast();
   }
   if (action === 'remove' && (msg.includes('não encontrado') || msg.includes('nao encontrado'))) {
-    return 'Este item já não estava nos favoritos.';
+    return 'Este item já não estava nos salvos.';
   }
-  if (action === 'list') return raw || 'Não foi possível carregar os favoritos.';
-  return raw || 'Não foi possível atualizar os favoritos.';
+  if (action === 'list') return raw || 'Não foi possível carregar os salvos.';
+  return raw || 'Não foi possível atualizar os salvos.';
 }
 
 export function isWishlistOutOfStock(product: WishlistProductLike | null | undefined): boolean {
@@ -203,6 +239,22 @@ export function wishlistProductImage(product: WishlistProductLike): string {
   return resolveProductImageUrl(product);
 }
 
+export function wishlistMoney(price: number | string | null | undefined): string {
+  const n = toNumber(price);
+  if (!(n > 0)) return '';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function wishlistPriceLabel(product: WishlistProductLike): string {
+  return wishlistMoney(product.price);
+}
+
+export function wishlistPixLabel(product: WishlistProductLike): string | null {
+  const n = toNumber(product.price);
+  if (!(n > 0)) return null;
+  return `${wishlistMoney(pixPrice(n))} no PIX`;
+}
+
 export function notifyFavoritesUpdated(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -210,4 +262,9 @@ export function notifyFavoritesUpdated(): void {
   } catch {
     /* ignore */
   }
+}
+
+export function isWishlistPath(pathname: string): boolean {
+  const p = (pathname || '').split('?')[0] || '';
+  return p === WISHLIST_PATH || p.startsWith(`${WISHLIST_PATH}/`) || p === WISHLIST_LEGACY_PATH || p.startsWith(`${WISHLIST_LEGACY_PATH}/`);
 }

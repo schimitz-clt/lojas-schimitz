@@ -40,6 +40,11 @@ Ver `docs/SECURITY-HARDENING-2026-09-18.md`. Não rotacionar tokens neste lote.
 - Sem segredos no git
 - Contexto de build ignora apps/web e node_modules
 
+### Wishlist / Salvos
+
+`prisma migrate deploy` **é necessário** (aditivo): índice `Favorite_userId_createdAt_idx`.
+A tabela `Favorite` já existia — sem DROP. Detalhes: `docs/WISHLIST.md`.
+
 
 ## Uploads de imagens (admin)
 

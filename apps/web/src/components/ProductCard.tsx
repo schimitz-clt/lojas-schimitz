@@ -111,7 +111,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
 
   return (
     <article className="pcard pcard-pro">
-      <FavoriteToggle productId={p.id} variant="card" />
+      <FavoriteToggle productId={p.id} product={p} variant="card" />
       <CompareToggle product={p} variant="card" />
       <Link href={`/produto/${p.slug}`} className="pcard-link">
         <div className="pcard-media">

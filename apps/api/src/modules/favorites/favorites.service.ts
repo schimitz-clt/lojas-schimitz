@@ -1,5 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
+import { canAddToWishlist } from './favorites.rules';
+import { serializeFavoriteItems } from './favorites.serialize';
+
+const productInclude = {
+  images: { orderBy: { position: 'asc' as const }, take: 1 },
+  inventory: true,
+  category: { select: { id: true, name: true, slug: true } },
+  seller: { select: { id: true, name: true, slug: true, status: true } },
+};
 
 @Injectable()
 export class FavoritesService {
@@ -7,45 +16,32 @@ export class FavoritesService {
 
   async list(userId: string) {
     const favs = await this.prisma.favorite.findMany({
-      where: { userId },
-      include: {
-        product: {
-          include: {
-            images: { orderBy: { position: 'asc' }, take: 1 },
-            inventory: true,
-          },
-        },
+      where: {
+        userId,
+        product: { active: true, seller: { status: 'active' } },
       },
+      include: { product: { include: productInclude } },
       orderBy: { createdAt: 'desc' },
     });
-    return favs.map((f) => ({
-      id: f.id,
-      productId: f.productId,
-      createdAt: f.createdAt,
-      product: f.product,
-    }));
+    return serializeFavoriteItems(favs);
   }
 
   async add(userId: string, productId: string) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product || !product.active) throw new NotFoundException('Produto não encontrado');
-
-    const exists = await this.prisma.favorite.findUnique({
-      where: { userId_productId: { userId, productId } },
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { seller: { select: { status: true } } },
     });
-    if (exists) throw new ConflictException('Produto já está nos favoritos');
+    if (!canAddToWishlist(product)) throw new NotFoundException('Produto não encontrado');
 
-    return this.prisma.favorite.create({
-      data: { userId, productId },
+    return this.prisma.favorite.upsert({
+      where: { userId_productId: { userId, productId } },
+      create: { userId, productId },
+      update: {},
     });
   }
 
   async remove(userId: string, productId: string) {
-    const exists = await this.prisma.favorite.findUnique({
-      where: { userId_productId: { userId, productId } },
-    });
-    if (!exists) throw new NotFoundException('Favorito não encontrado');
-    await this.prisma.favorite.delete({ where: { id: exists.id } });
+    await this.prisma.favorite.deleteMany({ where: { userId, productId } });
     return { deleted: true };
   }
 }

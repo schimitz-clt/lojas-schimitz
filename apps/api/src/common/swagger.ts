@@ -52,6 +52,7 @@ export function setupSwagger(app: INestApplication, apiPrefix: string) {
     .addTag('health', 'Healthcheck')
     .addTag('auth', 'Registro, login, refresh (cookie HttpOnly + body), logout, reset de senha')
     .addTag('catalog', 'Categorias e produtos públicos')
+    .addTag('favorites', 'Lista de desejos (Salvos) do cliente autenticado')
     .addTag('cart', 'Carrinho user/guest')
     .addTag('shipping', 'Cotação de frete própria')
     .addTag('orders', 'Pedidos do cliente autenticado')

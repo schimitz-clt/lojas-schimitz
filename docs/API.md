@@ -41,7 +41,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | DELETE | `/admin/shipping/rules/:id` | admin |
 | GET/POST | `/admin/coupons` | admin |
 | PATCH | `/admin/coupons/:id` | admin |
-| GET/POST/DELETE | `/favorites` | user |
+| GET/POST/DELETE | `/favorites` | **user (JWT)** — lista de desejos (Salvos). `GET` devolve produtos reais no shape de `GET /products` (foto, preço, stock, PIX no card). `POST { productId }` e `DELETE /favorites/:productId` são **idempotentes**. Visitante: 401; o coração na vitrine pode marcar só neste aparelho até o login (ver `docs/WISHLIST.md`). **Deploy:** migration aditiva `20260920_wishlist_favorite_list_idx` (índice; tabela `Favorite` já existia). |
 | GET | `/products/:id/reviews` | público (só publicadas) |
 | GET | `/products/:id/reviews/me` | user (elegibilidade + minha avaliação) |
 | POST | `/products/:id/reviews` | user comprador (upsert 1–5 ★ + texto) |

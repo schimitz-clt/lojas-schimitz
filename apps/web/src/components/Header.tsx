@@ -139,11 +139,11 @@ export function Header() {
                 </span>
                 {user ? userAccountLabel(user) : 'Entrar'}
               </Link>
-              <Link className="hdr-link hdr-hide-sm" href="/favoritos">
+              <Link className="hdr-link hdr-hide-sm" href="/conta/salvos">
                 <span className="hdr-link-ico" aria-hidden>
                   ♥
                 </span>
-                Favoritos
+                Salvos
                 {favBadge ? <span className="hdr-badge">{favBadge}</span> : null}
               </Link>
               <CompareHeaderLink />

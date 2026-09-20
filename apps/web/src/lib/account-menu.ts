@@ -43,6 +43,7 @@ export type AccountMenuUser = {
 export const ACCOUNT_HUB_TITLE = 'Sua conta';
 export const ACCOUNT_DADOS_PATH = '/conta/dados';
 export const ACCOUNT_VISTOS_PATH = '/conta/vistos';
+export const ACCOUNT_SALVOS_PATH = '/conta/salvos';
 export const ACCOUNT_EDIT_ADDRESS_CTA = 'Alterar endereço';
 export const ACCOUNT_WHATSAPP_HELP_TEXT =
   'Olá, vim pela Minha conta da Lojas Schimitz e preciso de atendimento.';
@@ -197,7 +198,7 @@ export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSectio
 
   const contaItems: AccountMenuItem[] = [
     { id: 'profile', label: 'Dados pessoais', href: dadosHref, icon: 'profile' },
-    { id: 'favorites', label: 'Favoritos', href: '/favoritos', icon: 'heart' },
+    { id: 'favorites', label: 'Salvos', href: ACCOUNT_SALVOS_PATH, icon: 'heart' },
     { id: 'notifications', label: 'Notificações', href: notifHref, icon: 'bell' },
   ];
   if (loggedIn) {
