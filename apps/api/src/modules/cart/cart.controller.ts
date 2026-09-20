@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagg
 import { ok } from '../../common/http';
 import { OptionalJwtGuard } from '../../common/guards/optional-jwt.guard';
 import { CartService } from './cart.service';
-import { AddCartItemDto, UpdateCartItemDto } from './dto';
+import { AddCartItemDto, ApplyCartCouponDto, UpdateCartItemDto } from './dto';
 
 @ApiTags('cart')
 @ApiSecurity('guest-token')
@@ -64,5 +64,26 @@ export class CartController {
   async clear(@Req() req: { user?: { sub?: string } }, @Headers('x-guest-token') guestToken?: string) {
     const { userId } = this.ids(req, guestToken);
     return ok(await this.cart.clear(userId, guestToken));
+  }
+
+  @Post('coupon')
+  @ApiOperation({ summary: 'Aplicar cupom na sacola (idempotente)' })
+  async applyCoupon(
+    @Req() req: { user?: { sub?: string } },
+    @Body() dto: ApplyCartCouponDto,
+    @Headers('x-guest-token') guestToken?: string,
+  ) {
+    const { userId } = this.ids(req, guestToken);
+    return ok(await this.cart.applyCoupon(dto.code, userId, guestToken));
+  }
+
+  @Delete('coupon')
+  @ApiOperation({ summary: 'Remover cupom da sacola' })
+  async removeCoupon(
+    @Req() req: { user?: { sub?: string } },
+    @Headers('x-guest-token') guestToken?: string,
+  ) {
+    const { userId } = this.ids(req, guestToken);
+    return ok(await this.cart.removeCoupon(userId, guestToken));
   }
 }

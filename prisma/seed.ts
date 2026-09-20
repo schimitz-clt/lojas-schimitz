@@ -285,6 +285,19 @@ async function main() {
     },
   });
 
+  // Pilot campaign coupon — 10% off. update: {} so prod edits (toggle / min / validade) stay.
+  await prisma.coupon.upsert({
+    where: { code: 'SCHIMITZ10' },
+    update: {},
+    create: {
+      code: 'SCHIMITZ10',
+      type: 'percent',
+      value: 10,
+      minSubtotal: 0,
+      active: true,
+    },
+  });
+
 
 
   await prisma.shippingSettings.upsert({

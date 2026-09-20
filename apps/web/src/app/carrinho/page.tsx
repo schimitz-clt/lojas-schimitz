@@ -13,6 +13,9 @@ import { cartCheckoutLabel, cartTrustItems, pixHighlight } from '@/lib/storefron
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { mixedCartBlockMessagePt, isMixedSellerCart } from '@/lib/mixed-cart';
+import { CartCouponField } from '@/components/CartCouponField';
+import { cartDiscountAmount, cartPayableTotal } from '@/lib/cart-coupon';
+import { isPixPromoCollidingCouponCode } from '@/lib/pricing';
 
 type CartItem = {
   id: string;
@@ -33,6 +36,10 @@ type Cart = {
   guestToken?: string | null;
   items: CartItem[];
   subtotal: number;
+  discount?: number;
+  total?: number;
+  coupon?: { code: string; discount: number; finalSubtotal: number; collidesWithPixPromo?: boolean } | null;
+  couponError?: { code: string; message: string } | null;
   itemCount: number;
   mixedSellers?: boolean;
 };
@@ -76,6 +83,9 @@ export default function CartPage() {
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [addressId, setAddressId] = useState('');
   const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponErr, setCouponErr] = useState('');
 
   async function load() {
     getGuestToken();
@@ -84,6 +94,7 @@ export default function CartPage() {
       if (data.guestToken) localStorage.setItem('sch_guest', data.guestToken);
       setCart(data);
       setErr('');
+      setCouponErr(data.couponError?.message || '');
     } catch (e: any) {
       setErr(e.message);
     }
@@ -150,6 +161,39 @@ export default function CartPage() {
     }
   }
 
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setCouponBusy(true);
+    setCouponErr('');
+    try {
+      const data = await api<Cart>('/cart/coupon', {
+        method: 'POST',
+        body: JSON.stringify({ code: couponInput.trim() }),
+      });
+      setCart(data);
+      setCouponInput('');
+      setCouponErr(data.couponError?.message || '');
+    } catch (e: any) {
+      setCouponErr(e.message || 'Cupom inválido');
+    } finally {
+      setCouponBusy(false);
+    }
+  }
+
+  async function removeCoupon() {
+    setCouponBusy(true);
+    setCouponErr('');
+    try {
+      const data = await api<Cart>('/cart/coupon', { method: 'DELETE' });
+      setCart(data);
+      setCouponInput('');
+    } catch (e: any) {
+      setCouponErr(e.message || 'Não foi possível remover o cupom');
+    } finally {
+      setCouponBusy(false);
+    }
+  }
+
   if (err) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!cart) {
     return (
@@ -167,7 +211,12 @@ export default function CartPage() {
   }
 
   const hasItems = cart.items.length > 0;
-  const pixSubtotal = pixPrice(cart.subtotal);
+  const couponDiscount = cartDiscountAmount(cart.coupon, cart.discount);
+  const payable = cartPayableTotal(cart.subtotal, couponDiscount);
+  const skipAutoPix = Boolean(
+    cart.coupon?.collidesWithPixPromo || isPixPromoCollidingCouponCode(cart.coupon?.code),
+  );
+  const pixSubtotal = skipAutoPix ? payable : pixPrice(payable);
   const loggedIn = Boolean(user);
   const checkoutHref = cartCheckoutHref(loggedIn);
   const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
@@ -314,15 +363,39 @@ export default function CartPage() {
                 <span className="muted">Itens</span>
                 <span>{cart.itemCount}</span>
               </div>
-              <div className="row" style={{ marginBottom: 8 }}>
+              <CartCouponField
+                id="cart-coupon"
+                value={couponInput}
+                onChange={setCouponInput}
+                applied={cart.coupon ? { code: cart.coupon.code, discount: couponDiscount } : null}
+                error={couponErr}
+                busy={couponBusy}
+                onApply={applyCoupon}
+                onRemove={removeCoupon}
+              />
+              <div className="row" style={{ marginBottom: 8, marginTop: 12 }}>
                 <h3 style={{ margin: 0 }}>Subtotal</h3>
                 <h3 style={{ margin: 0 }}>{brl(cart.subtotal)}</h3>
               </div>
+              {cart.coupon ? (
+                <div className="row" style={{ marginBottom: 8 }}>
+                  <span>Cupom {cart.coupon.code}</span>
+                  <span className="ok">−{brl(couponDiscount)}</span>
+                </div>
+              ) : null}
+              {couponDiscount > 0 ? (
+                <div className="row" style={{ marginBottom: 8 }}>
+                  <h3 style={{ margin: 0 }}>Total</h3>
+                  <h3 style={{ margin: 0 }}>{brl(payable)}</h3>
+                </div>
+              ) : null}
               <p className="cart-pix-hint">
                 No PIX: <strong>{brl(pixSubtotal)}</strong>
-                {pixHighlight(cart.subtotal).savings > 0
-                  ? ` · ${pixHighlight(cart.subtotal).savingsLine}`
-                  : ' · 5% OFF aplicado no pagamento'}
+                {skipAutoPix
+                  ? ' · este cupom já cobre o 5% PIX'
+                  : pixHighlight(payable).savings > 0
+                    ? ` · ${pixHighlight(payable).savingsLine}`
+                    : ' · 5% OFF aplicado no pagamento'}
               </p>
               <ul className="cart-trust" aria-label="Por que comprar aqui">
                 {cartTrustItems().map((item) => (
@@ -365,10 +438,10 @@ export default function CartPage() {
           <div className="cart-sticky-checkout" aria-label="Finalizar">
             <div style={{ minWidth: 0 }}>
               <div className="muted" style={{ fontSize: 11 }}>
-                Subtotal
+                {couponDiscount > 0 ? 'Total' : 'Subtotal'}
               </div>
               <div className="price" style={{ fontSize: 16 }}>
-                {brl(cart.subtotal)}
+                {brl(payable)}
               </div>
             </div>
             {mixedCart ? (

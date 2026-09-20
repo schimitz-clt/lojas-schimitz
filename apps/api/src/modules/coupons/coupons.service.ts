@@ -2,7 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma.service';
-import { isPixPromoCollidingCouponCode } from '../../common/pricing';
+import { isPixPromoCollidingCouponCode, normalizeCouponCode } from '../../common/pricing';
+import { evaluateCoupon } from './coupon-evaluate';
 
 export type CreateCouponInput = {
   code: string;
@@ -51,48 +52,41 @@ export class CouponsService {
 
   async validate(code: string, subtotal: number) {
     const coupon = await this.prisma.coupon.findUnique({
-      where: { code: code.trim().toUpperCase() },
+      where: { code: normalizeCouponCode(code) },
     });
-    if (!coupon || !coupon.active) {
-      throw new BadRequestException({ message: 'Cupom inválido', code: 'COUPON_INVALID' });
+    const evaluated = evaluateCoupon(
+      coupon
+        ? {
+            code: coupon.code,
+            type: coupon.type,
+            value: Number(coupon.value),
+            active: coupon.active,
+            minSubtotal: coupon.minSubtotal == null ? null : Number(coupon.minSubtotal),
+            startsAt: coupon.startsAt,
+            endsAt: coupon.endsAt,
+            maxUses: coupon.maxUses,
+            usedCount: coupon.usedCount,
+            reservedCount: coupon.reservedCount,
+          }
+        : null,
+      subtotal,
+    );
+    if (!evaluated.ok) {
+      throw new BadRequestException({ message: evaluated.message, code: evaluated.code });
     }
-    if (coupon.startsAt && coupon.startsAt > new Date()) {
-      throw new BadRequestException({ message: 'Cupom ainda não válido', code: 'COUPON_NOT_STARTED' });
-    }
-    if (coupon.endsAt && coupon.endsAt < new Date()) {
-      throw new BadRequestException({ message: 'Cupom expirado', code: 'COUPON_EXPIRED' });
-    }
-    if (coupon.maxUses != null && coupon.usedCount + coupon.reservedCount >= coupon.maxUses) {
-      throw new BadRequestException({ message: 'Cupom esgotado', code: 'COUPON_EXHAUSTED' });
-    }
-    if (coupon.minSubtotal && subtotal < Number(coupon.minSubtotal)) {
-      throw new BadRequestException({
-        message: `Subtotal mínimo do cupom: R$ ${Number(coupon.minSubtotal).toFixed(2).replace('.', ',')}`,
-        code: 'COUPON_MIN_SUBTOTAL',
-      });
-    }
-
-    let discount = 0;
-    if (coupon.type === 'percent') {
-      discount = subtotal * (Number(coupon.value) / 100);
-    } else {
-      discount = Number(coupon.value);
-    }
-    discount = Math.min(discount, subtotal);
-    discount = Math.round(discount * 100) / 100;
 
     // PIX5 remains a valid coupon (card / non-PIX). Payment method is usually
     // unknown here — stacking with automatic PIX 5% is blocked at createIntent.
     return {
-      id: coupon.id,
-      code: coupon.code,
-      type: coupon.type,
-      value: Number(coupon.value),
-      discount,
-      finalSubtotal: Math.round((subtotal - discount) * 100) / 100,
-      minSubtotal: coupon.minSubtotal == null ? null : Number(coupon.minSubtotal),
-      endsAt: coupon.endsAt,
-      collidesWithPixPromo: isPixPromoCollidingCouponCode(coupon.code),
+      id: coupon!.id,
+      code: coupon!.code,
+      type: coupon!.type,
+      value: Number(coupon!.value),
+      discount: evaluated.discount,
+      finalSubtotal: evaluated.finalSubtotal,
+      minSubtotal: coupon!.minSubtotal == null ? null : Number(coupon!.minSubtotal),
+      endsAt: coupon!.endsAt,
+      collidesWithPixPromo: isPixPromoCollidingCouponCode(coupon!.code),
     };
   }
 
@@ -102,7 +96,7 @@ export class CouponsService {
   }
 
   async createAdmin(input: CreateCouponInput) {
-    const code = input.code.trim().toUpperCase();
+    const code = normalizeCouponCode(input.code);
     if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
       throw new BadRequestException('Código inválido. Use 3–40 caracteres (A-Z, 0-9, _ ou -).');
     }
@@ -153,7 +147,7 @@ export class CouponsService {
 
     const data: Prisma.CouponUpdateInput = {};
     if (input.code !== undefined) {
-      const code = input.code.trim().toUpperCase();
+      const code = normalizeCouponCode(input.code);
       if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
         throw new BadRequestException('Código inválido. Use 3–40 caracteres (A-Z, 0-9, _ ou -).');
       }

@@ -26,8 +26,10 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/products` `?q=&category=&seller=&minPrice=&maxPrice=&sort=&page=&pageSize=` → items com `stock`, `image`, `imageUrl` (+ nested images/inventory/seller). Só produtos de vendedor `active`. `seller` = slug público | público |
 | GET | `/products/:slug` → mesmo shape (stock = disponível; image = URL primária). 404 se vendedor não estiver `active` | público |
 | GET | `/sellers` → `[{ id, name, slug, productCount }]` vendedores **active** (sem PII / comissão / dono) | público |
-| GET/DELETE | `/cart` | user ou guest |
+| GET/DELETE | `/cart` | user ou guest — `coupon`, `couponError`, `discount`, `total` quando um código está persistido |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
+| POST | `/cart/coupon` body `{ code }` — valida e persiste no carrinho (idempotente) | user ou guest |
+| DELETE | `/cart/coupon` — remove o cupom da sacola | user ou guest |
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também) | user |
 | GET | `/orders/:publicId` | user — inclui `marketplaceSplit: { active, bricksPublicKey }` (public key TEST- do seller só no sandbox; sem tokens) |
 | POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |

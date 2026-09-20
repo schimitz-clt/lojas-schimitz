@@ -94,9 +94,10 @@ export function AdminCuponsSection() {
     <>
       <div className="admin-section-panel">
       <p className="admin-section-intro">
-            Crie códigos de desconto (% ou valor fixo). O cliente aplica no checkout. Use cupons ativos
-            para campanhas (ex.: BEMVINDO10) mesmo sem banner na home. Não crie cupom percentual que
-            duplique o 5% automático do PIX (código PIX5 está aposentado/colidente).
+            Crie códigos de desconto (% ou valor fixo). O cliente aplica na sacola ou no checkout.
+            Piloto: <strong>SCHIMITZ10</strong> (10%) — o seed cria se ainda não existir; você pode
+            criar o mesmo código aqui. Não crie cupom percentual que duplique o 5% automático do PIX
+            (código PIX5 está aposentado/colidente).
       </p>
       {(() => {
         const couponStats = couponListStats(coupons);
@@ -119,7 +120,7 @@ export function AdminCuponsSection() {
                 <input
                   value={couponForm.code}
                   onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
-                  placeholder="EX.: BEMVINDO10"
+                  placeholder="EX.: SCHIMITZ10"
                   required
                 />
               </label>
@@ -229,7 +230,7 @@ export function AdminCuponsSection() {
             })}
             {!coupons.length ? (
               <p className="admin-empty">
-                Nenhum cupom ainda. Crie o primeiro acima — ele aparece no checkout mesmo sem banner.
+                Nenhum cupom ainda. Crie SCHIMITZ10 (10%) acima — vale na sacola e no checkout.
               </p>
             ) : null}
           </div>
