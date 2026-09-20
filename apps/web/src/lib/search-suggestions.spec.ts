@@ -150,5 +150,6 @@ assert.ok(box.includes('emptySearchSuggestions'), 'empty shortcuts reuse catalog
 const css = readFileSync(join(__dirname, '../app/globals.css'), 'utf8');
 assert.ok(css.includes('overflow-x: hidden'), 'search dropdown does not overflow horizontally');
 assert.ok(css.includes('100dvh - 168px'), 'mobile dropdown stays above bottom nav');
+assert.ok(/\.header\s+\.wrap\s*\{[^}]*overflow:\s*visible/.test(css), 'header wrap does not clip suggestions');
 
 console.log('search-suggestions unit tests ok');
