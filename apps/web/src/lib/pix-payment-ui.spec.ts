@@ -60,5 +60,7 @@ assert.ok(!/isPixPending \|\| \(intent\.payment\.method === 'pix' && \(qr \|\| q
 const conta = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');
 assert.ok(conta.includes("api") && conta.includes('/orders'), 'conta loads real /orders');
 assert.ok(conta.includes('Pedido em andamento') || conta.includes('pickInProgressOrder'), 'in-progress card');
+assert.ok(conta.includes('inProgressOrderCardSummary'), 'in-progress card uses first product snapshot');
+assert.equal(conta.includes('Código: <b>{activeOrder.publicId}</b>'), false, 'code is not the in-progress hero');
 
 console.log('pix-payment-ui unit + source gate tests ok');

@@ -394,6 +394,7 @@ export class OrdersService {
             product: {
               select: {
                 sku: true,
+                description: true,
                 images: {
                   orderBy: { position: 'asc' as const },
                   take: 1,
