@@ -10,6 +10,7 @@ import { CompareBar } from '@/components/compare/CompareBar';
 import { FavoritesProvider } from '@/components/favorites/FavoritesProvider';
 import { StorefrontToast } from '@/components/StorefrontToast';
 import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
+import { FooterTrustStrip } from '@/components/FooterTrustStrip';
 
 /**
  * Storefront chrome (header/footer/bottom nav/chat) — skipped on /admin
@@ -30,6 +31,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
         <main className="wrap main-shell">{children}</main>
       <footer className="footer">
         <div className="wrap">
+          <FooterTrustStrip />
           <div className="footer-grid">
             <div className="footer-col">
               <h3>Lojas Schimitz</h3>

@@ -5,6 +5,7 @@
 
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
+import { shouldShowLowStock } from '@/lib/low-stock';
 
 /**
  * Public catalog serializes `{ available }` only (F12).
@@ -52,6 +53,6 @@ export function resolveProductStock(p: ProductMediaLike): number | null {
 export function stockCompareLabel(stock: number | null | undefined): string {
   if (stock == null) return 'Sob consulta';
   if (stock <= 0) return 'Esgotado';
-  if (stock <= 5) return `Últimas unidades (${stock})`;
+  if (shouldShowLowStock(stock)) return `Últimas unidades (${stock})`;
   return `Em estoque (${stock})`;
 }
