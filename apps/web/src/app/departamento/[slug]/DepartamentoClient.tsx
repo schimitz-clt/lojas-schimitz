@@ -13,6 +13,7 @@ import {
   buildFilterChips,
   departmentTitle,
   emptySearchSuggestions,
+  isExternalSearchShortcut,
   parseCatalogSort,
   searchEmptyCopy,
   type FilterChip,
@@ -278,7 +279,13 @@ export default function DepartamentoClient() {
               .filter((s) => !s.href.includes(slug))
               .map((s) => (
                 <li key={s.href}>
-                  <Link href={s.href}>{s.label}</Link>
+                  {isExternalSearchShortcut(s) ? (
+                    <a href={s.href} target="_blank" rel="noopener noreferrer">
+                      {s.label}
+                    </a>
+                  ) : (
+                    <Link href={s.href}>{s.label}</Link>
+                  )}
                 </li>
               ))}
           </ul>

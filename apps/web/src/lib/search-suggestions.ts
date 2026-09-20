@@ -3,6 +3,10 @@
  * No mock products. Network stays in the UI; this file is pure.
  */
 
+import { toNumber } from '@/lib/pricing';
+import { resolveProductImageUrl } from '@/lib/product-media';
+import { pixHighlight } from '@/lib/storefront-pro';
+
 export const SEARCH_SUGGEST_MIN = 2;
 export const SEARCH_SUGGEST_DEBOUNCE_MS = 280;
 export const SEARCH_SUGGEST_PRODUCT_LIMIT = 6;
@@ -16,7 +20,7 @@ export type SearchProductLike = {
   category?: { name?: string | null; slug?: string | null } | null;
   image?: string | null;
   imageUrl?: string | null;
-  images?: { url?: string | null }[] | null;
+  images?: { url?: string | null; position?: number }[] | null;
 };
 
 export type SearchCategoryLike = {
@@ -33,6 +37,11 @@ export type SuggestionRow = {
   href: string;
   label: string;
   sub?: string;
+  /** Catalog photo when the API sent a real image — never a placeholder host. */
+  image?: string;
+  priceLabel?: string;
+  pixLabel?: string;
+  pixTag?: string;
 };
 
 function asText(v: unknown): string {
@@ -85,11 +94,40 @@ export function categoriesFromListResponse(data: unknown): SearchCategoryLike[] 
   return data.filter((x) => x && typeof x === 'object') as SearchCategoryLike[];
 }
 
+export function formatSuggestionMoney(price: number | string | null | undefined): string | undefined {
+  const n = toNumber(price);
+  if (!(n > 0)) return undefined;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** List price + PIX 5% hint from the same storefront helpers as cards/PDP. */
+export function suggestionPixFields(price: number | string | null | undefined): {
+  priceLabel?: string;
+  pixLabel?: string;
+  pixTag?: string;
+} {
+  const priceLabel = formatSuggestionMoney(price);
+  if (!priceLabel) return {};
+  const pix = pixHighlight(price ?? 0);
+  const pixLabel = formatSuggestionMoney(pix.pix);
+  return {
+    priceLabel,
+    pixLabel: pixLabel ? `${pixLabel} no PIX` : undefined,
+    pixTag: pix.tag,
+  };
+}
+
+export function productSuggestionImage(p: SearchProductLike): string | undefined {
+  const url = resolveProductImageUrl(p);
+  return url || undefined;
+}
+
 function scoreProduct(p: SearchProductLike, nq: string): number {
   const name = normalizeSearchQuery(asText(p.name));
   const slug = normalizeSearchQuery(asText(p.slug));
   const cat = normalizeSearchQuery(asText(p.category?.name) || asText(p.category?.slug));
   if (!nq) return 0;
+  if (name === nq || slug === nq) return 6;
   if (name.startsWith(nq) || slug.startsWith(nq)) return 4;
   if (name.includes(nq) || slug.includes(nq)) return 3;
   if (cat.startsWith(nq)) return 2;
@@ -164,12 +202,15 @@ export function buildSuggestionRows(input: {
   const products = rankProductSuggestions(input.products || [], q);
   for (const p of products) {
     const id = asText(p.id) || asText(p.slug);
+    const pix = suggestionPixFields(p.price);
     rows.push({
       id: `p-${id}`,
       kind: 'product',
       href: productSuggestHref(asText(p.slug)),
       label: asText(p.name),
       sub: asText(p.category?.name) || undefined,
+      image: productSuggestionImage(p),
+      ...pix,
     });
   }
   if (q) {
@@ -181,6 +222,11 @@ export function buildSuggestionRows(input: {
     });
   }
   return rows;
+}
+
+/** True when the API/category filter produced a real hit (not only “ver todos”). */
+export function hasCatalogSuggestionHits(rows: SuggestionRow[]): boolean {
+  return rows.some((r) => r.kind === 'product' || r.kind === 'category');
 }
 
 /** -1 = input itself; wrap at ends. */

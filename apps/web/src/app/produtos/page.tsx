@@ -11,6 +11,7 @@ import {
   activeFilterCount,
   buildFilterChips,
   emptySearchSuggestions,
+  isExternalSearchShortcut,
   parseCatalogSort,
   searchEmptyCopy,
   searchResultsHeading,
@@ -373,7 +374,13 @@ function ProdutosInner() {
           <ul className="sf-empty-suggestions" aria-label="Sugestões">
             {suggestions.map((s) => (
               <li key={s.href}>
-                <Link href={s.href}>{s.label}</Link>
+                {isExternalSearchShortcut(s) ? (
+                  <a href={s.href} target="_blank" rel="noopener noreferrer">
+                    {s.label}
+                  </a>
+                ) : (
+                  <Link href={s.href}>{s.label}</Link>
+                )}
               </li>
             ))}
           </ul>

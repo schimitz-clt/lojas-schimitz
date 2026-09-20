@@ -9,9 +9,12 @@ import {
   discountPercent,
   emptySearchSuggestions,
   formatPriceRangeChip,
+  isExternalSearchShortcut,
   parseCatalogSort,
   pixHighlight,
   searchEmptyCopy,
+  searchEmptyWhatsAppHref,
+  SEARCH_EMPTY_WHATSAPP_TEXT,
   searchResultsHeading,
   stickyBuyLabel,
 } from './storefront-pro';
@@ -74,6 +77,7 @@ assert.ok(catHead.subtitle.includes('12'));
 const emptyQ = searchEmptyCopy('xyz', false);
 assert.ok(emptyQ.title.includes('xyz'));
 assert.ok(emptyQ.body.length > 10);
+assert.ok(/whatsapp|catálogo|departamento/i.test(emptyQ.body), 'empty copy points to real shortcuts');
 
 const emptyFilters = searchEmptyCopy('', true);
 assert.ok(/filtros/i.test(emptyFilters.title) || /filtros/i.test(emptyFilters.body));
@@ -104,6 +108,16 @@ assert.equal(activeFilterCount({ seller: 'lojas-schimitz' }), 1);
 
 const suggestions = emptySearchSuggestions();
 assert.ok(suggestions.length >= 4);
-assert.ok(suggestions.every((s) => s.href.startsWith('/') && s.label));
+assert.ok(suggestions.every((s) => s.href && s.label));
+assert.ok(suggestions.some((s) => s.href === '/produtos'), 'catalog shortcut');
+assert.ok(suggestions.some((s) => s.href.startsWith('/departamento/')), 'department shortcuts');
+assert.ok(
+  suggestions.some((s) => s.external && /wa\.me/.test(s.href) && /whatsapp/i.test(s.label)),
+  'WhatsApp shortcut uses real wa.me',
+);
+assert.ok(SEARCH_EMPTY_WHATSAPP_TEXT.includes('Lojas Schimitz'));
+assert.ok(searchEmptyWhatsAppHref('51996253766').includes('wa.me'));
+assert.equal(isExternalSearchShortcut({ href: '/produtos' }), false);
+assert.equal(isExternalSearchShortcut({ href: 'https://wa.me/x', external: true }), true);
 
 console.log('storefront-pro unit tests ok');

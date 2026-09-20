@@ -101,7 +101,7 @@ button, input, select, textarea { font: inherit; }
   line-height: 1;
 }
 .logo span { color: var(--yellow); }
-.search { flex: 1; min-width: 200px; position: relative; }
+.search { flex: 1; min-width: 0; max-width: 100%; position: relative; }
 .search input {
   width: 100%;
   background: #fff;
@@ -129,12 +129,15 @@ button, input, select, textarea { font: inherit; }
   background: #fff; color: var(--text);
   border-radius: 16px; box-shadow: var(--shadow-hover);
   border: 1px solid var(--line);
-  z-index: 60; max-height: min(70vh, 440px); overflow-y: auto;
+  z-index: 60; max-height: min(70vh, 440px); overflow-x: hidden; overflow-y: auto;
+  box-sizing: border-box; width: 100%; max-width: 100%;
 }
+.search-suggest-list { margin: 0; padding: 0; list-style: none; }
 .search-suggest-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
   min-height: 48px; padding: 8px 10px; border: 0; border-radius: 12px;
   background: transparent; color: inherit; cursor: pointer; text-align: left;
+  min-width: 0; box-sizing: border-box;
 }
 .search-suggest-item:hover,
 .search-suggest-item.is-active { background: var(--yellow-soft); }
@@ -142,14 +145,44 @@ button, input, select, textarea { font: inherit; }
   flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted); min-width: 52px;
 }
-.search-suggest-copy { display: grid; gap: 2px; min-width: 0; }
+.search-suggest-copy { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .search-suggest-label {
   font-weight: 700; font-size: 14px; line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .search-suggest-sub { font-size: 12px; color: var(--muted); }
 .search-suggest-all .search-suggest-label { font-weight: 750; }
-.search-suggest-status { padding: 12px 10px; color: var(--muted); font-size: 13px; }
+.search-suggest-status { padding: 12px 10px; color: var(--muted); font-size: 13px; margin: 0; }
+.search-suggest-thumb {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px;
+  object-fit: contain; background: #f4f4f0; border: 1px solid var(--line);
+}
+.search-suggest-thumb-ph {
+  display: grid; place-items: center;
+  background: var(--ink); color: var(--yellow);
+  font-size: 10px; font-weight: 800; letter-spacing: .04em; border: 0;
+}
+.search-suggest-prices { display: grid; gap: 1px; min-width: 0; }
+.search-suggest-price { font-size: 12px; font-weight: 800; color: var(--text); }
+.search-suggest-pix { font-size: 11px; font-weight: 700; color: var(--ok); }
+.search-suggest-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px 4px;
+}
+.search-suggest-heading {
+  margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.search-suggest-clear {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 12px; font-weight: 700; min-height: 32px; padding: 0 6px; border-radius: 8px;
+}
+.search-suggest-clear:hover { background: var(--yellow-soft); color: var(--ink); }
+.search-suggest-empty { padding: 8px 10px 6px; }
+.search-suggest-empty-title {
+  margin: 0 0 4px; font-size: 13px; font-weight: 800; line-height: 1.3;
+}
+.search-suggest-empty-body { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.35; }
 .hdr-cep {
   display: flex; flex-direction: column; gap: 2px; min-width: 118px;
   padding: 7px 12px; border-radius: 12px;
@@ -1485,6 +1518,12 @@ textarea { resize: vertical; min-height: 72px; }
     touch-action: manipulation;
   }
   .header-row { padding: 8px 0; gap: 8px; }
+  .search { min-width: 0; max-width: 100%; }
+  .search-suggest {
+    z-index: 40;
+    max-height: min(52vh, calc(100dvh - 168px - env(safe-area-inset-bottom, 0px)));
+    overscroll-behavior: contain;
+  }
   .hdr-hide-sm { display: none !important; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
   .nav-depts { display: none; }

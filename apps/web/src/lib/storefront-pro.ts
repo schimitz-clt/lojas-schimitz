@@ -4,6 +4,7 @@
  */
 
 import { pixPrice, pixSavings, toNumber } from '@/lib/pricing';
+import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from '@/lib/whatsapp';
 
 /** Percent off vs compare-at; null when no real discount. */
 export function discountPercent(
@@ -160,6 +161,17 @@ export type SearchEmptyCopy = {
   clearFiltersLabel: string;
 };
 
+export const SEARCH_EMPTY_WHATSAPP_TEXT =
+  'Olá, vim pela busca da Lojas Schimitz e preciso de ajuda para encontrar um produto.';
+
+export function searchEmptyWhatsAppHref(envPhone?: string | null): string {
+  const digits =
+    storeWhatsAppDigits(
+      envPhone ?? (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_WHATSAPP : undefined),
+    ) || DEFAULT_STORE_WHATSAPP;
+  return waMeUrl(digits, SEARCH_EMPTY_WHATSAPP_TEXT);
+}
+
 /** Empty-state copy for catalog / search (Portuguese). */
 export function searchEmptyCopy(q: string, hasFilters: boolean): SearchEmptyCopy {
   const query = q.trim();
@@ -167,8 +179,8 @@ export function searchEmptyCopy(q: string, hasFilters: boolean): SearchEmptyCopy
     return {
       title: `Não encontramos resultados para “${query}”.`,
       body: hasFilters
-        ? 'Tente outro termo, remova filtros ou explore os departamentos.'
-        : 'Tente outro termo ou explore os departamentos e o marketplace.',
+        ? 'Nada no catálogo com esse termo e esses filtros. Tente outra palavra, limpe os filtros, abra um departamento ou fale no WhatsApp.'
+        : 'Nada no catálogo com esse termo. Tente outra palavra, veja os departamentos, o catálogo completo ou fale no WhatsApp.',
       clearSearchLabel: 'Só limpar busca',
       clearFiltersLabel: 'Limpar filtros',
     };
@@ -176,14 +188,14 @@ export function searchEmptyCopy(q: string, hasFilters: boolean): SearchEmptyCopy
   if (hasFilters) {
     return {
       title: 'Nenhum produto encontrado com esses filtros.',
-      body: 'Ajuste preço ou categoria, ou limpe os filtros para ver o catálogo.',
+      body: 'Ajuste preço ou categoria, ou limpe os filtros para ver o catálogo, os departamentos ou o WhatsApp.',
       clearSearchLabel: 'Só limpar busca',
       clearFiltersLabel: 'Limpar filtros',
     };
   }
   return {
     title: 'Nenhum produto neste momento.',
-    body: 'Volte ao início ou confira o marketplace.',
+    body: 'Volte ao início, abra o catálogo ou fale no WhatsApp.',
     clearSearchLabel: 'Só limpar busca',
     clearFiltersLabel: 'Limpar filtros',
   };
@@ -256,15 +268,27 @@ function parseOptionalMoney(raw?: string): number | null {
   return Math.round(n * 100) / 100;
 }
 
-/** Suggested department links for empty search (real routes only). */
-export function emptySearchSuggestions(): { href: string; label: string }[] {
+export type EmptySearchSuggestion = {
+  href: string;
+  label: string;
+  external?: boolean;
+};
+
+/** Suggested department / catalog / WhatsApp links for empty search (real routes only). */
+export function emptySearchSuggestions(): EmptySearchSuggestion[] {
   return [
+    { href: '/produtos', label: 'Catálogo' },
     { href: '/departamento/ofertas', label: 'Ofertas' },
     { href: '/departamento/celulares', label: 'Celulares' },
     { href: '/departamento/eletro', label: 'TVs e Áudio' },
     { href: '/departamento/eletrodomesticos', label: 'Eletrodomésticos' },
     { href: '/marketplace', label: 'Marketplace' },
+    { href: searchEmptyWhatsAppHref(), label: 'WhatsApp', external: true },
   ];
+}
+
+export function isExternalSearchShortcut(s: Pick<EmptySearchSuggestion, 'href' | 'external'>): boolean {
+  return Boolean(s.external) || /^https?:\/\//i.test(s.href);
 }
 
 /** Count of active catalog filters (for “Filtros (n)” mobile button). */
