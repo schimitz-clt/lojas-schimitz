@@ -10,7 +10,6 @@ import {
   installmentValue,
   MAX_INSTALLMENTS,
   pixPrice,
-  stockBadge,
 } from '@/lib/pricing';
 import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { PdpSkeleton } from '@/components/Skeleton';
@@ -23,6 +22,15 @@ import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { rememberProductView } from '@/lib/recently-viewed';
 import { ProductShareButton } from '@/components/ProductShareButton';
+import { PdpFreightCep } from '@/components/PdpFreightCep';
+import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
+import type { Product } from '@/components/ProductCard';
+import {
+  pdpBenefitTrustItems,
+  pdpLowStockUrgency,
+  pdpPriceTrustLines,
+  pdpStockLine,
+} from '@/lib/pdp-trust';
 
 export type ProductDetail = {
   id: string;
@@ -117,7 +125,13 @@ function formatReviewDate(iso: string) {
   }
 }
 
-export default function ProductPage({ initial = null }: { initial?: ProductDetail | null }) {
+export default function ProductPage({
+  initial = null,
+  related = null,
+}: {
+  initial?: ProductDetail | null;
+  related?: Product[] | null;
+}) {
   const { slug } = useParams<{ slug: string }>();
   const [p, setP] = useState<ProductDetail | null>(() =>
     initial && (!slug || initial.slug === slug) ? initial : null,
@@ -227,15 +241,10 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
   if (!p) return <PdpSkeleton />;
 
   const stock = resolveProductStock(p);
-  const sb = stockBadge(stock);
-  const stockLabel =
-    stock == null
-      ? 'Estoque sob consulta'
-      : stock <= 0
-        ? 'Esgotado'
-        : stock <= 5
-          ? `Últimas unidades · ${stock} restantes`
-          : `Em estoque · ${stock} unidades`;
+  const urgency = pdpLowStockUrgency(stock);
+  const stockLabel = pdpStockLine(stock);
+  const priceTrust = pdpPriceTrustLines();
+  const benefitTrust = pdpBenefitTrustItems();
   const avg = Number(p.ratingAvg ?? 0);
   const count = p.ratingCount ?? 0;
   const loggedIn = Boolean(currentUser());
@@ -302,6 +311,15 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
               <span className="pdp-savings">{pixHighlight(price).savingsLine}</span>
             ) : null}
             <p className="pdp-install muted">{installmentLine(price)}</p>
+            <ul className="pdp-price-trust" aria-label="Troca e devolução">
+              {priceTrust.map((line) => (
+                <li key={line.id}>
+                  <Link href={line.href}>{line.title}</Link>
+                  <span className="muted">{line.body}</span>
+                </li>
+              ))}
+            </ul>
+            <PdpFreightCep subtotal={price} />
             <details className="pdp-install-table">
               <summary>Ver parcelas (1 a {MAX_INSTALLMENTS}x)</summary>
               <ul>
@@ -335,8 +353,8 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
             </div>
           ) : null}
 
-          <p className={`pdp-stock${sb ? ` pdp-stock-${sb.tone}` : ''}`}>
-            {sb ? <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span> : null}{' '}
+          <p className={`pdp-stock${urgency ? ' pdp-stock-low' : stock != null && stock <= 0 ? ' pdp-stock-out' : ''}`}>
+            {urgency ? <span className="pcard-stock pcard-stock-low">{urgency}</span> : null}{' '}
             {stockLabel}
           </p>
 
@@ -395,14 +413,14 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
           </div>
 
           <ul className="pdp-trust" aria-label="Benefícios">
-            <li>
-              <strong>Frete POA</strong>
-              <span className="muted">Grátis em Porto Alegre</span>
-            </li>
-            <li>
-              <strong>Troca 7 dias</strong>
-              <span className="muted">Direito a arrependimento</span>
-            </li>
+            {benefitTrust.map((item) => (
+              <li key={item.id}>
+                <strong>{item.title}</strong>
+                <span className="muted">
+                  {item.href ? <Link href={item.href}>{item.body}</Link> : item.body}
+                </span>
+              </li>
+            ))}
             <li>
               <strong>WhatsApp</strong>
               <span className="muted">
@@ -511,6 +529,14 @@ export default function ProductPage({ initial = null }: { initial?: ProductDetai
           </button>
         )}
       </div>
+
+      <PdpRelatedProducts
+        productId={p.id}
+        productSlug={p.slug}
+        categorySlug={p.category?.slug}
+        categoryName={p.category?.name}
+        initial={related}
+      />
 
       <RecentlyViewedStrip excludeId={p.id} excludeSlug={p.slug} />
 

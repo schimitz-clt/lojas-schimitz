@@ -4,7 +4,16 @@ import ProductClient, { type ProductDetail } from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
-import { fetchProductMeta, fetchPublicProduct, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
+import type { Product } from '@/components/ProductCard';
+import {
+  fetchProductMeta,
+  fetchPublicProduct,
+  fetchRelatedCatalogProducts,
+  fetchStoreSettings,
+  publicProductCategorySlug,
+  publicProductId,
+  siteOrigin,
+} from '@/lib/storefront';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -50,6 +59,11 @@ export default async function Page({ params }: Props) {
     permanentRedirect(`/produto/${encodeURIComponent(alias)}`);
   }
   const [product, initial] = await Promise.all([fetchProductMeta(slug), fetchPublicProduct(slug)]);
+  const related = await fetchRelatedCatalogProducts({
+    id: publicProductId(initial),
+    slug: (initial && typeof initial.slug === 'string' ? initial.slug : slug) || slug,
+    categorySlug: publicProductCategorySlug(initial) || product?.category?.slug || null,
+  });
   const origin = siteOrigin();
 
   const jsonLd = [];
@@ -91,7 +105,10 @@ export default async function Page({ params }: Props) {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <ProductClient initial={initial && typeof initial.slug === 'string' ? (initial as ProductDetail) : null} />
+      <ProductClient
+        initial={initial && typeof initial.slug === 'string' ? (initial as ProductDetail) : null}
+        related={related as Product[]}
+      />
     </>
   );
 }
