@@ -85,6 +85,9 @@ button, input, select, textarea { font: inherit; }
   z-index: 40;
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
+.header .wrap {
+  overflow: visible;
+}
 .header-row {
   display: flex;
   gap: 14px;
@@ -144,6 +147,25 @@ button, input, select, textarea { font: inherit; }
 .search-suggest-kind {
   flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted); min-width: 52px;
+}
+.search-suggest-kind-history,
+.search-suggest-kind-shortcut {
+  min-width: 18px; width: 18px; height: 18px; padding: 0; position: relative;
+}
+.search-suggest-kind-history {
+  border: 1.5px solid var(--muted); border-radius: 50%;
+}
+.search-suggest-kind-history::before {
+  content: ""; position: absolute; left: 7px; top: 3px; width: 1.5px; height: 6px;
+  background: var(--muted); border-radius: 1px;
+}
+.search-suggest-kind-history::after {
+  content: ""; position: absolute; left: 7px; top: 7px; width: 5px; height: 1.5px;
+  background: var(--muted); border-radius: 1px;
+}
+.search-suggest-kind-shortcut {
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  width: 8px; min-width: 8px; height: 8px; transform: rotate(-45deg); margin: 0 6px 0 4px;
 }
 .search-suggest-copy { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .search-suggest-label {

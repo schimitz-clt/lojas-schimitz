@@ -51,12 +51,12 @@ type PanelItem = {
   external?: boolean;
 };
 
-function kindLabel(kind: PanelKind): string {
+function kindLabel(kind: PanelKind): string | null {
   if (kind === 'category') return 'Depto';
   if (kind === 'all') return 'Busca';
-  if (kind === 'history') return 'Recente';
-  if (kind === 'shortcut') return 'Atalho';
-  return 'Produto';
+  if (kind === 'history') return '↻';
+  if (kind === 'shortcut') return '→';
+  return null;
 }
 
 export function SearchBox({ initialQuery = '' }: Props) {
@@ -326,6 +326,8 @@ export function SearchBox({ initialQuery = '' }: Props) {
                         LS
                       </span>
                     )
+                  ) : row.kind === 'history' || row.kind === 'shortcut' ? (
+                    <span className={`search-suggest-kind search-suggest-kind-${row.kind}`} aria-hidden />
                   ) : (
                     <span className="search-suggest-kind">{kindLabel(row.kind)}</span>
                   )}
