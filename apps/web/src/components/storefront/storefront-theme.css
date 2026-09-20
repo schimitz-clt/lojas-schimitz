@@ -813,6 +813,20 @@
   border-color: rgba(255, 209, 0, 0.5);
 }
 
+.sf-empty-suggestions a[href*="wa.me"] {
+  color: var(--sf-ok);
+}
+
+/* —— Header search (Magalu-style product rows + history) —— */
+.search-suggest-product .search-suggest-copy {
+  gap: 3px;
+}
+
+.search-suggest-shortcut .search-suggest-label,
+.search-suggest-history .search-suggest-label {
+  -webkit-line-clamp: 1;
+}
+
 /* Department hero + sibling pills */
 .sf-dept-hero {
   margin-bottom: 14px;
