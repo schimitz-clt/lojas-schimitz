@@ -14,7 +14,10 @@ import {
   pdpBenefitTrustItems,
   pdpCompactTrustChips,
   pdpFreightCheckoutFallback,
+  pdpFreightDestinationLine,
+  pdpFreightEstimateRow,
   pdpFreightIdleCopy,
+  pdpFreightPlaceName,
   pdpFreightResultCopy,
   pdpLowStockUrgency,
   pdpPriceTrustLines,
@@ -231,6 +234,28 @@ import {
   const paid = pdpFreightResultCopy({ price: 19.9, days: 5, label: 'Entrega própria — R$ 19,90' });
   assert.equal(paid.title, 'Frete: R$ 19,90');
   assert.ok(/5 dias/.test(paid.detail));
+
+  assert.equal(pdpFreightPlaceName('Porto Alegre — frete grátis'), 'Porto Alegre');
+  assert.equal(pdpFreightPlaceName('Entrega própria — R$ 19,90'), '');
+  assert.equal(
+    pdpFreightDestinationLine('90010-000', 'Porto Alegre — frete grátis'),
+    'Enviar para Porto Alegre · 90010-000',
+  );
+  assert.equal(pdpFreightDestinationLine('90010000', null), 'Enviar para 90010-000');
+  assert.equal(pdpFreightDestinationLine('', null), 'Informe o CEP de entrega');
+  const freeRow = pdpFreightEstimateRow({
+    price: 0,
+    days: 2,
+    label: 'Porto Alegre — frete grátis',
+    matchedPrefix: '90',
+  });
+  assert.equal(freeRow.eta, '2 dias após o despacho');
+  assert.equal(freeRow.price, 'Grátis');
+  assert.ok(!/segunda|setembro|retire na loja/i.test(`${freeRow.eta} ${freeRow.note}`));
+  assert.equal(
+    pdpFreightEstimateRow({ price: 19.9, days: 5, label: 'Entrega própria — R$ 19,90' }).price,
+    'R$ 19,90',
+  );
   console.log('pdp-trust: freight — PASSOU');
 }
 
@@ -255,7 +280,10 @@ import {
   assert.ok(pdp.includes('pdpPriceTrustLines'), 'PDP shows trust lines under price');
   assert.ok(pdp.includes('pdpCompactTrustChips'), 'PDP trust is a compact chip strip');
   assert.ok(pdp.includes('no PIX'), 'PIX price leads the offer');
+  assert.ok(pdp.includes('highlight.tag'), 'PIX keeps the 5% OFF chip');
+  assert.ok(pdp.includes("' em '"), 'list price and parcelas share one ou line');
   assert.ok(pdp.includes('pdp-list-price'), 'list price stays scannable under PIX');
+  assert.ok(pdp.includes('className="pdp-seller'), 'seller line stays under the title');
   assert.ok(pdp.includes('Falar com a loja'), 'WhatsApp store contact stays');
   assert.ok(pdp.includes('PdpFreightCep'), 'PDP wires existing CEP quote UI');
   assert.ok(pdp.includes('PdpRelatedProducts'), 'PDP shows related catalog products');
@@ -274,6 +302,9 @@ import {
   assert.ok(freightCmp.includes('/shipping/quote'), 'uses existing quote engine');
   assert.ok(freightCmp.includes('pdpFreightCheckoutFallback'), '401/error stays honest');
   assert.ok(freightCmp.includes('pdp-freight-estimate'), 'quote renders as an estimate row');
+  assert.ok(freightCmp.includes('pdpFreightDestinationLine'), 'destination uses the saved CEP');
+  assert.ok(freightCmp.includes('alterar'), 'CEP can be changed without a second address form');
+  assert.ok(!/retire na loja/i.test(freightCmp), 'no store pickup row');
   assert.ok(freightCmp.includes('STOREFRONT_CEP_KEY') || freightCmp.includes('readStoredCep'), 'reuses sch_cep');
 
   const relatedCmp = readFileSync(join(srcRoot, 'components/PdpRelatedProducts.tsx'), 'utf8');

@@ -326,6 +326,38 @@ export function pdpFreightResultCopy(q: PdpFreightQuote): { title: string; detai
   return { title, detail: bits ? `${days} · ${bits}` : days };
 }
 
+/** City/zone from the quote label. Skips freight sentences so we never invent a street. */
+export function pdpFreightPlaceName(label?: string | null): string {
+  const raw = String(label || '').trim();
+  if (!raw) return '';
+  const head = raw.split(/[—–]/)[0].trim();
+  if (!head || /frete|entrega|gr[aá]tis|r\$/i.test(head)) return '';
+  return head;
+}
+
+/** Destination we actually know: saved CEP, plus the quote place when it is a real zone. */
+export function pdpFreightDestinationLine(cep: string, label?: string | null): string {
+  const formatted = formatCepInput(cep);
+  if (!formatted) return 'Informe o CEP de entrega';
+  const place = pdpFreightPlaceName(label);
+  return place ? `Enviar para ${place} · ${formatted}` : `Enviar para ${formatted}`;
+}
+
+/**
+ * Receive row. Prazo stays “N dias após o despacho” — no calendar date we do not have.
+ * Cost is Grátis or the quoted BRL amount.
+ */
+export function pdpFreightEstimateRow(q: PdpFreightQuote): { eta: string; price: string; note: string } {
+  const amount = Number(q.price);
+  const price =
+    Number.isFinite(amount) && amount <= 0 ? 'Grátis' : formatFreightBrl(amount);
+  return {
+    eta: formatDaysAfterDispatch(Number(q.days) || 0),
+    price,
+    note: 'Após o despacho. O valor final é confirmado no checkout.',
+  };
+}
+
 /** Urgency only for a real numeric stock of 1–3. No fake “N pessoas vendo”. */
 export function pdpLowStockUrgency(stock: number | null | undefined): string | null {
   return shouldShowLowStock(stock) ? LOW_STOCK_LABEL : null;

@@ -272,6 +272,7 @@ export default function ProductPage({
   const loggedIn = Boolean(currentUser());
   const price = Number(p.price);
   const pix = pixPrice(price);
+  const highlight = pixHighlight(price);
   const sharePix = pdpSharePixLabel(price);
   const outOfStock = stock != null && stock <= 0;
   const description = productDescriptionText(p.description);
@@ -342,17 +343,16 @@ export default function ProductPage({
             </ul>
             <div className="pdp-price-row pdp-price-lead">
               <span className="price pdp-price">{brl(pix)}</span>
-              <span className="pdp-pix-kicker">no PIX</span>
+              <span className="pdp-pix-word">no PIX</span>
+              {highlight.savings > 0 ? <span className="pdp-pix-kicker">{highlight.tag}</span> : null}
             </div>
-            {pixHighlight(price).savings > 0 ? (
-              <span className="pdp-savings">{pixHighlight(price).savingsLine}</span>
-            ) : null}
             <p className="pdp-list-line">
-              <span className="muted">ou </span>
-              {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
+              ou{' '}
+              {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
               <span className="pdp-list-price">{brl(price)}</span>
+              {' em '}
+              {installmentLine(price)}
             </p>
-            <p className="pdp-install">{installmentLine(price)}</p>
             <PdpFreightCep subtotal={price} />
             <ul className="pdp-price-trust" aria-label="Vendedor, troca e garantia">
               {trustChips.map((chip) => (

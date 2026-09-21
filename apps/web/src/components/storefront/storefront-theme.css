@@ -380,7 +380,8 @@
   color: var(--sf-muted);
 }
 
-.pdp-list-price,
+.pdp-pix-word { color: var(--sf-ink); }
+.pdp-list-price { color: inherit; }
 .pdp-install {
   color: var(--sf-ink);
 }
@@ -405,9 +406,10 @@
 }
 
 .pdp-freight-estimate {
-  background: var(--sf-yellow-soft, var(--yellow-soft));
+  background: transparent;
   border-color: var(--sf-line);
 }
+.pdp-freight-alter { color: var(--sf-ink); }
 
 .pdp-price-trust li {
   background: var(--sf-surface);
