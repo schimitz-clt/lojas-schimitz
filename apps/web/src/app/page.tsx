@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
+import { HomeShortcuts } from '@/components/HomeShortcuts';
 import { HomeShelves } from '@/components/HomeShelves';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
@@ -143,7 +144,7 @@ function HomeInner() {
         {!loading ? (
           <div className="grid">
             {products.map((p, i) => (
-              <ProductCard key={p.id} p={p} priority={i < 4} />
+              <ProductCard key={p.id} p={p} priority={i < 4} variant="shelf" />
             ))}
           </div>
         ) : null}
@@ -157,8 +158,11 @@ function HomeInner() {
       {/* 1. Banner / hero */}
       <HomeBanners products={loading ? [] : products} />
 
+      {/* Shortcuts sit above Categorias — the photo strip stays. */}
+      <HomeShortcuts />
+
       {/* 2. Categories — photo circles, no emoji */}
-      <section className="home-cats" aria-labelledby="home-cats-title">
+      <section className="home-cats" id="home-cats" aria-labelledby="home-cats-title">
         <SectionHead id="home-cats-title" title="Categorias" href="/produtos" linkLabel="Ver todas" />
         <CategoryStrip products={products} />
       </section>

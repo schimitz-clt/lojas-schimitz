@@ -64,7 +64,12 @@ function ShelfRail({
       </button>
       <div ref={railRef} className="home-shelf-rail" tabIndex={0}>
         {shelf.items.map((product, i) => (
-          <ProductCard key={`${shelf.id}-${product.id}`} p={product} priority={i < priorityCount} />
+          <ProductCard
+            key={`${shelf.id}-${product.id}`}
+            p={product}
+            priority={i < priorityCount}
+            variant="shelf"
+          />
         ))}
       </div>
       <button

@@ -22,6 +22,18 @@ export function productCardCues(): CardCue[] {
   ];
 }
 
+/** Card CTA — same Portuguese as the PDP sacola button. */
+export function productCardAddLabel(opts: {
+  outOfStock: boolean;
+  adding: boolean;
+  added: boolean;
+}): string {
+  if (opts.outOfStock) return 'Ver detalhes';
+  if (opts.adding) return 'Adicionando…';
+  if (opts.added) return '✓ Na sacola';
+  return 'Adicionar à sacola';
+}
+
 export function productCardKicker(
   categoryName?: string | null,
   sellerName?: string | null,
