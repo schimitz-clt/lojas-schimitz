@@ -1,8 +1,11 @@
 /**
- * PDP share — Web Share API, then copy, then WhatsApp (wa.me text).
- * Portuguese copy only. No analytics.
+ * PDP share — Web Share API (title + text + url), then clipboard of the same
+ * rich text, then WhatsApp (wa.me text). Portuguese copy only. No analytics.
  * Share URL is always the live apex product page, never localhost / www / query.
+ * WhatsApp here is share-to-a-contact (no store number).
  */
+
+import { pixPrice } from '@/lib/pricing';
 
 export const PDP_SHARE_ORIGIN = 'https://lojasschimitz.com.br';
 
@@ -21,44 +24,80 @@ export function pdpProductCanonicalUrl(slug: string): string {
   return `${PDP_SHARE_ORIGIN}/produto/${encodeURIComponent(s)}`;
 }
 
-export function pdpSharePayload(productName: string, url: string): PdpSharePayload {
+/**
+ * Formatted PIX price for share copy, or null when there is nothing to advertise.
+ * Uses the existing 5% display helper — does not invent a second discount.
+ */
+export function pdpSharePixLabel(price: number | string | null | undefined): string | null {
+  if (price == null || price === '') return null;
+  const base = typeof price === 'number' ? price : Number(String(price).trim());
+  if (!Number.isFinite(base) || base <= 0) return null;
+  const pix = pixPrice(base);
+  if (!Number.isFinite(pix) || pix <= 0) return null;
+  return pix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function pdpSharePayload(
+  productName: string,
+  url: string,
+  pixLabel?: string | null,
+): PdpSharePayload {
   const name = (productName || '').trim() || 'Produto';
   const href = (url || '').trim();
+  const pix = (pixLabel || '').trim();
+  const text = pix
+    ? `Olha este produto na Lojas Schimitz por ${pix} no PIX`
+    : 'Olha este produto na Lojas Schimitz';
   return {
     title: name,
-    text: 'Olha este produto na Lojas Schimitz',
+    text,
     url: href,
   };
 }
 
+/** Same message native share describes: name, pitch (with PIX when present), and URL. */
+export function pdpShareClipboardText(payload: PdpSharePayload): string {
+  const title = (payload.title || '').trim();
+  const text = (payload.text || '').trim();
+  const url = (payload.url || '').trim();
+  return [title, text, url].filter(Boolean).join('\n');
+}
+
 /** Opens the user's WhatsApp with product title + link (no store number). */
-export function pdpShareWhatsAppHref(productName: string, url: string): string {
-  const { title, text } = pdpSharePayload(productName, url);
-  const href = (url || '').trim();
-  const body = href ? `${title}\n${text}\n${href}` : `${title}\n${text}`;
-  return `https://wa.me/?text=${encodeURIComponent(body)}`;
+export function pdpShareWhatsAppHref(
+  productName: string,
+  url: string,
+  pixLabel?: string | null,
+): string {
+  const payload = pdpSharePayload(productName, url, pixLabel);
+  return `https://wa.me/?text=${encodeURIComponent(pdpShareClipboardText(payload))}`;
 }
 
 export function pdpShareCopiedLabel(): string {
-  return 'Link copiado';
+  return 'Texto copiado';
 }
 
 export function pdpShareButtonLabel(): string {
   return 'Compartilhar';
 }
 
+export function pdpWhatsAppShareLabel(): string {
+  return 'Compartilhar no WhatsApp';
+}
+
 type ShareNative = (data: PdpSharePayload) => Promise<void>;
 type CopyText = (text: string) => Promise<void>;
 
-/** Prefer native share → clipboard → WhatsApp. AbortError stays cancelled. */
+/** Prefer native share → clipboard of the rich text → WhatsApp. AbortError stays cancelled. */
 export async function shareProductPage(opts: {
   productName: string;
   url: string;
+  pixLabel?: string | null;
   canShareNative: boolean;
   shareNative?: ShareNative;
   copyText?: CopyText;
 }): Promise<PdpShareResult> {
-  const payload = pdpSharePayload(opts.productName, opts.url);
+  const payload = pdpSharePayload(opts.productName, opts.url, opts.pixLabel);
   if (!payload.url) return 'failed';
 
   if (opts.canShareNative && opts.shareNative) {
@@ -73,7 +112,7 @@ export async function shareProductPage(opts: {
 
   if (opts.copyText) {
     try {
-      await opts.copyText(payload.url);
+      await opts.copyText(pdpShareClipboardText(payload));
       return 'copied';
     } catch {
       /* fall through to WhatsApp */

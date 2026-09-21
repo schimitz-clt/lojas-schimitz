@@ -1120,6 +1120,21 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-share { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 100%; }
 .pdp-share-btn { min-height: 40px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
 .pdp-share-icon { max-width: 40px; }
+.pdp-wa-share { flex: 0 0 auto; display: flex; align-items: flex-start; }
+.pdp-wa-share-icon { max-width: 40px; }
+.btn.ghost.pdp-wa-share-btn,
+.btn.ghost.pdp-wa-share-btn:hover {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  max-width: 40px;
+  padding: 0;
+  border-radius: 999px;
+  color: #1f8a44;
+  background: #fff;
+  display: grid;
+  place-items: center;
+}
 .pdp-seller { margin: 0 0 8px; }
 .pdp-rating {
   display: flex;
@@ -1638,6 +1653,7 @@ textarea { resize: vertical; min-height: 72px; }
     gap: 12px;
   }
   .pdp-title-row .pdp-share { display: none; }
+  .pdp-title-row .pdp-wa-share { display: none; }
   .pdp-share-btn { min-height: 36px; padding: 0 10px; }
   .pdp-identity { min-width: 0; max-width: 100%; padding: 8px 0 4px; }
   .pdp-rating { margin: 4px 0 0; max-width: 38%; }
@@ -1764,7 +1780,9 @@ textarea { resize: vertical; min-height: 72px; }
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
   }
+  .pdp-gallery-tools .pdp-wa-share { align-items: flex-end; }
   .pdp-gallery-tools .fav-toggle-btn,
+  .pdp-gallery-tools .pdp-wa-share-btn,
   .pdp-gallery-tools .pdp-share-btn {
     width: 40px;
     height: 40px;
