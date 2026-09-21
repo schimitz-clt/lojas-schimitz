@@ -77,5 +77,9 @@ assert.ok(
   admin.includes('ALLOW_LIVE') || admin.includes('split live'),
   'admin mentions gated live split, not a silent claim that it is already on',
 );
+assert.ok(!admin.includes('Sem split Mercado Pago em produção'), 'admin must not say live split is off');
+assert.ok(!admin.includes('split MP sandbox'), 'application_fee rows are not sandbox-only');
+assert.ok(admin.includes('comissão da plataforma'), 'ledger amount is labeled as platform commission');
+assert.ok(admin.includes('sellerMpOAuthLabel'), 'admin seller list shows MP OAuth status');
 
 console.log('marketplace-copy unit tests ok');

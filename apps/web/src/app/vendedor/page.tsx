@@ -64,6 +64,10 @@ type SellerCommissionsPayload = {
   totals: { pending: number; approved: number; paid: number; cancelled: number; all: number };
 };
 
+function sellerCommissionHint(percent: number | null | undefined): string {
+  return percent != null ? `${percent}%` : '~10%';
+}
+
 export default function VendedorPage() {
   const { user, ready } = useSessionUser();
   const [me, setMe] = useState<SellerMe | null>(null);
@@ -209,9 +213,11 @@ export default function VendedorPage() {
               <div className="body">
                 <h2 style={{ marginTop: 0, fontSize: 18 }}>Mercado Pago</h2>
                 <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
-                  Conecte a conta do vendedor (OAuth). Split sandbox só em staging com credenciais
-                  TEST-; em produção o pagamento continua no collector da loja. A loja própria não
-                  faz self-split.
+                  Com a conta vinculada, o valor cobrado entra no seu Mercado Pago e a loja retém a
+                  comissão ({sellerCommissionHint(me.commissionPercent)}) como application_fee. Sem
+                  vínculo, o checkout ainda pode concluir e o valor integral fica na conta da loja
+                  (repasse manual). No PIX, se o Mercado Pago recusar a taxa, o valor também fica na
+                  loja.
                 </p>
                 {me.mp.linked ? (
                   <p style={{ marginBottom: 0 }}>
@@ -314,10 +320,12 @@ export default function VendedorPage() {
 
           <section className="card" style={{ marginBottom: 20 }}>
             <div className="body">
-              <h2 style={{ marginTop: 0, fontSize: 18 }}>Comissões / Repasse (somente leitura)</h2>
+              <h2 style={{ marginTop: 0, fontSize: 18 }}>Comissão da plataforma (somente leitura)</h2>
               <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
-                Valores do ledger. O pagamento (PIX) é feito manualmente pela loja — sem split
-                automático do Mercado Pago.
+                Cada valor é a comissão da loja ({sellerCommissionHint(me.commissionPercent)} dos
+                itens), não o líquido a receber. Com Mercado Pago vinculado, essa comissão fica na
+                loja via application_fee. Sem vínculo, ou se o PIX recusar a taxa, o valor integral
+                fica na conta da loja e o repasse do restante é manual.
               </p>
               {commissions ? (
                 <div className="row" style={{ flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>

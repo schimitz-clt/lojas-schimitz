@@ -42,6 +42,8 @@ export type AdminSeller = {
   name: string;
   slug: string;
   status: string;
+  /** Present on GET /admin/sellers (full Seller row). pending | linked | expired | revoked. */
+  mpOAuthStatus?: string | null;
   commissionPercent?: number | string | null;
   _count?: { products: number };
   owner?: { id: string; name: string; email: string } | null;
