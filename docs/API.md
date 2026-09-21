@@ -8,7 +8,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 
 | Método | Rota | Acesso |
 |---|---|---|
-| GET | `/health` | público — liveness |
+| GET | `/health` | público — liveness (`mailConfigured`, `fcmConfigured` boolean — presença de env, sem segredos) |
 | GET | `/health/ready` | público — readiness (DB `SELECT 1`) |
 | GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `reconciliations.{openCount,recent[]}` + `mail.{configured,storeNotifyConfigured,providerOffWithStoreNotify,lastStoreNotifyFailure,storeNotifyFailureCount}` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` + `alerts[]` (open_reconciliations first; store_notify_mail_failed when a real send/skip event exists) |
 | GET | `/admin/payments/reconciliations` | admin — open PaymentReconciliation rows (Jwt+admin; no secrets) |
@@ -98,6 +98,24 @@ Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTER
 
 | GET | `/admin/customers` `?q=&take=&skip=` → `{ items, total, take, skip }` CRM read-only; `q` nome/e-mail/telefone; item: `ordersCount`, `paidOrdersCount`, `paidTotal`, `lastPaidAt`, `lastOrderAt`, `city`, `uf` | admin |
 | GET | `/admin/customers/:id` → cliente + endereços + até 50 pedidos (`publicId`, status, totais, data, `paymentMethod`/`paymentStatus`) sem `passwordHash` | admin |
+
+### Push FCM (promoções Android)
+
+Independente da tabela in-app `Notification` (`GET /notifications`). Cookie/JWT no upsert. Ver `docs/PUSH-FCM.md`.
+
+| Método | Rota | Acesso |
+|---|---|---|
+| POST | `/push/tokens` body `{ token, platform?: "android", enabled?, appVersion? }` — upsert único; logado vincula `userId`; visitante fica nulo | JWT opcional |
+| GET | `/admin/push/status` → `{ firebaseConfigured, source, projectId }` sem JSON da service account | admin |
+| GET | `/admin/push/tokens` → aparelhos (id, enabled, lastSeen, userBound) **sem** o token FCM | admin |
+| GET | `/admin/push/campaigns` | admin |
+| GET | `/admin/push/campaigns/:id` + dispatches (fingerprint) | admin |
+| POST | `/admin/push/campaigns` body `{ title, body, imageUrl?, linkPath?, audience: all_enabled\|with_orders, sendMode: immediate\|scheduled, scheduledAt? }` | admin |
+| POST | `/admin/push/campaigns/:id/cancel` | admin |
+| POST | `/admin/push/campaigns/:id/send` | admin |
+| POST | `/admin/push/test` body `{ tokenId, title?, body?, linkPath? }` — um aparelho | admin |
+
+Sem `FIREBASE_SERVICE_ACCOUNT_JSON` o envio é **NÃO EXECUTADO** (status failed + skipped). CI não dispara FCM real.
 
 ## OpenAPI / Swagger
 

@@ -87,6 +87,9 @@ export default function NotificacoesPage() {
       </div>
       <p className="muted">
         Acompanhe pagamentos e status dos pedidos. <Link href="/pedidos">Meus pedidos</Link>
+        <br />
+        Promoções no app Android: ative as notificações do sistema no aparelho. Esta página é o
+        histórico da conta — o envio de campanhas fica no Admin.
       </p>
       {err ? <div className="alert">{err}</div> : null}
       {!items.length ? <p className="muted">Nenhuma notificação ainda.</p> : null}

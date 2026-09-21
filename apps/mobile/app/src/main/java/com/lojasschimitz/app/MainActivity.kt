@@ -1,15 +1,18 @@
 package com.lojasschimitz.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
@@ -27,9 +30,11 @@ import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
@@ -71,6 +76,11 @@ class MainActivity : AppCompatActivity() {
             callback?.onReceiveValue(uris)
         }
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            fetchAndRegisterFcmToken()
+        }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         // Accept first-party cookies before WebView inflate so sch_refresh survives restarts.
@@ -109,22 +119,34 @@ class MainActivity : AppCompatActivity() {
             },
         )
 
-        val startUrl = intent?.data?.toString()?.takeIf { isAllowedUrl(it) } ?: HOME_URL
+        val startUrl = resolveStartUrl(intent)
         lastRequestedUrl = startUrl
         if (savedInstanceState == null) {
             loadStartOrOffline(startUrl)
         } else {
             webView.restoreState(savedInstanceState)
         }
+        requestNotificationPermissionThenRegister()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (hasPushExtras(intent)) {
+            val target = resolveStartUrl(intent)
+            lastRequestedUrl = target
+            loadStartOrOffline(target)
+            return
+        }
         intent.data?.toString()?.takeIf { isAllowedUrl(it) }?.let {
             lastRequestedUrl = it
             loadStartOrOffline(it)
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        PushRegistration.registerSaved(this, force = false)
     }
 
     override fun onPause() {
@@ -239,6 +261,7 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
                 CookieManager.getInstance().flush()
+                PushRegistration.registerSaved(this@MainActivity, force = false)
             }
 
             override fun onReceivedError(
@@ -416,5 +439,52 @@ class MainActivity : AppCompatActivity() {
         val callback = filePathCallback
         filePathCallback = null
         callback?.onReceiveValue(null)
+    }
+
+    private fun hasPushExtras(intent: Intent?): Boolean {
+        if (intent == null) return false
+        return !intent.getStringExtra(PushDeepLink.EXTRA_LINK).isNullOrBlank() ||
+            !intent.getStringExtra(PushDeepLink.EXTRA_PATH).isNullOrBlank() ||
+            intent.action == PushDeepLink.ACTION_OPEN
+    }
+
+    /**
+     * App Links (intent.data) or FCM extras (`link` / `path`). Same-origin HTTPS only.
+     * Does not change Mercado Pago / file-chooser / CookieManager behavior.
+     */
+    private fun resolveStartUrl(intent: Intent?): String {
+        intent?.data?.toString()?.takeIf { isAllowedUrl(it) }?.let { return it }
+        val fromPush = PushDeepLink.resolve(
+            intent?.getStringExtra(PushDeepLink.EXTRA_LINK),
+            intent?.getStringExtra(PushDeepLink.EXTRA_PATH),
+        )
+        if (fromPush != null && isAllowedUrl(fromPush)) return fromPush
+        return HOME_URL
+    }
+
+    private fun requestNotificationPermissionThenRegister() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+        }
+        fetchAndRegisterFcmToken()
+    }
+
+    private fun fetchAndRegisterFcmToken() {
+        try {
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!task.isSuccessful) return@addOnCompleteListener
+                val token = task.result ?: return@addOnCompleteListener
+                PushRegistration.register(this, token, force = true)
+            }
+        } catch (_: Exception) {
+            // google-services.json / Firebase ausente — WebView segue normal
+        }
     }
 }

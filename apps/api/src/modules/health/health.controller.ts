@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ok } from '../../common/http';
 import { PrismaService } from '../../prisma.service';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
+import { firebaseConfiguredFromEnvPresence } from '../push/push-fcm.config';
 import {
   isUploadsDirPersistent,
   resolveUploadsDir,
@@ -23,6 +24,8 @@ export class HealthController {
       time: new Date().toISOString(),
       /** Env names only (MAIL_FROM + RESEND_API_KEY|SMTP_HOST) — never secret values. */
       mailConfigured: mailConfiguredFromEnvPresence(),
+      /** Env names only (FIREBASE_SERVICE_ACCOUNT_JSON|BASE64 or ADC path) — never secret values. */
+      fcmConfigured: firebaseConfiguredFromEnvPresence(),
       /** Real path check: UPLOADS_DIR under /data (DEPLOY.md Volume). No path leaked. */
       uploadsPersistent: isUploadsDirPersistent(uploadsDir),
     });
@@ -42,6 +45,7 @@ export class HealthController {
         env: process.env.APP_ENV || 'development',
         time,
         mailConfigured: mailConfiguredFromEnvPresence(),
+        fcmConfigured: firebaseConfiguredFromEnvPresence(),
         /** Real path check: UPLOADS_DIR under /data (DEPLOY.md Volume). No path leaked. */
         uploadsPersistent: isUploadsDirPersistent(uploadsDir),
       });

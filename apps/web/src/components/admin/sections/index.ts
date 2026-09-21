@@ -9,3 +9,4 @@ export { AdminCuponsSection } from './AdminCuponsSection';
 export { AdminAvaliacoesSection } from './AdminAvaliacoesSection';
 export { AdminFreteSection } from './AdminFreteSection';
 export { AdminPedidosSection } from './AdminPedidosSection';
+export { AdminNotificacoesSection } from './AdminNotificacoesSection';

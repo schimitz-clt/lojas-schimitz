@@ -45,6 +45,16 @@ Ver `docs/SECURITY-HARDENING-2026-09-18.md`. Não rotacionar tokens neste lote.
 `prisma migrate deploy` **é necessário** (aditivo): índice `Favorite_userId_createdAt_idx`.
 A tabela `Favorite` já existia — sem DROP. Detalhes: `docs/WISHLIST.md`.
 
+### Push FCM (promoções Android)
+
+Migration aditiva `20260921_push_fcm_campaigns` (`DeviceFcmToken`, `PushCampaign`, `PushDispatch`).
+Não altera `Notification` (in-app), pedidos, pagamentos nem auth.
+
+**Secrets só no serviço API (dono):** `FIREBASE_SERVICE_ACCOUNT_JSON` (ou `_BASE64`).
+Sem elas o boot e o checkout seguem; campanhas marcam **NÃO EXECUTADO**.
+Não setar no serviço web. Não commitar `google-services.json`.
+Checklist: `docs/PUSH-FCM.md`. Este lote **não** altera variáveis de produção.
+
 
 ## Uploads de imagens (admin)
 

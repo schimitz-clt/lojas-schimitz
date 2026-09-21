@@ -7,7 +7,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 | Nome | Lojas Schimitz |
 | applicationId | `com.lojasschimitz.app` |
 | minSdk / targetSdk | 24 / 36 |
-| Versão (Play closed) | **1.0.7** (`versionCode` 8) |
+| Versão (Play closed) | **1.0.8** (`versionCode` 9) |
 | Entrada | `MainActivity` (WebView) |
 
 > **Por que não Capacitor/TWA?** Neste monorepo um WebView Kotlin é mais simples (sem `node_modules` no app), mantém Nest/Next intactos e cobre navegação mesma-origem + WhatsApp/Mercado Pago. Capacitor/TWA podem ser avaliados depois se precisarem de plugins JS.
@@ -27,6 +27,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é transparente para o app: same-origin + `credentials: 'include'` no Next; não há persistência nativa de JWT.
 - `<input type=file>` (Admin fotos de produto/banner) via `WebChromeClient.onShowFileChooser` + Activity Result (SAF/`GET_CONTENT`). Sem `allowFileAccess`; só mesma origem.
 - Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
+- **Push FCM (1.0.8):** pede `POST_NOTIFICATIONS` (Android 13+), registra o token na API com cookies `CookieManager` (`POST /api/v1/push/tokens`), toque abre rota da loja no WebView. Sem `google-services.json` o app **continua** (WebView/cookies/MP/file chooser intactos); envio live exige Firebase do dono — `docs/PUSH-FCM.md`.
 
 ## Pré-requisitos (no seu computador)
 
@@ -179,11 +180,27 @@ Detalhes: `docs/ANDROID-TWA-ASSETLINKS.md`.
 ```
 apps/mobile/
   app/src/main/java/.../MainActivity.kt
+  app/src/main/java/.../SchimitzFirebaseMessagingService.kt
+  app/src/main/java/.../PushRegistration.kt
+  app/google-services.json.example   # copie para google-services.json (gitignored)
   app/src/main/res/          # tema escuro/dourado, splash, ícone SCHIMITZ (PNG adaptive)
   store/                     # icon-512.png (Play) + ls-mark.svg (monograma legado)
   app/build.gradle.kts
   README.md                  # este arquivo
 ```
+
+## Firebase / google-services.json
+
+1. Firebase Console → app Android `com.lojasschimitz.app` (e client debug `com.lojasschimitz.app.debug`).
+2. Copie o JSON real:
+
+```bash
+cp apps/mobile/app/google-services.json.example apps/mobile/app/google-services.json
+# substitua pelo arquivo baixado do Firebase (nunca commitar)
+```
+
+3. Service account JSON → Railway API `FIREBASE_SERVICE_ACCOUNT_JSON`.
+4. Checklist e plano de teste (aberto / background / killed): `docs/PUSH-FCM.md`.
 
 ## Segurança
 
