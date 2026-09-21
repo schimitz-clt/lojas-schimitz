@@ -55,6 +55,14 @@ Sem elas o boot e o checkout seguem; campanhas marcam **NÃO EXECUTADO**.
 Não setar no serviço web. Não commitar `google-services.json`.
 Checklist: `docs/PUSH-FCM.md`. Este lote **não** altera variáveis de produção.
 
+### Push — recuperação de produto (viu e não comprou)
+
+Migration aditiva `20260922_abandoned_product_view` (`ProductViewEvent`, `AbandonedViewPush`).
+Não altera pedidos, pagamentos, auth nem colunas de `DeviceFcmToken`.
+
+Opcional no serviço API (padrão já é 2h / 48h): `ABANDONED_VIEW_DELAY_HOURS`, `ABANDONED_VIEW_MAX_AGE_HOURS`.
+Não defina atraso curto em produção. Ver `docs/PUSH-FCM.md`.
+
 
 ## Uploads de imagens (admin)
 

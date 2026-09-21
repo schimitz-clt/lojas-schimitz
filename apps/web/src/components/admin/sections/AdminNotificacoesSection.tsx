@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
 import {
+  abandonedViewAdminNote,
+  abandonedViewPreviewLine,
   campaignResultLine,
   emptyPushCampaignForm,
   firebaseStatusHint,
@@ -52,6 +54,13 @@ type TokenRow = {
   hasOrders: boolean;
 };
 
+type AbandonedPreview = {
+  openViews?: number;
+  dueViews?: number;
+  sentLast7Days?: number;
+  note?: string;
+};
+
 type ListData = {
   total: number;
   enabledDevices: number;
@@ -65,19 +74,22 @@ export function AdminNotificacoesSection() {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [firebase, setFirebase] = useState<FirebaseStatus>({});
   const [enabledDevices, setEnabledDevices] = useState(0);
+  const [abandoned, setAbandoned] = useState<AbandonedPreview | null>(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [list, tokenList] = await Promise.all([
+    const [list, tokenList, preview] = await Promise.all([
       api<ListData>('/admin/push/campaigns'),
       api<{ items: TokenRow[]; enabledCount: number }>('/admin/push/tokens'),
+      api<AbandonedPreview>('/admin/push/abandoned-views').catch(() => null),
     ]);
     setCampaigns(list.items || []);
     setFirebase(list.firebase || {});
     setEnabledDevices(list.enabledDevices || 0);
     setTokens(tokenList.items || []);
+    setAbandoned(preview);
   }, []);
 
   useEffect(() => {
@@ -174,6 +186,10 @@ export function AdminNotificacoesSection() {
         </div>
         <p className="muted" style={{ marginTop: 8 }}>
           {hint.text}
+        </p>
+        <p className="muted" style={{ marginTop: 8 }}>
+          {abandoned?.note || abandonedViewAdminNote()}
+          {abandoned ? ` ${abandonedViewPreviewLine(abandoned)}` : ''}
         </p>
 
         <section className="admin-card-pro">

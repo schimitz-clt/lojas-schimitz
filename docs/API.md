@@ -106,6 +106,8 @@ Independente da tabela in-app `Notification` (`GET /notifications`). Cookie/JWT 
 | Método | Rota | Acesso |
 |---|---|---|
 | POST | `/push/tokens` body `{ token, platform?: "android", enabled?, appVersion? }` — upsert único; logado vincula `userId`; visitante fica nulo | JWT opcional |
+| POST | `/push/product-views` body `{ productId?, slug?, deviceId? }` — visita à PDP do aparelho (`deviceId` ou cookie `sch_push_device`). Sem aparelho registrado: `{ recorded: false }`, não cria token | JWT opcional |
+| GET | `/admin/push/abandoned-views` — contagem somente leitura (não envia) | admin |
 | GET | `/admin/push/status` → `{ firebaseConfigured, source, projectId }` sem JSON da service account | admin |
 | GET | `/admin/push/tokens` → aparelhos (id, enabled, lastSeen, userBound) **sem** o token FCM | admin |
 | GET | `/admin/push/campaigns` | admin |

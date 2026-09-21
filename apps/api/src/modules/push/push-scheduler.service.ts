@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
 import { releaseSchedulerLock, tryAcquireSchedulerLock } from '../orders/scheduler-lock';
 import { PushCampaignsService } from './push-campaigns.service';
+import { AbandonedViewService } from './abandoned-view.service';
 
 const INTERVAL_MS = 30_000;
 const LOCK_ID = 'pushCampaignDispatch';
@@ -21,6 +22,7 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject(PushCampaignsService) private readonly campaigns: PushCampaignsService,
+    @Inject(AbandonedViewService) private readonly abandoned: AbandonedViewService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
@@ -29,7 +31,7 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
       void this.tick();
     }, INTERVAL_MS);
     this.log.log(
-      `Push FCM: job a cada ${INTERVAL_MS / 1000}s (lease DB + campanhas agendadas; MULTI_REPLICA-safe)`,
+      `Push FCM: job a cada ${INTERVAL_MS / 1000}s (campanhas agendadas + recuperação de produto; MULTI_REPLICA-safe)`,
     );
   }
 
@@ -52,7 +54,8 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
       if (result.processed > 0) {
         this.log.log(`Push agendado: processed=${result.processed}`);
       }
-      return { skipped: false, ...result };
+      const abandoned = await this.abandoned.processDue();
+      return { skipped: false, ...result, abandoned };
     } catch (e) {
       this.log.error('Falha no job de push agendado', e instanceof Error ? e.stack : String(e));
       return { skipped: false, processed: 0, error: true };

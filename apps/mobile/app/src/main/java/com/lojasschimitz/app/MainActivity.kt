@@ -146,6 +146,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        PushRegistration.ensureDeviceCookie(this)
         PushRegistration.registerSaved(this, force = false)
     }
 
@@ -215,6 +216,10 @@ class MainActivity : AppCompatActivity() {
                 fun retry() {
                     runOnUiThread { retryLoad() }
                 }
+
+                /** DeviceFcmToken id for PDP view tracking. Empty when push is not registered. */
+                @JavascriptInterface
+                fun pushDeviceId(): String = PushRegistration.savedDeviceId(this@MainActivity).orEmpty()
             },
             "LojasSchimitz",
         )

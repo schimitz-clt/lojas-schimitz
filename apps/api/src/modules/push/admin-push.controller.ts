@@ -17,6 +17,7 @@ import { ok } from '../../common/http';
 import { AdminPushTestDto, CreatePushCampaignDto } from './dto';
 import { PushCampaignsService } from './push-campaigns.service';
 import { PushTokensService } from './push-tokens.service';
+import { AbandonedViewService } from './abandoned-view.service';
 
 @ApiTags('admin-push')
 @ApiBearerAuth('access-token')
@@ -27,12 +28,22 @@ export class AdminPushController {
   constructor(
     private readonly campaigns: PushCampaignsService,
     private readonly tokens: PushTokensService,
+    private readonly abandoned: AbandonedViewService,
   ) {}
 
   @Get('status')
   @ApiOperation({ summary: 'Firebase Admin configurado? Sem valores de segredo.' })
   status() {
     return ok(this.campaigns.status());
+  }
+
+  @Get('abandoned-views')
+  @ApiOperation({
+    summary:
+      'Contagem somente leitura da recuperação automática de produto. Não envia push.',
+  })
+  async abandonedViews() {
+    return ok(await this.abandoned.preview());
   }
 
   @Get('tokens')

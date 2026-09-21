@@ -1,5 +1,7 @@
 import assert from 'assert';
 import {
+  abandonedViewAdminNote,
+  abandonedViewPreviewLine,
   campaignResultLine,
   emptyPushCampaignForm,
   firebaseStatusHint,
@@ -19,6 +21,8 @@ assert.equal(pushStatusTone('sent'), 'ok');
 assert.equal(pushStatusTone('failed'), 'danger');
 assert.equal(isNaoExecutado('NÃO EXECUTADO: Firebase Admin não configurado'), true);
 assert.equal(isNaoExecutado('ok'), false);
+assert.ok(abandonedViewAdminNote().includes('automática'));
+assert.ok(abandonedViewPreviewLine({ openViews: 0, dueViews: 0, sentLast7Days: 0 }).includes('0 visita'));
 
 const line = campaignResultLine({
   sentCount: 0,

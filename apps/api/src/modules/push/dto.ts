@@ -71,6 +71,21 @@ export class CreatePushCampaignDto {
   scheduledAt?: string;
 }
 
+export class RecordProductViewDto {
+  @IsOptional()
+  @IsUUID()
+  productId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  slug?: string;
+
+  @IsOptional()
+  @IsUUID()
+  deviceId?: string;
+}
+
 export class AdminPushTestDto {
   @IsUUID()
   tokenId!: string;
