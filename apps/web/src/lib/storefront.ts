@@ -5,7 +5,12 @@ import {
   type PublicSellerCard,
 } from '@/lib/marketplace-copy';
 import { catalogProductsFromResponse } from '@/lib/home-shelves';
-import { pickRelatedProducts, RELATED_PRODUCTS_MAX } from '@/lib/pdp-trust';
+import {
+  assembleRelatedProducts,
+  bestsellersFromHomeShelves,
+  type RelatedKind,
+  type RelatedProductLike,
+} from '@/lib/pdp-trust';
 
 /** Tipos e fetch server-side para SEO / banners (storefront). */
 
@@ -184,24 +189,40 @@ export function publicProductId(product: unknown): string | null {
   return typeof id === 'string' && id.trim() ? id.trim() : null;
 }
 
-/** Same-category (then catalog fill) products for the PDP related rail. */
+async function fetchHomeShelvesPayload(): Promise<unknown> {
+  try {
+    const res = await fetch(`${API}/store/shelves`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { ok?: boolean; data?: unknown };
+    if (!json.ok) return null;
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Same-department products, then Mais vendidos, then catalog — for the PDP shelf. */
 export async function fetchRelatedCatalogProducts(input: {
   id?: string | null;
   slug?: string | null;
   categorySlug?: string | null;
-}): Promise<Record<string, unknown>[]> {
+}): Promise<{ items: RelatedProductLike[]; kind: RelatedKind }> {
   const categorySlug = String(input.categorySlug || '').trim();
-  const categoryItems = categorySlug ? await fetchCatalogItems({ category: categorySlug, pageSize: 24 }) : [];
-  let pool = categoryItems;
-  if (categoryItems.length < 2) {
-    const all = await fetchCatalogItems({ pageSize: 24 });
-    pool = [...categoryItems, ...all];
+  const current = { id: input.id, slug: input.slug, categorySlug };
+  const categoryItems = (
+    categorySlug ? await fetchCatalogItems({ category: categorySlug, pageSize: 24 }) : []
+  ) as RelatedProductLike[];
+  const fromCategory = assembleRelatedProducts(current, { category: categoryItems });
+  if (fromCategory.kind === 'category' && fromCategory.items.length >= 2) {
+    return fromCategory;
   }
-  return pickRelatedProducts(
-    { id: input.id, slug: input.slug, categorySlug },
-    pool,
-    RELATED_PRODUCTS_MAX,
-  ).items;
+  const bestsellers = bestsellersFromHomeShelves<RelatedProductLike>(await fetchHomeShelvesPayload());
+  const withBest = assembleRelatedProducts(current, { category: categoryItems, bestsellers });
+  if (withBest.items.length >= 2 && (withBest.kind === 'category' || withBest.kind === 'bestsellers')) {
+    return withBest;
+  }
+  const catalog = (await fetchCatalogItems({ pageSize: 24 })) as RelatedProductLike[];
+  return assembleRelatedProducts(current, { category: categoryItems, bestsellers, catalog });
 }
 
 /** Active sellers for /marketplace. Falls back to unique sellers on the catalog if GET /sellers is missing. */

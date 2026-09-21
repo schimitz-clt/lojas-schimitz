@@ -8,8 +8,9 @@ import {
   isCompleteCep,
   persistStoredCep,
   pdpFreightCheckoutFallback,
+  pdpFreightDestinationLine,
+  pdpFreightEstimateRow,
   pdpFreightIdleCopy,
-  pdpFreightResultCopy,
   readStoredCep,
   type PdpFreightQuote,
 } from '@/lib/pdp-trust';
@@ -25,6 +26,7 @@ export function PdpFreightCep({ subtotal }: Props) {
   const [quote, setQuote] = useState<PdpFreightQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     const saved = readStoredCep(typeof window !== 'undefined' ? window.localStorage : null);
@@ -50,6 +52,7 @@ export function PdpFreightCep({ subtotal }: Props) {
         body: JSON.stringify({ cep: next, subtotal: Math.max(0, Number(subtotal) || 0) }),
       });
       setQuote(data);
+      setEditing(false);
     } catch {
       setQuote(null);
       setFailed(true);
@@ -63,41 +66,57 @@ export function PdpFreightCep({ subtotal }: Props) {
     void quoteCep(cep);
   }
 
-  const result = quote ? pdpFreightResultCopy(quote) : null;
+  const estimate = quote ? pdpFreightEstimateRow(quote) : null;
   const fallback = pdpFreightCheckoutFallback();
+  const showForm = editing || !isCompleteCep(cep);
 
   return (
     <div className="pdp-freight" aria-label="Calcular frete">
-      <p className="pdp-freight-kicker">{idle.title}</p>
-      <p className="muted pdp-freight-hint">{idle.body}</p>
-      <form className="pdp-freight-form" onSubmit={onSubmit}>
-        <label className="pdp-freight-field">
-          <span className="sr-only">CEP</span>
-          <input
-            inputMode="numeric"
-            autoComplete="postal-code"
-            placeholder="00000-000"
-            value={cep}
-            onChange={(e) => {
-              setCep(formatCepInput(e.target.value));
-              setFailed(false);
-              setQuote(null);
-            }}
-            aria-label="Informe seu CEP"
-          />
-        </label>
-        <button className="btn ghost" type="submit" disabled={loading || !isCompleteCep(cep)}>
-          {loading ? 'Calculando…' : 'Calcular'}
-        </button>
-      </form>
+      {showForm ? (
+        <div className="pdp-freight-top">
+          <p className="pdp-freight-kicker">{idle.title}</p>
+          <form className="pdp-freight-form" onSubmit={onSubmit}>
+            <label className="pdp-freight-field">
+              <span className="sr-only">CEP</span>
+              <input
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="00000-000"
+                value={cep}
+                onChange={(e) => {
+                  setCep(formatCepInput(e.target.value));
+                  setFailed(false);
+                  setQuote(null);
+                }}
+                aria-label="Informe seu CEP"
+              />
+            </label>
+            <button className="btn" type="submit" disabled={loading || !isCompleteCep(cep)}>
+              {loading ? 'Calculando…' : 'Calcular'}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="pdp-freight-dest">
+          <p className="pdp-freight-dest-line">{pdpFreightDestinationLine(cep, quote?.label)}</p>
+          <button type="button" className="pdp-freight-alter" onClick={() => setEditing(true)}>
+            alterar
+          </button>
+        </div>
+      )}
+      {showForm ? <p className="muted pdp-freight-hint">{idle.body}</p> : null}
       {loading ? <p className="muted pdp-freight-status">Consultando a entrega própria…</p> : null}
-      {!loading && result ? (
-        <p className="pdp-freight-result" role="status">
-          <strong>{result.title}</strong>
-          <span className="muted">{result.detail}</span>
+      {!loading && estimate && !showForm ? (
+        <p className="pdp-freight-result pdp-freight-estimate" role="status">
+          <span className="pdp-freight-eta">
+            <span className="pdp-freight-receive">Receba </span>
+            {estimate.eta}
+            <span className="muted pdp-freight-note">{estimate.note}</span>
+          </span>
+          <strong>{estimate.price}</strong>
         </p>
       ) : null}
-      {!loading && failed ? (
+      {!loading && failed && !showForm ? (
         <p className="pdp-freight-fallback" role="status">
           <strong>{fallback.title}</strong>
           <span className="muted">

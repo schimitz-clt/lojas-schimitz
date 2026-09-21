@@ -7,11 +7,13 @@ import { ProductCard, type Product } from '@/components/ProductCard';
 import { homeShelfNavNextLabel, homeShelfNavPrevLabel, homeShelfScrollAmount } from '@/lib/home-shelves';
 import {
   RELATED_PRODUCTS_MAX,
+  assembleRelatedProducts,
+  bestsellersFromHomeShelves,
   parseCatalogProductItems,
-  pickRelatedProducts,
   relatedProductsCopy,
-  relatedProductsHref,
+  relatedShelfLink,
   shouldShowRelatedProducts,
+  type RelatedKind,
 } from '@/lib/pdp-trust';
 
 type Props = {
@@ -20,6 +22,7 @@ type Props = {
   categorySlug?: string | null;
   categoryName?: string | null;
   initial?: Product[] | null;
+  initialKind?: RelatedKind | null;
 };
 
 export function PdpRelatedProducts({
@@ -28,53 +31,98 @@ export function PdpRelatedProducts({
   categorySlug,
   categoryName,
   initial = null,
+  initialKind = null,
 }: Props) {
-  const [pool, setPool] = useState<Product[]>(() => initial || []);
+  const current = useMemo(
+    () => ({ id: productId, slug: productSlug, categorySlug }),
+    [productId, productSlug, categorySlug],
+  );
+  const [picked, setPicked] = useState(() => {
+    if (initialKind && initial && initial.length) {
+      return { items: initial, kind: initialKind };
+    }
+    return assembleRelatedProducts(current, { category: initial || [] }, RELATED_PRODUCTS_MAX);
+  });
   const railRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     const category = (categorySlug || '').trim();
-    const path = category
-      ? `/products?category=${encodeURIComponent(category)}&pageSize=24`
-      : '/products?pageSize=24';
-    api<unknown>(path)
-      .then((data) => {
-        if (cancelled) return;
-        const first = parseCatalogProductItems<Product>(data);
-        if (first.length >= 2 || !category) {
-          setPool(first);
-          return;
+
+    async function load() {
+      let categoryItems: Product[] = [];
+      if (category) {
+        try {
+          const data = await api<unknown>(
+            `/products?category=${encodeURIComponent(category)}&pageSize=24`,
+          );
+          categoryItems = parseCatalogProductItems<Product>(data);
+        } catch {
+          categoryItems = [];
         }
-        return api<unknown>('/products?pageSize=24').then((all) => {
-          if (!cancelled) {
-            setPool([...first, ...parseCatalogProductItems<Product>(all)]);
-          }
-        });
-      })
-      .catch(() => {
-        if (!cancelled && !(initial && initial.length)) setPool([]);
-      });
+      }
+      if (cancelled) return;
+      const fromCategory = assembleRelatedProducts(
+        current,
+        { category: categoryItems },
+        RELATED_PRODUCTS_MAX,
+      );
+      if (fromCategory.kind === 'category' && fromCategory.items.length >= 2) {
+        setPicked(fromCategory);
+        return;
+      }
+
+      let bestsellers: Product[] = [];
+      try {
+        const shelves = await api<unknown>('/store/shelves');
+        bestsellers = bestsellersFromHomeShelves<Product>(shelves);
+      } catch {
+        bestsellers = [];
+      }
+      if (cancelled) return;
+      const withBest = assembleRelatedProducts(
+        current,
+        { category: categoryItems, bestsellers },
+        RELATED_PRODUCTS_MAX,
+      );
+      if (
+        withBest.items.length >= 2 &&
+        (withBest.kind === 'category' || withBest.kind === 'bestsellers')
+      ) {
+        setPicked(withBest);
+        return;
+      }
+
+      let catalog: Product[] = [];
+      try {
+        const all = await api<unknown>('/products?pageSize=24');
+        catalog = parseCatalogProductItems<Product>(all);
+      } catch {
+        catalog = [];
+      }
+      if (cancelled) return;
+      const filled = assembleRelatedProducts(
+        current,
+        { category: categoryItems, bestsellers, catalog },
+        RELATED_PRODUCTS_MAX,
+      );
+      if (filled.items.length) {
+        setPicked(filled);
+        return;
+      }
+      if (!(initial && initial.length)) setPicked(filled);
+    }
+
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [productId, productSlug, categorySlug, initial]);
-
-  const picked = useMemo(
-    () =>
-      pickRelatedProducts(
-        { id: productId, slug: productSlug, categorySlug },
-        pool.length ? pool : initial || [],
-        RELATED_PRODUCTS_MAX,
-      ),
-    [productId, productSlug, categorySlug, pool, initial],
-  );
+  }, [current, categorySlug, initial]);
 
   if (!shouldShowRelatedProducts(picked.items.length)) return null;
 
   const copy = relatedProductsCopy(picked.kind);
-  const href = relatedProductsHref(categorySlug);
-  const linkLabel = categoryName ? `Ver ${categoryName}` : 'Ver catálogo';
+  const shelfLink = relatedShelfLink(picked.kind, categorySlug, categoryName);
 
   function scrollByDir(dir: -1 | 1) {
     const el = railRef.current;
@@ -89,7 +137,7 @@ export function PdpRelatedProducts({
           <h2 id="pdp-related-title">{copy.title}</h2>
           <p className="home-shelf-sub muted">{copy.subtitle}</p>
         </div>
-        <Link href={href}>{linkLabel}</Link>
+        <Link href={shelfLink.href}>{shelfLink.label}</Link>
       </div>
       <div className="home-shelf-viewport">
         <button
@@ -102,7 +150,7 @@ export function PdpRelatedProducts({
         </button>
         <div ref={railRef} className="home-shelf-rail" tabIndex={0}>
           {picked.items.map((p) => (
-            <ProductCard key={`related-${p.id}`} p={p} />
+            <ProductCard key={`related-${p.id}`} p={p} variant="shelf" />
           ))}
         </div>
         <button

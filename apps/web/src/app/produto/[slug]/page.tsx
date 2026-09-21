@@ -107,7 +107,8 @@ export default async function Page({ params }: Props) {
       <JsonLd data={jsonLd} />
       <ProductClient
         initial={initial && typeof initial.slug === 'string' ? (initial as ProductDetail) : null}
-        related={related as Product[]}
+        related={related.items as Product[]}
+        relatedKind={related.kind}
       />
     </>
   );

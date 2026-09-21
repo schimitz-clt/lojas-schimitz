@@ -4,7 +4,7 @@
  */
 
 import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
-import { catalogProductsFromResponse } from '@/lib/home-shelves';
+import { catalogProductsFromResponse, parseHomeShelvesPayload } from '@/lib/home-shelves';
 import { LOW_STOCK_LABEL, LOW_STOCK_MAX, shouldShowLowStock } from '@/lib/low-stock';
 
 /** Same localStorage key as the header CEP control. */
@@ -72,9 +72,11 @@ export type RelatedProductLike = {
   category?: { slug?: string | null } | null;
 };
 
+export type RelatedKind = 'category' | 'bestsellers' | 'catalog';
+
 export type RelatedPick<T> = {
   items: T[];
-  kind: 'category' | 'catalog';
+  kind: RelatedKind;
 };
 
 function relatedId(p: RelatedProductLike): string {
@@ -115,25 +117,96 @@ export function shouldShowRelatedProducts(count: number): boolean {
   return Number(count) > 0;
 }
 
-export function relatedProductsCopy(kind: RelatedPick<unknown>['kind']): {
+export function relatedProductsCopy(kind: RelatedKind): {
   title: string;
   subtitle: string;
 } {
+  const title = 'Quem viu também viu';
   if (kind === 'category') {
     return {
-      title: 'Você também pode gostar',
+      title,
       subtitle: 'Outros itens da mesma categoria no catálogo',
     };
   }
+  if (kind === 'bestsellers') {
+    return {
+      title,
+      subtitle: 'Mais vendidos da loja',
+    };
+  }
   return {
-    title: 'Você também pode gostar',
+    title,
     subtitle: 'Sugestões do catálogo Lojas Schimitz',
   };
 }
 
-export function relatedProductsHref(categorySlug?: string | null): string {
+export function relatedProductsHref(categorySlug?: string | null, kind?: RelatedKind): string {
+  if (kind === 'bestsellers') return '/produtos?sort=relevance';
   const slug = String(categorySlug || '').trim();
   return slug ? `/departamento/${encodeURIComponent(slug)}` : '/produtos';
+}
+
+/** “Ver mais” target for the related shelf — department, mais vendidos, or catalog. */
+export function relatedShelfLink(
+  kind: RelatedKind,
+  categorySlug?: string | null,
+  categoryName?: string | null,
+): { href: string; label: string } {
+  if (kind === 'bestsellers') {
+    return { href: relatedProductsHref(null, 'bestsellers'), label: 'Ver mais vendidos' };
+  }
+  const name = String(categoryName || '').trim();
+  return {
+    href: relatedProductsHref(categorySlug, kind),
+    label: name && kind === 'category' ? `Ver ${name}` : 'Ver catálogo',
+  };
+}
+
+/**
+ * Same department first. Pad with the home “Mais vendidos” shelf only when that
+ * shelf is a real sales/rating ranking — never the “Em destaque” newest fallback.
+ * Generic catalog is the last fill. No mocks.
+ */
+export function assembleRelatedProducts<T extends RelatedProductLike>(
+  current: { id?: string | null; slug?: string | null; categorySlug?: string | null },
+  sources: { category?: T[] | null; bestsellers?: T[] | null; catalog?: T[] | null },
+  max = RELATED_PRODUCTS_MAX,
+): RelatedPick<T> {
+  const category = sources.category || [];
+  const bestsellers = sources.bestsellers || [];
+  const catalog = sources.catalog || [];
+  const fromCategory = pickRelatedProducts(current, category, max);
+  if (fromCategory.kind === 'category' && fromCategory.items.length >= 2) {
+    return { items: fromCategory.items, kind: 'category' };
+  }
+
+  // One department neighbor is still a category shelf; pad the rail when a fallback exists.
+  if (fromCategory.kind === 'category' && fromCategory.items.length > 0) {
+    const padded = pickRelatedProducts(current, [...category, ...bestsellers, ...catalog], max);
+    return { items: padded.items, kind: 'category' };
+  }
+
+  const withBest = bestsellers.length
+    ? pickRelatedProducts(current, [...category, ...bestsellers], max)
+    : fromCategory;
+  const bestGrew = withBest.items.length > fromCategory.items.length;
+  if (bestGrew && withBest.items.length >= 2) {
+    return { items: withBest.items, kind: 'bestsellers' };
+  }
+
+  const filled = pickRelatedProducts(current, [...category, ...bestsellers, ...catalog], max);
+  if (bestGrew) return { items: filled.items, kind: 'bestsellers' };
+  return { items: filled.items, kind: 'catalog' };
+}
+
+/** Featured home shelf items only when the API calls them Mais vendidos (paid qty or ratings). */
+export function bestsellersFromHomeShelves<T extends RelatedProductLike>(payload: unknown): T[] {
+  const shelves = parseHomeShelvesPayload(payload);
+  if (!shelves) return [];
+  const featured = shelves.find((shelf) => shelf.id === 'featured');
+  if (!featured) return [];
+  if (featured.metric !== 'paid_qty' && featured.metric !== 'rating_count') return [];
+  return featured.items as T[];
 }
 
 export function parseCatalogProductItems<T extends RelatedProductLike>(data: unknown): T[] {
@@ -192,9 +265,41 @@ export type PdpFreightQuote = {
 
 export function pdpFreightIdleCopy(): { title: string; body: string } {
   return {
-    title: 'Calcule o frete',
+    title: 'Frete e prazo',
     body: 'Informe o CEP para ver a estimativa da entrega própria. O valor final é confirmado no checkout.',
   };
+}
+
+export type PdpTrustChip = {
+  id: 'seller' | 'troca' | 'garantia';
+  label: string;
+  href?: PdpTrustLine['href'];
+};
+
+/** Short buy-box chips. Facts stay the existing troca/suporte lines — no new promises. */
+export function pdpCompactTrustChips(
+  sellerName?: string | null,
+  lines: PdpTrustLine[] = pdpPriceTrustLines(),
+): PdpTrustChip[] {
+  const troca = lines.find((line) => line.id === 'troca');
+  const garantia = lines.find((line) => line.id === 'devolucao');
+  const seller = String(sellerName || '').trim();
+  return [
+    {
+      id: 'seller',
+      label: seller ? `Vendido por ${seller}` : 'Lojas Schimitz',
+    },
+    {
+      id: 'troca',
+      label: 'Troca em 7 dias',
+      href: troca?.href ?? '/termos',
+    },
+    {
+      id: 'garantia',
+      label: 'Garantia e qualidade',
+      href: garantia?.href ?? '/suporte',
+    },
+  ];
 }
 
 /** Honest fallback — never invent a carrier quote. */
@@ -219,6 +324,38 @@ export function pdpFreightResultCopy(q: PdpFreightQuote): { title: string; detai
     .filter(Boolean)
     .join(' · ');
   return { title, detail: bits ? `${days} · ${bits}` : days };
+}
+
+/** City/zone from the quote label. Skips freight sentences so we never invent a street. */
+export function pdpFreightPlaceName(label?: string | null): string {
+  const raw = String(label || '').trim();
+  if (!raw) return '';
+  const head = raw.split(/[—–]/)[0].trim();
+  if (!head || /frete|entrega|gr[aá]tis|r\$/i.test(head)) return '';
+  return head;
+}
+
+/** Destination we actually know: saved CEP, plus the quote place when it is a real zone. */
+export function pdpFreightDestinationLine(cep: string, label?: string | null): string {
+  const formatted = formatCepInput(cep);
+  if (!formatted) return 'Informe o CEP de entrega';
+  const place = pdpFreightPlaceName(label);
+  return place ? `Enviar para ${place} · ${formatted}` : `Enviar para ${formatted}`;
+}
+
+/**
+ * Receive row. Prazo stays “N dias após o despacho” — no calendar date we do not have.
+ * Cost is Grátis or the quoted BRL amount.
+ */
+export function pdpFreightEstimateRow(q: PdpFreightQuote): { eta: string; price: string; note: string } {
+  const amount = Number(q.price);
+  const price =
+    Number.isFinite(amount) && amount <= 0 ? 'Grátis' : formatFreightBrl(amount);
+  return {
+    eta: formatDaysAfterDispatch(Number(q.days) || 0),
+    price,
+    note: 'Após o despacho. O valor final é confirmado no checkout.',
+  };
 }
 
 /** Urgency only for a real numeric stock of 1–3. No fake “N pessoas vendo”. */

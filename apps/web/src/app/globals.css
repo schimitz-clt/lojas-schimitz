@@ -1279,20 +1279,54 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .pdp-price-block { padding: 16px 18px; border-radius: var(--radius); border: 1px solid var(--line); background: #fff; margin-bottom: 12px; }
 .pdp-price { font-size: 32px; color: var(--ink); }
+.pdp-price-lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.pdp-pix-word { font-size: 16px; font-weight: 750; color: var(--ink); }
+.pdp-pix-kicker {
+  display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 800; letter-spacing: .01em; color: var(--ink);
+  background: var(--yellow); border-radius: 999px; padding: 3px 8px; line-height: 1.2;
+}
+.pdp-list-line { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--muted); font-weight: 650; }
+.pdp-list-price { color: inherit; font-weight: 650; }
 .pdp-pix { margin: 6px 0 0; color: var(--ok); font-size: 15px; }
-.pdp-install { margin: 4px 0 0; font-size: 13px; }
-.pdp-price-trust { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
-.pdp-price-trust li { display: grid; gap: 2px; font-size: 13px; line-height: 1.35; min-width: 0; }
-.pdp-price-trust a { color: var(--ink); font-weight: 750; text-decoration: underline; text-underline-offset: 2px; }
+.pdp-install { margin: 2px 0 0; font-size: 15px; font-weight: 750; color: var(--ink); }
+.pdp-price-trust {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px; min-width: 0;
+}
+.pdp-price-trust li {
+  display: inline-flex; align-items: center; margin: 0;
+  padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: #fff;
+  font-size: 12px; font-weight: 750; line-height: 1.2; color: var(--ink);
+}
+.pdp-price-trust a { color: var(--ink); font-weight: 750; text-decoration: none; }
 .pdp-freight { margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); min-width: 0; max-width: 100%; }
-.pdp-freight-kicker { margin: 0; font-size: 14px; font-weight: 800; }
-.pdp-freight-hint { margin: 4px 0 0; font-size: 13px; line-height: 1.4; }
-.pdp-freight-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; min-width: 0; }
+.pdp-freight-dest { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.pdp-freight-dest-line { margin: 0; font-size: 14px; font-weight: 750; color: var(--ink); min-width: 0; }
+.pdp-freight-alter {
+  flex: 0 0 auto; margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; font-weight: 800; color: var(--ink); text-decoration: underline;
+  text-underline-offset: 2px; cursor: pointer;
+}
+.pdp-freight-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.pdp-freight-kicker { margin: 0; flex: 1 1 120px; font-size: 14px; font-weight: 800; }
+.pdp-freight-hint { margin: 6px 0 0; font-size: 12px; line-height: 1.35; }
+.pdp-freight-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 0; flex: 1 1 220px; min-width: 0; }
 .pdp-freight-field { flex: 1 1 140px; min-width: 0; max-width: 100%; }
 .pdp-freight-field input { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .pdp-freight-form .btn { flex: 0 0 auto; min-height: 44px; }
 .pdp-freight-status { margin: 8px 0 0; font-size: 13px; }
 .pdp-freight-result, .pdp-freight-fallback { margin: 8px 0 0; display: grid; gap: 2px; font-size: 13px; min-width: 0; }
+.pdp-freight-estimate {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin: 10px 0 0; padding: 10px 0 0; border-radius: 0;
+  background: transparent; border: 0; border-top: 1px solid var(--line); font-size: 14px;
+}
+.pdp-freight-estimate strong { font-size: 14px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+.pdp-freight-eta { min-width: 0; display: grid; gap: 2px; color: var(--ink); font-weight: 750; }
+.pdp-freight-receive { font-weight: 750; }
+.pdp-freight-note { display: block; font-size: 12px; font-weight: 500; line-height: 1.35; }
 .pdp-freight-fallback a { font-weight: 750; color: var(--ink); }
 .pdp-related { margin: 28px 0 8px; }
 .pdp-install-table { margin-top: 8px; font-size: 13px; color: var(--muted); }
@@ -1828,8 +1862,12 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-trust { grid-template-columns: 1fr; }
   .pdp-price-trust { margin-top: 14px; }
   .pdp-freight { margin-top: 14px; padding-top: 14px; }
-  .pdp-freight-form { flex-wrap: nowrap; }
+  .pdp-freight-top { align-items: stretch; }
+  .pdp-freight-kicker { flex-basis: 100%; }
+  .pdp-freight-form { flex-basis: 100%; flex-wrap: nowrap; }
   .pdp-freight-form .btn { min-width: 108px; }
+  .pdp-freight-estimate { align-items: flex-start; }
+  .pdp-freight-estimate strong { white-space: normal; }
   /* Magalu rhythm: photo full-bleed, centered; title/price share wrap gutters. */
   .pdp-gallery-col {
     margin-left: -12px;

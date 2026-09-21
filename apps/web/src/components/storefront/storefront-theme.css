@@ -371,6 +371,21 @@
   color: var(--sf-ink);
 }
 
+.pdp-pix-kicker {
+  background: var(--sf-yellow);
+  color: var(--sf-ink);
+}
+
+.pdp-list-line {
+  color: var(--sf-muted);
+}
+
+.pdp-pix-word { color: var(--sf-ink); }
+.pdp-list-price { color: inherit; }
+.pdp-install {
+  color: var(--sf-ink);
+}
+
 .pdp-pix {
   margin: 6px 0 0;
   color: var(--sf-ok);
@@ -384,9 +399,22 @@
 }
 
 .pdp-install {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--sf-muted);
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--sf-ink);
+}
+
+.pdp-freight-estimate {
+  background: transparent;
+  border-color: var(--sf-line);
+}
+.pdp-freight-alter { color: var(--sf-ink); }
+
+.pdp-price-trust li {
+  background: var(--sf-surface);
+  border-color: var(--sf-line);
+  color: var(--sf-ink);
 }
 
 .pdp-actions .btn {
