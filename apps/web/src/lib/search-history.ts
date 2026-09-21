@@ -17,6 +17,12 @@ export function searchHistoryClearLabel(): string {
   return 'Limpar';
 }
 
+/** Screen-reader name for removing a single recent term. */
+export function searchHistoryRemoveAria(term: string): string {
+  const t = (term || '').trim();
+  return t ? `Remover “${t}”` : 'Remover';
+}
+
 /** Trim, collapse whitespace, cap length. Empty if too short to search. */
 export function normalizeHistoryTerm(q: string | null | undefined): string {
   const term = (q || '').trim().replace(/\s+/g, ' ').slice(0, 80);
@@ -47,6 +53,13 @@ export function rememberSearchTerm(list: string[], q: string | null | undefined)
   const key = normalizeSearchQuery(term);
   const rest = parseSearchHistory(list).filter((x) => normalizeSearchQuery(x) !== key);
   return parseSearchHistory([term, ...rest]);
+}
+
+/** Drop one term (accent/case insensitive). Other recents stay, newest-first. */
+export function removeSearchTerm(list: string[], q: string | null | undefined): string[] {
+  const target = normalizeSearchQuery((q || '').trim());
+  if (!target) return parseSearchHistory(list);
+  return parseSearchHistory(list).filter((term) => normalizeSearchQuery(term) !== target);
 }
 
 export function shouldShowSearchHistory(q: string | null | undefined, count: number): boolean {
@@ -87,4 +100,8 @@ export function persistSearchTerm(q: string | null | undefined): string[] {
 
 export function clearSearchHistory(): string[] {
   return writeSearchHistory([]);
+}
+
+export function forgetSearchTerm(q: string | null | undefined): string[] {
+  return writeSearchHistory(removeSearchTerm(readSearchHistory(), q));
 }

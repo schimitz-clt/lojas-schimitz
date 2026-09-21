@@ -5,11 +5,14 @@ import {
   SEARCH_HISTORY_MAX,
   SEARCH_HISTORY_STORAGE_KEY,
   clearSearchHistory,
+  forgetSearchTerm,
   normalizeHistoryTerm,
   parseSearchHistory,
   rememberSearchTerm,
+  removeSearchTerm,
   searchHistoryClearLabel,
   searchHistoryHeading,
+  searchHistoryRemoveAria,
   shouldShowSearchHistory,
 } from './search-history';
 
@@ -17,6 +20,8 @@ assert.equal(SEARCH_HISTORY_MAX, 8);
 assert.equal(SEARCH_HISTORY_STORAGE_KEY, 'sch_search_q_v1');
 assert.equal(searchHistoryHeading(), 'Você buscou');
 assert.equal(searchHistoryClearLabel(), 'Limpar');
+assert.equal(searchHistoryRemoveAria('TV 50'), 'Remover “TV 50”');
+assert.equal(searchHistoryRemoveAria('  '), 'Remover');
 
 assert.equal(normalizeHistoryTerm('  TV   50  '), 'TV 50');
 assert.equal(normalizeHistoryTerm('t'), '');
@@ -48,13 +53,20 @@ assert.equal(shouldShowSearchHistory('   ', 3), true);
 assert.equal(shouldShowSearchHistory('tv', 3), false);
 assert.equal(shouldShowSearchHistory('', 0), false);
 
+assert.deepEqual(removeSearchTerm(['TV 50', 'geladeira', 'iphone'], 'tv 50'), ['geladeira', 'iphone']);
+assert.deepEqual(removeSearchTerm(['geladeira'], '  '), ['geladeira']);
+assert.deepEqual(removeSearchTerm(['geladeira'], 'tv'), ['geladeira']);
+
 assert.equal(clearSearchHistory().length, 0);
+assert.equal(forgetSearchTerm('tv').length, 0);
 
 const box = readFileSync(join(__dirname, '../components/SearchBox.tsx'), 'utf8');
 assert.ok(box.includes('searchHistoryHeading'), 'dropdown uses Você buscou helper');
 assert.ok(box.includes('readSearchHistory'), 'history is localStorage-backed');
 assert.ok(box.includes('persistSearchTerm'), 'submit remembers the term');
 assert.ok(box.includes('clearSearchHistory'), 'history is clearable');
+assert.ok(box.includes('forgetSearchTerm'), 'one recent term can be removed');
+assert.ok(box.includes('searchHistoryRemoveAria'), 'remove control has a Portuguese name');
 assert.ok(!/fake product|mock product|lorem/i.test(box), 'no invented catalog rows');
 
 console.log('search-history unit tests ok');
