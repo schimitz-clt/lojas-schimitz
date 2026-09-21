@@ -412,15 +412,6 @@ export default function CartPage() {
                   Cadastre o endereço acima (ou no próximo passo) para calcular frete e pagar.
                 </p>
               ) : null}
-              {mixedCart ? (
-                <button className="btn cart-checkout-btn" type="button" disabled>
-                  {cartCheckoutLabel(loggedIn)}
-                </button>
-              ) : (
-                <Link className="btn cart-checkout-btn" href={checkoutHref}>
-                  {cartCheckoutLabel(loggedIn)}
-                </Link>
-              )}
               <Link
                 className="btn ghost cart-keep-shopping"
                 href="/produtos"

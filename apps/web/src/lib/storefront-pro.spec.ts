@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   activeFilterCount,
   buildFilterChips,
+  buyNowLabel,
   cartCheckoutLabel,
   cartTrustItems,
   catalogSortLabel,
@@ -11,6 +12,7 @@ import {
   formatPriceRangeChip,
   isExternalSearchShortcut,
   parseCatalogSort,
+  pdpBuyNowHref,
   pixHighlight,
   searchEmptyCopy,
   searchEmptyWhatsAppHref,
@@ -48,6 +50,11 @@ assert.equal(
   stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: false }),
   'Adicionar à sacola',
 );
+
+assert.equal(buyNowLabel({ outOfStock: true, adding: false }), 'Indisponível');
+assert.equal(buyNowLabel({ outOfStock: false, adding: true }), 'Adicionando...');
+assert.equal(buyNowLabel({ outOfStock: false, adding: false }), 'Comprar agora');
+assert.equal(pdpBuyNowHref(), '/carrinho');
 
 assert.equal(cartCheckoutLabel(true), 'Finalizar compra');
 assert.equal(cartCheckoutLabel(false), 'Entrar ou cadastrar');

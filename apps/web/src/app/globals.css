@@ -1184,6 +1184,21 @@ textarea { resize: vertical; min-height: 72px; }
 .pdp-stock .pcard-stock { position: static; }
 .pdp-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 100%; min-width: 0; margin-bottom: 14px; }
 .pdp-actions .btn { min-height: 48px; min-width: 0; max-width: 100%; }
+.pdp-actions .pdp-cta-primary,
+.pdp-actions .pdp-cta-buy-now { flex: 1 0 100%; width: 100%; }
+.pdp-cta-buy-now {
+  background: #fff;
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  box-shadow: none;
+  font-weight: 800;
+}
+.pdp-actions .pdp-cta-buy-now:hover,
+.pdp-sticky-atc .pdp-cta-buy-now:hover {
+  background: var(--yellow-soft);
+  color: var(--ink);
+  border-color: var(--ink);
+}
 .pdp-actions .compare-toggle,
 .pdp-actions .fav-toggle { position: relative; min-width: 0; max-width: 100%; }
 .pdp-desc-toggle {
@@ -1671,6 +1686,7 @@ textarea { resize: vertical; min-height: 72px; }
     gap: 8px;
   }
   .pdp-actions .pdp-cta-primary,
+  .pdp-actions .pdp-cta-buy-now,
   .pdp-actions .pdp-cta-wa { grid-column: 1 / -1; width: 100%; }
   .pdp-actions .btn,
   .pdp-actions .compare-toggle,
@@ -1923,10 +1939,11 @@ textarea { resize: vertical; min-height: 72px; }
 
   .pdp {
     padding-top: 0;
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(248px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     max-width: 100%;
   }
+  .pdp-cart-toast { bottom: calc(248px + env(safe-area-inset-bottom, 0px)); }
   .pdp-sticky-atc, .cart-sticky-checkout {
     display: flex; position: fixed; left: 0; right: 0;
     bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 25;
@@ -1937,12 +1954,35 @@ textarea { resize: vertical; min-height: 72px; }
     max-width: 100%;
     min-width: 0;
   }
-  .pdp-sticky-atc > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .pdp-sticky-atc {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .pdp-sticky-atc > div:first-child { flex: 0 0 auto; min-width: 0; }
+  .pdp-sticky-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 8px;
+    min-width: 0;
+  }
+  .pdp-sticky-ctas {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
   .pdp-sticky-atc .btn {
     flex: 0 1 auto;
     min-width: 0;
+    width: 100%;
     white-space: nowrap;
-    padding: 0 16px;
+    padding: 0 12px;
+    min-height: 44px;
   }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
   .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }

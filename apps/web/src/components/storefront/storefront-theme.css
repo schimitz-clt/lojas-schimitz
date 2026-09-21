@@ -419,6 +419,18 @@
   min-height: 46px;
 }
 
+.pdp-sticky-atc .btn.pdp-cta-buy-now {
+  background: #fff;
+  color: var(--sf-ink);
+  border: 2px solid var(--sf-ink);
+  box-shadow: none;
+}
+
+.pdp-sticky-atc .btn.pdp-cta-buy-now:hover {
+  background: var(--sf-yellow-soft);
+  color: var(--sf-ink);
+}
+
 .pdp-sticky-atc .price {
   font-weight: 800;
   font-size: 16px;

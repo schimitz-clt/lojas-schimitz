@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api, brl, currentUser, getGuestToken, waLink } from '@/lib/api';
 import {
   installmentLine,
@@ -13,7 +13,7 @@ import {
 } from '@/lib/pricing';
 import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { PdpSkeleton } from '@/components/Skeleton';
-import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
+import { buyNowLabel, pdpBuyNowHref, pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
 import { resolveProductStock } from '@/lib/product-media';
 import { ProductGallery } from '@/components/ProductGallery';
@@ -133,6 +133,7 @@ export default function ProductPage({
   related?: Product[] | null;
 }) {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const [p, setP] = useState<ProductDetail | null>(() =>
     initial && (!slug || initial.slug === slug) ? initial : null,
   );
@@ -193,25 +194,39 @@ export default function ProductPage({
       .catch((e) => setErr(e.message));
   }, [slug, loadReviews, loadEligibility]);
 
-  async function add() {
-    if (!p || adding) return;
+  async function postToCart(): Promise<boolean> {
+    if (!p || adding) return false;
     setAdding(true);
+    setErr('');
     try {
       await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId: p.id, qty: 1 }) });
-      setAddedToBag(true);
-      setShowBagToast(true);
-      setMsg('Adicionado à sacola.');
-      setErr('');
       try {
         window.dispatchEvent(new Event('sch-cart-updated'));
       } catch {
         /* ignore */
       }
+      return true;
     } catch (e: any) {
-      setErr(e.message);
+      setErr(e.message || 'Não foi possível adicionar à sacola');
+      return false;
     } finally {
       setAdding(false);
     }
+  }
+
+  async function add() {
+    const ok = await postToCart();
+    if (!ok) return;
+    setAddedToBag(true);
+    setShowBagToast(true);
+    setMsg('Adicionado à sacola.');
+  }
+
+  async function buyNow() {
+    const ok = await postToCart();
+    if (!ok) return;
+    setAddedToBag(true);
+    router.push(pdpBuyNowHref());
   }
 
   async function submitReview(e: { preventDefault(): void }) {
@@ -377,10 +392,24 @@ export default function ProductPage({
 
           <div className="actions pdp-actions">
             {addedToBag && !outOfStock ? (
+              <Link className="btn pdp-cta-primary" href="/carrinho">
+                Ir para a sacola
+              </Link>
+            ) : (
+              <button className="btn pdp-cta-primary" onClick={add} disabled={outOfStock || adding}>
+                {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
+              </button>
+            )}
+            <button
+              className="btn pdp-cta-buy-now"
+              type="button"
+              onClick={buyNow}
+              disabled={outOfStock || adding}
+            >
+              {buyNowLabel({ outOfStock, adding })}
+            </button>
+            {addedToBag && !outOfStock ? (
               <>
-                <Link className="btn pdp-cta-primary" href="/carrinho">
-                  Ir para a sacola
-                </Link>
                 <button
                   className="btn ghost"
                   type="button"
@@ -395,11 +424,7 @@ export default function ProductPage({
                   {adding ? 'Adicionando...' : 'Adicionar mais'}
                 </button>
               </>
-            ) : (
-              <button className="btn pdp-cta-primary" onClick={add} disabled={outOfStock || adding}>
-                {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
-              </button>
-            )}
+            ) : null}
             <CompareToggle product={p} variant="pdp" />
             <FavoriteToggle productId={p.id} product={p} variant="pdp" />
             <a
@@ -513,21 +538,31 @@ export default function ProductPage({
       </section>
 
       <div className="pdp-sticky-atc" aria-label="Comprar">
-        <div style={{ minWidth: 0 }}>
+        <div className="pdp-sticky-price" style={{ minWidth: 0 }}>
           <div className="price">{brl(pix)}</div>
           <div className="muted" style={{ fontSize: 11 }}>
             no PIX · 5% off · {brl(price)}
           </div>
         </div>
-        {addedToBag && !outOfStock ? (
-          <Link className="btn" href="/carrinho">
-            {stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: true })}
-          </Link>
-        ) : (
-          <button className="btn" onClick={add} disabled={outOfStock || adding}>
-            {stickyBuyLabel({ outOfStock, adding, addedToBag: false })}
+        <div className="pdp-sticky-ctas">
+          {addedToBag && !outOfStock ? (
+            <Link className="btn" href="/carrinho">
+              {stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: true })}
+            </Link>
+          ) : (
+            <button className="btn" type="button" onClick={add} disabled={outOfStock || adding}>
+              {stickyBuyLabel({ outOfStock, adding, addedToBag: false })}
+            </button>
+          )}
+          <button
+            className="btn pdp-cta-buy-now"
+            type="button"
+            onClick={buyNow}
+            disabled={outOfStock || adding}
+          >
+            {buyNowLabel({ outOfStock, adding })}
           </button>
-        )}
+        </div>
       </div>
 
       <PdpRelatedProducts
