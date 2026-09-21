@@ -6,9 +6,18 @@ import { useSessionUser } from '@/lib/use-session-user';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
 import { SearchBox } from '@/components/SearchBox';
+import { HomeDeliveryBar } from '@/components/HomeDeliveryBar';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
 import { formatWishlistBadge } from '@/lib/wishlist-ui';
-import { STOREFRONT_CEP_KEY, formatCepInput } from '@/lib/pdp-trust';
+import { accountAddressToEdit, type AccountAddressRecord } from '@/lib/account-menu';
+import { deliveryBarCopy } from '@/lib/home-ux';
+import {
+  STOREFRONT_CEP_KEY,
+  formatCepInput,
+  isCompleteCep,
+  persistStoredCep,
+  readStoredCep,
+} from '@/lib/pdp-trust';
 
 export function Header() {
   const { user } = useSessionUser();
@@ -18,6 +27,8 @@ export function Header() {
   const [cep, setCep] = useState('');
   const [editingCep, setEditingCep] = useState(false);
   const [cepDraft, setCepDraft] = useState('');
+  const [addresses, setAddresses] = useState<AccountAddressRecord[]>([]);
+  const [compact, setCompact] = useState(false);
   const { count: favCount } = useFavorites();
   const favBadge = formatWishlistBadge(favCount);
 
@@ -32,7 +43,7 @@ export function Header() {
       /* ignore */
     }
     try {
-      const saved = localStorage.getItem(STOREFRONT_CEP_KEY) || '';
+      const saved = readStoredCep(localStorage);
       setCep(saved);
       setCepDraft(saved);
     } catch {
@@ -47,8 +58,51 @@ export function Header() {
         .catch(() => {});
     };
     window.addEventListener('sch-cart-updated', onCart);
-    return () => window.removeEventListener('sch-cart-updated', onCart);
+    let lastCompact = false;
+    const onScroll = () => {
+      const next = (window.scrollY || 0) > 12;
+      if (next === lastCompact) return;
+      lastCompact = next;
+      setCompact(next);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('sch-cart-updated', onCart);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setAddresses([]);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      api<AccountAddressRecord[]>('/me/addresses')
+        .then((list) => {
+          if (cancelled) return;
+          const rows = Array.isArray(list) ? list : [];
+          setAddresses(rows);
+          const saved = accountAddressToEdit(rows);
+          const next = formatCepInput(saved?.cep || '');
+          if (!isCompleteCep(next)) return;
+          setCep(next);
+          setCepDraft((draft) => (editingCep ? draft : next));
+          persistStoredCep(next, localStorage);
+        })
+        .catch(() => {
+          if (!cancelled) setAddresses([]);
+        });
+    };
+    load();
+    window.addEventListener('focus', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', load);
+    };
+  }, [user, editingCep]);
 
   useEffect(() => {
     if (!user) {
@@ -75,8 +129,22 @@ export function Header() {
     setEditingCep(false);
   }
 
+  function focusVisibleCep() {
+    window.setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-cep-input]');
+      for (const el of inputs) {
+        if (el.offsetParent !== null) {
+          el.focus();
+          break;
+        }
+      }
+    }, 0);
+  }
+
+  const delivery = deliveryBarCopy({ addresses, storedCep: cep });
+
   return (
-    <>
+    <div className={`site-chrome-head${compact ? ' is-compact' : ''}`}>
       <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
         <span>Frete grátis em POA</span>
         <span className="topbar-sep" aria-hidden>
@@ -98,14 +166,14 @@ export function Header() {
             <SearchBox initialQuery={qInit} />
 
             {editingCep ? (
-              <form className="hdr-cep-form" onSubmit={saveCep}>
+              <form className="hdr-cep-form hdr-hide-sm" onSubmit={saveCep}>
                 <input
+                  data-cep-input
                   inputMode="numeric"
                   placeholder="00000-000"
                   value={cepDraft}
                   onChange={(e) => setCepDraft(formatCepInput(e.target.value))}
                   aria-label="Informe seu CEP"
-                  autoFocus
                 />
                 <button type="submit">OK</button>
                 <button
@@ -122,7 +190,10 @@ export function Header() {
               <button
                 type="button"
                 className="hdr-cep hdr-hide-sm"
-                onClick={() => setEditingCep(true)}
+                onClick={() => {
+                  setEditingCep(true);
+                  focusVisibleCep();
+                }}
                 aria-label="Informar CEP para frete"
               >
                 <span style={{ color: 'rgba(255,255,255,.75)', fontSize: 11 }}>
@@ -172,6 +243,22 @@ export function Header() {
               </a>
             </div>
           </div>
+          <HomeDeliveryBar
+            view={delivery}
+            loggedIn={Boolean(user)}
+            editing={editingCep}
+            draft={cepDraft}
+            onDraft={(value) => setCepDraft(formatCepInput(value))}
+            onSubmit={saveCep}
+            onCancel={() => {
+              setEditingCep(false);
+              setCepDraft(cep);
+            }}
+            onEdit={() => {
+              setEditingCep(true);
+              focusVisibleCep();
+            }}
+          />
         </div>
         <div className="nav-depts">
           <div className="wrap">
@@ -191,6 +278,6 @@ export function Header() {
           </div>
         </div>
       </header>
-    </>
+    </div>
   );
 }

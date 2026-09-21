@@ -34,7 +34,8 @@
 html, body {
   margin: 0; padding: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  /* clip keeps horizontal rails inside the page without turning body into a scrollport (that breaks sticky search). */
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-schimitz), "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -217,6 +218,7 @@ button, input, select, textarea { font: inherit; }
 .hdr-cep-form { display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.1); border-radius: 12px; padding: 4px; }
 .hdr-cep-form input { width: 96px; background: #fff; border: 0; border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 13px; }
 .hdr-cep-form button { background: var(--yellow); color: var(--ink); border: 0; border-radius: 8px; padding: 8px 10px; font-weight: 800; font-size: 12px; cursor: pointer; }
+.delivery-bar { display: none; }
 .actions { display: flex; gap: 2px; align-items: center; }
 .hdr-link {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
@@ -529,6 +531,48 @@ textarea { resize: vertical; min-height: 72px; }
   color: #fff; font-weight: 800; letter-spacing: .06em; font-size: 13px;
 }
 .home-hero-visual-ph em { font-style: normal; color: var(--yellow); }
+
+/* —— Home shortcuts (above Categorias; black/yellow circles) —— */
+.home-shortcuts {
+  display: flex;
+  justify-content: flex-start;
+  gap: 18px;
+  margin: 8px 0 2px;
+  padding: 2px 0 6px;
+}
+.home-shortcut {
+  flex: 0 0 88px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--ink);
+}
+.home-shortcut-ico {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--yellow);
+  color: var(--ink);
+  border: 2.5px solid #0a0a0a;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  transition: transform .16s var(--ease), box-shadow .16s var(--ease);
+}
+.home-shortcut:hover .home-shortcut-ico {
+  box-shadow: 0 0 0 3px var(--yellow), 0 10px 22px rgba(0,0,0,.12);
+  transform: scale(1.04);
+}
+.home-shortcut:active .home-shortcut-ico { transform: scale(.97); }
+.home-shortcut-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
 
 /* —— Categories (photo circles, no emoji) —— */
 .home-cats { margin: 4px 0 8px; }
@@ -916,6 +960,40 @@ textarea { resize: vertical; min-height: 72px; }
 .pcard-btn:active { transform: scale(.98); }
 .pcard-btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line-strong); box-shadow: none; }
 .pcard-btn-ok { background: var(--ok) !important; color: #fff !important; box-shadow: none !important; }
+
+/* Home shelves: PIX is the price you pay; list price sits under it. */
+.pcard-shelf .pcard-media { aspect-ratio: 5 / 4; }
+.pcard-shelf .pcard-body { padding: 10px 10px 0; gap: 1px; }
+.pcard-shelf .pcard-kicker { font-size: 10px; margin-bottom: 1px; letter-spacing: .06em; }
+.pcard-shelf .pcard-title { font-size: 13px; line-height: 1.25; min-height: 2.5em; }
+.pcard-shelf .pcard-seller { font-size: 10.5px; margin-top: 1px; }
+.pcard-shelf .pcard-price-stack { margin-top: 6px; gap: 1px; }
+.pcard-shelf .pcard-compare { font-size: 11.5px; }
+.pcard-shelf .pcard-pix { margin: 0; font-size: 12px; }
+.pcard-shelf .pcard-pix strong {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.pcard-shelf .pcard-price-secondary {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--muted);
+  letter-spacing: -.01em;
+}
+.pcard-shelf .pcard-price-or { font-weight: 650; }
+.pcard-shelf .pcard-install { font-size: 11px; }
+.pcard-shelf .pcard-cues { margin-top: 6px; gap: 3px; }
+.pcard-shelf .pcard-cue { font-size: 9.5px; padding: 2px 6px; }
+.pcard-shelf .pcard-cta { padding: 8px 10px 10px; }
+.pcard-shelf .pcard-btn {
+  min-height: 40px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  padding-inline: 10px;
+}
 
 /* —— Trust badges —— */
 .trust-row {
@@ -1813,6 +1891,122 @@ textarea { resize: vertical; min-height: 72px; }
     pointer-events: auto;
     touch-action: manipulation;
   }
+  .site-chrome-head {
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    background: var(--header-bg);
+  }
+  .site-chrome-head .header {
+    position: relative;
+    top: auto;
+    box-shadow: none;
+  }
+  .site-chrome-head.is-compact {
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  }
+  .site-chrome-head.is-compact .topbar { display: none; }
+  .site-chrome-head.is-compact .header-row { padding-top: 6px; padding-bottom: 4px; }
+  .site-chrome-head .search {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .delivery-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    min-width: 0;
+  }
+  .delivery-bar-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+  .delivery-bar-main:hover { background: rgba(255,255,255,.14); }
+  .delivery-bar-pin { color: var(--yellow); flex: 0 0 auto; }
+  .delivery-bar-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+  .delivery-bar-copy strong {
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .delivery-bar-copy span {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,.72);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .delivery-bar-chevron {
+    color: var(--yellow);
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 700;
+  }
+  .delivery-bar-side {
+    flex: 0 0 auto;
+    color: var(--ink);
+    background: var(--yellow);
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 8px 10px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .delivery-bar-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 4px 6px 4px 10px;
+  }
+  .delivery-bar-form input {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .delivery-bar-form button {
+    background: var(--yellow);
+    color: var(--ink);
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+    min-height: 36px;
+  }
   .header-row { padding: 8px 0; gap: 8px; }
   .search { min-width: 0; max-width: 100%; }
   .search-suggest {
@@ -1921,6 +2115,15 @@ textarea { resize: vertical; min-height: 72px; }
     width: min(68vw, 220px);
   }
   .home-benefits { margin: 22px 0 6px; }
+  .home-shortcuts {
+    gap: 8px;
+    margin: 4px -4px 0;
+    padding: 2px 4px 8px;
+    justify-content: space-between;
+  }
+  .home-shortcut { flex: 1 1 0; }
+  .home-shortcut-ico { width: 60px; height: 60px; }
+  .home-shortcut-label { font-size: 12px; }
   .cat-strip {
     gap: 12px;
     margin: 0 -12px;

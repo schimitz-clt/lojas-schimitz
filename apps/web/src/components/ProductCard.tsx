@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
-import { productCardCues, productCardKicker } from '@/lib/product-card-cues';
+import { productCardAddLabel, productCardCues, productCardKicker } from '@/lib/product-card-cues';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
@@ -69,7 +69,16 @@ function ProductImage({
   );
 }
 
-export function ProductCard({ p, priority = false }: { p: Product; priority?: boolean }) {
+export function ProductCard({
+  p,
+  priority = false,
+  variant = 'default',
+}: {
+  p: Product;
+  priority?: boolean;
+  /** Tighter price stack for home shelves — PIX first, same cart API. */
+  variant?: 'default' | 'shelf';
+}) {
   const img = resolveProductImageUrl(p);
   const count = p.ratingCount ?? 0;
   const avg = Number(p.ratingAvg ?? 0);
@@ -83,6 +92,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
   const out = sb?.tone === 'out';
   const kicker = productCardKicker(p.category?.name, p.seller?.name);
   const cues = productCardCues();
+  const shelf = variant === 'shelf';
 
   async function addToCart(e: { preventDefault(): void; stopPropagation(): void }) {
     e.preventDefault();
@@ -109,8 +119,25 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
     }
   }
 
+  const compare = p.compareAtPrice ? (
+    <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
+  ) : null;
+  const listPrice = (
+    <span className={shelf ? 'pcard-price pcard-price-secondary' : 'pcard-price'}>
+      {shelf ? <span className="pcard-price-or">ou </span> : null}
+      {brl(price)}
+    </span>
+  );
+  const pixLine = (
+    <p className="pcard-pix">
+      <strong>{brl(pix)}</strong> no PIX
+      <span className="pcard-pix-tag">5% OFF</span>
+    </p>
+  );
+  const install = <p className="pcard-install">{installmentLine(price)}</p>;
+
   return (
-    <article className="pcard pcard-pro">
+    <article className={`pcard pcard-pro${shelf ? ' pcard-shelf' : ''}`}>
       <FavoriteToggle productId={p.id} product={p} variant="card" />
       <CompareToggle product={p} variant="card" />
       <Link href={`/produto/${p.slug}`} className="pcard-link">
@@ -149,15 +176,21 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
             </p>
           ) : null}
           <div className="pcard-price-stack">
-            {p.compareAtPrice ? (
-              <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
-            ) : null}
-            <span className="pcard-price">{brl(price)}</span>
-            <p className="pcard-pix">
-              <strong>{brl(pix)}</strong> no PIX
-              <span className="pcard-pix-tag">5% OFF</span>
-            </p>
-            <p className="pcard-install">{installmentLine(price)}</p>
+            {shelf ? (
+              <>
+                {compare}
+                {pixLine}
+                {listPrice}
+                {install}
+              </>
+            ) : (
+              <>
+                {compare}
+                {listPrice}
+                {pixLine}
+                {install}
+              </>
+            )}
           </div>
           <ul className="pcard-cues" aria-label="Condições">
             {cues.map((cue) => (
@@ -180,7 +213,7 @@ export function ProductCard({ p, priority = false }: { p: Product; priority?: bo
             onClick={addToCart}
             disabled={adding}
           >
-            {adding ? 'Adicionando…' : added ? '✓ Na sacola' : 'Adicionar ao carrinho'}
+            {productCardAddLabel({ outOfStock: false, adding, added })}
           </button>
         )}
       </div>
