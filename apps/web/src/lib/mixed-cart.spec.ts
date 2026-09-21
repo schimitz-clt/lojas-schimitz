@@ -42,6 +42,13 @@ assert.ok(
 const vendedor = readFileSync(join(__dirname, '../app/vendedor/page.tsx'), 'utf8');
 assert.ok(vendedor.includes('Conectar Mercado Pago'), 'seller portal has connect CTA');
 assert.ok(vendedor.includes('connectEnabled'), 'connect UI is flag-gated');
-assert.ok(!vendedor.includes('application_fee'), 'portal must not claim live split');
+assert.ok(vendedor.includes('application_fee'), 'linked seller keeps platform commission as application_fee');
+assert.ok(
+  !vendedor.includes('em produção o pagamento continua no collector'),
+  'portal must not say production always pays the store collector',
+);
+assert.ok(!/sem split\s+automático/i.test(vendedor), 'portal must not claim there is no automatic split');
+assert.ok(vendedor.includes('repasse manual'), 'unlinked checkout still explains manual repasse');
+assert.ok(/PIX/i.test(vendedor) && /recusar a taxa/i.test(vendedor), 'PIX fee refusal is not promised as automatic');
 
 console.log('mixed-cart unit tests ok');

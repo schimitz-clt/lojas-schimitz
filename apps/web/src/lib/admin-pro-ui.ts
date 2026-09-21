@@ -146,6 +146,22 @@ export function sellerStatusLabel(status: string): string {
   return status || '—';
 }
 
+/** Admin chip for Seller.mpOAuthStatus (GET /admin/sellers already returns the enum). */
+export function sellerMpOAuthLabel(status: string | null | undefined): string {
+  const s = normStatus(status);
+  if (s === 'linked') return 'MP vinculado';
+  if (s === 'expired') return 'MP expirado';
+  if (s === 'revoked') return 'MP revogado';
+  return 'MP não vinculado';
+}
+
+export function sellerMpOAuthTone(status: string | null | undefined): AdminChipTone {
+  const s = normStatus(status);
+  if (s === 'linked') return 'ok';
+  if (s === 'expired' || s === 'revoked') return 'danger';
+  return 'warn';
+}
+
 export function commissionStatusTone(status: string): AdminChipTone {
   const s = normStatus(status);
   if (s === 'paid') return 'ok';

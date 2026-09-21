@@ -43,6 +43,8 @@ import {
   reviewStatusLabel,
   reviewStatusTone,
   salesPresetActive,
+  sellerMpOAuthLabel,
+  sellerMpOAuthTone,
   sellerStatusLabel,
   sellerStatusTone,
   shippingZoneActiveLabel,
@@ -113,10 +115,11 @@ export function AdminMarketplaceSection() {
     <>
       <div className="admin-section-panel">
       <p className="admin-section-intro">
-        Fundação multi-seller. Checkout único continua igual. Split live MP só com
-        ENABLED+ALLOW_LIVE+APP_USR em produção (ops). Sandbox Fase 2: credenciais de
-        teste e ALLOW_LIVE=false. Ver docs/MARKETPLACE.md. Produtos existentes ficam
-        na Lojas Schimitz.
+        Vendedor vinculado: o valor cobrado vai para a conta Mercado Pago dele e a
+        plataforma retém a comissão como application_fee (split live com ENABLED,
+        ALLOW_LIVE e credencial APP_USR). Sem vínculo, o checkout conclui e o valor
+        integral fica na conta da loja (repasse manual). PIX pode cair na loja se o
+        Mercado Pago recusar a taxa. A loja própria não faz split.
       </p>
       <section className="admin-card-pro">
         <div className="body">
@@ -178,6 +181,11 @@ export function AdminMarketplaceSection() {
                     <div className="admin-dense-row__title">
                     <b>{s.name}</b>
                     <AdminStatusChip label={sellerStatusLabel(s.status)} tone={sellerStatusTone(s.status)} />
+                    <AdminStatusChip
+                      label={sellerMpOAuthLabel(s.mpOAuthStatus)}
+                      tone={sellerMpOAuthTone(s.mpOAuthStatus)}
+                      title={s.mpOAuthStatus || 'pending'}
+                    />
                     </div>
                     <div className="admin-dense-row__meta">
                       /{s.slug}
@@ -250,12 +258,14 @@ export function AdminMarketplaceSection() {
 
       <section className="admin-card-pro" style={{ marginTop: 16 }}>
         <div className="body">
-          <h2>Comissões / Repasse (v1)</h2>
+          <h2>Comissão da plataforma</h2>
           <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
-            Ledger no pagamento aprovado. Transferência real ainda é <b>PIX manual</b> nas linhas
-            <code>manual_pix</code> e <code>pending_manual_or_pix_no_fee</code> (PIX sem fee no
-            MP). Linhas <code>mp_application_fee</code> (sandbox) já foram retidas no Mercado
-            Pago — não marcar PIX. Sem split Mercado Pago em produção. Ver docs/MARKETPLACE.md.
+            O valor de cada linha é a <b>comissão da plataforma (~10% dos itens)</b>, não o PIX
+            do líquido ao vendedor. Linhas <code>mp_application_fee</code> já foram retidas no
+            Mercado Pago — não marcar PIX. Sem vínculo, ou quando o PIX recusa a taxa
+            (<code>pending_manual_or_pix_no_fee</code> e <code>manual_pix</code>), o valor integral
+            ficou na conta da loja e o repasse do restante é manual. Marcar pago só encerra esta
+            comissão no ledger.
           </p>
           <div className="admin-toolbar" style={{ marginBottom: 12 }}>
           <div className="admin-toolbar__row">
@@ -310,17 +320,19 @@ export function AdminMarketplaceSection() {
                       label={commissionStatusLabel(c.status)}
                       tone={commissionStatusTone(c.status)}
                     />
-                    <AdminStatusChip label={brl(c.amount)} tone="accent" />
+                    <AdminStatusChip label={`comissão ${brl(c.amount)}`} tone="accent" />
                     <AdminStatusChip label={`${c.percent}%`} tone="neutral" />
                     </div>
                     <div className="admin-dense-row__meta">
                       {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
                       {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
                       {c.source === 'mp_application_fee'
-                        ? ' · split MP sandbox (application_fee)'
+                        ? ' · comissão retida (application_fee)'
                         : c.source === 'pending_manual_or_pix_no_fee'
-                          ? ' · comissão no ledger (PIX sem application_fee)'
-                          : ''}
+                          ? ' · comissão no ledger (PIX sem taxa; valor integral na loja)'
+                          : c.source === 'manual_pix'
+                            ? ' · comissão no ledger (repasse manual; valor integral na loja)'
+                            : ''}
                     </div>
                 {c.source === 'mp_application_fee' ? (
                   <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>

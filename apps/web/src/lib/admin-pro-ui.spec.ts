@@ -26,6 +26,8 @@ import {
   reviewStatusLabel,
   reviewStatusTone,
   salesPresetActive,
+  sellerMpOAuthLabel,
+  sellerMpOAuthTone,
   sellerStatusLabel,
   sellerStatusTone,
   shippingZoneActiveLabel,
@@ -94,6 +96,16 @@ assert.equal(sellerStatusTone('suspended'), 'danger');
 assert.equal(sellerStatusLabel('pending'), 'Pendente');
 assert.equal(sellerStatusLabel('active'), 'Ativo');
 assert.equal(sellerStatusLabel('suspended'), 'Suspenso');
+
+assert.equal(sellerMpOAuthLabel('linked'), 'MP vinculado');
+assert.equal(sellerMpOAuthLabel('pending'), 'MP não vinculado');
+assert.equal(sellerMpOAuthLabel(null), 'MP não vinculado');
+assert.equal(sellerMpOAuthLabel('expired'), 'MP expirado');
+assert.equal(sellerMpOAuthLabel('revoked'), 'MP revogado');
+assert.equal(sellerMpOAuthTone('linked'), 'ok');
+assert.equal(sellerMpOAuthTone('pending'), 'warn');
+assert.equal(sellerMpOAuthTone('expired'), 'danger');
+assert.equal(sellerMpOAuthTone('revoked'), 'danger');
 
 assert.equal(commissionStatusTone('pending'), 'warn');
 assert.equal(commissionStatusTone('approved'), 'info');
