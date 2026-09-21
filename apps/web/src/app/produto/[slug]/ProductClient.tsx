@@ -12,6 +12,7 @@ import {
   pixPrice,
 } from '@/lib/pricing';
 import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
+import { pdpSharePixLabel } from '@/lib/pdp-share';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
@@ -21,7 +22,7 @@ import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { rememberProductView } from '@/lib/recently-viewed';
-import { ProductShareButton } from '@/components/ProductShareButton';
+import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/ProductShareButton';
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import type { Product } from '@/components/ProductCard';
@@ -250,6 +251,7 @@ export default function ProductPage({
   const loggedIn = Boolean(currentUser());
   const price = Number(p.price);
   const pix = pixPrice(price);
+  const sharePix = pdpSharePixLabel(price);
   const outOfStock = stock != null && stock <= 0;
   const description = productDescriptionText(p.description);
   const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
@@ -262,7 +264,18 @@ export default function ProductPage({
           <ProductGallery images={gallery} productName={p.name} />
           <div className="pdp-gallery-tools">
             <FavoriteToggle productId={p.id} product={p} variant="pdp" />
-            <ProductShareButton productName={p.name} productSlug={p.slug} variant="icon" />
+            <ProductWhatsAppShareButton
+              productName={p.name}
+              productSlug={p.slug}
+              pixLabel={sharePix}
+              variant="icon"
+            />
+            <ProductShareButton
+              productName={p.name}
+              productSlug={p.slug}
+              pixLabel={sharePix}
+              variant="icon"
+            />
           </div>
         </div>
 
@@ -282,7 +295,13 @@ export default function ProductPage({
                     : 'Sem avaliações'}
                 </span>
               </div>
-              <ProductShareButton productName={p.name} productSlug={p.slug} />
+              <ProductWhatsAppShareButton
+                productName={p.name}
+                productSlug={p.slug}
+                pixLabel={sharePix}
+                variant="icon"
+              />
+              <ProductShareButton productName={p.name} productSlug={p.slug} pixLabel={sharePix} />
             </div>
             {p.sku ? <p className="pdp-model muted">Modelo {p.sku}</p> : null}
             {p.seller?.name ? (
