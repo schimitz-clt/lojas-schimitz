@@ -389,7 +389,7 @@ function ProdutosInner() {
       {!loading ? (
         <div className="grid">
           {products.map((p, i) => (
-            <ProductCard key={p.id} p={p} priority={i < 4} />
+            <ProductCard key={p.id} p={p} priority={i < 4} variant={q ? 'shelf' : 'default'} />
           ))}
         </div>
       ) : null}

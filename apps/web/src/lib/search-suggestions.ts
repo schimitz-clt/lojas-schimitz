@@ -3,14 +3,17 @@
  * No mock products. Network stays in the UI; this file is pure.
  */
 
-import { toNumber } from '@/lib/pricing';
-import { resolveProductImageUrl } from '@/lib/product-media';
+import { parseHomeShelvesPayload } from '@/lib/home-shelves';
+import { stockBadge, toNumber } from '@/lib/pricing';
+import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { pixHighlight } from '@/lib/storefront-pro';
 
 export const SEARCH_SUGGEST_MIN = 2;
 export const SEARCH_SUGGEST_DEBOUNCE_MS = 280;
 export const SEARCH_SUGGEST_PRODUCT_LIMIT = 6;
 export const SEARCH_SUGGEST_CATEGORY_LIMIT = 3;
+export const SEARCH_FOCUS_PRODUCT_LIMIT = 4;
+export const SEARCH_FOCUS_SHORTCUT_LIMIT = 6;
 
 export type SearchProductLike = {
   id?: string | null;
@@ -21,6 +24,8 @@ export type SearchProductLike = {
   image?: string | null;
   imageUrl?: string | null;
   images?: { url?: string | null; position?: number }[] | null;
+  stock?: number | null;
+  inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
 };
 
 export type SearchCategoryLike = {
@@ -42,6 +47,10 @@ export type SuggestionRow = {
   priceLabel?: string;
   pixLabel?: string;
   pixTag?: string;
+  /** Present when the row is a real catalog product (same id the cart POST uses). */
+  productId?: string;
+  /** False when the SKU is esgotado — hide the sacola button, keep the PDP tap. */
+  canAdd?: boolean;
 };
 
 function asText(v: unknown): string {
@@ -120,6 +129,127 @@ export function suggestionPixFields(price: number | string | null | undefined): 
 export function productSuggestionImage(p: SearchProductLike): string | undefined {
   const url = resolveProductImageUrl(p);
   return url || undefined;
+}
+
+/** Quick add uses the same cart rules as cards: known id, not esgotado. */
+export function suggestionCanQuickAdd(p: SearchProductLike): boolean {
+  if (!asText(p.id)) return false;
+  return stockBadge(resolveProductStock(p))?.tone !== 'out';
+}
+
+export function searchFocusHeading(): string {
+  return 'Em alta';
+}
+
+function toProductSuggestionRow(p: SearchProductLike, id: string): SuggestionRow | null {
+  const pid = asText(p.id);
+  const slug = asText(p.slug);
+  const name = asText(p.name);
+  if (!id || !slug || !name) return null;
+  return {
+    id,
+    kind: 'product',
+    href: productSuggestHref(slug),
+    label: name,
+    sub: asText(p.category?.name) || undefined,
+    image: productSuggestionImage(p),
+    productId: pid || undefined,
+    canAdd: suggestionCanQuickAdd(p),
+    ...suggestionPixFields(p.price),
+  };
+}
+
+/**
+ * Real shelf products for the empty search panel.
+ * Featured (mais vendidos / destaque) first, then ofertas, then novidades.
+ * No invented SKUs — empty when the shelves payload has none.
+ */
+export function highlightProductsFromShelves(
+  data: unknown,
+  limit = SEARCH_FOCUS_PRODUCT_LIMIT,
+): SearchProductLike[] {
+  const shelves = parseHomeShelvesPayload<SearchProductLike>(data);
+  if (!shelves?.length) return [];
+  const cap = Math.max(1, limit);
+  const out: SearchProductLike[] = [];
+  const seen = new Set<string>();
+  for (const id of ['featured', 'offers', 'newest'] as const) {
+    const shelf = shelves.find((s) => s.id === id);
+    for (const p of shelf?.items || []) {
+      const key = asText(p.id) || asText(p.slug);
+      if (!key || !asText(p.name) || !asText(p.slug) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(p);
+      if (out.length >= cap) return out;
+    }
+  }
+  return out;
+}
+
+/** Real departments already returned by GET /categories. */
+export function focusCategoryShortcuts(
+  categories: SearchCategoryLike[],
+  limit = SEARCH_FOCUS_SHORTCUT_LIMIT,
+): SuggestionRow[] {
+  const cap = Math.max(1, limit);
+  const out: SuggestionRow[] = [];
+  const seen = new Set<string>();
+  for (const c of categoriesFromListResponse(categories)) {
+    const name = asText(c.name);
+    const slug = asText(c.slug);
+    if (!name || !slug || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({
+      id: `focus-cat-${slug}`,
+      kind: 'category',
+      href: categorySuggestHref(slug),
+      label: name,
+      sub: 'Departamento',
+    });
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+export type FocusFallbackShortcut = { id: string; href: string; label: string };
+
+/** Curated department/catalog links when the live category list is empty. Skips WhatsApp. */
+export function focusFallbackShortcuts(
+  items: { href?: string | null; label?: string | null; external?: boolean }[],
+  limit = SEARCH_FOCUS_SHORTCUT_LIMIT,
+): FocusFallbackShortcut[] {
+  const cap = Math.max(1, limit);
+  const out: FocusFallbackShortcut[] = [];
+  const seen = new Set<string>();
+  for (const s of items) {
+    if (s.external || /^https?:\/\//i.test(asText(s.href))) continue;
+    const href = asText(s.href);
+    const label = asText(s.label);
+    if (!href.startsWith('/') || !label || seen.has(href)) continue;
+    seen.add(href);
+    out.push({ id: `focus-sc-${out.length}`, href, label });
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+export function focusHighlightRows(
+  products: SearchProductLike[],
+  limit = SEARCH_FOCUS_PRODUCT_LIMIT,
+): SuggestionRow[] {
+  const cap = Math.max(1, limit);
+  const rows: SuggestionRow[] = [];
+  const seen = new Set<string>();
+  for (const p of products) {
+    const key = asText(p.id) || asText(p.slug);
+    if (!key || seen.has(key)) continue;
+    const row = toProductSuggestionRow(p, `hi-${key}`);
+    if (!row) continue;
+    seen.add(key);
+    rows.push(row);
+    if (rows.length >= cap) break;
+  }
+  return rows;
 }
 
 function scoreProduct(p: SearchProductLike, nq: string): number {
@@ -202,16 +332,8 @@ export function buildSuggestionRows(input: {
   const products = rankProductSuggestions(input.products || [], q);
   for (const p of products) {
     const id = asText(p.id) || asText(p.slug);
-    const pix = suggestionPixFields(p.price);
-    rows.push({
-      id: `p-${id}`,
-      kind: 'product',
-      href: productSuggestHref(asText(p.slug)),
-      label: asText(p.name),
-      sub: asText(p.category?.name) || undefined,
-      image: productSuggestionImage(p),
-      ...pix,
-    });
+    const row = toProductSuggestionRow(p, `p-${id}`);
+    if (row) rows.push(row);
   }
   if (q) {
     rows.push({
