@@ -33,3 +33,48 @@ export function isOrphanMoneyAtRisk(providerStatus: string): boolean {
   const code = orphanReconciliationReason(providerStatus);
   return code === 'orphan_approved' || code === 'orphan_paid_status';
 }
+
+/**
+ * Provider amount/reference does not match the local Payment/Order.
+ * These do not self-heal on an identical retry; admin must see a queue row.
+ */
+export const INTEGRITY_MISMATCH_REASONS = ['amount_mismatch', 'reference_mismatch'] as const;
+
+export type IntegrityMismatchReason = (typeof INTEGRITY_MISMATCH_REASONS)[number];
+
+export function isIntegrityMismatchReason(reason: string): reason is IntegrityMismatchReason {
+  return (INTEGRITY_MISMATCH_REASONS as readonly string[]).includes(reason);
+}
+
+export type WebhookEventPersistence = {
+  /**
+   * Persist PaymentEvent.applied=true only when the domain applied the provider
+   * status onto Payment/Order. Otherwise a duplicate x-request-id must retry.
+   */
+  markEventApplied: boolean;
+  /** Open/update PaymentReconciliation (admin queue) without pretending the event applied. */
+  openReconciliation: boolean;
+  reason: string;
+};
+
+/**
+ * Map applyProviderStatus outcome → PaymentEvent.applied + reconciliation.
+ * applied:true (approved, already_paid, refused, …) marks the event.
+ * amount/reference mismatch stays applied=false AND opens reconciliation.
+ * Other non-applied outcomes (still_pending, not_pending, …) stay applied=false
+ * so the same provider event id can be retried; they do not flood the admin queue.
+ */
+export function decideWebhookEventPersistence(apply: {
+  applied: boolean;
+  reason?: string;
+}): WebhookEventPersistence {
+  const reason = String(apply?.reason || 'noop');
+  if (apply?.applied === true) {
+    return { markEventApplied: true, openReconciliation: false, reason };
+  }
+  return {
+    markEventApplied: false,
+    openReconciliation: isIntegrityMismatchReason(reason),
+    reason,
+  };
+}

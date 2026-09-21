@@ -460,7 +460,7 @@ export function AdminOpsSection() {
             </button>
           </div>
           <p className="muted" style={{ marginTop: 0, fontSize: 14, color: '#b0b0a8' }}>
-            Webhooks órfãos / pagamentos sem pedido local (`GET /admin/payments/reconciliations`).
+            Webhooks que não aplicaram o pagamento no pedido: órfãos (sem Payment local) e divergência de valor ou referência (`GET /admin/payments/reconciliations`).
             Somente revisão humana — sem estorno, cancelamento ou ajuste de estoque automático.
           </p>
           <p className="muted" style={{ fontSize: 13, color: '#f5e6a3', marginTop: 0 }}>
@@ -499,6 +499,14 @@ export function AdminOpsSection() {
                       {'publicId' in r && r.publicId ? ` · publicId ${r.publicId}` : ''}
                       {'externalId' in r && r.externalId ? ` · ext ${r.externalId}` : ''}
                       {'amount' in r && r.amount != null ? ` · ${brl(Number(r.amount))}` : ''}
+                      {'expectedPayment' in r && r.expectedPayment != null
+                        ? ` · esperado ${brl(Number(r.expectedPayment))}`
+                        : ''}
+                      {'expectedOrder' in r &&
+                      r.expectedOrder != null &&
+                      r.expectedOrder !== r.expectedPayment
+                        ? ` · total pedido ${brl(Number(r.expectedOrder))}`
+                        : ''}
                     </div>
                     <div className="muted" style={{ fontSize: 11, color: '#8a8a84' }}>
                       id {r.id} · {r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '—'}

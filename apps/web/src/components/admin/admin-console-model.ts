@@ -385,6 +385,8 @@ export type AdminPaymentReconciliationItem = AdminOpsReconciliationRow & {
   paymentEventId?: string | null;
   publicId?: string | null;
   amount?: number | null;
+  expectedPayment?: number | null;
+  expectedOrder?: number | null;
   updatedAt?: string;
   resolvedAt?: string | null;
 };

@@ -399,7 +399,7 @@ model PaymentEvent {
   @@index([paymentId])
 }
 
-/** Durable follow-up when authenticated webhook has no local Payment/Order (do not invent rows). */
+/** Durable follow-up when an authenticated webhook did not apply (orphan, or amount/reference mismatch). */
 model PaymentReconciliation {
   id                String    @id @default(uuid())
   provider          String

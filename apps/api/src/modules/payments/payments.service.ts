@@ -41,6 +41,8 @@ import {
   persistSplitFromRemote,
 } from './pix-application-fee-fallback';
 import {
+  decideWebhookEventPersistence,
+  INTEGRITY_MISMATCH_REASONS,
   orphanReconciliationReason,
   RECONCILIATION_STATUS_OPEN,
 } from './reconciliation';
@@ -814,8 +816,9 @@ export class PaymentsService {
       data: { paymentId: local.id },
     }).catch(() => undefined);
 
+    let applyResult: { applied: boolean; reason: string };
     try {
-      await this.applyProviderStatus(local.id, {
+      applyResult = await this.applyProviderStatus(local.id, {
         status: fetched.status,
         amount: fetched.amount,
         externalReference: fetched.externalReference,
@@ -831,7 +834,51 @@ export class PaymentsService {
         providerStatus: fetched.status,
         error: String(e?.message || e).slice(0, 200),
       });
-      throw e; // 5xx → MP retry; durable PaymentEvent already persisted
+      throw e; // 5xx → MP retry; durable PaymentEvent already persisted (applied stays false)
+    }
+
+    // PaymentEvent.applied only when the domain applied the status.
+    // Mismatch: leave applied=false (same x-request-id can retry) AND open the admin queue.
+    const decision = decideWebhookEventPersistence(applyResult);
+    if (!decision.markEventApplied) {
+      let reconciliationId: string | undefined;
+      if (decision.openReconciliation) {
+        const reconciliation = await this.openIntegrityReconciliation({
+          eventId: event.id,
+          paymentId: local.id,
+          orderId: local.orderId,
+          publicId: local.order?.publicId || null,
+          externalId: fetched.externalId || verified.externalId,
+          externalReference: fetched.externalReference || null,
+          providerStatus: fetched.status,
+          reason: decision.reason,
+          providerAmount: Number(fetched.amount),
+          expectedPayment: Number(local.amount),
+          expectedOrder: Number(local.order?.total),
+        });
+        reconciliationId = reconciliation.id;
+      } else {
+        structuredLog('warn', 'WEBHOOK_NOT_APPLIED', {
+          eventId: event.id,
+          paymentId: local.id,
+          orderId: local.orderId,
+          publicId: local.order?.publicId || null,
+          providerStatus: fetched.status,
+          reason: decision.reason,
+        });
+      }
+      return {
+        ok: true,
+        applied: false,
+        reason: decision.reason,
+        paymentId: local.id,
+        status: fetched.status,
+        ...(reconciliationId ? { reconciliationId } : {}),
+      };
+    }
+
+    if (fetched.externalId) {
+      await this.resolveIntegrityReconciliation(fetched.externalId);
     }
 
     await this.prisma.paymentEvent.update({
@@ -843,9 +890,115 @@ export class PaymentsService {
       orderId: local.orderId,
       publicId: local.order?.publicId,
       status: fetched.status,
+      reason: decision.reason,
     });
 
-    return { ok: true, applied: true, paymentId: local.id, status: fetched.status };
+    return { ok: true, applied: true, paymentId: local.id, status: fetched.status, reason: decision.reason };
+  }
+
+  /**
+   * Amount/reference mismatch: durable PaymentReconciliation for admin.
+   * Does not set PaymentEvent.applied — a duplicate x-request-id may retry apply.
+   */
+  private async openIntegrityReconciliation(input: {
+    eventId: string;
+    paymentId: string;
+    orderId: string;
+    publicId: string | null;
+    externalId: string;
+    externalReference?: string | null;
+    providerStatus: string;
+    reason: string;
+    providerAmount: number;
+    expectedPayment: number;
+    expectedOrder: number;
+  }) {
+    const providerName = this.provider.name === 'null' ? 'null' : 'mercadopago';
+    const meta = {
+      publicId: input.publicId,
+      amount: input.providerAmount,
+      expectedPayment: input.expectedPayment,
+      expectedOrder: input.expectedOrder,
+      paymentId: input.paymentId,
+      orderId: input.orderId,
+    };
+    const reconciliation = await this.prisma.paymentReconciliation.upsert({
+      where: {
+        provider_externalId: {
+          provider: providerName,
+          externalId: input.externalId,
+        },
+      },
+      create: {
+        id: randomUUID(),
+        provider: providerName,
+        externalId: input.externalId,
+        externalReference: input.externalReference || null,
+        providerStatus: input.providerStatus,
+        reason: input.reason,
+        status: RECONCILIATION_STATUS_OPEN,
+        paymentEventId: input.eventId,
+        meta,
+      },
+      update: {
+        externalReference: input.externalReference || null,
+        providerStatus: input.providerStatus,
+        reason: input.reason,
+        status: RECONCILIATION_STATUS_OPEN,
+        paymentEventId: input.eventId,
+        resolvedAt: null,
+        meta,
+      },
+    });
+    await this.audit.log('payment.reconciliation_required', {
+      entity: 'PaymentReconciliation',
+      entityId: reconciliation.id,
+      meta: {
+        externalId: input.externalId,
+        providerStatus: input.providerStatus,
+        reason: input.reason,
+        paymentEventId: input.eventId,
+        paymentId: input.paymentId,
+        publicId: input.publicId,
+      },
+    });
+    structuredLog('warn', 'RECONCILIATION_REQUIRED', {
+      reconciliationId: reconciliation.id,
+      eventId: input.eventId,
+      externalId: input.externalId,
+      publicId: input.publicId,
+      providerStatus: input.providerStatus,
+      reason: input.reason,
+      paymentId: input.paymentId,
+    });
+    structuredLog('warn', 'WEBHOOK_NOT_APPLIED', {
+      eventId: input.eventId,
+      paymentId: input.paymentId,
+      orderId: input.orderId,
+      publicId: input.publicId,
+      providerStatus: input.providerStatus,
+      reason: input.reason,
+      reconciliationId: reconciliation.id,
+    });
+    return reconciliation;
+  }
+
+  /** A later event that truly applies closes an open amount/reference queue row. */
+  private async resolveIntegrityReconciliation(externalId: string) {
+    const providerName = this.provider.name === 'null' ? 'null' : 'mercadopago';
+    await this.prisma.paymentReconciliation.updateMany({
+      where: {
+        provider: providerName,
+        externalId,
+        status: RECONCILIATION_STATUS_OPEN,
+        resolvedAt: null,
+        reason: { in: [...INTEGRITY_MISMATCH_REASONS] },
+      },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+      },
+    });
   }
 
   /**
@@ -1117,6 +1270,14 @@ export class PaymentsService {
         amount:
           r.meta && typeof r.meta === 'object' && r.meta !== null && 'amount' in (r.meta as object)
             ? (r.meta as { amount?: number }).amount ?? null
+            : null,
+        expectedPayment:
+          r.meta && typeof r.meta === 'object' && r.meta !== null && 'expectedPayment' in (r.meta as object)
+            ? (r.meta as { expectedPayment?: number }).expectedPayment ?? null
+            : null,
+        expectedOrder:
+          r.meta && typeof r.meta === 'object' && r.meta !== null && 'expectedOrder' in (r.meta as object)
+            ? (r.meta as { expectedOrder?: number }).expectedOrder ?? null
             : null,
       })),
     };

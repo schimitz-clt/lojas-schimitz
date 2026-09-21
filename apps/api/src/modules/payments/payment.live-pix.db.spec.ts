@@ -146,7 +146,8 @@ async function main() {
     where: { provider: 'mercadopago', providerEventId: requestId },
   });
   assert.ok(ev, 'PaymentEvent persistido');
-  assert.equal(ev!.applied, true);
+  // Pending não altera Payment/Order — applied fica false para o mesmo x-request-id poder retentar.
+  assert.equal(ev!.applied, false);
 
   // fetch direto
   const fetched = await mp.fetchPayment(ext);

@@ -278,6 +278,32 @@ assert.ok(reconAlert!.message.includes('ABERTA'));
 assert.ok(reconAlert!.message.toLowerCase().includes('estorno'));
 assert.ok(reconAlert!.recommendedAction?.includes('Abrir fila Reconciliações'));
 assert.ok(reconAlert!.recommendedAction?.toLowerCase().includes('nunca estornar'));
+assert.ok(reconAlert!.message.includes('sem Payment local'));
+
+const mismatchAlerts = deriveOpsAlerts({
+  lowStockCount: 0,
+  outOfStockCount: 0,
+  placeholderProductCount: 0,
+  pendingPaymentCount: 0,
+  mailConfigured: true,
+  orderBuckets: {},
+  openReconciliationCount: 1,
+  reconciliationRecent: [
+    {
+      id: 'r-mm',
+      reason: 'amount_mismatch',
+      providerStatus: 'approved',
+      externalReference: 'SCH-MM',
+      createdAt: '2026-09-16T12:00:00.000Z',
+      status: 'RECONCILIATION_REQUIRED',
+    },
+  ],
+});
+const mismatchAlert = mismatchAlerts.find((a) => a.code === 'open_reconciliations');
+assert.ok(mismatchAlert);
+assert.equal(mismatchAlert!.evidence?.reason, 'amount_mismatch');
+assert.ok(mismatchAlert!.message.includes('divergente'));
+assert.equal(mismatchAlert!.message.includes('sem Payment local'), false);
 
 const withRecon = summarizeOps({
   lowStockCount: 0,

@@ -20,6 +20,7 @@ import {
   storeNotifyFailureActionPt,
   storeNotifyFailureLabelPt,
 } from '../notifications/store-notify-obs';
+import { isIntegrityMismatchReason } from '../payments/reconciliation';
 
 export {
   UPLOADS_PERSISTENT_ROOT,
@@ -624,17 +625,24 @@ export function deriveOpsAlerts(input: {
   }
   if (openRecon > 0) {
     const sample = (input.reconciliationRecent ?? []).slice(0, 3);
-    const moneyRisk = sample.some((r) => {
+    const integrity = sample.some((r) => isIntegrityMismatchReason(String(r.reason || '')));
+    const orphanMoney = sample.some((r) => {
+      if (isIntegrityMismatchReason(String(r.reason || ''))) return false;
       const s = String(r.providerStatus || '').toLowerCase();
       return s === 'approved' || s === 'paid';
     });
+    const detail = integrity && orphanMoney
+      ? ' (valor/referência divergente ou captura no provedor sem Payment local)'
+      : integrity
+        ? ' (valor ou referência divergente do pedido)'
+        : orphanMoney
+          ? ' (captura no provedor sem Payment local)'
+          : '';
     alerts.push({
       code: 'open_reconciliations',
-      // Always high: money-at-risk orphans need human review; moneyRisk only enriches evidence.
+      // Always high: open payment reconciliations need human review.
       severity: 'high',
-      message: `${openRecon} reconciliação(ões) de pagamento ABERTA(S) — conferir agora na fila${
-        moneyRisk ? ' (captura no provedor sem Payment local)' : ''
-      }. Sem estorno automático.`,
+      message: `${openRecon} reconciliação(ões) de pagamento ABERTA(S) — conferir agora na fila${detail}. Sem estorno automático.`,
       count: openRecon,
       section: 'reconciliations',
       evidence: {
