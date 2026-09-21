@@ -117,6 +117,30 @@ assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-ctas\s*\{[^}]*grid-template-columns:\s*1fr/.test(css),
   'mobile sticky bar stacks Adicionar and Comprar agora',
 );
+const mobilePdpCss = css.slice(
+  css.indexOf('@media (max-width: 720px)'),
+  css.indexOf('@media (max-width: 520px)'),
+);
+assert.ok(
+  /\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{\s*display:\s*none/.test(mobilePdpCss),
+  'mobile hides in-page Adicionar and Comprar agora; sticky bar keeps them',
+);
+assert.equal(
+  /\.pdp-actions \.pdp-cta-wa\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
+  false,
+  'WhatsApp stays in the mobile page body',
+);
+assert.equal(
+  /\.pdp-sticky-atc\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
+  false,
+  'sticky purchase bar stays visible on mobile',
+);
+const desktopPdpCss = css.slice(css.lastIndexOf('@media (min-width: 721px)'));
+assert.equal(
+  /\.pdp-actions \.pdp-cta-primary[\s\S]{0,160}display:\s*none/.test(desktopPdpCss),
+  false,
+  'desktop buy box keeps Adicionar and Comprar agora',
+);
 assert.ok(css.includes('.pdp-desc.is-collapsed'), 'long specs clamp on mobile');
 assert.ok(css.includes('.pdp-desc-toggle'), 'Ver mais control is styled');
 assert.equal(
