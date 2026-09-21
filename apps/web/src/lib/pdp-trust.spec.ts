@@ -4,12 +4,15 @@ import { join } from 'node:path';
 import {
   RELATED_PRODUCTS_MAX,
   STOREFRONT_CEP_KEY,
+  assembleRelatedProducts,
+  bestsellersFromHomeShelves,
   cepDigits,
   formatCepInput,
   isCompleteCep,
   parseCatalogProductItems,
   persistStoredCep,
   pdpBenefitTrustItems,
+  pdpCompactTrustChips,
   pdpFreightCheckoutFallback,
   pdpFreightIdleCopy,
   pdpFreightResultCopy,
@@ -20,6 +23,7 @@ import {
   readStoredCep,
   relatedProductsCopy,
   relatedProductsHref,
+  relatedShelfLink,
   shouldShowRelatedProducts,
 } from './pdp-trust';
 
@@ -53,11 +57,18 @@ import {
   );
   assert.equal(shouldShowRelatedProducts(picked.items.length), true);
   assert.equal(shouldShowRelatedProducts(0), false);
-  assert.equal(relatedProductsCopy('category').title, 'Você também pode gostar');
+  assert.equal(relatedProductsCopy('category').title, 'Quem viu também viu');
   assert.ok(/categoria/i.test(relatedProductsCopy('category').subtitle));
+  assert.equal(relatedProductsCopy('bestsellers').title, 'Quem viu também viu');
+  assert.ok(/mais vendidos/i.test(relatedProductsCopy('bestsellers').subtitle));
   assert.ok(!/comprou/i.test(relatedProductsCopy('catalog').title));
+  assert.ok(!/comprou/i.test(relatedProductsCopy('bestsellers').title));
   assert.equal(relatedProductsHref('eletro'), '/departamento/eletro');
   assert.equal(relatedProductsHref(''), '/produtos');
+  assert.equal(relatedProductsHref('eletro', 'bestsellers'), '/produtos?sort=relevance');
+  assert.equal(relatedShelfLink('category', 'eletro', 'Eletro').label, 'Ver Eletro');
+  assert.equal(relatedShelfLink('bestsellers').href, '/produtos?sort=relevance');
+  assert.equal(relatedShelfLink('bestsellers').label, 'Ver mais vendidos');
 
   const onlyOther = pickRelatedProducts({ id: 'x', slug: 'x' }, [
     { id: 'y', slug: 'y', category: { slug: 'casa' } },
@@ -81,6 +92,89 @@ import {
   assert.deepEqual(
     parseCatalogProductItems({ items: [{ id: 'a' }, { name: 'no-id' }] }).map((x) => x.id),
     ['a'],
+  );
+
+  const shelf = assembleRelatedProducts(
+    { id: 'tv', slug: 'tv-a', categorySlug: 'eletro' },
+    {
+      category: [
+        { id: 'tv', slug: 'tv-a', category: { slug: 'eletro' } },
+        { id: 'sound', slug: 'sound', category: { slug: 'eletro' } },
+        { id: 'fridge', slug: 'fridge', category: { slug: 'eletro' } },
+      ],
+      bestsellers: [{ id: 'best', slug: 'best', category: { slug: 'casa' } }],
+    },
+  );
+  assert.equal(shelf.kind, 'category');
+  assert.deepEqual(
+    shelf.items.map((p) => p.id),
+    ['sound', 'fridge'],
+  );
+
+  const fallback = assembleRelatedProducts(
+    { id: 'solo', slug: 'solo', categorySlug: 'eletro' },
+    {
+      category: [{ id: 'solo', slug: 'solo', category: { slug: 'eletro' } }],
+      bestsellers: [
+        { id: 'best', slug: 'best', category: { slug: 'casa' } },
+        { id: 'best-2', slug: 'best-2', category: { slug: 'casa' } },
+      ],
+      catalog: [{ id: 'other', slug: 'other', category: { slug: 'moveis' } }],
+    },
+  );
+  assert.equal(fallback.kind, 'bestsellers');
+  assert.deepEqual(
+    fallback.items.map((p) => p.id),
+    ['best', 'best-2'],
+  );
+
+  const oneNeighbor = assembleRelatedProducts(
+    { id: 'tv', slug: 'tv-a', categorySlug: 'eletro' },
+    {
+      category: [
+        { id: 'tv', slug: 'tv-a', category: { slug: 'eletro' } },
+        { id: 'sound', slug: 'sound', category: { slug: 'eletro' } },
+      ],
+      bestsellers: [
+        { id: 'best', slug: 'best', category: { slug: 'casa' } },
+        { id: 'best-2', slug: 'best-2', category: { slug: 'casa' } },
+      ],
+    },
+  );
+  assert.equal(oneNeighbor.kind, 'category');
+  assert.equal(oneNeighbor.items[0].id, 'sound');
+  assert.ok(oneNeighbor.items.some((p) => p.id === 'best'));
+
+  const catalogFill = assembleRelatedProducts(
+    { id: 'solo', slug: 'solo', categorySlug: 'eletro' },
+    {
+      category: [],
+      bestsellers: [],
+      catalog: [{ id: 'other', slug: 'other', category: { slug: 'moveis' } }],
+    },
+  );
+  assert.equal(catalogFill.kind, 'catalog');
+  assert.equal(catalogFill.items[0].id, 'other');
+
+  const ranked = bestsellersFromHomeShelves({
+    shelves: [
+      {
+        id: 'featured',
+        title: 'Mais vendidos',
+        metric: 'paid_qty',
+        items: [{ id: 'sold' }, { id: '' }],
+      },
+    ],
+  });
+  assert.deepEqual(
+    ranked.map((p) => p.id),
+    ['sold'],
+  );
+  assert.deepEqual(
+    bestsellersFromHomeShelves({
+      shelves: [{ id: 'featured', title: 'Em destaque', metric: 'newest', items: [{ id: 'new' }] }],
+    }),
+    [],
   );
   console.log('pdp-trust: related — PASSOU');
 }
@@ -108,7 +202,18 @@ import {
   assert.equal(readStoredCep(storage), '90010-000');
 
   const idle = pdpFreightIdleCopy();
+  assert.equal(idle.title, 'Frete e prazo');
   assert.ok(/CEP/i.test(idle.body));
+
+  const chips = pdpCompactTrustChips('Schimitz');
+  assert.deepEqual(
+    chips.map((chip) => chip.label),
+    ['Vendido por Schimitz', 'Troca em 7 dias', 'Garantia e qualidade'],
+  );
+  assert.equal(chips[1].href, '/termos');
+  assert.equal(chips[2].href, '/suporte');
+  assert.equal(pdpCompactTrustChips('').find((chip) => chip.id === 'seller')?.label, 'Lojas Schimitz');
+  assert.ok(!chips.some((chip) => /pessoas vendo|100%|selo/i.test(chip.label)));
   const fallback = pdpFreightCheckoutFallback();
   assert.ok(/checkout/i.test(fallback.title));
   assert.ok(!/\d+,\d{2}/.test(fallback.body), 'fallback must not invent a price');
@@ -148,6 +253,10 @@ import {
   const srcRoot = join(__dirname, '..');
   const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 'utf8');
   assert.ok(pdp.includes('pdpPriceTrustLines'), 'PDP shows trust lines under price');
+  assert.ok(pdp.includes('pdpCompactTrustChips'), 'PDP trust is a compact chip strip');
+  assert.ok(pdp.includes('no PIX'), 'PIX price leads the offer');
+  assert.ok(pdp.includes('pdp-list-price'), 'list price stays scannable under PIX');
+  assert.ok(pdp.includes('Falar com a loja'), 'WhatsApp store contact stays');
   assert.ok(pdp.includes('PdpFreightCep'), 'PDP wires existing CEP quote UI');
   assert.ok(pdp.includes('PdpRelatedProducts'), 'PDP shows related catalog products');
   assert.ok(pdp.includes('pdpLowStockUrgency'), 'PDP urgency uses real stock ≤3');
@@ -164,14 +273,21 @@ import {
   const freightCmp = readFileSync(join(srcRoot, 'components/PdpFreightCep.tsx'), 'utf8');
   assert.ok(freightCmp.includes('/shipping/quote'), 'uses existing quote engine');
   assert.ok(freightCmp.includes('pdpFreightCheckoutFallback'), '401/error stays honest');
+  assert.ok(freightCmp.includes('pdp-freight-estimate'), 'quote renders as an estimate row');
+  assert.ok(freightCmp.includes('STOREFRONT_CEP_KEY') || freightCmp.includes('readStoredCep'), 'reuses sch_cep');
 
   const relatedCmp = readFileSync(join(srcRoot, 'components/PdpRelatedProducts.tsx'), 'utf8');
   assert.ok(relatedCmp.includes('ProductCard'), 'related rail reuses ProductCard');
   assert.ok(relatedCmp.includes('shouldShowRelatedProducts'), 'empty related hides');
   assert.ok(relatedCmp.includes('home-shelf-rail'), 'horizontal cards reuse home shelf rail');
+  assert.ok(relatedCmp.includes('/store/shelves'), 'mais vendidos fallback uses the home shelf API');
+  assert.ok(relatedCmp.includes('assembleRelatedProducts'), 'related shelf uses the catalog assembler');
+  assert.ok(relatedCmp.includes('variant="shelf"'), 'related cards reuse the shelf density');
 
   const css = readFileSync(join(srcRoot, 'app/globals.css'), 'utf8');
   assert.ok(css.includes('.pdp-price-trust'), 'trust under price is styled');
+  assert.ok(css.includes('.pdp-pix-kicker'), 'PIX kicker is styled in the Schimitz palette');
+  assert.ok(css.includes('.pdp-freight-estimate'), 'freight estimate row is styled');
   assert.ok(css.includes('.pdp-freight'), 'CEP box is styled');
   assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'PDP still hides page overflow');
 

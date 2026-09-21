@@ -68,33 +68,35 @@ export function PdpFreightCep({ subtotal }: Props) {
 
   return (
     <div className="pdp-freight" aria-label="Calcular frete">
-      <p className="pdp-freight-kicker">{idle.title}</p>
+      <div className="pdp-freight-top">
+        <p className="pdp-freight-kicker">{idle.title}</p>
+        <form className="pdp-freight-form" onSubmit={onSubmit}>
+          <label className="pdp-freight-field">
+            <span className="sr-only">CEP</span>
+            <input
+              inputMode="numeric"
+              autoComplete="postal-code"
+              placeholder="00000-000"
+              value={cep}
+              onChange={(e) => {
+                setCep(formatCepInput(e.target.value));
+                setFailed(false);
+                setQuote(null);
+              }}
+              aria-label="Informe seu CEP"
+            />
+          </label>
+          <button className="btn" type="submit" disabled={loading || !isCompleteCep(cep)}>
+            {loading ? 'Calculando…' : 'Calcular'}
+          </button>
+        </form>
+      </div>
       <p className="muted pdp-freight-hint">{idle.body}</p>
-      <form className="pdp-freight-form" onSubmit={onSubmit}>
-        <label className="pdp-freight-field">
-          <span className="sr-only">CEP</span>
-          <input
-            inputMode="numeric"
-            autoComplete="postal-code"
-            placeholder="00000-000"
-            value={cep}
-            onChange={(e) => {
-              setCep(formatCepInput(e.target.value));
-              setFailed(false);
-              setQuote(null);
-            }}
-            aria-label="Informe seu CEP"
-          />
-        </label>
-        <button className="btn ghost" type="submit" disabled={loading || !isCompleteCep(cep)}>
-          {loading ? 'Calculando…' : 'Calcular'}
-        </button>
-      </form>
       {loading ? <p className="muted pdp-freight-status">Consultando a entrega própria…</p> : null}
       {!loading && result ? (
-        <p className="pdp-freight-result" role="status">
+        <p className="pdp-freight-result pdp-freight-estimate" role="status">
+          <span className="pdp-freight-eta">{result.detail}</span>
           <strong>{result.title}</strong>
-          <span className="muted">{result.detail}</span>
         </p>
       ) : null}
       {!loading && failed ? (

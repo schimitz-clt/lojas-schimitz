@@ -29,9 +29,11 @@ import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import type { Product } from '@/components/ProductCard';
 import {
   pdpBenefitTrustItems,
+  pdpCompactTrustChips,
   pdpLowStockUrgency,
   pdpPriceTrustLines,
   pdpStockLine,
+  type RelatedKind,
 } from '@/lib/pdp-trust';
 
 export type ProductDetail = {
@@ -130,9 +132,11 @@ function formatReviewDate(iso: string) {
 export default function ProductPage({
   initial = null,
   related = null,
+  relatedKind = null,
 }: {
   initial?: ProductDetail | null;
   related?: Product[] | null;
+  relatedKind?: RelatedKind | null;
 }) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
@@ -261,8 +265,8 @@ export default function ProductPage({
   const stock = resolveProductStock(p);
   const urgency = pdpLowStockUrgency(stock);
   const stockLabel = pdpStockLine(stock);
-  const priceTrust = pdpPriceTrustLines();
-  const benefitTrust = pdpBenefitTrustItems();
+  const trustChips = pdpCompactTrustChips(p.seller?.name, pdpPriceTrustLines());
+  const benefitTrust = pdpBenefitTrustItems().filter((item) => item.id === 'frete');
   const avg = Number(p.ratingAvg ?? 0);
   const count = p.ratingCount ?? 0;
   const loggedIn = Boolean(currentUser());
@@ -336,26 +340,27 @@ export default function ProductPage({
                 </li>
               ))}
             </ul>
-            <div className="pdp-price-row">
-              <span className="price pdp-price">{brl(price)}</span>
-              {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
+            <div className="pdp-price-row pdp-price-lead">
+              <span className="price pdp-price">{brl(pix)}</span>
+              <span className="pdp-pix-kicker">no PIX</span>
             </div>
-            <p className="pdp-pix">
-              <strong>{brl(pix)}</strong> no PIX <span className="muted">· 5% de desconto</span>
-            </p>
             {pixHighlight(price).savings > 0 ? (
               <span className="pdp-savings">{pixHighlight(price).savingsLine}</span>
             ) : null}
-            <p className="pdp-install muted">{installmentLine(price)}</p>
-            <ul className="pdp-price-trust" aria-label="Troca e devolução">
-              {priceTrust.map((line) => (
-                <li key={line.id}>
-                  <Link href={line.href}>{line.title}</Link>
-                  <span className="muted">{line.body}</span>
+            <p className="pdp-list-line">
+              <span className="muted">ou </span>
+              {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}
+              <span className="pdp-list-price">{brl(price)}</span>
+            </p>
+            <p className="pdp-install">{installmentLine(price)}</p>
+            <PdpFreightCep subtotal={price} />
+            <ul className="pdp-price-trust" aria-label="Vendedor, troca e garantia">
+              {trustChips.map((chip) => (
+                <li key={chip.id}>
+                  {chip.href ? <Link href={chip.href}>{chip.label}</Link> : <span>{chip.label}</span>}
                 </li>
               ))}
             </ul>
-            <PdpFreightCep subtotal={price} />
             <details className="pdp-install-table">
               <summary>Ver parcelas (1 a {MAX_INSTALLMENTS}x)</summary>
               <ul>
@@ -592,6 +597,7 @@ export default function ProductPage({
         categorySlug={p.category?.slug}
         categoryName={p.category?.name}
         initial={related}
+        initialKind={relatedKind}
       />
 
       <RecentlyViewedStrip excludeId={p.id} excludeSlug={p.slug} />
