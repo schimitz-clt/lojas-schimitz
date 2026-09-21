@@ -1530,7 +1530,8 @@ textarea { resize: vertical; min-height: 72px; }
   box-shadow: none;
   font-weight: 800;
 }
-.pdp-actions .pdp-cta-buy-now:hover {
+.pdp-actions .pdp-cta-buy-now:hover,
+.pdp-sticky-atc .pdp-cta-buy-now:hover {
   background: var(--yellow-soft);
   color: var(--ink);
   border-color: var(--ink);
@@ -1860,6 +1861,7 @@ textarea { resize: vertical; min-height: 72px; }
 .cart-checkout-btn { width: 100%; background: var(--yellow); color: var(--ink); }
 .cart-checkout-btn:hover { background: var(--yellow-deep); color: var(--ink); }
 .cart-sticky-checkout { display: none; }
+.pdp-sticky-atc { display: none; }
 .checkout-confirm-btn { background: var(--yellow); color: var(--ink); }
 .checkout-address { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
 .checkout-address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -2039,6 +2041,9 @@ textarea { resize: vertical; min-height: 72px; }
   .pdp-actions .pdp-cta-primary,
   .pdp-actions .pdp-cta-buy-now,
   .pdp-actions .pdp-cta-wa { grid-column: 1 / -1; width: 100%; }
+  /* Sticky bar is the only Adicionar / Comprar agora on mobile. */
+  .pdp-actions .pdp-cta-primary,
+  .pdp-actions .pdp-cta-buy-now { display: none; }
   .pdp-actions .btn,
   .pdp-actions .compare-toggle,
   .pdp-actions .fav-toggle,
@@ -2576,11 +2581,59 @@ textarea { resize: vertical; min-height: 72px; }
 
   .pdp {
     padding-top: 0;
-    /* Bottom nav clearance is .main-shell (~80px). Price and CTAs scroll with the page. */
-    padding-bottom: 8px;
+    /* Clears the fixed purchase bar that sits above the docked bottom nav. */
+    padding-bottom: 156px;
     overflow-x: hidden;
     max-width: 100%;
   }
+  .pdp-sticky-atc {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 25;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .pdp-sticky-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 8px;
+    min-width: 0;
+  }
+  .pdp-sticky-ctas {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  .pdp-sticky-atc .btn {
+    width: 100%;
+    min-height: 44px;
+    white-space: nowrap;
+    padding: 0 12px;
+    background: var(--yellow);
+    color: var(--ink);
+    font-weight: 800;
+  }
+  .pdp-sticky-atc .btn.pdp-cta-buy-now {
+    background: #fff;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    box-shadow: none;
+  }
+  .pdp-cart-toast { bottom: calc(236px + env(safe-area-inset-bottom, 0px)); }
   .cart-page { padding-bottom: 8px; }
   .cart-sticky-checkout {
     display: flex;
