@@ -31,6 +31,18 @@ assert.ok(cart.includes('cartCheckoutHref'), 'guest cart CTA keeps next=/checkou
 assert.ok(cart.includes('useSessionUser'), 'cart waits cookie hydrate before guest vs logged-in');
 assert.ok(cart.includes('getGuestToken'), 'guest can still hold a cart');
 
+const summaryAt = cart.indexOf('className="cart-summary');
+const stickyAt = cart.indexOf('className="cart-sticky-checkout"');
+assert.ok(summaryAt > 0 && stickyAt > summaryAt, 'summary card sits above the sticky checkout bar');
+const summary = cart.slice(summaryAt, stickyAt);
+const sticky = cart.slice(stickyAt);
+assert.equal(summary.includes('cart-checkout-btn'), false, 'summary card does not repeat Finalizar compra');
+assert.ok(summary.includes('Continuar comprando'), 'keep-shopping stays in the summary card');
+assert.ok(summary.includes('CartCouponField'), 'coupon field stays in the summary');
+assert.ok(sticky.includes('href={checkoutHref}'), 'sticky Finalizar keeps the same checkout href');
+assert.ok(sticky.includes('cartCheckoutLabel'), 'sticky Finalizar keeps the same label');
+assert.equal((cart.match(/cart-checkout-btn/g) || []).length, 2, 'only the sticky bar renders the checkout CTA');
+
 const entrar = readFileSync(join(root, 'app/entrar/page.tsx'), 'utf8');
 assert.ok(entrar.includes('/auth/register'), 'entrar can create account at buy time');
 assert.ok(entrar.includes('/auth/login'), 'register then login issues session cookies');

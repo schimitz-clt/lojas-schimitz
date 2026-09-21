@@ -72,6 +72,26 @@ export function stickyBuyLabel(state: StickyBuyState): string {
   return 'Adicionar à sacola';
 }
 
+export type BuyNowState = {
+  outOfStock: boolean;
+  adding: boolean;
+};
+
+/** Secondary PDP CTA — outlined, under “Adicionar à sacola”. */
+export function buyNowLabel(state: BuyNowState): string {
+  if (state.outOfStock) return 'Indisponível';
+  if (state.adding) return 'Adicionando...';
+  return 'Comprar agora';
+}
+
+/**
+ * “Comprar agora” lands on the sacola, where the single “Finalizar compra” lives.
+ * Checkout stays the next step (login + address + payment), not a second buy path.
+ */
+export function pdpBuyNowHref(): string {
+  return '/carrinho';
+}
+
 /** Cart primary CTA label. */
 export function cartCheckoutLabel(loggedIn: boolean): string {
   return loggedIn ? 'Finalizar compra' : 'Entrar ou cadastrar';

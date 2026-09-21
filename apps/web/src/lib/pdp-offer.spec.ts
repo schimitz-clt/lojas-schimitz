@@ -61,7 +61,12 @@ assert.ok(pdp.includes('pdp-rating-score'), 'rating score sits beside the produc
 assert.ok(pdp.includes('pdp-gallery-col'), 'gallery column wraps full-bleed photo + tools');
 assert.ok(pdp.includes('pdp-gallery-tools'), 'favoritar/compartilhar overlay the photo on mobile');
 assert.ok(pdp.includes('pdp-cta-primary'), 'primary ATC spans the mobile CTA grid');
+assert.ok(pdp.includes('pdp-cta-buy-now'), 'Comprar agora sits under Adicionar à sacola');
+assert.ok(pdp.includes('buyNowLabel'), 'Comprar agora label comes from the helper');
+assert.ok(pdp.includes('pdpBuyNowHref'), 'Comprar agora navigates with the sacola helper');
+assert.ok(pdp.includes("router.push(pdpBuyNowHref())"), 'Comprar agora leaves for the sacola after add');
 assert.ok(pdp.includes('pdp-cta-wa'), 'WhatsApp stays in the CTA row');
+assert.equal(pdp.includes('Retire na loja'), false, 'no store-pickup CTA');
 assert.ok(pdp.includes('pixPrice('), 'PDP reuses pixPrice');
 assert.ok(pdp.includes('installmentLine('), 'PDP reuses installmentLine');
 assert.ok(!/style=\{\{\s*padding:\s*'24px 0'\s*\}\}/.test(pdp), 'PDP must not inline-override padding (hides sticky clearance)');
@@ -106,6 +111,11 @@ assert.ok(
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/.test(css),
   'mobile CTAs use a 2-col grid that cannot overflow',
+);
+assert.ok(css.includes('.pdp-cta-buy-now'), 'outlined Comprar agora is styled in the Schimitz palette');
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-ctas\s*\{[^}]*grid-template-columns:\s*1fr/.test(css),
+  'mobile sticky bar stacks Adicionar and Comprar agora',
 );
 assert.ok(css.includes('.pdp-desc.is-collapsed'), 'long specs clamp on mobile');
 assert.ok(css.includes('.pdp-desc-toggle'), 'Ver mais control is styled');
