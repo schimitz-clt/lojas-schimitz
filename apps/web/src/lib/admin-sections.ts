@@ -17,6 +17,7 @@ export const ADMIN_SECTION_IDS = [
   'avaliacoes',
   'marketplace',
   'equipe',
+  'notificacoes',
 ] as const;
 
 export type AdminSectionId = (typeof ADMIN_SECTION_IDS)[number];
@@ -43,6 +44,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: 'avaliacoes', label: 'Avaliações', description: 'Moderação' },
   { id: 'marketplace', label: 'Marketplace', description: 'Vendedores' },
   { id: 'equipe', label: 'Equipe', description: 'Administradores' },
+  { id: 'notificacoes', label: 'Notificações', description: 'Push FCM' },
 ] as const;
 
 export const DEFAULT_ADMIN_SECTION: AdminSectionId = 'ops';
@@ -81,6 +83,10 @@ const SECTION_ALIASES: Record<string, AdminSectionId> = {
   admins: 'equipe',
   admin: 'equipe',
   team: 'equipe',
+  notifications: 'notificacoes',
+  notification: 'notificacoes',
+  push: 'notificacoes',
+  fcm: 'notificacoes',
 };
 
 export function isAdminSectionId(value: unknown): value is AdminSectionId {

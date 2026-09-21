@@ -94,6 +94,8 @@ model User {
   cashbackLedger       CashbackLedger[]
   notifications        Notification[]
   sellersOwned         Seller[]
+  deviceFcmTokens      DeviceFcmToken[]
+  pushCampaignsCreated PushCampaign[]
 }
 
 model RefreshToken {
@@ -556,6 +558,91 @@ model OrderStatusHistory {
   createdAt  DateTime @default(now())
 
   @@index([orderId, createdAt])
+}
+
+/** Aparelho Android com token FCM (promo push). userId nulo = visitante. */
+enum PushPlatform {
+  android
+}
+
+enum PushCampaignAudience {
+  all_enabled
+  with_orders
+}
+
+enum PushCampaignStatus {
+  draft
+  scheduled
+  sending
+  sent
+  failed
+  cancelled
+}
+
+enum PushDispatchStatus {
+  sent
+  failed
+  skipped
+}
+
+model DeviceFcmToken {
+  id          String       @id @default(uuid())
+  token       String       @unique
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  platform    PushPlatform @default(android)
+  enabled     Boolean      @default(true)
+  lastSeenAt  DateTime     @default(now())
+  appVersion  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  dispatches  PushDispatch[]
+
+  @@index([userId])
+  @@index([enabled, platform])
+  @@index([lastSeenAt])
+}
+
+/** Campanha promocional FCM (admin). Independente da tabela in-app Notification. */
+model PushCampaign {
+  id             String                @id @default(uuid())
+  title          String
+  body           String
+  imageUrl       String?
+  linkPath       String                @default("/")
+  audience       PushCampaignAudience  @default(all_enabled)
+  status         PushCampaignStatus    @default(draft)
+  scheduledAt    DateTime?
+  createdById    String?
+  createdBy      User?                 @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sentAt         DateTime?
+  sentCount      Int                   @default(0)
+  failedCount    Int                   @default(0)
+  skippedCount   Int                   @default(0)
+  errorSummary   String?
+  firebaseReady  Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  dispatches     PushDispatch[]
+
+  @@index([status, scheduledAt])
+  @@index([createdAt])
+}
+
+model PushDispatch {
+  id             String              @id @default(uuid())
+  campaignId     String
+  campaign       PushCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tokenId        String?
+  token          DeviceFcmToken?     @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  tokenFingerprint String
+  status         PushDispatchStatus
+  error          String?
+  fcmMessageId   String?
+  createdAt      DateTime            @default(now())
+
+  @@index([campaignId, createdAt])
+  @@index([tokenId])
 }
 
 /** Notificações in-app do cliente. */

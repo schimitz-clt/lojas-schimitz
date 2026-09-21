@@ -25,6 +25,8 @@ import {
 
 assert.equal(DEFAULT_ADMIN_SECTION, 'ops');
 assert.ok(ADMIN_SECTION_IDS.includes('ops'));
+assert.ok(ADMIN_SECTION_IDS.includes('equipe'));
+assert.ok(ADMIN_SECTION_IDS.includes('notificacoes'));
 assert.ok(ADMIN_SECTION_IDS.includes('pedidos'));
 assert.ok(ADMIN_SECTION_IDS.includes('catalogo'));
 assert.equal(ADMIN_NAV_ITEMS[0]?.id, 'ops');
@@ -37,6 +39,9 @@ assert.equal(parseAdminSection('pedidos'), 'pedidos');
 assert.equal(parseAdminSection('orders'), 'pedidos');
 assert.equal(parseAdminSection('catalogo'), 'catalogo');
 assert.equal(parseAdminSection('products'), 'catalogo');
+assert.equal(parseAdminSection('equipe'), 'equipe');
+assert.equal(parseAdminSection('notificacoes'), 'notificacoes');
+assert.equal(parseAdminSection('push'), 'notificacoes');
 assert.equal(parseAdminSection('nope'), 'ops');
 assert.equal(parseAdminSection('reconciliations'), 'ops');
 
@@ -58,6 +63,8 @@ assert.equal(sectionFromPathname('/admin/ops'), 'ops');
 assert.equal(sectionFromPathname('/admin/pedidos'), 'pedidos');
 assert.equal(sectionFromPathname('/admin/orders'), 'pedidos');
 assert.equal(sectionFromPathname('/admin/clientes'), 'clientes');
+assert.equal(sectionFromPathname('/admin/equipe'), 'equipe');
+assert.equal(sectionFromPathname('/admin/notificacoes'), 'notificacoes');
 assert.equal(sectionFromPathname('/loja'), 'ops');
 
 assert.equal(buildAdminSectionHref('ops'), '/admin');
@@ -150,9 +157,11 @@ assert.deepEqual(paths, [
   '/admin/avaliacoes',
   '/admin/marketplace',
   '/admin/equipe',
+  '/admin/notificacoes',
 ]);
 
 const consoleSrc = readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8');
+assert.ok(consoleSrc.includes('notificacoes: AdminNotificacoesSection'), 'Admin console wires Notificações');
 assert.ok(consoleSrc.includes('headerActions={<AdminLogoutButton />}'), 'AdminConsole wires headerActions');
 assert.ok(consoleSrc.includes('clearSession()'), 'Admin Sair reuses Conta clearSession');
 assert.ok(consoleSrc.includes('adminLogoutHref()'), 'Admin Sair redirects via adminLogoutHref');

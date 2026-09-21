@@ -15,6 +15,10 @@ keystore.properties
 signing.properties
 *.key
 
+# Firebase (nunca commitar o arquivo real — use google-services.json.example)
+/app/google-services.json
+google-services.json
+
 # Capacitor leftovers (se alguém experimentar)
 /node_modules/
 /.capacitor/

@@ -22,6 +22,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PushModule } from './modules/push/push.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { SecurityModule } from './modules/security/security.module';
 
@@ -51,6 +52,7 @@ import { SecurityModule } from './modules/security/security.module';
     ChatModule,
     StorefrontModule,
     NotificationsModule,
+    PushModule,
     SellersModule,
     SecurityModule,
   ],

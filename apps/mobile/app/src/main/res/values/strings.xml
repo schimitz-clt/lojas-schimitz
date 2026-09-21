@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Lojas Schimitz</string>
+    <string name="push_channel_name">Promoções</string>
+    <string name="push_channel_desc">Ofertas e novidades da Lojas Schimitz</string>
+    <string name="push_default_body">Tem novidade pra você na loja.</string>
 </resources>

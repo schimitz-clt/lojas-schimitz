@@ -19,3 +19,5 @@ apps/mobile/local.properties
 apps/mobile/keystore.properties
 apps/mobile/*.jks
 apps/mobile/*.keystore
+apps/mobile/app/google-services.json
+apps/mobile/google-services.json
