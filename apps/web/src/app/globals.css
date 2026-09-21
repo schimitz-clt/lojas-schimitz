@@ -2002,6 +2002,11 @@ textarea { resize: vertical; min-height: 72px; }
     padding: 0 12px;
     min-height: 44px;
   }
+  /* In-page Adicionar / Comprar agora duplicate the sticky bar on phones. */
+  .pdp-actions .pdp-cta-primary,
+  .pdp-actions .pdp-cta-buy-now {
+    display: none;
+  }
   .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
   .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }
   .chatw { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); right: 12px; }
