@@ -48,6 +48,28 @@ export function pushStatusTone(status: string): 'ok' | 'warn' | 'danger' | 'info
   }
 }
 
+/** Static Admin copy when the preview endpoint has not loaded yet (default delay 2h). */
+export function abandonedViewAdminNote(): string {
+  return (
+    'Recuperação de produto é automática: quem viu um produto no app (aparelho com push) e não comprou ' +
+    'recebe um único aviso cerca de 2h depois da última visita. ' +
+    'Limite: 1 por produto a cada 7 dias e 1 por aparelho por dia (horário de Brasília). ' +
+    'Esta tela não dispara essa mensagem.'
+  );
+}
+
+export function abandonedViewPreviewLine(preview: {
+  openViews?: number;
+  dueViews?: number;
+  sentLast7Days?: number;
+} | null | undefined): string {
+  if (!preview) return '';
+  const open = preview.openViews ?? 0;
+  const due = preview.dueViews ?? 0;
+  const sent = preview.sentLast7Days ?? 0;
+  return `${open} visita(s) em aberto · ${due} com atraso cumprido · ${sent} enviado(s) em 7 dias`;
+}
+
 export function isNaoExecutado(summary: string | null | undefined): boolean {
   return String(summary || '').includes('NÃO EXECUTADO');
 }

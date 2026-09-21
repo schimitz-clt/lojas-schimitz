@@ -96,6 +96,7 @@ model User {
   sellersOwned         Seller[]
   deviceFcmTokens      DeviceFcmToken[]
   pushCampaignsCreated PushCampaign[]
+  productViewEvents    ProductViewEvent[]
 }
 
 model RefreshToken {
@@ -224,12 +225,14 @@ model Product {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  images     ProductImage[]
-  inventory  Inventory?
-  cartItems  CartItem[]
-  orderItems OrderItem[]
-  reviews    Review[]
-  favorites  Favorite[]
+  images              ProductImage[]
+  inventory           Inventory?
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  reviews             Review[]
+  favorites           Favorite[]
+  productViews        ProductViewEvent[]
+  abandonedViewPushes AbandonedViewPush[]
 
   @@index([sellerId])
   @@index([active])
@@ -596,7 +599,9 @@ model DeviceFcmToken {
   appVersion  String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  dispatches  PushDispatch[]
+  dispatches          PushDispatch[]
+  productViews        ProductViewEvent[]
+  abandonedViewPushes AbandonedViewPush[]
 
   @@index([userId])
   @@index([enabled, platform])
@@ -643,6 +648,50 @@ model PushDispatch {
 
   @@index([campaignId, createdAt])
   @@index([tokenId])
+}
+
+/**
+ * Última visita à PDP por aparelho FCM + produto.
+ * lastViewedAt desliza a cada nova visita. handledViewAt = snapshot já decidido
+ * (enviado, comprado, cap, indisponível ou velho demais).
+ */
+model ProductViewEvent {
+  id            String         @id @default(uuid())
+  deviceId      String
+  device        DeviceFcmToken @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lastViewedAt  DateTime
+  handledViewAt DateTime?
+  /** Cap diário / 7 dias: não reprocessar até este instante. Nova visita zera. */
+  deferUntil    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([deviceId, productId])
+  @@index([lastViewedAt])
+  @@index([deferUntil, lastViewedAt])
+  @@index([userId, productId])
+}
+
+/** Push de recuperação (viu o produto e não comprou). Só status=sent conta nos limites. */
+model AbandonedViewPush {
+  id               String             @id @default(uuid())
+  deviceId         String
+  device           DeviceFcmToken     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId           String?
+  status           PushDispatchStatus
+  error            String?
+  fcmMessageId     String?
+  tokenFingerprint String
+  sentAt           DateTime           @default(now())
+
+  @@index([deviceId, sentAt])
+  @@index([deviceId, productId, sentAt])
 }
 
 /** Notificações in-app do cliente. */

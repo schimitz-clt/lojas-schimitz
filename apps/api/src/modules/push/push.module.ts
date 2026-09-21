@@ -6,11 +6,18 @@ import { PushTokensService } from './push-tokens.service';
 import { PushCampaignsService } from './push-campaigns.service';
 import { PushSchedulerService } from './push-scheduler.service';
 import { PushFcmClient } from './push-fcm.client';
+import { AbandonedViewService } from './abandoned-view.service';
 
 @Module({
   imports: [JwtModule.register({})],
   controllers: [PushTokensController, AdminPushController],
-  providers: [PushFcmClient, PushTokensService, PushCampaignsService, PushSchedulerService],
-  exports: [PushTokensService, PushCampaignsService],
+  providers: [
+    PushFcmClient,
+    PushTokensService,
+    PushCampaignsService,
+    AbandonedViewService,
+    PushSchedulerService,
+  ],
+  exports: [PushTokensService, PushCampaignsService, AbandonedViewService],
 })
 export class PushModule {}

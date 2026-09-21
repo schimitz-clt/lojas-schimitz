@@ -97,11 +97,13 @@ export function fcmDataPayload(opts: {
   path: string;
   url: string;
   campaignId?: string;
+  kind?: string;
 }): Record<string, string> {
   const data: Record<string, string> = {
     path: opts.path,
     link: opts.url,
   };
   if (opts.campaignId) data.campaignId = opts.campaignId;
+  if (opts.kind) data.kind = opts.kind;
   return data;
 }

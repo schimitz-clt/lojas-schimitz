@@ -39,7 +39,7 @@ Checkout, Mercado Pago, pedidos, estoque e auth **não** foram alterados neste l
 | `all_enabled` | Todos os tokens `enabled=true` (logados **e** visitantes que aceitaram push) |
 | `with_orders` | Tokens ativos cujo `userId` tem **pelo menos um pedido** que não é `draft` nem `cancelled` |
 
-Não há segmento VIP, cidade ou “abandonou sacola”. `with_token` = o mesmo que `all_enabled` (só existe token se o aparelho registrou).
+Não há segmento VIP, cidade ou “abandonou sacola” nas campanhas manuais. Recuperação de PDP (viu e não comprou) é um job automático à parte — ver abaixo. `with_token` = o mesmo que `all_enabled` (só existe token se o aparelho registrou).
 
 ---
 
@@ -142,10 +142,50 @@ Sem DROP em `Notification`, `Order`, `Payment`, `Inventory`, `User` (só relaç�
 
 ---
 
+## Recuperação de produto (viu e não comprou)
+
+Job automático, separado das campanhas do Admin. Um aparelho com token FCM já registrado abre a PDP e, se não compra aquele produto, recebe **um** push.
+
+| Regra | Valor |
+|-------|--------|
+| Atraso | **2 horas** depois da **última** visita daquele aparelho àquele produto (nova visita reinicia o timer) |
+| Público | Só `DeviceFcmToken` `enabled`. Sem id de aparelho a API não grava nada e **não inventa** token |
+| Texto | PT-BR: nome do produto, preço no PIX (5% sobre o preço de lista) e “Estamos aguardando. Lojas Schimitz agradece.” |
+| Link | `/produto/<slug>` (mesmo deep link das campanhas) |
+| Limites | 1 envio por (aparelho, produto) a cada **7 dias**; 1 envio por aparelho por **dia** em `America/Sao_Paulo`. Enquanto o limite vale, a visita espera (`deferUntil`) e pode sair no dia seguinte se ainda tiver menos de 48h |
+| Compra | Não envia se, depois da visita, existe pedido daquele usuário (o da visita ou o vinculado ao aparelho) com o produto, status diferente de `draft`/`cancelled`, **ou** pagamento `approved`. Pedido de visitante sem `userId` não dá para ligar ao aparelho |
+| Estoque | Produto `active` e quantidade disponível > 0. Fora isso, a visita é encerrada sem envio |
+| Idade | Visita com mais de 48h (`ABANDONED_VIEW_MAX_AGE_HOURS`) é encerrada sem envio |
+| Firebase ausente | **NÃO EXECUTADO**: não marca como enviado e não gasta o limite de 7 dias. O job tenta de novo quando as credenciais existirem, desde que a visita ainda esteja dentro da idade máxima |
+
+Env (só API, opcional): `ABANDONED_VIEW_DELAY_HOURS` (padrão `2`, mínimo efetivo 1 minuto). **Não** baixe isso em produção. Em staging, `0.0167` ≈ 1 minuto.
+
+O app grava o id do aparelho (não o token FCM) no cookie `sch_push_device` e em `LojasSchimitz.pushDeviceId()`. A PDP chama `POST /api/v1/push/product-views`. Cookies `sch_access` / `sch_refresh` não mudam. APK anterior ao `versionCode` 10 não envia esse id — a vitrine então não registra a visita.
+
+Admin → Notificações mostra um texto fixo e `GET /admin/push/abandoned-views` (contagem, **não envia**).
+
+### Como verificar sem esperar em produção
+
+1. Confirme o aparelho em Admin → Notificações (token ativo) **depois** de instalar o build com `versionCode` 10.
+2. Abra um produto no app. No banco:
+
+```sql
+SELECT "deviceId", "productId", "userId", "lastViewedAt", "handledViewAt"
+FROM "ProductViewEvent"
+ORDER BY "lastViewedAt" DESC
+LIMIT 20;
+```
+
+3. Dry-run (não dispara): `GET /api/v1/admin/push/abandoned-views` como admin. `dueViews` é a fila bruta; o job ainda aplica compra, estoque e limites na hora de enviar.
+4. Deixe o atraso padrão de 2h. Só em staging, se quiser encurtar: `ABANDONED_VIEW_DELAY_HOURS=0.0167` no serviço API e reinicie. Não use isso em produção.
+5. Com Firebase configurado, o job (mesmo lease das campanhas, a cada 30s) envia e grava `AbandonedViewPush` com `status=sent`. Sem Firebase, nada é marcado como enviado.
+6. Compre o produto (pedido real, não `draft`/`cancelled`) antes do atraso: a linha ganha `handledViewAt` e não sai push.
+
 ## Fora de escopo / NÃO EXECUTADO neste agente
 
-- Push live em telefone físico (sem projeto Firebase do dono neste ambiente)
+- Push live de recuperação em telefone físico (depende de Firebase do dono + APK `versionCode` 10 instalado; este ambiente não publica na Play)
 - Publicação Play Console
 - iOS
-- Segmentos além de `all_enabled` / `with_orders`
+- Segmentos de campanha além de `all_enabled` / `with_orders`
+- Ligar pedido de visitante (sem `userId`) ao aparelho
 - Alterar variáveis de produção Railway (proibido neste pedido)

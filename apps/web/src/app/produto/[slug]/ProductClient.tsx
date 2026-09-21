@@ -22,6 +22,7 @@ import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { rememberProductView } from '@/lib/recently-viewed';
+import { recordAbandonedProductView } from '@/lib/abandoned-product-view';
 import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/ProductShareButton';
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
@@ -190,6 +191,7 @@ export default function ProductPage({
       .then(async (product) => {
         setP(product);
         rememberProductView(product);
+        recordAbandonedProductView(product);
         await Promise.all([loadReviews(product.id), loadEligibility(product.id)]);
       })
       .catch((e) => setErr(e.message));

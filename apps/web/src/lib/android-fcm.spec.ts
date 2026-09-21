@@ -55,6 +55,10 @@ assert.ok(fcm.includes('never force-navigate') || fcm.includes('checkout'), 'no 
 assert.ok(gradle.includes('firebase-bom'), 'Firebase BOM');
 assert.ok(gradle.includes('firebase-messaging'), 'FCM SDK');
 assert.ok(gradle.includes('google-services.json'), 'plugin only if json present');
-assert.ok(gradle.includes('versionCode = 9'), 'Play version bump for FCM APK');
+assert.ok(kotlin.includes('pushDeviceId'), 'WebView can read the device id');
+assert.ok(pushReg.includes('sch_push_device'), 'device id cookie for PDP views');
+assert.ok(pushReg.includes('KEY_DEVICE_ID'), 'persists API device id');
+assert.ok(!pushReg.includes('sch_push_device=$token') && !pushReg.includes('sch_push_device=${token}'), 'cookie is not the FCM token');
+assert.ok(gradle.includes('versionCode = 10'), 'version bump for abandoned-view device cookie');
 
 console.log('android-fcm tests ok');

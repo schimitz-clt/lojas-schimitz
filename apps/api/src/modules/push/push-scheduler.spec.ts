@@ -9,5 +9,6 @@ assert.ok(jobSrc.includes('tryAcquireSchedulerLock'), 'push scheduler uses Sched
 assert.ok(jobSrc.includes("LOCK_ID = 'pushCampaignDispatch'"), 'stable lock id');
 assert.ok(lockSrc.includes('SchedulerLock'), 'reuses existing SchedulerLock table');
 assert.ok(jobSrc.includes('dispatchDue'), 'ticks scheduled campaigns');
+assert.ok(jobSrc.includes('processDue'), 'ticks abandoned product views');
 
 console.log('push-scheduler.spec ok');
