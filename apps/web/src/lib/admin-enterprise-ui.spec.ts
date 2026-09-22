@@ -20,6 +20,7 @@ import {
   orderDossierModel,
   orderMutationErrorText,
   partitionCatalogBatch,
+  salesEvidenceModel,
 } from './admin-enterprise-ui';
 
 assert.equal(moneyOrDash(null), ENTERPRISE_MISSING);
@@ -221,9 +222,128 @@ assert.ok(truncated.summary.includes('Atualizados: 0'));
 assert.equal(truncated.lines[0], 'SKU —: A API não detalhou o erro.');
 assert.ok(truncated.lines[1]?.includes('truncou'));
 
+const salesFull = salesEvidenceModel({
+  from: '2026-09-01',
+  to: '2026-09-22',
+  timezone: 'America/Sao_Paulo',
+  summary: { orderCount: 3, revenue: 150.5, averageTicket: 50.17 },
+  byStatus: { delivered: 1, paid: 2, awaiting_payment: 0 },
+  byDay: [{ date: '2026-09-22', orderCount: 1, revenue: 0 }],
+  topProducts: [{ productId: 'p1', name: 'Fone', qty: 2, revenue: 100 }],
+  bySeller: [
+    { sellerId: null, sellerName: 'Loja própria', orderCount: 2, itemQty: 3, revenue: 100 },
+    { sellerId: 's1', sellerName: 'Parceiro', orderCount: 1, itemQty: 1, revenue: 50.5 },
+  ],
+  byPaymentMethod: [
+    { method: 'pix', orderCount: 2, revenue: 100 },
+    { method: 'credit_card', orderCount: 1, revenue: 50.5 },
+  ],
+});
+assert.deepEqual(Object.keys(salesFull).sort(), [
+  'averageTicket',
+  'byDay',
+  'byDayMissing',
+  'byPaymentMethod',
+  'byPaymentMissing',
+  'bySeller',
+  'bySellerMissing',
+  'byStatus',
+  'byStatusMissing',
+  'orderCount',
+  'periodFrom',
+  'periodTo',
+  'revenue',
+  'timezone',
+  'topProducts',
+  'topProductsMissing',
+].sort());
+assert.equal(salesFull.orderCount, '3');
+assert.ok(salesFull.revenue.includes('150'));
+assert.ok(salesFull.averageTicket.includes('50'));
+assert.equal(salesFull.byStatus.map((row) => row.status).join(','), 'paid,delivered,awaiting_payment');
+assert.equal(salesFull.byStatus.find((row) => row.status === 'paid')?.bucket, 'paid');
+assert.equal(salesFull.byStatus.find((row) => row.status === 'awaiting_payment')?.count, '0');
+assert.equal(salesFull.byStatus.find((row) => row.status === 'awaiting_payment')?.bucket, 'awaiting_payment');
+assert.equal(salesFull.byDay[0]?.revenue.includes('0'), true);
+assert.equal(salesFull.byDay[0]?.orderCount, '1');
+assert.equal(salesFull.bySeller[0]?.ownStore, true);
+assert.equal(salesFull.bySeller[1]?.ownStore, false);
+assert.equal(salesFull.bySeller[1]?.sellerId, 's1');
+assert.equal(salesFull.byPaymentMethod[0]?.label, 'PIX');
+assert.equal(salesFull.byPaymentMethod[1]?.label, 'Cartão');
+assert.equal(salesFull.topProducts[0]?.name, 'Fone');
+assert.equal(salesFull.topProducts[0]?.qty, '2');
+assert.equal('customer' in salesFull, false);
+assert.equal('margin' in salesFull, false);
+
+const salesZero = salesEvidenceModel({
+  summary: { orderCount: 0, revenue: 0, averageTicket: 0 },
+  byStatus: { paid: 0 },
+  byDay: [],
+  bySeller: [],
+  topProducts: [],
+  byPaymentMethod: [],
+});
+assert.equal(salesZero.orderCount, '0');
+assert.ok(salesZero.revenue.includes('0'));
+assert.ok(salesZero.averageTicket.includes('0'));
+assert.equal(salesZero.byStatus[0]?.count, '0');
+assert.equal(salesZero.byDayMissing, false);
+assert.deepEqual(salesZero.byDay, []);
+assert.equal(salesZero.topProductsMissing, false);
+assert.equal(salesZero.byPaymentMissing, false);
+
+const salesSparse = salesEvidenceModel({});
+assert.equal(salesSparse.periodFrom, ENTERPRISE_MISSING);
+assert.equal(salesSparse.periodTo, ENTERPRISE_MISSING);
+assert.equal(salesSparse.timezone, ENTERPRISE_MISSING);
+assert.equal(salesSparse.orderCount, ENTERPRISE_MISSING);
+assert.equal(salesSparse.revenue, ENTERPRISE_MISSING);
+assert.equal(salesSparse.averageTicket, ENTERPRISE_MISSING);
+assert.equal(salesSparse.byStatusMissing, true);
+assert.equal(salesSparse.byDayMissing, true);
+assert.equal(salesSparse.bySellerMissing, true);
+assert.equal(salesSparse.topProductsMissing, true);
+assert.equal(salesSparse.byPaymentMissing, true);
+assert.deepEqual(salesSparse.byStatus, []);
+assert.deepEqual(salesSparse.topProducts, []);
+
+const salesNoTicket = salesEvidenceModel({
+  summary: { orderCount: 2, revenue: 100 },
+});
+assert.equal(salesNoTicket.orderCount, '2');
+assert.ok(salesNoTicket.revenue.includes('100'));
+assert.equal(salesNoTicket.averageTicket, ENTERPRISE_MISSING);
+
+const salesBlankMethod = salesEvidenceModel({
+  byStatus: { cancelled: 1, separating: 2 },
+  byPaymentMethod: [
+    { method: '', orderCount: 0, revenue: 0 },
+    { method: 'crypto', orderCount: 1, revenue: 10 },
+  ],
+  bySeller: [{ sellerName: 'Sem id', orderCount: 1, itemQty: 1, revenue: 1 }],
+  topProducts: [{ name: '', qty: 0, revenue: 0 }],
+});
+assert.equal(salesBlankMethod.byStatus.find((row) => row.status === 'cancelled')?.bucket, null);
+assert.equal(salesBlankMethod.byStatus.find((row) => row.status === 'separating')?.bucket, null);
+assert.equal(salesBlankMethod.byPaymentMethod[0]?.label, ENTERPRISE_MISSING);
+assert.equal(salesBlankMethod.byPaymentMethod[0]?.orderCount, '0');
+assert.equal(salesBlankMethod.byPaymentMethod[0]?.label === 'Outro', false);
+assert.equal(salesBlankMethod.byPaymentMethod[1]?.label, 'crypto');
+assert.equal(salesBlankMethod.bySeller[0]?.ownStore, false);
+assert.equal(salesBlankMethod.bySeller[0]?.sellerId, ENTERPRISE_MISSING);
+assert.equal(salesBlankMethod.topProducts[0]?.name, ENTERPRISE_MISSING);
+assert.equal(salesBlankMethod.topProducts[0]?.qty, '0');
+assert.ok(salesBlankMethod.topProducts[0]?.revenue.includes('0'));
+
+const salesNull = salesEvidenceModel(null);
+assert.equal(salesNull.revenue, ENTERPRISE_MISSING);
+assert.equal(salesNull.byDayMissing, true);
+
 const srcRoot = join(__dirname, '..');
 const pedidos = readFileSync(join(srcRoot, 'components/admin/sections/AdminPedidosSection.tsx'), 'utf8');
 const catalog = readFileSync(join(srcRoot, 'components/admin/sections/AdminCatalogoSection.tsx'), 'utf8');
+const vendas = readFileSync(join(srcRoot, 'components/admin/sections/AdminVendasSection.tsx'), 'utf8');
 const dossier = readFileSync(join(srcRoot, 'components/admin/AdminOrderDossier.tsx'), 'utf8');
 const state = readFileSync(join(srcRoot, 'components/admin/admin-console-state.ts'), 'utf8');
 
@@ -245,5 +365,20 @@ assert.equal(catalog.includes('/refund'), false);
 assert.ok(state.includes('orderMutationErrorText'), 'status failure keeps the API message');
 assert.ok(state.includes('/admin/orders/${order.id}/status'), 'status PATCH stays');
 assert.equal(state.includes('window.prompt'), false, 'tracking is collected in the dossier, not a prompt');
+
+assert.ok(vendas.includes('vendasCommandCounts'), 'snapshot windows stay on the helper');
+assert.ok(vendas.includes('salesEvidenceModel'), 'period evidence stays on the helper');
+assert.ok(vendas.includes('exportSalesCsv'), 'CSV stays the existing download');
+assert.ok(vendas.includes('GET /admin/ops'));
+assert.ok(vendas.includes('VENDAS_EVIDENCE_LEDE'));
+assert.ok(vendas.includes('VENDAS_READONLY_NOTE'));
+assert.ok(vendas.includes('blocks={{'), 'omitted chart blocks stay explicit');
+assert.ok(vendas.includes("buildAdminSectionHref('clientes')"));
+assert.ok(vendas.includes('selectOpsBucket'));
+assert.equal(vendas.includes('/refund'), false);
+assert.equal(vendas.includes('mercadopago'), false);
+assert.equal(vendas.includes('/admin/reports/sales/export'), false);
+assert.equal(pedidos.includes('vendasCommandCounts'), false);
+assert.equal(catalog.includes('vendasCommandCounts'), false);
 
 console.log('admin-enterprise-ui spec ok');

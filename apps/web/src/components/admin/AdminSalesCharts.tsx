@@ -29,10 +29,23 @@ type Props = {
   byDay?: SalesDayLike[];
   topProducts?: SalesProductLike[];
   byPaymentMethod?: SalesPaymentMethodLike[];
+  /**
+   * False when that array was omitted from GET /admin/reports/sales.
+   * Omitted is —, not the empty-period message. Default true keeps the previous chart.
+   */
+  blocks?: {
+    days?: boolean;
+    payments?: boolean;
+    products?: boolean;
+  };
 };
 
 const TIME = { width: 360, height: 168, padL: 44, padR: 10, padT: 10, padB: 28 };
 const DONUT = { cx: 56, cy: 56, r: 52, innerR: 30 };
+
+function omittedChart() {
+  return <p className="admin-empty">—</p>;
+}
 
 export function AdminSalesCharts({
   from,
@@ -40,7 +53,11 @@ export function AdminSalesCharts({
   byDay,
   topProducts,
   byPaymentMethod,
+  blocks,
 }: Props) {
+  const showDays = blocks?.days !== false;
+  const showPayments = blocks?.payments !== false;
+  const showProducts = blocks?.products !== false;
   const days = useMemo(() => fillSalesDays(byDay, from, to), [byDay, from, to]);
   const emptyDays = salesChartEmpty(days);
   const revMax = niceMax(Math.max(0, ...days.map((d) => d.revenue)));
@@ -72,7 +89,9 @@ export function AdminSalesCharts({
       <section className="admin-card-pro admin-sales-chart-card">
         <div className="body">
           <h3>Receita no período</h3>
-          {emptyDays ? (
+          {!showDays ? (
+            omittedChart()
+          ) : emptyDays ? (
             <p className="admin-empty">Sem vendas pagas no período.</p>
           ) : (
             <div className="admin-sales-chart-wrap">
@@ -121,7 +140,9 @@ export function AdminSalesCharts({
       <section className="admin-card-pro admin-sales-chart-card">
         <div className="body">
           <h3>Pedidos por dia</h3>
-          {emptyDays ? (
+          {!showDays ? (
+            omittedChart()
+          ) : emptyDays ? (
             <p className="admin-empty">Sem vendas pagas no período.</p>
           ) : (
             <div className="admin-sales-chart-wrap">
@@ -183,7 +204,9 @@ export function AdminSalesCharts({
       <section className="admin-card-pro admin-sales-chart-card">
         <div className="body">
           <h3>Métodos de pagamento</h3>
-          {methods.length && slices.length ? (
+          {!showPayments ? (
+            omittedChart()
+          ) : methods.length && slices.length ? (
             <div className="admin-sales-donut">
               <svg
                 className="admin-sales-donut__svg"
@@ -224,7 +247,9 @@ export function AdminSalesCharts({
       <section className="admin-card-pro admin-sales-chart-card">
         <div className="body">
           <h3>Mais vendidos</h3>
-          {products.length ? (
+          {!showProducts ? (
+            omittedChart()
+          ) : products.length ? (
             <ul className="admin-sales-hbars">
               {products.map((p, i) => (
                 <li key={p.productId}>
