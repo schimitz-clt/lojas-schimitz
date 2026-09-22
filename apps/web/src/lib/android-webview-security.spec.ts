@@ -10,6 +10,10 @@ const manifest = readFileSync(
   join(__dirname, '../../../../apps/mobile/app/src/main/AndroidManifest.xml'),
   'utf8',
 );
+const offlineHtml = readFileSync(
+  join(__dirname, '../../../../apps/mobile/app/src/main/assets/offline.html'),
+  'utf8',
+);
 
 assert.ok(/allowFileAccess\s*=\s*false/.test(kotlin), 'WebView must not allow file:/// filesystem access');
 assert.ok(/allowFileAccessFromFileURLs\s*=\s*false/.test(kotlin), 'file URL → file URL access off');
@@ -21,7 +25,15 @@ assert.ok(
 assert.ok(/override fun onStop\(\)[\s\S]*CookieManager\.getInstance\(\)\.flush\(\)/.test(kotlin), 'flush cookies onStop');
 assert.ok(/override fun onPageFinished[\s\S]*CookieManager\.getInstance\(\)\.flush\(\)/.test(kotlin), 'flush cookies after page load');
 assert.ok(kotlin.includes('MIXED_CONTENT_NEVER_ALLOW'), 'mixed content never allow');
+assert.ok(/setSupportZoom\(\s*false\s*\)/.test(kotlin), 'WebView page zoom disabled');
+assert.ok(/builtInZoomControls\s*=\s*false/.test(kotlin), 'built-in zoom controls off');
+assert.ok(/displayZoomControls\s*=\s*false/.test(kotlin), 'zoom UI chrome hidden');
+assert.ok(!/setSupportZoom\(\s*true\s*\)/.test(kotlin), 'must not re-enable WebView zoom');
 assert.ok(kotlin.includes('file:///android_asset/offline.html'), 'offline page still uses android_asset');
+assert.ok(
+  /maximum-scale=1/.test(offlineHtml) && /user-scalable=no/.test(offlineHtml),
+  'offline.html viewport also locks page zoom',
+);
 assert.ok(kotlin.includes('mercadopago.com'), 'MP hosts listed for external browser');
 assert.ok(kotlin.includes('onShowFileChooser'), 'WebView file chooser for <input type=file>');
 assert.ok(kotlin.includes('FileChooserParams.parseResult'), 'file chooser uses Activity result');
