@@ -97,6 +97,8 @@ assert.ok(header.includes('/me/addresses'), 'logged-in bar uses saved addresses'
 assert.ok(header.includes('STOREFRONT_CEP_KEY') || header.includes('readStoredCep'), 'reuses sch_cep');
 assert.ok(header.includes('<SearchBox'), 'search suggestions stay');
 assert.ok(header.includes('hdr-hide-sm'), 'account stays off the mobile header');
+assert.ok(header.includes('hdr-search-back'), 'search results chrome has back');
+assert.ok(header.includes('is-search-results'), 'results mode marks sticky chrome');
 
 const bar = readFileSync(join(srcRoot, 'components/HomeDeliveryBar.tsx'), 'utf8');
 assert.ok(bar.includes('Informar CEP'), 'empty state asks for CEP');

@@ -319,3 +319,33 @@ export function isExternalSearchShortcut(s: Pick<EmptySearchSuggestion, 'href' |
 export function activeFilterCount(input: FilterChipInput): number {
   return buildFilterChips(input).length;
 }
+
+export type CatalogQuickChipId = 'frete-poa' | 'pix-off';
+
+export type CatalogQuickChip = {
+  id: CatalogQuickChipId;
+  label: string;
+  /** Informational only — no invented API filters. */
+  tone: 'ship' | 'pix';
+};
+
+/**
+ * Magalu-style quick chips under Filtros/Ordenar — only store-wide facts
+ * already advertised in the topbar (no Retire na loja / Full / brand logos).
+ */
+export function catalogSearchQuickChips(): CatalogQuickChip[] {
+  return [
+    { id: 'frete-poa', label: 'Frete grátis POA', tone: 'ship' },
+    { id: 'pix-off', label: 'PIX 5% OFF', tone: 'pix' },
+  ];
+}
+
+/** Whether the catalog page is in search-results mode (has q). */
+export function isCatalogSearchResults(q?: string | null): boolean {
+  return Boolean((q || '').trim());
+}
+
+/** Sticky Magalu-like search chrome: back goes home when results are open. */
+export function catalogSearchBackHref(): string {
+  return '/';
+}

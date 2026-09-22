@@ -28,6 +28,7 @@ import {
   searchBoxAriaControlsId,
   searchFocusHeading,
   shouldFetchSuggestions,
+  shouldOpenSuggestionPanel,
   suggestionsStatusLabel,
   type SearchCategoryLike,
   type SearchProductLike,
@@ -73,6 +74,7 @@ function kindLabel(kind: PanelKind): string | null {
 export function SearchBox({ initialQuery = '' }: Props) {
   const [q, setQ] = useState(initialQuery);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<SearchProductLike[]>([]);
   const [allCats, setAllCats] = useState<SearchCategoryLike[]>([]);
@@ -87,9 +89,18 @@ export function SearchBox({ initialQuery = '' }: Props) {
   const statusId = useId();
   const reqRef = useRef(0);
   const shelvesReq = useRef(false);
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    focusedRef.current = focused;
+  }, [focused]);
 
   useEffect(() => {
     setQ(initialQuery);
+    // URL/results seed must not reopen the overlay after submit.
+    setOpen(false);
+    setFocused(false);
+    setActive(-1);
   }, [initialQuery]);
 
   useEffect(() => {
@@ -113,13 +124,25 @@ export function SearchBox({ initialQuery = '' }: Props) {
       .catch(() => setHighlights([]));
   }
 
+  function closeSuggestions() {
+    setOpen(false);
+    setFocused(false);
+    setActive(-1);
+  }
+
   useEffect(() => {
     if (!shouldFetchSuggestions(q)) {
       setProducts([]);
       setLoading(false);
       setActive(-1);
       setFetchedTerm('');
-      if (q.trim().length > 0) setOpen(false);
+      if (q.trim().length > 0 && !focused) setOpen(false);
+      return;
+    }
+    // Do not fetch/open on /produtos?q= until the shopper focuses the field.
+    if (!shouldOpenSuggestionPanel({ focused })) {
+      setOpen(false);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -131,14 +154,14 @@ export function SearchBox({ initialQuery = '' }: Props) {
           if (seq !== reqRef.current) return;
           setProducts(productsFromListResponse(data));
           setFetchedTerm(term);
-          setOpen(true);
+          if (shouldOpenSuggestionPanel({ focused: focusedRef.current })) setOpen(true);
           setActive(-1);
         })
         .catch(() => {
           if (seq !== reqRef.current) return;
           setProducts([]);
           setFetchedTerm(term);
-          setOpen(true);
+          if (shouldOpenSuggestionPanel({ focused: focusedRef.current })) setOpen(true);
           setActive(-1);
         })
         .finally(() => {
@@ -146,14 +169,13 @@ export function SearchBox({ initialQuery = '' }: Props) {
         });
     }, SEARCH_SUGGEST_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [q]);
+  }, [q, focused]);
 
   useEffect(() => {
     function onDoc(ev: MouseEvent) {
       if (!wrapRef.current) return;
       if (ev.target instanceof Node && !wrapRef.current.contains(ev.target)) {
-        setOpen(false);
-        setActive(-1);
+        closeSuggestions();
       }
     }
     document.addEventListener('mousedown', onDoc);
@@ -232,8 +254,7 @@ export function SearchBox({ initialQuery = '' }: Props) {
     if (opts?.remember) {
       setHistory(persistSearchTerm(opts.remember));
     }
-    setOpen(false);
-    setActive(-1);
+    closeSuggestions();
     if (opts?.external) {
       window.open(href, '_blank', 'noopener,noreferrer');
       return;
@@ -309,6 +330,7 @@ export function SearchBox({ initialQuery = '' }: Props) {
         placeholder="O que você está procurando?"
         value={q}
         onChange={(e) => {
+          setFocused(true);
           setQ(e.target.value);
           setActive(-1);
           if (!e.target.value.trim()) {
@@ -317,9 +339,10 @@ export function SearchBox({ initialQuery = '' }: Props) {
           }
         }}
         onFocus={() => {
+          setFocused(true);
           setHistory(readSearchHistory());
           loadHighlights();
-          if (shouldFetchSuggestions(q) && (catalogRows.length > 0 || loading)) {
+          if (shouldFetchSuggestions(q) && (catalogRows.length > 0 || loading || resultsForQuery)) {
             setOpen(true);
             return;
           }
@@ -327,17 +350,18 @@ export function SearchBox({ initialQuery = '' }: Props) {
         }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
-            setOpen(false);
-            setActive(-1);
+            closeSuggestions();
             return;
           }
           if (!showList || navRows.length === 0) return;
           if (e.key === 'ArrowDown') {
             e.preventDefault();
+            setFocused(true);
             setOpen(true);
             setActive((cur) => nextSuggestionIndex(cur, navRows.length, 1));
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
+            setFocused(true);
             setOpen(true);
             setActive((cur) => nextSuggestionIndex(cur, navRows.length, -1));
           }

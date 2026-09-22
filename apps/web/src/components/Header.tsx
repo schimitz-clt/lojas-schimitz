@@ -19,10 +19,15 @@ import {
   readStoredCep,
 } from '@/lib/pdp-trust';
 import { IconBell, IconCart, IconHeart, IconUser } from '@/components/icons/StorefrontIcons';
+import {
+  catalogSearchBackHref,
+  isCatalogSearchResults,
+} from '@/lib/storefront-pro';
 
 export function Header() {
   const { user } = useSessionUser();
   const [qInit, setQInit] = useState('');
+  const [searchResults, setSearchResults] = useState(false);
   const [unread, setUnread] = useState(0);
   const [cartCount, setCartCount] = useState(0);
   const [cep, setCep] = useState('');
@@ -36,8 +41,12 @@ export function Header() {
     try {
       const params = new URLSearchParams(window.location.search);
       const fromUrl = (params.get('q') || '').trim();
-      if (fromUrl && window.location.pathname.startsWith('/produtos')) {
+      const onCatalog = window.location.pathname.startsWith('/produtos');
+      if (onCatalog && isCatalogSearchResults(fromUrl)) {
         setQInit(fromUrl);
+        setSearchResults(true);
+      } else {
+        setSearchResults(false);
       }
     } catch {
       /* ignore */
@@ -146,11 +155,24 @@ export function Header() {
         </span>
         <span>{interestFreeInstallmentClaim()}</span>
       </div>
-      <div className="site-chrome-head">
+      <div className={`site-chrome-head${searchResults ? ' is-search-results' : ''}`}>
       <header className="header">
         <div className="wrap">
           <div className="header-row">
-            <Link href="/" className="logo" aria-label="Lojas Schimitz — início">
+            {searchResults ? (
+              <Link
+                href={catalogSearchBackHref()}
+                className="hdr-search-back"
+                aria-label="Voltar ao início"
+              >
+                <span aria-hidden>←</span>
+              </Link>
+            ) : null}
+            <Link
+              href="/"
+              className={`logo${searchResults ? ' logo-search-hide' : ''}`}
+              aria-label="Lojas Schimitz — início"
+            >
               LOJAS <span>SCHIMITZ</span>
             </Link>
 

@@ -71,6 +71,17 @@ export function shouldFetchSuggestions(q: string | null | undefined): boolean {
   return normalizeSearchQuery(q).length >= SEARCH_SUGGEST_MIN;
 }
 
+/**
+ * Suggestions may prefetch while typing, but the overlay must stay closed on
+ * /produtos?q= until the shopper focuses the field again (Magalu results UX).
+ */
+export function shouldOpenSuggestionPanel(input: {
+  focused: boolean;
+  open?: boolean;
+}): boolean {
+  return Boolean(input.focused);
+}
+
 export function catalogSearchHref(q: string | null | undefined): string {
   const t = (q || '').trim();
   return t ? `/produtos?q=${encodeURIComponent(t)}` : '/produtos';

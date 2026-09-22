@@ -23,6 +23,7 @@ import {
   rankProductSuggestions,
   searchFocusHeading,
   shouldFetchSuggestions,
+  shouldOpenSuggestionPanel,
   suggestionCanQuickAdd,
   suggestionPixFields,
   suggestionsStatusLabel,
@@ -35,6 +36,9 @@ assert.equal(normalizeSearchQuery('  TêVê  '), 'teve');
 assert.equal(shouldFetchSuggestions('t'), false);
 assert.equal(shouldFetchSuggestions('tv'), true);
 assert.equal(shouldFetchSuggestions('  '), false);
+assert.equal(shouldOpenSuggestionPanel({ focused: false }), false);
+assert.equal(shouldOpenSuggestionPanel({ focused: true }), true);
+assert.equal(shouldOpenSuggestionPanel({ focused: false, open: true }), false);
 
 assert.equal(catalogSearchHref('tv 50'), '/produtos?q=tv%2050');
 assert.equal(catalogSearchHref(''), '/produtos');
@@ -211,12 +215,25 @@ assert.ok(box.includes('nextSuggestionIndex'), 'keyboard a11y kept');
 assert.ok(box.includes('searchEmptyCopy'), 'zero-results copy in the dropdown');
 assert.ok(box.includes('emptySearchSuggestions'), 'empty shortcuts reuse catalog helpers');
 assert.ok(box.includes('/products?q='), 'autocomplete still uses GET /products');
+assert.ok(box.includes('shouldOpenSuggestionPanel'), 'overlay stays closed on results until focus');
+assert.ok(box.includes('closeSuggestions'), 'submit closes the suggest panel');
+assert.ok(box.includes('setFocused(false)'), 'URL seed clears focus so results stay clean');
 
 const catalog = readFileSync(join(__dirname, '../app/produtos/page.tsx'), 'utf8');
 assert.ok(
   catalog.includes("variant={q ? 'shelf' : 'default'}"),
   'search result cards reuse the PIX-first shelf card',
 );
+assert.ok(catalog.includes('sf-filter-options'), 'Magalu-like filter option chips');
+assert.ok(catalog.includes('catalogSearchQuickChips'), 'quick chips use real store facts');
+assert.ok(catalog.includes('Categoria'), 'categoria chip stays API-backed');
+assert.ok(catalog.includes('Preço'), 'preço chip stays API-backed');
+assert.ok(!/Retire Grátis|Receba até Amanhã|Full\b|Patrocinado/i.test(catalog), 'no invented Magalu marketplace cues');
+
+const header = readFileSync(join(__dirname, '../components/Header.tsx'), 'utf8');
+assert.ok(header.includes('hdr-search-back'), 'search results show a back control');
+assert.ok(header.includes('isCatalogSearchResults'), 'back only on /produtos?q=');
+assert.ok(header.includes('catalogSearchBackHref'), 'back uses the shared home href');
 
 const css = readFileSync(join(__dirname, '../app/globals.css'), 'utf8');
 assert.ok(css.includes('search-suggest-pix-lead'), 'PIX price is the lead style');
@@ -224,5 +241,10 @@ assert.ok(css.includes('search-suggest-bag'), 'sacola button fits in the dropdow
 assert.ok(css.includes('overflow-x: hidden'), 'search dropdown does not overflow horizontally');
 assert.ok(css.includes('100dvh - 168px'), 'mobile dropdown stays above bottom nav');
 assert.ok(/\.header\s+\.wrap\s*\{[^}]*overflow:\s*visible/.test(css), 'header wrap does not clip suggestions');
+assert.ok(css.includes('.hdr-search-back'), 'back control styled in Schimitz chrome');
+
+const theme = readFileSync(join(__dirname, '../components/storefront/storefront-theme.css'), 'utf8');
+assert.ok(theme.includes('.sf-filter-options'), 'filter option rail styled');
+assert.ok(theme.includes('.sf-filter-quick'), 'quick chip row styled');
 
 console.log('search-suggestions unit tests ok');
