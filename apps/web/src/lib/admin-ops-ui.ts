@@ -169,6 +169,26 @@ export function whatsAppOpsButtonLabel(
 
 export type OpsAlertSeverityLike = 'critical' | 'high' | 'warn' | 'info' | string;
 
+/** Ops home question — copy only; counts come from the snapshot. */
+export const OPS_ATTENTION_HEADING = 'O que precisa de atenção?';
+
+/**
+ * Empty attention copy. `infoCount` is the number of info-level alerts
+ * already present on the snapshot (not estimated).
+ */
+export function opsAttentionEmptyMessage(infoCount = 0): string {
+  const extra = Math.max(0, Math.floor(Number(infoCount) || 0));
+  if (extra > 0) {
+    return 'Nenhum alerta crítico, urgente ou de atenção neste snapshot. Sinais informativos continuam na lista abaixo.';
+  }
+  return 'Nada precisa de atenção neste snapshot.';
+}
+
+/** Shown when GET /admin/ops did not return — never fill with invented counts. */
+export function opsAttentionUnavailableMessage(): string {
+  return 'Snapshot operacional indisponível. Nenhum número foi estimado — atualize para ler GET /admin/ops.';
+}
+
 /** PT severity chip for ATENÇÃO AGORA — never leave English "high"/"warn". */
 export function opsAlertSeverityLabelPt(sev: OpsAlertSeverityLike): string {
   const s = String(sev || '').toLowerCase();

@@ -59,6 +59,7 @@ export function AdminConsole({ children }: { children?: ReactNode }) {
         section={state.adminSection}
         onSectionChange={state.goAdminSection}
         badges={state.shellBadges}
+        attentionSnapshot={state.ops ? 'ready' : state.opsSnapshot}
         headerActions={<AdminLogoutButton />}
       >
         {state.err ? <div className="alert">{state.err}</div> : null}
