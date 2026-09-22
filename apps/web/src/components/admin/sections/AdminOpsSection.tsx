@@ -99,12 +99,17 @@ export function AdminOpsSection() {
     selectOpsAlert,
     downloadProductsNeedingPhotosCsv,
     attentionAlerts,
+    opsSnapshot,
     startEditById,
   } = useAdminConsole();
+  const infoAlertCount = Math.max(0, (ops?.alerts?.length ?? 0) - attentionAlerts.length);
   return (
     <>
       <div className="admin-section-panel">
       <AdminAttentionStrip
+        variant="command"
+        snapshot={ops ? 'ready' : opsSnapshot}
+        infoCount={infoAlertCount}
         items={attentionAlerts.map((a) => ({
           code: a.code,
           severity: a.severity,
@@ -272,7 +277,7 @@ export function AdminOpsSection() {
           {ops?.alerts?.length ? (
             <div style={{ marginBottom: 14 }}>
               <p className="muted" style={{ margin: '0 0 8px', fontSize: 13, color: '#f5e6a3' }}>
-                Alertas (condições reais do snapshot)
+                Todos os alertas do snapshot
               </p>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
                 {ops.alerts.map((a) => {
@@ -311,10 +316,6 @@ export function AdminOpsSection() {
                 })}
               </ul>
             </div>
-          ) : ops ? (
-            <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, color: '#8a8a84' }}>
-              Sem alertas no momento.
-            </p>
           ) : null}
 
           <div style={{ marginTop: 4 }}>

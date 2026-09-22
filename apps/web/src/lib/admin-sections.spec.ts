@@ -2,8 +2,10 @@ import assert from 'assert';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  ADMIN_NAV_GROUPS,
   ADMIN_NAV_ITEMS,
   ADMIN_SECTION_IDS,
+  adminNavGroupFor,
   DEFAULT_ADMIN_SECTION,
   adminAppRoutePaths,
   adminEntrarHref,
@@ -135,6 +137,29 @@ assert.equal(
   null,
 );
 assert.equal(legacyAdminRedirect({ pathname: '/produtos', search: '?section=pedidos' }), null);
+assert.equal(parseAdminSection('estoque'), 'catalogo');
+assert.equal(legacyAdminRedirect({ pathname: '/admin/estoque' }), '/admin/catalogo');
+assert.equal(legacyAdminRedirect({ pathname: '/admin', search: '?section=estoque' }), '/admin/catalogo');
+
+const groupedIds = ADMIN_NAV_GROUPS.flatMap((group) => [...group.itemIds]);
+assert.equal(groupedIds.length, ADMIN_SECTION_IDS.length);
+assert.deepEqual([...groupedIds].sort(), [...ADMIN_SECTION_IDS].sort());
+assert.equal(adminNavGroupFor('ops').label, 'Operação');
+assert.equal(adminNavGroupFor('pedidos').label, 'Operação');
+assert.equal(adminNavGroupFor('notificacoes').label, 'Operação');
+assert.equal(adminNavGroupFor('catalogo').label, 'Catálogo');
+assert.equal(adminNavGroupFor('clientes').label, 'Loja');
+assert.equal(adminNavGroupFor('vendas').label, 'Loja');
+assert.equal(adminNavGroupFor('frete').label, 'Loja');
+assert.equal(adminNavGroupFor('cupons').label, 'Loja');
+assert.equal(adminNavGroupFor('vitrine').label, 'Loja');
+assert.equal(adminNavGroupFor('avaliacoes').label, 'Loja');
+assert.equal(adminNavGroupFor('marketplace').label, 'Crescimento');
+assert.equal(adminNavGroupFor('equipe').label, 'Sistema');
+const catalogGroup = ADMIN_NAV_GROUPS.find((group) => group.id === 'catalogo');
+assert.equal(catalogGroup?.aliasTip?.label, 'Estoque');
+assert.equal(catalogGroup?.aliasTip?.target, 'catalogo');
+assert.equal(catalogGroup?.itemIds.length, 1);
 
 assert.equal(adminLoginNextPath('/admin/pedidos', '?order=1'), '/admin/pedidos?order=1');
 assert.equal(adminLoginNextPath('/admin', '?section=vendas'), '/admin/vendas');
@@ -170,6 +195,18 @@ assert.ok(consoleSrc.includes('{ADMIN_LOGOUT_LABEL}'), 'Admin Sair label is Sair
 
 const shellSrc = readFileSync(join(__dirname, '../components/admin/AdminShell.tsx'), 'utf8');
 assert.ok(shellSrc.includes('{headerActions}'), 'AdminShell renders headerActions slot');
+assert.ok(shellSrc.includes('ADMIN_NAV_GROUPS'), 'sidebar renders grouped nav');
+assert.ok(shellSrc.includes('{navGroup.label}'), 'sidebar prints group labels');
+assert.ok(shellSrc.includes('admin-nav-alias'), 'Estoque alias is a tip, not a route');
+assert.ok(shellSrc.includes('{tip.label}'), 'alias tip uses the group label, not a new path');
+assert.ok(shellSrc.includes('admin-mobile-nav'), 'mobile nav pattern stays');
+
+const opsSectionSrc = readFileSync(
+  join(__dirname, '../components/admin/sections/AdminOpsSection.tsx'),
+  'utf8',
+);
+assert.ok(opsSectionSrc.includes('variant="command"'), 'Ops home uses the attention question');
+assert.ok(opsSectionSrc.includes('selectOpsAlert'), 'Ops alerts keep existing deep-link');
 
 const stateSrc = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
 assert.ok(stateSrc.includes('if (!u)'), 'logged-out /admin hits guest gate');
@@ -178,6 +215,9 @@ assert.ok(stateSrc.includes("u.role !== 'admin'"), 'non-admin keeps in-shell res
 
 const themeSrc = readFileSync(join(__dirname, '../components/admin/admin-theme.css'), 'utf8');
 assert.ok(themeSrc.includes('.admin-header__logout'), 'logout button styled in admin theme');
+assert.ok(themeSrc.includes('.admin-nav-item:focus-visible'), 'nav focus state is visible');
+assert.ok(themeSrc.includes('min-height: 48px'), 'shell keeps 48px touch targets');
+assert.ok(themeSrc.includes('.admin-attn--command'), 'Ops attention uses the command surface');
 
 const contaSrc = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');
 assert.ok(contaSrc.includes('clearSession()'), 'Conta logout still uses clearSession');

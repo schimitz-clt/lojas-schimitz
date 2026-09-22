@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
-  ADMIN_NAV_ITEMS,
+  ADMIN_NAV_GROUPS,
+  adminNavGroupFor,
+  adminNavItem,
+  type AdminNavAliasTip,
   type AdminSectionId,
   adminSectionLabel,
   buildAdminSectionHref,
@@ -17,10 +20,14 @@ export type AdminShellBadges = Partial<{
   alerts: number;
 }>;
 
+export type AdminAttentionSnapshot = 'pending' | 'ready' | 'error';
+
 type AdminShellProps = {
   section: AdminSectionId;
   onSectionChange: (section: AdminSectionId) => void;
   badges?: AdminShellBadges;
+  /** Snapshot of GET /admin/ops — chip stays quiet until it is real. */
+  attentionSnapshot?: AdminAttentionSnapshot;
   /** Optional right-side header actions (logout etc.) */
   headerActions?: ReactNode;
   children: ReactNode;
@@ -44,22 +51,32 @@ function badgeFor(
   return n;
 }
 
+function pageLead(section: AdminSectionId, description: string): string {
+  if (section === 'ops') {
+    return 'Command — centro de comando. Atenção e indicadores vêm só do snapshot real.';
+  }
+  return description;
+}
+
 function NavItem({
-  item,
+  id,
   section,
   badges,
   onGo,
 }: {
-  item: (typeof ADMIN_NAV_ITEMS)[number];
+  id: AdminSectionId;
   section: AdminSectionId;
   badges?: AdminShellBadges;
   onGo: (id: AdminSectionId) => void;
 }) {
+  const item = adminNavItem(id);
   const b = badgeFor(item.badgeKey, badges);
+  const active = section === item.id;
   return (
     <Link
       href={buildAdminSectionHref(item.id)}
-      className={`admin-nav-item${section === item.id ? ' is-active' : ''}`}
+      className={`admin-nav-item${active ? ' is-active' : ''}`}
+      aria-current={active ? 'page' : undefined}
       onClick={() => onGo(item.id)}
     >
       <span className="admin-nav-item__text">
@@ -71,10 +88,45 @@ function NavItem({
   );
 }
 
+function AliasTip({
+  tip,
+  section,
+  onGo,
+}: {
+  tip: AdminNavAliasTip;
+  section: AdminSectionId;
+  onGo: (id: AdminSectionId) => void;
+}) {
+  const related = section === tip.target;
+  return (
+    <Link
+      href={buildAdminSectionHref(tip.target)}
+      className={`admin-nav-alias${related ? ' is-related' : ''}`}
+      aria-label={`${tip.label}, atalho para ${adminSectionLabel(tip.target)}. Não é uma seção separada.`}
+      onClick={() => onGo(tip.target)}
+    >
+      <span className="admin-nav-alias__kicker">Atalho</span>
+      <span className="admin-nav-alias__label">{tip.label}</span>
+      <span className="admin-nav-alias__note">{tip.note}</span>
+    </Link>
+  );
+}
+
+export function AdminBrandMark() {
+  return (
+    <div className="admin-header__brand">
+      <span className="admin-header__mark" aria-hidden="true" />
+      <span className="admin-header__word">SCHIMITZ</span>
+      <span className="admin-header__product">Admin</span>
+    </div>
+  );
+}
+
 export function AdminShell({
   section,
   onSectionChange,
   badges,
+  attentionSnapshot = 'pending',
   headerActions,
   children,
 }: AdminShellProps) {
@@ -94,14 +146,25 @@ export function AdminShell({
       if (e.key === 'Escape') setDrawerOpen(false);
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
   }, [drawerOpen]);
 
   const sectionTitle = adminSectionLabel(section);
+  const group = adminNavGroupFor(section);
+  const current = adminNavItem(section);
   const alertCount = badges?.alerts ?? 0;
+  const showAlertChip = attentionSnapshot === 'ready';
 
   return (
     <div className="admin-app">
+      <a className="admin-skip" href="#admin-content">
+        Ir para o conteúdo
+      </a>
       <header className="admin-header">
         <button
           type="button"
@@ -112,22 +175,25 @@ export function AdminShell({
         >
           {drawerOpen ? '✕' : '☰'}
         </button>
-        <div className="admin-header__brand">
-          SCHIMITZ <span>Admin</span>
-        </div>
+        <AdminBrandMark />
         <div className="admin-header__meta">
-          Console operacional · {sectionTitle}
+          <span className="admin-header__group">{group.label}</span>
+          <span className="admin-header__sep" aria-hidden="true">
+            ·
+          </span>
+          <span>{sectionTitle}</span>
         </div>
         <div className="admin-header__actions">
-          {alertCount > 0 ? (
+          {showAlertChip && alertCount > 0 ? (
             <span className="admin-header__chip" title="Alertas no snapshot">
               {alertCount} alerta{alertCount === 1 ? '' : 's'}
             </span>
-          ) : (
-            <span className="admin-header__chip" style={{ opacity: 0.7 }}>
-              Ops
+          ) : null}
+          {showAlertChip && alertCount === 0 ? (
+            <span className="admin-header__chip admin-header__chip--quiet" title="Snapshot sem alertas">
+              Sem alertas
             </span>
-          )}
+          ) : null}
           {headerActions}
         </div>
       </header>
@@ -146,34 +212,46 @@ export function AdminShell({
           className={`admin-sidebar${drawerOpen ? ' is-open' : ''}`}
           aria-label="Navegação do admin"
         >
-          <div className="admin-sidebar__label">Principal</div>
-          {ADMIN_NAV_ITEMS.slice(0, 5).map((item) => (
-            <NavItem key={item.id} item={item} section={section} badges={badges} onGo={go} />
-          ))}
-          <div className="admin-sidebar__label">Loja</div>
-          {ADMIN_NAV_ITEMS.slice(5).map((item) => (
-            <NavItem key={item.id} item={item} section={section} badges={badges} onGo={go} />
+          {ADMIN_NAV_GROUPS.map((navGroup) => (
+            <div key={navGroup.id} className="admin-nav-group">
+              <div
+                className={`admin-sidebar__label${
+                  navGroup.id === group.id ? ' is-current' : ''
+                }`}
+              >
+                {navGroup.label}
+              </div>
+              {navGroup.itemIds.map((id) => (
+                <NavItem key={id} id={id} section={section} badges={badges} onGo={go} />
+              ))}
+              {navGroup.aliasTip ? (
+                <AliasTip tip={navGroup.aliasTip} section={section} onGo={go} />
+              ) : null}
+            </div>
           ))}
         </nav>
 
-        <main className="admin-main">
-          <h1 className="admin-main__title">{sectionTitle}</h1>
-          <p className="admin-main__sub">
-            Painel da loja — dados reais, sem simulação. Use o menu para mudar de seção.
-          </p>
+        <main className="admin-main" id="admin-content">
+          <header className="admin-page-head">
+            <p className="admin-page-head__eyebrow">{group.label}</p>
+            <h1 className="admin-main__title">{sectionTitle}</h1>
+            <p className="admin-main__sub">{pageLead(section, current.description)}</p>
+          </header>
           {children}
         </main>
       </div>
 
       <nav className="admin-mobile-nav" aria-label="Atalhos mobile">
         {MOBILE_PRIMARY.map((id) => {
-          const item = ADMIN_NAV_ITEMS.find((n) => n.id === id)!;
+          const item = adminNavItem(id);
           const b = badgeFor(item.badgeKey, badges);
+          const active = section === id;
           return (
             <Link
               key={id}
               href={buildAdminSectionHref(id)}
-              className={`admin-mobile-nav__btn${section === id ? ' is-active' : ''}`}
+              className={`admin-mobile-nav__btn${active ? ' is-active' : ''}`}
+              aria-current={active ? 'page' : undefined}
               onClick={() => go(id)}
             >
               {b != null ? <span className="admin-mobile-nav__dot" aria-hidden /> : null}

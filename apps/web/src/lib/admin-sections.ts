@@ -33,7 +33,7 @@ export type AdminNavItem = {
 
 /** Sidebar / mobile nav — Portuguese labels, business console tone. */
 export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
-  { id: 'ops', label: 'Ops', description: 'Centro de comando', badgeKey: 'alerts' },
+  { id: 'ops', label: 'Ops', description: 'Command', badgeKey: 'alerts' },
   { id: 'pedidos', label: 'Pedidos', description: 'Fila e Separar', badgeKey: 'paid' },
   { id: 'catalogo', label: 'Catálogo', description: 'Produtos e estoque', badgeKey: 'lowStock' },
   { id: 'clientes', label: 'Clientes', description: 'CRM' },
@@ -46,6 +46,79 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: 'equipe', label: 'Equipe', description: 'Administradores' },
   { id: 'notificacoes', label: 'Notificações', description: 'Push FCM' },
 ] as const;
+
+export const ADMIN_NAV_GROUP_IDS = [
+  'operacao',
+  'catalogo',
+  'loja',
+  'crescimento',
+  'sistema',
+] as const;
+
+export type AdminNavGroupId = (typeof ADMIN_NAV_GROUP_IDS)[number];
+
+/** Soft alias inside a group — same route, not a new section. */
+export type AdminNavAliasTip = {
+  label: string;
+  target: AdminSectionId;
+  note: string;
+};
+
+export type AdminNavGroup = {
+  id: AdminNavGroupId;
+  label: string;
+  itemIds: readonly AdminSectionId[];
+  aliasTip?: AdminNavAliasTip;
+};
+
+/**
+ * Sidebar groups. Labels only — every id is an existing route.
+ * Estoque is an alias tip into Catálogo (`estoque` → catalogo), not a page.
+ */
+export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
+  {
+    id: 'operacao',
+    label: 'Operação',
+    itemIds: ['ops', 'pedidos', 'notificacoes'],
+  },
+  {
+    id: 'catalogo',
+    label: 'Catálogo',
+    itemIds: ['catalogo'],
+    aliasTip: {
+      label: 'Estoque',
+      target: 'catalogo',
+      note: 'abre o Catálogo',
+    },
+  },
+  {
+    id: 'loja',
+    label: 'Loja',
+    itemIds: ['clientes', 'vendas', 'frete', 'cupons', 'vitrine', 'avaliacoes'],
+  },
+  {
+    id: 'crescimento',
+    label: 'Crescimento',
+    itemIds: ['marketplace'],
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    itemIds: ['equipe'],
+  },
+] as const;
+
+export function adminNavItem(id: AdminSectionId): AdminNavItem {
+  const item = ADMIN_NAV_ITEMS.find((n) => n.id === id);
+  if (!item) throw new Error(`missing admin nav item: ${id}`);
+  return item;
+}
+
+export function adminNavGroupFor(id: AdminSectionId): AdminNavGroup {
+  return (
+    ADMIN_NAV_GROUPS.find((group) => group.itemIds.includes(id)) ?? ADMIN_NAV_GROUPS[0]
+  );
+}
 
 export const DEFAULT_ADMIN_SECTION: AdminSectionId = 'ops';
 

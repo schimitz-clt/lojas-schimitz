@@ -213,6 +213,7 @@ export function useAdminConsoleState() {
   const [customerDetailBusy, setCustomerDetailBusy] = useState(false);
   const [ops, setOps] = useState<AdminOpsSnapshot | null>(null);
   const [opsBusy, setOpsBusy] = useState(false);
+  const [opsSnapshot, setOpsSnapshot] = useState<'pending' | 'ready' | 'error'>('pending');
   const [reconciliations, setReconciliations] = useState<AdminPaymentReconciliationItem[]>([]);
   const [reconBusy, setReconBusy] = useState(false);
   const [orderJumpQ, setOrderJumpQ] = useState('');
@@ -334,18 +335,25 @@ export function useAdminConsoleState() {
 
   const loadOps = useCallback(async () => {
     const u = await ensureHydratedSession();
-    if (!u || u.role !== 'admin') return;
+    if (!u || u.role !== 'admin') {
+      setOpsSnapshot((prev) => (prev === 'ready' ? prev : 'error'));
+      return;
+    }
     setOpsBusy(true);
+    setOpsSnapshot((prev) => (prev === 'ready' ? prev : 'pending'));
     try {
       const data = await api<AdminOpsSnapshot>('/admin/ops');
       setOps(data);
+      setOpsSnapshot('ready');
     } catch (e: any) {
       if (isUnauthorizedError(e)) {
         adminUnauthorizedRedirect();
         return;
       }
-      // Non-blocking: existing sections still work if ops fails
+      // Non-blocking: existing sections still work if ops fails.
+      // Keep the last real snapshot; never invent counts.
       console.warn('admin ops', e?.message || e);
+      setOpsSnapshot((prev) => (prev === 'ready' ? prev : 'error'));
     } finally {
       setOpsBusy(false);
     }
@@ -2119,6 +2127,7 @@ export function useAdminConsoleState() {
     setOps,
     opsBusy,
     setOpsBusy,
+    opsSnapshot,
     reconciliations,
     setReconciliations,
     reconBusy,

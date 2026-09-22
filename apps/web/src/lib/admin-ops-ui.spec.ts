@@ -5,6 +5,9 @@ import {
   emptyOrdersQueueMessage,
   opsAlertCtaHintPt,
   opsAlertSeverityLabelPt,
+  opsAttentionEmptyMessage,
+  opsAttentionUnavailableMessage,
+  OPS_ATTENTION_HEADING,
   paymentMethodBadge,
   paymentMethodLabelPt,
   pickPrimaryPayment,
@@ -78,6 +81,11 @@ assert.equal(opsAlertSeverityLabelPt('critical'), 'CRÍTICO');
 assert.equal(opsAlertSeverityLabelPt('high'), 'URGENTE');
 assert.equal(opsAlertSeverityLabelPt('warn'), 'ATENÇÃO');
 assert.equal(opsAlertSeverityLabelPt('info'), 'INFO');
+assert.equal(OPS_ATTENTION_HEADING, 'O que precisa de atenção?');
+assert.equal(opsAttentionEmptyMessage(0), 'Nada precisa de atenção neste snapshot.');
+assert.ok(opsAttentionEmptyMessage(2).includes('informativos'));
+assert.ok(opsAttentionUnavailableMessage().includes('GET /admin/ops'));
+assert.equal(/\d/.test(opsAttentionUnavailableMessage()), false);
 
 assert.ok(
   opsAlertCtaHintPt({ code: 'open_reconciliations', severity: 'high', section: 'reconciliations' })?.includes(
