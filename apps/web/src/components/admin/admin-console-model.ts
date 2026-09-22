@@ -8,15 +8,41 @@ export type AdminOrder = {
   publicId: string;
   status: string;
   total: number;
+  subtotal?: number | string | null;
+  discount?: number | string | null;
+  cashbackUsed?: number | string | null;
   freight?: number | string | null;
   trackingCode?: string | null;
   carrier?: string | null;
   createdAt?: string;
   updatedAt?: string;
-  items?: { name: string; qty: number }[];
+  reservationExpiresAt?: string | null;
+  items?: {
+    name: string;
+    qty: number;
+    unitPrice?: number | string | null;
+    imageUrl?: string | null;
+  }[];
   user?: { id: string; name: string; email: string; phone?: string | null } | null;
-  addressSnap?: { city?: string; uf?: string; label?: string; phone?: string | null } | null;
-  freightSnap?: { label?: string; fee?: number; estimatedDays?: number } | null;
+  addressSnap?: {
+    label?: string | null;
+    cep?: string | null;
+    street?: string | null;
+    number?: string | null;
+    complement?: string | null;
+    district?: string | null;
+    city?: string | null;
+    uf?: string | null;
+    phone?: string | null;
+  } | null;
+  freightSnap?: {
+    label?: string | null;
+    fee?: number | null;
+    price?: number | null;
+    estimatedDays?: number | null;
+    days?: number | null;
+    carrier?: string | null;
+  } | null;
   /** Present on GET /admin/orders include — payment evidence only (no invent). */
   payments?: Array<{
     id: string;
@@ -25,6 +51,7 @@ export type AdminOrder = {
     provider?: string;
     externalId?: string | null;
     amount?: number | string;
+    createdAt?: string | null;
   }> | null;
   /** Status timeline from GET /admin/orders (capped). */
   statusHistory?: Array<{

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { brl } from '@/lib/api';
+import { api, brl } from '@/lib/api';
 import {
   orderStatusLabel,
   adminQueueBucketLabel,
@@ -31,6 +31,19 @@ import {
   whatsAppOpsButtonLabel,
   type CatalogoQuickActionId,
 } from '@/lib/admin-ops-ui';
+import {
+  CATALOG_BATCH_PHOTO_NOTE,
+  catalogActiveBatchBody,
+  catalogBatchConfirmText,
+  catalogBatchFeedback,
+  catalogBatchProgressLabel,
+  catalogBatchRequestError,
+  catalogBatchSkipNote,
+  catalogStockBatchBody,
+  countOrDash,
+  partitionCatalogBatch,
+  type CatalogBatchReport,
+} from '@/lib/admin-enterprise-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
 import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
 import {
@@ -69,6 +82,7 @@ import {
   isBulkSepararEligible,
   photoQueueAlignmentNote,
   productNeedsStorePhoto,
+  pruneSelectedIds,
   selectVisibleEligibleIds,
   toggleIdInList,
 } from '@/lib/admin-daily-ops';
@@ -140,14 +154,116 @@ export function AdminCatalogoSection() {
     saveProduct,
     uploadListPhotos,
     addPhotoFromUrl,
+    load,
   } = useAdminConsole();
   const [photoUrlDraft, setPhotoUrlDraft] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [stockMode, setStockMode] = useState<'set' | 'delta'>('set');
+  const [stockValue, setStockValue] = useState('');
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchProgress, setBatchProgress] = useState('');
+  const [batchErr, setBatchErr] = useState('');
+  const [batchReport, setBatchReport] = useState<CatalogBatchReport | null>(null);
+  const [pendingBatch, setPendingBatch] = useState<{
+    title: string;
+    skip: string;
+    skuCount: number;
+    body: { skus: string[]; stockMode?: 'set' | 'delta'; stockValue?: number; active?: boolean };
+  } | null>(null);
   const canAddPhotos = formImages.length < MAX_PRODUCT_IMAGES;
   const ready = ops != null;
   const counts = catalogoCommandCounts(ops, ready);
   const sectionAlerts = partitionSectionAlerts(ops?.alerts, 'catalogo');
   const snapshotState = ops ? 'ready' : opsSnapshot;
   const stockAlign = snapshotListAlignmentNote(counts.lowStock, lowStockProducts.length, ready);
+  const editingProduct = editingId ? products.find((product) => product.id === editingId) || null : null;
+  const visibleIds = visibleCatalogProducts.map((product) => product.id);
+  const selectedVisibleCount = visibleIds.filter((id) => selectedProductIds.includes(id)).length;
+
+  useEffect(() => {
+    setSelectedProductIds((prev) => pruneSelectedIds(prev, products.map((product) => product.id)));
+  }, [products]);
+
+  useEffect(() => {
+    setPendingBatch(null);
+  }, [selectedProductIds, stockMode, stockValue]);
+
+  const resetFormRef = useRef(resetForm);
+  resetFormRef.current = resetForm;
+  useEffect(() => {
+    if (!editingId) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') resetFormRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [editingId]);
+
+  function askCatalogBatch(kind: 'stock-set' | 'stock-delta' | 'activate' | 'deactivate') {
+    const part = partitionCatalogBatch(products, selectedProductIds);
+    const gate = catalogBatchRequestError(part);
+    if (gate) {
+      setBatchErr(gate);
+      setPendingBatch(null);
+      return;
+    }
+    if (kind === 'stock-set' || kind === 'stock-delta') {
+      const built = catalogStockBatchBody(part.skus, kind === 'stock-set' ? 'set' : 'delta', stockValue);
+      if (!built.ok) {
+        setBatchErr(built.error);
+        setPendingBatch(null);
+        return;
+      }
+      setBatchErr('');
+      setBatchReport(null);
+      setPendingBatch({
+        title: catalogBatchConfirmText(kind, part.skus.length, stockValue.trim()),
+        skip: catalogBatchSkipNote(part.missingSku),
+        skuCount: part.skus.length,
+        body: built.body,
+      });
+      return;
+    }
+    setBatchErr('');
+    setBatchReport(null);
+    setPendingBatch({
+      title: catalogBatchConfirmText(kind, part.skus.length),
+      skip: catalogBatchSkipNote(part.missingSku),
+      skuCount: part.skus.length,
+      body: catalogActiveBatchBody(part.skus, kind === 'activate'),
+    });
+  }
+
+  async function applyCatalogBatch() {
+    if (!pendingBatch) return;
+    setBatchBusy(true);
+    setBatchErr('');
+    setBatchReport(null);
+    setBatchProgress(catalogBatchProgressLabel(pendingBatch.skuCount));
+    try {
+      const report = await api<CatalogBatchReport>('/admin/products/batch', {
+        method: 'POST',
+        body: JSON.stringify(pendingBatch.body),
+      });
+      setBatchReport(report);
+      setPendingBatch(null);
+      if (typeof report.updated === 'number' && report.updated > 0) {
+        await load();
+        void loadOps();
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message.trim() : '';
+      setBatchErr(message || 'A API não confirmou o lote. Nada foi confirmado.');
+    } finally {
+      setBatchBusy(false);
+      setBatchProgress('');
+    }
+  }
 
   function toAttentionItem(a: AdminOpsAlert) {
     const count = typeof a.count === 'number' && Number.isFinite(a.count) ? a.count : null;
@@ -278,7 +394,7 @@ export function AdminCatalogoSection() {
           {OPS_DO_HEADING}
         </h2>
         <p className="admin-cc-block__lede">{CATALOGO_DO_LEDE}</p>
-        <div className="admin-cc-actions">
+        <div className="admin-cc-actions admin-cc-actions--sticky">
           {CATALOGO_QUICK_ACTIONS.map((action) => {
             const figure = catalogoQuickActionFigure(action.id, counts);
             return (
@@ -343,6 +459,15 @@ export function AdminCatalogoSection() {
                   </div>
                   <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={() => startEdit(p)}>
                     Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost admin-btn-ghost-pro"
+                    onClick={() =>
+                      setSelectedProductIds((prev) => (prev.includes(p.id) ? prev : [...prev, p.id]))
+                    }
+                  >
+                    Marcar
                   </button>
                 </div>
               ))}
@@ -442,6 +567,24 @@ export function AdminCatalogoSection() {
         >
           Baixar CSV
         </button>
+        <button
+          type="button"
+          className="admin-filter-chip"
+          disabled={batchBusy || !visibleCatalogProducts.length}
+          onClick={() => {
+            const allVisible =
+              visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.includes(id));
+            setSelectedProductIds(
+              allVisible
+                ? selectedProductIds.filter((id) => !visibleIds.includes(id))
+                : Array.from(new Set([...selectedProductIds, ...visibleIds])),
+            );
+          }}
+        >
+          {visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.includes(id))
+            ? 'Limpar visíveis'
+            : `Selecionar visíveis (${visibleCatalogProducts.length})`}
+        </button>
       </div>
       {photoQueueCount ? (
         <p role="status" className="admin-catalog-alert">
@@ -451,6 +594,84 @@ export function AdminCatalogoSection() {
         <p role="status" className="admin-catalog-alert" style={{ background: 'var(--admin-ok-soft)', borderColor: '#86efac', color: 'var(--admin-ok)' }}>
           {emptyPhotoQueueMessage('needs_photo')}
         </p>
+      ) : null}
+      {selectedProductIds.length || batchErr || batchReport || batchProgress ? (
+        <div className="admin-ent-batch" role="region" aria-label="Lote do catálogo">
+          <div className="admin-ent-batch__copy">
+            <strong>{selectedProductIds.length} marcado(s)</strong>
+            <span>{batchProgress || CATALOG_BATCH_PHOTO_NOTE}</span>
+          </div>
+          <label>
+            Estoque
+            <select
+              value={stockMode}
+              disabled={batchBusy}
+              onChange={(event) => setStockMode(event.target.value as 'set' | 'delta')}
+            >
+              <option value="set">Definir</option>
+              <option value="delta">Somar</option>
+            </select>
+          </label>
+          <label>
+            Valor
+            <input
+              inputMode="numeric"
+              value={stockValue}
+              disabled={batchBusy}
+              onChange={(event) => setStockValue(event.target.value)}
+              placeholder={stockMode === 'set' ? '0' : '2'}
+              aria-label="Valor de estoque do lote"
+            />
+          </label>
+          <button type="button" className="btn" disabled={batchBusy || !selectedProductIds.length} onClick={() => askCatalogBatch(stockMode === 'set' ? 'stock-set' : 'stock-delta')}>
+            {stockMode === 'set' ? 'Definir estoque' : 'Ajustar estoque'}
+          </button>
+          <button type="button" className="btn ghost" disabled={batchBusy || !selectedProductIds.length} onClick={() => askCatalogBatch('activate')}>
+            Ativar
+          </button>
+          <button type="button" className="btn ghost" disabled={batchBusy || !selectedProductIds.length} onClick={() => askCatalogBatch('deactivate')}>
+            Desativar
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={batchBusy || !selectedProductIds.length}
+            onClick={() => setSelectedProductIds([])}
+          >
+            Limpar
+          </button>
+          {pendingBatch ? (
+            <div className="admin-ent-confirm admin-ent-confirm--batch">
+              <p className="admin-ent-confirm__title">{pendingBatch.title}</p>
+              {pendingBatch.skip ? <p className="admin-ent-confirm__detail">{pendingBatch.skip}</p> : null}
+              <div className="admin-ent-actions">
+                <button type="button" className="btn admin-btn-primary-accent" disabled={batchBusy} onClick={() => void applyCatalogBatch()}>
+                  {batchBusy ? batchProgress || 'Aplicando…' : 'Confirmar lote'}
+                </button>
+                <button type="button" className="btn ghost" disabled={batchBusy} onClick={() => setPendingBatch(null)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {batchErr ? (
+            <p role="alert" className="alert admin-ent-banner admin-ent-banner--err">
+              {batchErr}
+            </p>
+          ) : null}
+          {batchReport ? (
+            <div role="status" className="admin-ent-batch__report">
+              <p>{catalogBatchFeedback(batchReport).summary}</p>
+              {catalogBatchFeedback(batchReport).lines.length ? (
+                <ul role="alert">
+                  {catalogBatchFeedback(batchReport).lines.map((line, index) => (
+                    <li key={`${line}-${index}`}>{line}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <div className="admin-product-list" style={{ marginBottom: 8 }}>
         {visibleCatalogProducts.map((p) => {
@@ -467,11 +688,21 @@ export function AdminCatalogoSection() {
           const imgCount = p.images?.length ?? (imgUrl ? 1 : 0);
           const canAddListPhotos = imgCount < MAX_PRODUCT_IMAGES;
           const listBusy = listPhotoBusyId === p.id;
+          const picked = selectedProductIds.includes(p.id);
           return (
             <div
               key={p.id}
-              className={`admin-product-row${isLow ? ' admin-product-row--low' : ''}${isPlaceholderImg ? ' admin-product-row--needs-photo' : ''}`}
+              className={`admin-product-row${isLow ? ' admin-product-row--low' : ''}${isPlaceholderImg ? ' admin-product-row--needs-photo' : ''}${picked ? ' is-selected' : ''}`}
             >
+              <label className="admin-select-hit">
+                <input
+                  type="checkbox"
+                  checked={picked}
+                  disabled={batchBusy}
+                  aria-label={`Selecionar ${p.sku || p.name}`}
+                  onChange={() => setSelectedProductIds((prev) => toggleIdInList(prev, p.id))}
+                />
+              </label>
               {imgUrl && !isPlaceholderImg ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={imgUrl} alt="" className="admin-product-row__thumb" />
@@ -552,17 +783,49 @@ export function AdminCatalogoSection() {
 
       <div className="admin-section-panel admin-catalog">
       <AdminCatalogImportPanel />
-      <section id="admin-product-form" className="admin-card-pro admin-catalog-form" style={{ marginTop: 0, marginBottom: 0 }}>
+      {editingId ? (
+        <button type="button" className="admin-ent-backdrop" aria-label="Fechar edição do produto" onClick={resetForm} />
+      ) : null}
+      <section
+        id="admin-product-form"
+        className={`admin-card-pro admin-catalog-form admin-ent-editor${editingId ? ' is-sheet' : ''}`}
+        style={{ marginTop: 0, marginBottom: 0 }}
+      >
         <div className="body">
-          <div className="row" style={{ marginBottom: 12 }}>
-            <h2>{editingLabel}</h2>
+          <div className="admin-ent-sheet__head">
+            <div>
+              <p className="admin-ent-kicker">
+                {editingId ? 'Edição · PATCH /admin/products/:id' : 'Novo produto · POST /admin/products'}
+              </p>
+              <h2>{editingLabel}</h2>
+            </div>
             {editingId ? (
               <button type="button" className="btn ghost" onClick={resetForm}>
                 Cancelar edição
               </button>
             ) : null}
           </div>
-          <form className="form admin-form-pro" style={{ maxWidth: 560 }} onSubmit={saveProduct}>
+          {editingId ? (
+            <div className="admin-ent-facts">
+              <div className="admin-ent-fact">
+                <span>SKU</span>
+                <strong>{editingProduct?.sku?.trim() || '—'}</strong>
+              </div>
+              <div className="admin-ent-fact">
+                <span>Em mãos</span>
+                <strong>{countOrDash(editingProduct?.inventory?.qtyOnHand)}</strong>
+              </div>
+              <div className="admin-ent-fact">
+                <span>Reservado</span>
+                <strong>{countOrDash(editingProduct?.inventory?.qtyReserved)}</strong>
+              </div>
+              <div className="admin-ent-fact">
+                <span>Fotos na edição</span>
+                <strong>{String(formImages.length)}</strong>
+              </div>
+            </div>
+          ) : null}
+          <form className="form admin-form-pro" style={{ maxWidth: editingId ? 'none' : 640 }} onSubmit={saveProduct}>
             <label>
               Nome do produto *
               <input
