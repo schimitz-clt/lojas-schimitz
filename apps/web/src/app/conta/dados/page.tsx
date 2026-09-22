@@ -6,6 +6,8 @@ import { useSessionUser } from '@/lib/use-session-user';
 import {
   ACCOUNT_DADOS_PATH,
   ACCOUNT_EDIT_ADDRESS_CTA,
+  ACCOUNT_ENDERECO_ID,
+  ACCOUNT_ENDERECO_PATH,
   ACCOUNT_HUB_TITLE,
   accountAddressFormFrom,
   accountAddressFormOpen,
@@ -60,7 +62,8 @@ export default function ContaDadosPage() {
   useEffect(() => {
     if (!ready) return;
     if (!user) {
-      window.location.href = accountLoginHref(ACCOUNT_DADOS_PATH);
+      const toAddress = window.location.hash === `#${ACCOUNT_ENDERECO_ID}`;
+      window.location.href = accountLoginHref(toAddress ? ACCOUNT_ENDERECO_PATH : ACCOUNT_DADOS_PATH);
       return;
     }
     api<{ phone?: string | null }>('/me')
@@ -74,6 +77,12 @@ export default function ContaDadosPage() {
       .then(setLoyalty)
       .catch(() => {});
   }, [ready, user]);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    if (window.location.hash !== `#${ACCOUNT_ENDERECO_ID}`) return;
+    document.getElementById(ACCOUNT_ENDERECO_ID)?.scrollIntoView({ block: 'start' });
+  }, [ready, user, addressesLoaded]);
 
   function openEditAddress() {
     const current = accountAddressToEdit(addresses);
@@ -196,7 +205,9 @@ export default function ContaDadosPage() {
         </div>
       </section>
 
-      <h2 style={{ fontSize: 18 }}>Endereços</h2>
+      <h2 id={ACCOUNT_ENDERECO_ID} className="account-dados-enderecos">
+        Endereços
+      </h2>
       {addresses.map((a) => (
         <div key={a.id} className="card" style={{ marginBottom: 8 }}>
           <div className="body">

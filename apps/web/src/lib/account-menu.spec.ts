@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import {
   ACCOUNT_EDIT_ADDRESS_CTA,
   ACCOUNT_DADOS_PATH,
+  ACCOUNT_ENDERECO_ID,
+  ACCOUNT_ENDERECO_PATH,
   ACCOUNT_HUB_TITLE,
   ACCOUNT_SALVOS_PATH,
   ACCOUNT_VISTOS_PATH,
@@ -17,12 +19,15 @@ import {
   accountGreeting,
   accountLoginHref,
   accountMenuSections,
+  accountQuickShortcuts,
   accountWhatsAppHref,
   recentVistosEmptyCopy,
 } from './account-menu';
 
 assert.equal(ACCOUNT_HUB_TITLE, 'Sua conta');
 assert.equal(ACCOUNT_DADOS_PATH, '/conta/dados');
+assert.equal(ACCOUNT_ENDERECO_ID, 'enderecos');
+assert.equal(ACCOUNT_ENDERECO_PATH, '/conta/dados#enderecos');
 assert.equal(ACCOUNT_VISTOS_PATH, '/conta/vistos');
 assert.equal(ACCOUNT_SALVOS_PATH, '/conta/salvos');
 assert.ok(ACCOUNT_WHATSAPP_HELP_TEXT.includes('Lojas Schimitz'));
@@ -42,6 +47,7 @@ assert.equal(inGreet.title, 'Olá, Maria');
 assert.equal(inGreet.subtitle, 'maria@loja.com');
 
 assert.equal(accountLoginHref('/conta/dados'), '/entrar?next=%2Fconta%2Fdados');
+assert.equal(accountLoginHref(ACCOUNT_ENDERECO_PATH), '/entrar?next=%2Fconta%2Fdados%23enderecos');
 assert.equal(accountLoginHref('/pedidos'), '/entrar?next=%2Fpedidos');
 
 const wa = accountWhatsAppHref(ACCOUNT_WHATSAPP_HELP_TEXT, '51996253766');
@@ -61,6 +67,8 @@ assert.ok(!guest.flatMap((s) => s.items).some((i) => i.action === 'logout'));
 assert.equal(guest[0].items.find((i) => i.id === 'orders')?.href, accountLoginHref('/pedidos'));
 assert.equal(guest[0].items.find((i) => i.id === 'recent')?.href, ACCOUNT_VISTOS_PATH);
 assert.equal(guest[1].items.find((i) => i.id === 'profile')?.href, accountLoginHref(ACCOUNT_DADOS_PATH));
+assert.equal(guest[1].items.find((i) => i.id === 'address')?.label, 'Endereço');
+assert.equal(guest[1].items.find((i) => i.id === 'address')?.href, accountLoginHref(ACCOUNT_ENDERECO_PATH));
 assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.href, ACCOUNT_SALVOS_PATH);
 assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.label, 'Salvos');
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.href, wa);
@@ -82,6 +90,7 @@ const member = accountMenuSections({
 });
 assert.equal(member[0].items.find((i) => i.id === 'orders')?.href, '/pedidos');
 assert.equal(member[1].items.find((i) => i.id === 'profile')?.href, ACCOUNT_DADOS_PATH);
+assert.equal(member[1].items.find((i) => i.id === 'address')?.href, ACCOUNT_ENDERECO_PATH);
 assert.equal(member[1].items.find((i) => i.id === 'favorites')?.href, ACCOUNT_SALVOS_PATH);
 assert.equal(member[1].items.find((i) => i.id === 'favorites')?.label, 'Salvos');
 assert.equal(member[1].items.find((i) => i.id === 'logout')?.action, 'logout');
@@ -101,6 +110,26 @@ const seller = accountMenuSections({
   whatsappHref: wa,
 });
 assertCustomerOnlyMenu(seller);
+
+const guestShortcuts = accountQuickShortcuts(false);
+assert.deepEqual(
+  guestShortcuts.map((s) => s.label),
+  ['Pedidos', 'Endereço', 'Salvos'],
+);
+assert.equal(guestShortcuts[0].href, accountLoginHref('/pedidos'));
+assert.equal(guestShortcuts[1].href, accountLoginHref(ACCOUNT_ENDERECO_PATH));
+assert.equal(guestShortcuts[2].href, ACCOUNT_SALVOS_PATH);
+assert.ok(!guestShortcuts.some((s) => s.action === 'logout'));
+
+const memberShortcuts = accountQuickShortcuts(true);
+assert.deepEqual(
+  memberShortcuts.map((s) => s.label),
+  ['Pedidos', 'Endereço', 'Salvos', 'Sair'],
+);
+assert.equal(memberShortcuts[0].href, '/pedidos');
+assert.equal(memberShortcuts[1].href, ACCOUNT_ENDERECO_PATH);
+assert.equal(memberShortcuts[3].action, 'logout');
+assert.ok(!memberShortcuts.some((s) => s.href === '/admin' || s.href === '/vendedor'));
 
 assert.equal(ACCOUNT_EDIT_ADDRESS_CTA, 'Alterar endereço');
 assert.ok(!ACCOUNT_EDIT_ADDRESS_CTA.toLowerCase().includes('adicionar outro'));
@@ -166,6 +195,8 @@ const srcRoot = join(__dirname, '..');
 const hub = readFileSync(join(srcRoot, 'app/conta/page.tsx'), 'utf8');
 assert.ok(hub.includes('useSessionUser'), 'hub hydrates cookie session before guest vs Olá');
 assert.ok(hub.includes('AccountMenu'), 'hub renders sectioned menu');
+assert.ok(hub.includes('AccountShortcuts'), 'hub renders pedidos/endereço/salvos/sair shortcuts');
+assert.ok(hub.includes('accountQuickShortcuts'), 'shortcuts follow the cookie session');
 assert.ok(hub.includes('clearSession()'), 'hub logout still uses clearSession');
 assert.ok(hub.includes("api") && hub.includes('/orders'), 'hub loads real /orders');
 assert.ok(hub.includes('pickInProgressOrder'), 'in-progress card stays on hub');
@@ -179,6 +210,8 @@ assert.ok(dados.includes("api<Address[]>('/me/addresses')"), 'dados keeps addres
 assert.ok(dados.includes("api<Loyalty>('/me/loyalty')"), 'dados keeps loyalty API');
 assert.ok(dados.includes("api('/me'"), 'dados keeps phone PATCH');
 assert.ok(dados.includes('accountAddressFormOpen'), 'dados uses address form visibility helper');
+assert.ok(dados.includes('ACCOUNT_ENDERECO_ID'), 'dados anchors the address block');
+assert.ok(dados.includes('ACCOUNT_ENDERECO_PATH'), 'guest endereço login keeps the hash');
 assert.ok(dados.includes('ACCOUNT_EDIT_ADDRESS_CTA'), 'dados uses Alterar endereço CTA');
 assert.ok(dados.includes('accountAddressToEdit'), 'dados picks default/first address to edit');
 assert.ok(dados.includes('accountAddressFormFrom'), 'dados prefills the existing address');
@@ -213,6 +246,7 @@ assert.ok(header.includes('hdr-hide-sm'), 'do not re-add account name to mobile 
 
 const css = readFileSync(join(srcRoot, 'components/storefront/storefront-theme.css'), 'utf8');
 assert.ok(css.includes('.account-hub'), 'hub styles live on storefront tokens');
+assert.ok(css.includes('.account-hub-shortcuts'), 'shortcut row uses hub tokens');
 assert.ok(css.includes('max-width: 560px'), 'readable desktop width');
 assert.ok(css.includes('.account-dados-edit-address'), 'edit-address CTA uses account-dados tokens');
 

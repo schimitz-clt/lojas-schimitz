@@ -39,6 +39,13 @@ function Icon({ name }: { name: AccountIconId }) {
           <path d="M5.5 19.2c1.2-3.2 3.4-4.8 6.5-4.8s5.3 1.6 6.5 4.8" />
         </svg>
       );
+    case 'address':
+      return (
+        <svg {...common}>
+          <path d="M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10z" />
+          <circle cx="12" cy="11" r="2" />
+        </svg>
+      );
     case 'heart':
       return (
         <svg {...common}>

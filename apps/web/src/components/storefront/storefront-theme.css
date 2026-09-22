@@ -2129,6 +2129,59 @@
   margin-top: 14px;
 }
 
+.account-hub-shortcuts {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 2px 0 4px;
+}
+
+.account-hub-shortcut {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sf-ink);
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.account-hub-shortcut-ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--sf-yellow);
+  color: var(--sf-ink);
+  border: 2px solid var(--sf-ink);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--sf-shadow-xs);
+}
+
+.account-hub-shortcut:hover .account-hub-shortcut-ico {
+  background: var(--sf-yellow-deep);
+}
+
+.account-hub-shortcut:active .account-hub-shortcut-ico {
+  transform: scale(0.97);
+}
+
+.account-hub-shortcut-label {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
 .account-hub-enter {
   background: var(--sf-yellow) !important;
   color: var(--sf-ink) !important;
@@ -2324,6 +2377,11 @@
   max-width: 100%;
 }
 
+.account-dados-enderecos {
+  font-size: 18px;
+  scroll-margin-top: 132px;
+}
+
 .account-dados-edit-address {
   width: 100%;
   margin: 4px 0 0;
@@ -2341,6 +2399,15 @@
 
   .account-hub-row {
     min-height: 54px;
+  }
+
+  .account-hub-shortcut-ico {
+    width: 52px;
+    height: 52px;
+  }
+
+  .account-hub-shortcut-label {
+    font-size: 11px;
   }
 }
 
