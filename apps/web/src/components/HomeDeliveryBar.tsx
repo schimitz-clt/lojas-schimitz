@@ -31,7 +31,7 @@ export function HomeDeliveryBar({
   const addressHref = deliveryAddressHref(loggedIn);
 
   return (
-    <div className="delivery-bar" aria-label="Entrega">
+    <div className={`delivery-bar delivery-bar-${view.mode}`} aria-label="Entrega">
       {editing ? (
         <form className="delivery-bar-form" onSubmit={onSubmit}>
           <PinIcon />

@@ -175,7 +175,14 @@ export function Header() {
               className={`logo${searchResults ? ' logo-search-hide' : ''}`}
               aria-label="Lojas Schimitz — início"
             >
-              LOJAS <span>SCHIMITZ</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="logo-mark"
+                src="/android-chrome-192x192.png"
+                alt=""
+                width={36}
+                height={36}
+              />LOJAS <span>SCHIMITZ</span>
             </Link>
 
             <SearchBox initialQuery={qInit} />
@@ -237,7 +244,7 @@ export function Header() {
                 <span className="hdr-link-ico" aria-hidden>
                   <IconCart size={17} />
                 </span>
-                Carrinho
+                <span className="hdr-link-label">Carrinho</span>
                 {cartCount > 0 ? (
                   <span className="hdr-badge">{cartCount > 99 ? '99+' : cartCount}</span>
                 ) : null}
