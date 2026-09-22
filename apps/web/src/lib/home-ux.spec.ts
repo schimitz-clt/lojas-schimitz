@@ -118,13 +118,13 @@ assert.ok(css.includes('.home-shortcuts'), 'shortcut circles styled');
 assert.ok(css.includes('.pcard-shelf'), 'tighter shelf cards');
 assert.equal(css.includes('.site-chrome-head.is-compact'), false, 'compact collapse CSS removed');
 assert.ok(
-  /\.site-chrome-head\s+\.header\s*\{[^}]*position:\s*sticky/s.test(css),
-  'mobile sticks only .header so topbar scrolls away without height thrash',
-);
-assert.equal(
   /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
-  false,
-  'wrapper itself is not sticky on mobile',
+  'sticky lives on site-chrome-head (tall enough track vs viewport siblings)',
+);
+assert.ok(header.includes('topbar') && header.includes('site-chrome-head'), 'topbar and chrome stay');
+assert.ok(
+  header.indexOf('topbar') < header.indexOf('site-chrome-head'),
+  'topbar is outside the sticky wrapper so it can scroll away without height thrash',
 );
 assert.ok(!/magalu/i.test(bar + shortcuts), 'new home UI has no Magalu trademark');
 

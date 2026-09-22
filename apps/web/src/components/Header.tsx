@@ -133,7 +133,7 @@ export function Header() {
   const delivery = deliveryBarCopy({ addresses, storedCep: cep });
 
   return (
-    <div className="site-chrome-head">
+    <>
       <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
         <span>Frete grátis em POA</span>
         <span className="topbar-sep" aria-hidden>
@@ -145,6 +145,7 @@ export function Header() {
         </span>
         <span>{interestFreeInstallmentClaim()}</span>
       </div>
+      <div className="site-chrome-head">
       <header className="header">
         <div className="wrap">
           <div className="header-row">
@@ -267,6 +268,7 @@ export function Header() {
           </div>
         </div>
       </header>
-    </div>
+      </div>
+    </>
   );
 }
