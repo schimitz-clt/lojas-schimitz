@@ -253,6 +253,287 @@ export function opsCountOrDash(value: number | null | undefined, ready: boolean)
   return n == null ? '—' : n;
 }
 
+function finiteOrNull(value: number | null | undefined): number | null {
+  const n = finiteCount(value);
+  return n == null ? null : Math.trunc(Number(n));
+}
+
+/** Pedidos command copy — counts still come only from the snapshot. */
+export const PEDIDOS_NOW_LEDE =
+  'Fila e pagos travados deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+
+export const PEDIDOS_DO_LEDE =
+  'Filtros e buckets que já existem nesta fila. Nenhum deles estorna, cria status ou resolve sozinho.';
+
+/** Catálogo command copy — stock and photos already on the ops payload. */
+export const CATALOGO_NOW_LEDE =
+  'Estoque e fotos deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+
+export const CATALOGO_DO_LEDE =
+  'Atalhos para o painel de estoque, a fila de fotos e o CSV que já existem. Nada grava sozinho.';
+
+/**
+ * Pedidos attention = critical queue alerts already emitted by GET /admin/ops.
+ * Info rows (aguardando pagamento, histórico terminal) stay as signals.
+ */
+const PEDIDOS_ATTENTION_CODES = new Set([
+  'paid_stuck_awaiting_org',
+  'paid_needs_organizing',
+  'order_problems',
+  'pending_payments',
+  'store_notify_mail_failed',
+  'mail_off_with_store_notify',
+]);
+
+const PEDIDOS_SIGNAL_CODES = new Set(['awaiting_payment_orders', 'order_terminal_history']);
+
+/** Catálogo attention includes the info photo alert — the API already emits it. */
+const CATALOGO_ATTENTION_CODES = new Set(['out_of_stock', 'low_stock', 'placeholder_photos']);
+
+export type AdminCommandSection = 'pedidos' | 'catalogo';
+
+export function partitionSectionAlerts<T extends OpsAlertLike>(
+  alerts: T[] | null | undefined,
+  section: AdminCommandSection,
+): { attention: T[]; signals: T[] } {
+  const list = alerts ?? [];
+  if (section === 'pedidos') {
+    return {
+      attention: sortOpsAlertsForAttention(
+        list.filter((a) => PEDIDOS_ATTENTION_CODES.has(a.code) && String(a.severity) !== 'info'),
+      ),
+      signals: sortOpsAlertsForAttention(
+        list.filter(
+          (a) =>
+            PEDIDOS_SIGNAL_CODES.has(a.code) ||
+            (PEDIDOS_ATTENTION_CODES.has(a.code) && String(a.severity) === 'info'),
+        ),
+      ),
+    };
+  }
+  return {
+    attention: sortOpsAlertsForAttention(list.filter((a) => CATALOGO_ATTENTION_CODES.has(a.code))),
+    signals: [],
+  };
+}
+
+export type PedidosCommandCounts = {
+  ready: boolean;
+  total: number | null;
+  paidAwaiting: number | null;
+  stuckPaid: number | null;
+  stuckHoursThreshold: number | null;
+  oldestStuckHours: number | null;
+  stuckPublicIds: string[];
+  legacyStuck: number | null;
+  awaitingPayment: number | null;
+  /** Null when the snapshot omitted `orders.buckets` — never a guessed zero map. */
+  buckets: Record<string, number> | null;
+};
+
+const BLANK_PEDIDOS_COUNTS: PedidosCommandCounts = {
+  ready: false,
+  total: null,
+  paidAwaiting: null,
+  stuckPaid: null,
+  stuckHoursThreshold: null,
+  oldestStuckHours: null,
+  stuckPublicIds: [],
+  legacyStuck: null,
+  awaitingPayment: null,
+  buckets: null,
+};
+
+export function pedidosCommandCounts(
+  ops: {
+    orders?: {
+      total?: number | null;
+      stuckCount?: number | null;
+      buckets?: Record<string, number | null | undefined> | null;
+    } | null;
+    paidAwaitingOrg?: {
+      paidAwaitingCount?: number | null;
+      stuckCount?: number | null;
+      stuckHoursThreshold?: number | null;
+      oldestStuckHours?: number | null;
+      stuckPublicIds?: string[] | null;
+    } | null;
+  } | null | undefined,
+  ready: boolean,
+): PedidosCommandCounts {
+  if (!ready || !ops) return { ...BLANK_PEDIDOS_COUNTS };
+  const bucketsRaw = ops.orders?.buckets;
+  let buckets: Record<string, number> | null = null;
+  if (bucketsRaw && typeof bucketsRaw === 'object') {
+    buckets = {};
+    for (const [key, value] of Object.entries(bucketsRaw)) {
+      const n = finiteOrNull(value);
+      if (n != null) buckets[key] = n;
+    }
+  }
+  const paidDirect = finiteOrNull(ops.paidAwaitingOrg?.paidAwaitingCount);
+  return {
+    ready: true,
+    total: finiteOrNull(ops.orders?.total),
+    paidAwaiting: paidDirect ?? finiteOrNull(buckets?.paid),
+    stuckPaid: finiteOrNull(ops.paidAwaitingOrg?.stuckCount),
+    stuckHoursThreshold: finiteOrNull(ops.paidAwaitingOrg?.stuckHoursThreshold),
+    oldestStuckHours: finiteOrNull(ops.paidAwaitingOrg?.oldestStuckHours),
+    stuckPublicIds: (ops.paidAwaitingOrg?.stuckPublicIds ?? []).map((id) => String(id)).filter(Boolean),
+    legacyStuck: finiteOrNull(ops.orders?.stuckCount),
+    awaitingPayment: buckets ? (finiteOrNull(buckets.awaiting_payment) ?? null) : null,
+    buckets,
+  };
+}
+
+export function pedidosNowSummary(
+  counts: PedidosCommandCounts,
+  snapshot: 'pending' | 'ready' | 'error',
+): string {
+  if (!counts.ready) {
+    return snapshot === 'error'
+      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
+      : 'Lendo o snapshot…';
+  }
+  const bits: string[] = [];
+  if (counts.paidAwaiting != null) {
+    bits.push(`${counts.paidAwaiting} pago(s) aguardando organização.`);
+  }
+  if (counts.stuckPaid != null) bits.push(`${counts.stuckPaid} pago(s) travado(s).`);
+  if (counts.legacyStuck != null) bits.push(`${counts.legacyStuck} legado(s) em separando/saiu.`);
+  if (!bits.length) return 'O snapshot não trouxe contagens de fila.';
+  return bits.join(' ');
+}
+
+export const PEDIDOS_QUICK_ACTIONS = [
+  { id: 'paid', label: 'Organizar pagos', hint: 'Filtra o bucket Pago nesta fila' },
+  { id: 'stuck', label: 'Pagos travados', hint: 'Filtro ROI de pagos acima do limite' },
+  { id: 'problems', label: 'Bucket problemas', hint: 'Legado travado e histórico já mapeados' },
+  { id: 'awaiting', label: 'Aguardando pagamento', hint: 'Filtra o bucket existente' },
+  { id: 'no_shipping', label: 'Sem frete ou rastreio', hint: 'Filtro ROI da fila carregada' },
+] as const;
+
+export type PedidosQuickActionId = (typeof PEDIDOS_QUICK_ACTIONS)[number]['id'];
+
+/** Live figure for a Pedidos shortcut. Null when that field was not on the snapshot. */
+export function pedidosQuickActionFigure(
+  id: PedidosQuickActionId,
+  counts: PedidosCommandCounts,
+): string | null {
+  if (!counts.ready) return null;
+  if (id === 'paid') return counts.paidAwaiting == null ? null : `${counts.paidAwaiting} no snapshot`;
+  if (id === 'stuck') return counts.stuckPaid == null ? null : `${counts.stuckPaid} no snapshot`;
+  if (id === 'problems') {
+    const bucket = counts.buckets ? finiteOrNull(counts.buckets.problems) : null;
+    return bucket == null ? null : `${bucket} no snapshot`;
+  }
+  if (id === 'awaiting') {
+    return counts.awaitingPayment == null ? null : `${counts.awaitingPayment} no snapshot`;
+  }
+  return null;
+}
+
+export type CatalogoCommandCounts = {
+  ready: boolean;
+  lowStock: number | null;
+  outOfStock: number | null;
+  lowStockThreshold: number | null;
+  placeholderPhotos: number | null;
+};
+
+const BLANK_CATALOGO_COUNTS: CatalogoCommandCounts = {
+  ready: false,
+  lowStock: null,
+  outOfStock: null,
+  lowStockThreshold: null,
+  placeholderPhotos: null,
+};
+
+export function catalogoCommandCounts(
+  ops: {
+    inventory?: {
+      lowStockCount?: number | null;
+      outOfStockCount?: number | null;
+      lowStockThreshold?: number | null;
+    } | null;
+    catalog?: { placeholderProductCount?: number | null } | null;
+  } | null | undefined,
+  ready: boolean,
+): CatalogoCommandCounts {
+  if (!ready || !ops) return { ...BLANK_CATALOGO_COUNTS };
+  return {
+    ready: true,
+    lowStock: finiteOrNull(ops.inventory?.lowStockCount),
+    outOfStock: finiteOrNull(ops.inventory?.outOfStockCount),
+    lowStockThreshold: finiteOrNull(ops.inventory?.lowStockThreshold),
+    placeholderPhotos: finiteOrNull(ops.catalog?.placeholderProductCount),
+  };
+}
+
+export function catalogoNowSummary(
+  counts: CatalogoCommandCounts,
+  snapshot: 'pending' | 'ready' | 'error',
+): string {
+  if (!counts.ready) {
+    return snapshot === 'error'
+      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
+      : 'Lendo o snapshot…';
+  }
+  const bits: string[] = [];
+  if (counts.lowStock != null) bits.push(`${counts.lowStock} com estoque baixo.`);
+  if (counts.outOfStock != null) bits.push(`${counts.outOfStock} zerado(s).`);
+  if (counts.placeholderPhotos != null) {
+    bits.push(`${counts.placeholderPhotos} com foto placeholder ou ausente.`);
+  }
+  if (!bits.length) return 'O snapshot não trouxe estoque nem fotos.';
+  return bits.join(' ');
+}
+
+export const CATALOGO_QUICK_ACTIONS = [
+  { id: 'stock', label: 'Abrir estoque', hint: 'Rola até o painel de estoque baixo' },
+  { id: 'photos', label: 'Trocar fotos', hint: 'Abre a fila sem foto / placeholder' },
+  { id: 'csv', label: 'Baixar CSV', hint: 'GET /admin/ops/products-needing-photos' },
+  { id: 'form', label: 'Cadastrar produto', hint: 'Abre o formulário que já existe' },
+] as const;
+
+export type CatalogoQuickActionId = (typeof CATALOGO_QUICK_ACTIONS)[number]['id'];
+
+export function catalogoQuickActionFigure(
+  id: CatalogoQuickActionId,
+  counts: CatalogoCommandCounts,
+): string | null {
+  if (!counts.ready) return null;
+  if (id === 'stock') {
+    if (counts.lowStock == null && counts.outOfStock == null) return null;
+    const bits = [
+      counts.lowStock != null ? `baixo ${counts.lowStock}` : null,
+      counts.outOfStock != null ? `zerados ${counts.outOfStock}` : null,
+    ].filter(Boolean);
+    return bits.join(' · ');
+  }
+  if (id === 'photos') {
+    return counts.placeholderPhotos == null ? null : `${counts.placeholderPhotos} no snapshot`;
+  }
+  return null;
+}
+
+/**
+ * Loaded list vs snapshot. Null until the snapshot count exists —
+ * does not treat a missing field as zero.
+ */
+export function snapshotListAlignmentNote(
+  snapshotCount: number | null | undefined,
+  listCount: number,
+  ready: boolean,
+): string | null {
+  if (!ready) return null;
+  const snap = finiteOrNull(snapshotCount);
+  if (snap == null) return null;
+  const list = Math.max(0, Math.trunc(Number(listCount) || 0));
+  if (snap === list) return `Lista carregada: ${list} · igual ao snapshot.`;
+  return `Lista carregada: ${list} · snapshot: ${snap}. A lista é o que esta tela já leu; o snapshot é GET /admin/ops.`;
+}
+
 export function formatOpsSnapshotTime(iso?: string | null): string {
   const raw = String(iso || '').trim();
   if (!raw) return '—';

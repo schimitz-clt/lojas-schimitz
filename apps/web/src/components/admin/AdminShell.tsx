@@ -55,6 +55,12 @@ function pageLead(section: AdminSectionId, description: string): string {
   if (section === 'ops') {
     return 'O que está acontecendo, o que precisa de atenção e o que dá para fazer agora — só com o snapshot real.';
   }
+  if (section === 'pedidos') {
+    return 'Fila real: pagos travados, buckets do snapshot e os filtros que já existem.';
+  }
+  if (section === 'catalogo') {
+    return 'Estoque e fotos do snapshot, com a lista carregada e os atalhos que já existem.';
+  }
   return description;
 }
 

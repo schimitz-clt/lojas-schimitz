@@ -211,6 +211,27 @@ assert.ok(opsSectionSrc.includes('OPS_NOW_HEADING'), 'Ops answers what is happen
 assert.ok(opsSectionSrc.includes('OPS_DO_HEADING'), 'Ops answers what can be done now');
 assert.ok(opsSectionSrc.includes('OPS_QUICK_ACTIONS'), 'Ops quick actions are the existing navigation set');
 
+const pedidosSectionSrc = readFileSync(
+  join(__dirname, '../components/admin/sections/AdminPedidosSection.tsx'),
+  'utf8',
+);
+assert.ok(pedidosSectionSrc.includes('pedidosCommandCounts'), 'Pedidos counts come from the snapshot helper');
+assert.ok(pedidosSectionSrc.includes('partitionSectionAlerts'), 'Pedidos attention is the order slice of the snapshot');
+assert.ok(pedidosSectionSrc.includes('PEDIDOS_QUICK_ACTIONS'), 'Pedidos actions are existing filters');
+assert.ok(pedidosSectionSrc.includes('opsCountOrDash'), 'Pedidos keeps blank counts until the snapshot');
+assert.ok(pedidosSectionSrc.includes('id="admin-orders-queue"'), 'order queue anchor stays');
+
+const catalogoSectionSrc = readFileSync(
+  join(__dirname, '../components/admin/sections/AdminCatalogoSection.tsx'),
+  'utf8',
+);
+assert.ok(catalogoSectionSrc.includes('catalogoCommandCounts'), 'Catálogo counts come from the snapshot helper');
+assert.ok(catalogoSectionSrc.includes('partitionSectionAlerts'), 'Catálogo attention is the stock/photo slice');
+assert.ok(catalogoSectionSrc.includes('CATALOGO_QUICK_ACTIONS'), 'Catálogo actions are existing shortcuts');
+assert.ok(catalogoSectionSrc.includes('id="admin-low-stock"'), 'stock panel anchor stays for alert deep-link');
+assert.ok(catalogoSectionSrc.includes('id="admin-photo-queue"'), 'photo queue anchor stays');
+assert.ok(catalogoSectionSrc.includes('startEditById'), 'Trocar foto still opens the existing editor');
+
 const stateSrc = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
 assert.ok(stateSrc.includes('if (!u)'), 'logged-out /admin hits guest gate');
 assert.ok(stateSrc.includes('adminEntrarHref('), 'guest gate uses existing Entrar login');

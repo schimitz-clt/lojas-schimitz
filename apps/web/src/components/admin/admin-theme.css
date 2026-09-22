@@ -1415,7 +1415,10 @@ button.admin-cc-alert {
 
 #admin-reconciliations,
 #admin-low-stock,
-#admin-photos-checklist {
+#admin-photos-checklist,
+#admin-orders-queue,
+#admin-photo-queue,
+#admin-product-form {
   scroll-margin-top: calc(var(--admin-header-h) + 12px);
 }
 
@@ -1675,6 +1678,11 @@ button.admin-cc-alert {
 .admin-pedidos {
   display: grid;
   gap: 0;
+}
+
+.admin-pedidos.admin-cc,
+.admin-catalog.admin-cc {
+  gap: 14px;
 }
 
 .admin-pedidos__intro {
