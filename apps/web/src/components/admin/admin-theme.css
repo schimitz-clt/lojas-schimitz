@@ -869,6 +869,9 @@ button.admin-kpi:active {
 .admin-cc {
   display: grid;
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .admin-cc-banner {
@@ -936,6 +939,8 @@ button.admin-kpi:active {
   border-radius: var(--admin-radius-lg);
   box-shadow: var(--admin-shadow-xs);
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-attn.admin-attn--command.admin-cc-block {
@@ -1061,6 +1066,9 @@ button.admin-cc-kpi:focus-visible {
 .admin-cc-flow {
   display: flex;
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding-bottom: 4px;
   scroll-snap-type: x mandatory;
@@ -1215,19 +1223,6 @@ button.admin-cc-alert {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-}
-
-.admin-cc-alert__pri {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--admin-ink);
-  color: #fff;
-  letter-spacing: 0;
-  font-size: 10px;
 }
 
 .admin-cc-alert__count {

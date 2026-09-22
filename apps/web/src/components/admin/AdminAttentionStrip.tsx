@@ -48,11 +48,9 @@ function commandTone(sev: Severity): 'high' | 'warn' | 'info' {
 
 function CommandCard({
   item,
-  priority,
   onSelect,
 }: {
   item: AdminAttentionItem;
-  priority: number | null;
   onSelect: (code: string) => void;
 }) {
   const t = commandTone(item.severity);
@@ -61,13 +59,10 @@ function CommandCard({
   const body = (
     <>
       <span className="admin-cc-alert__top">
-        <span className="admin-cc-alert__sev">
-          {priority != null ? <span className="admin-cc-alert__pri">{priority}</span> : null}
-          {opsAlertSeverityLabelPt(item.severity)}
-        </span>
+        <span className="admin-cc-alert__sev">{opsAlertSeverityLabelPt(item.severity)}</span>
         <span className="admin-cc-alert__count">
           {countLabel}
-          <span className="admin-cc-alert__count-label">no alerta</span>
+          <span className="admin-cc-alert__count-label">contagem</span>
         </span>
       </span>
       <span className="admin-cc-alert__problem">{item.message}</span>
@@ -177,9 +172,9 @@ export function AdminAttentionStrip({
         ) : null}
         {visible.length > 0 ? (
           <ol className="admin-cc-alert-list">
-            {visible.map((a, i) => (
+            {visible.map((a) => (
               <li key={`attn-${a.code}`}>
-                <CommandCard item={a} priority={i + 1} onSelect={onSelect} />
+                <CommandCard item={a} onSelect={onSelect} />
               </li>
             ))}
           </ol>
@@ -190,7 +185,7 @@ export function AdminAttentionStrip({
             <ol className="admin-cc-alert-list">
               {visibleSignals.map((a) => (
                 <li key={`signal-${a.code}`}>
-                  <CommandCard item={a} priority={null} onSelect={onSelect} />
+                  <CommandCard item={a} onSelect={onSelect} />
                 </li>
               ))}
             </ol>

@@ -225,8 +225,9 @@ export function AdminOpsSection() {
             </div>
           </button>
           <div className={`admin-cc-kpi${kpiTone(ready, ops?.payments?.pendingCount, 'warn')}`}>
-            <div className="admin-cc-kpi__label">Pag. pendentes</div>
+            <div className="admin-cc-kpi__label">Pagamentos</div>
             <div className="admin-cc-kpi__value">{opsCountOrDash(ops?.payments?.pendingCount, ready)}</div>
+            <div className="admin-cc-kpi__hint">pendentes no snapshot</div>
           </div>
           <button
             type="button"
