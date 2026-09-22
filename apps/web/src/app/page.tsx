@@ -7,10 +7,12 @@ import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { HomeShortcuts } from '@/components/HomeShortcuts';
 import { HomeShelves } from '@/components/HomeShelves';
+import { ComingSoonShelf } from '@/components/ComingSoonShelf';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
+import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
 import {
   parseHomeShelvesPayload,
   shelvesFromCatalog,
@@ -72,6 +74,7 @@ function CategoryStrip({ products }: { products: Product[] }) {
 function HomeInner() {
   const q = useSearchParams().get('q') || '';
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
   const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
@@ -79,6 +82,7 @@ function HomeInner() {
   useEffect(() => {
     setLoading(true);
     setErr('');
+    setActiveCount(null);
     const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
     let cancelled = false;
     (async () => {
@@ -87,6 +91,7 @@ function HomeInner() {
         const items = Array.isArray(catalog) ? catalog : catalog.items || [];
         if (cancelled) return;
         setProducts(items);
+        setActiveCount(activeProductCountFromCatalog(catalog));
         if (q) {
           setShelves(null);
           return;
@@ -104,6 +109,7 @@ function HomeInner() {
         if (cancelled) return;
         setErr(e instanceof Error ? e.message : 'Erro ao carregar');
         setProducts([]);
+        setActiveCount(null);
         setShelves(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -115,6 +121,8 @@ function HomeInner() {
   }, [q]);
 
   const visibleShelves = useMemo(() => visibleHomeShelves(shelves), [shelves]);
+  const showComingSoon =
+    !loading && !err && activeCount != null && shouldShowComingSoonShelf(activeCount);
 
   if (q) {
     return (
@@ -182,6 +190,9 @@ function HomeInner() {
           </p>
         </div>
       ) : null}
+
+      {/* Teaser only while GET /products has zero active items. */}
+      {showComingSoon ? <ComingSoonShelf /> : null}
 
       {/* 3–5. Prateleiras Magalu — Ofertas / Novidades / Mais vendidos */}
       {!loading && visibleShelves.length > 0 ? <HomeShelves shelves={visibleShelves} /> : null}
