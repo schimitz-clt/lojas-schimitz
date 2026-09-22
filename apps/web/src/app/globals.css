@@ -110,8 +110,11 @@ button, input, select, textarea { font: inherit; }
   color: #fff;
   white-space: nowrap;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 .logo span { color: var(--yellow); }
+.logo-mark { display: none; }
 .hdr-search-back {
   flex: 0 0 auto;
   display: inline-grid;
@@ -2103,8 +2106,23 @@ textarea { resize: vertical; min-height: 72px; }
     pointer-events: auto;
     touch-action: manipulation;
   }
-  /* Topbar está fora do wrapper sticky (Header.tsx) — rola fora sem JS.
-     Evita is-compact/display:none que mudava a altura do sticky e tremia. */
+  /* Promo strip scrolls away (it sits outside .site-chrome-head). One line,
+     so it does not stack into a second row above the search. */
+  .topbar {
+    display: block;
+    font-size: clamp(8.5px, 2.65vw, 11px);
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: 0.035em;
+    padding: 5px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topbar-sep { margin: 0 6px; }
+
+  /* Sticky height stays constant: no is-compact collapse. Topbar is outside
+     this wrapper so it can leave without changing the stuck block. */
   .site-chrome-head {
     position: sticky;
     top: 0;
@@ -2118,12 +2136,95 @@ textarea { resize: vertical; min-height: 72px; }
     top: auto;
     box-shadow: 0 8px 24px rgba(0,0,0,.18);
   }
+
+  /* Search is the row: compact mark + field + sacola icon. Nowrap so the
+     field never drops under the wordmark. */
+  .header-row {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 8px 0 6px;
+    gap: 8px;
+  }
+  .header .logo {
+    flex: 0 0 auto;
+    font-size: 0;
+    line-height: 0;
+    letter-spacing: 0;
+    gap: 0;
+  }
+  .header .logo.logo-search-hide { display: none; }
+  .logo-mark {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    object-fit: cover;
+  }
+  .hdr-search-back {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+  }
+  .header-row .search {
+    flex: 1 1 auto;
+    order: 0;
+    min-width: 0;
+    max-width: none;
+  }
+  .header-row .search input {
+    min-height: 44px;
+    border-radius: 10px;
+    padding: 10px 46px 10px 14px;
+    font-size: 15px;
+  }
+  .header-row .search-submit {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+  .header-row .actions {
+    flex: 0 0 auto;
+    gap: 0;
+  }
+  .header-row .actions .hdr-link {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    gap: 0;
+    border-radius: 12px;
+  }
+  .header-row .hdr-link-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .header-row .actions .hdr-link-ico svg {
+    width: 24px;
+    height: 24px;
+  }
+  .header-row .hdr-badge {
+    top: 4px;
+    right: 2px;
+  }
+
+  /* Location strip: one thin tappable line under the search, same black bar. */
   .delivery-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 0 0 8px;
+    flex-wrap: nowrap;
+    gap: 2px;
+    margin: 0 0 4px;
     min-width: 0;
+    min-height: 34px;
+    border-top: 1px solid rgba(255,255,255,.1);
+    padding-top: 1px;
   }
   .delivery-bar-main {
     flex: 1;
@@ -2131,66 +2232,87 @@ textarea { resize: vertical; min-height: 72px; }
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.12);
+    padding: 6px 2px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0;
     color: #fff;
     text-align: left;
     cursor: pointer;
+    min-height: 34px;
   }
-  .delivery-bar-main:hover { background: rgba(255,255,255,.14); }
-  .delivery-bar-pin { color: var(--yellow); flex: 0 0 auto; }
+  .delivery-bar-main:hover,
+  .delivery-bar-main:active { background: rgba(255,255,255,.08); }
+  .delivery-bar-pin { color: var(--yellow); flex: 0 0 auto; width: 16px; height: 16px; }
   .delivery-bar-copy {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
     min-width: 0;
     flex: 1;
   }
   .delivery-bar-copy strong {
+    min-width: 0;
+    flex: 1 1 auto;
     font-size: 12.5px;
-    font-weight: 800;
-    line-height: 1.25;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .delivery-bar-prompt .delivery-bar-copy strong { flex: 0 0 auto; }
+  .delivery-bar-prompt .delivery-bar-copy span {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .delivery-bar-copy span {
     font-size: 11px;
     font-weight: 600;
-    color: rgba(255,255,255,.72);
+    color: rgba(255,255,255,.68);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .delivery-bar-address .delivery-bar-copy span,
+  .delivery-bar-cep .delivery-bar-copy span {
+    display: none;
   }
   .delivery-bar-chevron {
-    color: var(--yellow);
+    color: rgba(255,255,255,.78);
     font-size: 20px;
     line-height: 1;
-    font-weight: 700;
+    font-weight: 600;
+    flex: 0 0 auto;
   }
   .delivery-bar-side {
     flex: 0 0 auto;
-    color: var(--ink);
-    background: var(--yellow);
-    font-size: 11px;
-    font-weight: 800;
-    border-radius: 999px;
-    padding: 8px 10px;
-    min-height: 36px;
+    color: #fff;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 750;
+    border-radius: 8px;
+    padding: 6px 8px;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
   }
+  .delivery-bar-side:hover,
+  .delivery-bar-side:active { background: rgba(255,255,255,.1); }
   .delivery-bar-form {
     display: flex;
     align-items: center;
     gap: 6px;
     width: 100%;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 12px;
-    padding: 4px 6px 4px 10px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 2px 0 4px;
   }
   .delivery-bar-form input {
     flex: 1;
@@ -2201,6 +2323,7 @@ textarea { resize: vertical; min-height: 72px; }
     padding: 8px 10px;
     color: var(--text);
     font-size: 14px;
+    min-height: 36px;
   }
   .delivery-bar-form button {
     background: var(--yellow);
@@ -2213,7 +2336,6 @@ textarea { resize: vertical; min-height: 72px; }
     cursor: pointer;
     min-height: 36px;
   }
-  .header-row { padding: 8px 0; gap: 8px; }
   .search { min-width: 0; max-width: 100%; }
   .search-suggest {
     z-index: 40;
@@ -2427,11 +2549,6 @@ textarea { resize: vertical; min-height: 72px; }
   .checkout-address-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 420px) {
-  .logo { font-size: 15px; }
-  .search { min-width: 0; flex: 1 1 100%; order: 4; }
-  .hdr-cep { order: 3; }
-}
 
 /* —— Desktop store experience —— */
 @media (min-width: 721px) {
