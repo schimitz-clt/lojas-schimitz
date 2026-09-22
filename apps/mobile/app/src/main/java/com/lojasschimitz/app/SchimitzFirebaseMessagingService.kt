@@ -21,6 +21,8 @@ class SchimitzFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
+        // force skips the resume throttle. Without POST_NOTIFICATIONS the token is
+        // kept locally and MainActivity upserts it once the user grants permission.
         PushRegistration.register(applicationContext, token, force = true)
     }
 

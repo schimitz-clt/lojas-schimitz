@@ -7,7 +7,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 | Nome | Lojas Schimitz |
 | applicationId | `com.lojasschimitz.app` |
 | minSdk / targetSdk | 24 / 36 |
-| Versão (Play closed) | **1.0.8** (`versionCode` 9) |
+| Versão (Play closed) | **1.0.10** (`versionCode` 11) |
 | Entrada | `MainActivity` (WebView) |
 
 > **Por que não Capacitor/TWA?** Neste monorepo um WebView Kotlin é mais simples (sem `node_modules` no app), mantém Nest/Next intactos e cobre navegação mesma-origem + WhatsApp/Mercado Pago. Capacitor/TWA podem ser avaliados depois se precisarem de plugins JS.
@@ -27,7 +27,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - Cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é transparente para o app: same-origin + `credentials: 'include'` no Next; não há persistência nativa de JWT.
 - `<input type=file>` (Admin fotos de produto/banner) via `WebChromeClient.onShowFileChooser` + Activity Result (SAF/`GET_CONTENT`). Sem `allowFileAccess`; só mesma origem.
 - Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
-- **Push FCM (1.0.8):** pede `POST_NOTIFICATIONS` (Android 13+), registra o token na API com cookies `CookieManager` (`POST /api/v1/push/tokens`), toque abre rota da loja no WebView. Sem `google-services.json` o app **continua** (WebView/cookies/MP/file chooser intactos); envio live exige Firebase do dono — `docs/PUSH-FCM.md`.
+- **Push FCM (1.0.10):** pede `POST_NOTIFICATIONS` (Android 13+), guarda o token FCM mesmo se o diálogo ainda não fechou, e faz upsert em `POST /api/v1/push/tokens` (cookies `CookieManager`) quando a permissão já está concedida — no grant, no start/resume (no máximo a cada 15 min para o mesmo token) e no `onNewToken`. Falha de rede tenta de novo 3 vezes (0s / 2s / 4s). Toque abre rota da loja no WebView. Canal `lojas_schimitz_promos` inalterado. Sem `google-services.json` o app **continua** (WebView/cookies/MP/file chooser intactos); envio live exige Firebase do dono — `docs/PUSH-FCM.md`. Aparelhos na Play só recebem isso depois de um AAB `versionCode` 11.
 
 ## Pré-requisitos (no seu computador)
 

@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.ConnectivityManager
@@ -14,6 +13,9 @@ import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -30,7 +32,6 @@ import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val HOME_URL = "https://lojasschimitz.com.br"
+        private const val PUSH_LOG = "SchimitzPush"
         private const val OFFLINE_ASSET = "file:///android_asset/offline.html"
         private val ALLOWED_HOSTS = setOf(
             "lojasschimitz.com.br",
@@ -63,6 +65,8 @@ class MainActivity : AppCompatActivity() {
     private var showingOffline = false
     private var lastRequestedUrl: String = HOME_URL
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var tokenRetry: Runnable? = null
 
     /**
      * `<input type=file>` inside the storefront/Admin WebView (product/banner photos).
@@ -77,8 +81,10 @@ class MainActivity : AppCompatActivity() {
         }
 
     private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            fetchAndRegisterFcmToken()
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            Log.i(PUSH_LOG, "notification permission result granted=$granted")
+            // Grant must upsert now. Denial still stores the token for a later grant.
+            obtainFcmToken(force = true)
         }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -126,7 +132,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             webView.restoreState(savedInstanceState)
         }
-        requestNotificationPermissionThenRegister()
+        ensurePushRegistration(requestPermission = true, force = true)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -147,7 +153,12 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         PushRegistration.ensureDeviceCookie(this)
-        PushRegistration.registerSaved(this, force = false)
+        ensurePushRegistration(requestPermission = false, force = false)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ensurePushRegistration(requestPermission = false, force = false)
     }
 
     override fun onPause() {
@@ -166,6 +177,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        tokenRetry?.let { mainHandler.removeCallbacks(it) }
+        tokenRetry = null
         cancelFileChooser()
         webView.destroy()
         super.onDestroy()
@@ -468,29 +481,65 @@ class MainActivity : AppCompatActivity() {
         return HOME_URL
     }
 
-    private fun requestNotificationPermissionThenRegister() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            val granted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
+    /**
+     * Fetch the FCM token on every start/resume. Ask for POST_NOTIFICATIONS only
+     * from the first create, and fetch the token *before* that dialog so a kill
+     * during the prompt does not drop it. Upsert waits until the permission is granted.
+     */
+    private fun ensurePushRegistration(requestPermission: Boolean, force: Boolean) {
+        val needsRuntimePermission =
+            Build.VERSION.SDK_INT >= 33 && !PushRegistration.notificationsAllowed(this)
+        if (needsRuntimePermission) {
+            obtainFcmToken(force = false)
+            if (requestPermission) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return
             }
+            return
         }
-        fetchAndRegisterFcmToken()
+        if (!force) {
+            PushRegistration.registerSaved(this, force = false)
+        }
+        obtainFcmToken(force)
     }
 
-    private fun fetchAndRegisterFcmToken() {
+    private fun obtainFcmToken(force: Boolean, attempt: Int = 1) {
+        if (isDestroyed) return
+        tokenRetry?.let { mainHandler.removeCallbacks(it) }
+        tokenRetry = null
+        val appContext = applicationContext
         try {
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                if (!task.isSuccessful) return@addOnCompleteListener
-                val token = task.result ?: return@addOnCompleteListener
-                PushRegistration.register(this, token, force = true)
+                val token = if (task.isSuccessful) task.result?.trim().orEmpty() else ""
+                if (token.isEmpty()) {
+                    Log.w(
+                        PUSH_LOG,
+                        "fcm getToken failed attempt=$attempt/${PushRegisterPolicy.MAX_ATTEMPTS}",
+                    )
+                    if (attempt < PushRegisterPolicy.MAX_ATTEMPTS && !isDestroyed) {
+                        scheduleTokenRetry(force, attempt + 1)
+                    } else {
+                        PushRegistration.registerSaved(appContext, force)
+                    }
+                    return@addOnCompleteListener
+                }
+                Log.i(PUSH_LOG, "fcm getToken ok fp=${PushRegisterPolicy.fingerprint(token)}")
+                PushRegistration.register(appContext, token, force)
             }
         } catch (_: Exception) {
             // google-services.json / Firebase ausente — WebView segue normal
+            Log.w(PUSH_LOG, "fcm getToken unavailable")
+            PushRegistration.registerSaved(appContext, force)
         }
+    }
+
+    private fun scheduleTokenRetry(force: Boolean, attempt: Int) {
+        if (attempt > PushRegisterPolicy.MAX_ATTEMPTS || isDestroyed) return
+        tokenRetry?.let { mainHandler.removeCallbacks(it) }
+        val task = Runnable {
+            if (isDestroyed) return@Runnable
+            obtainFcmToken(force, attempt)
+        }
+        tokenRetry = task
+        mainHandler.postDelayed(task, PushRegisterPolicy.backoffBeforeAttempt(attempt))
     }
 }
