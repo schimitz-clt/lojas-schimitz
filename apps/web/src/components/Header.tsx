@@ -18,6 +18,7 @@ import {
   persistStoredCep,
   readStoredCep,
 } from '@/lib/pdp-trust';
+import { IconBell, IconCart, IconHeart, IconUser } from '@/components/icons/StorefrontIcons';
 
 export function Header() {
   const { user } = useSessionUser();
@@ -196,13 +197,13 @@ export function Header() {
             <div className="actions">
               <Link className="hdr-link hdr-hide-sm" href={user ? '/conta' : '/entrar'}>
                 <span className="hdr-link-ico" aria-hidden>
-                  👤
+                  <IconUser size={17} />
                 </span>
                 {user ? userAccountLabel(user) : 'Entrar'}
               </Link>
               <Link className="hdr-link hdr-hide-sm" href="/conta/salvos">
                 <span className="hdr-link-ico" aria-hidden>
-                  ♥
+                  <IconHeart size={17} />
                 </span>
                 Salvos
                 {favBadge ? <span className="hdr-badge">{favBadge}</span> : null}
@@ -210,7 +211,7 @@ export function Header() {
               <CompareHeaderLink />
               <Link className="hdr-link" href="/carrinho">
                 <span className="hdr-link-ico" aria-hidden>
-                  🛒
+                  <IconCart size={17} />
                 </span>
                 Carrinho
                 {cartCount > 0 ? (
@@ -220,7 +221,7 @@ export function Header() {
               {user ? (
                 <Link className="hdr-link hdr-hide-sm" href="/notificacoes" title="Notificações">
                   <span className="hdr-link-ico" aria-hidden>
-                    🔔
+                    <IconBell size={17} />
                   </span>
                   Avisos
                   {unread > 0 ? (

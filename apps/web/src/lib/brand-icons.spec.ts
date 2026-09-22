@@ -68,11 +68,39 @@ const nav = readFileSync(join(srcRoot, 'components/BottomNav.tsx'), 'utf8');
 assert.ok(nav.includes("label: 'Conta'"), 'Conta label unchanged');
 assert.ok(nav.includes("iconSrc: '/android-chrome-192x192.png'"), 'Conta uses brand 192');
 assert.ok(!/label: 'Conta'[\s\S]{0,80}ico: '👤'/.test(nav), 'Conta no longer uses person glyph');
-assert.ok(nav.includes("ico: '🏠'"), 'other tabs stay emoji');
+assert.ok(!/ico: '🏠'/.test(nav), 'home tab no longer uses house emoji');
+assert.ok(nav.includes("icon: 'home'"), 'home tab uses unified SVG icon id');
+assert.ok(nav.includes('BottomNavGlyph'), 'bottom nav renders shared stroke glyphs');
+assert.ok(nav.includes("icon: 'search'"), 'search tab uses unified SVG icon id');
+assert.ok(nav.includes("icon: 'cart'"), 'cart tab uses unified SVG icon id');
+assert.ok(nav.includes("icon: 'heart'"), 'salvos tab uses unified SVG icon id');
+
+const icons = readFileSync(join(srcRoot, 'components/icons/StorefrontIcons.tsx'), 'utf8');
+assert.ok(icons.includes('ICON_STROKE'), 'shared stroke token');
+assert.ok(icons.includes('IconHome'), 'home glyph');
+assert.ok(icons.includes('IconSearch'), 'search glyph');
+assert.ok(icons.includes('IconCart'), 'cart glyph');
+assert.ok(icons.includes('IconHeart'), 'heart glyph');
+assert.ok(icons.includes('HomeShortcutGlyph'), 'home shortcut glyphs');
+assert.ok(/strokeWidth:\s*ICON_STROKE|strokeWidth:\s*1\.8/.test(icons), 'consistent stroke weight');
+
+const shortcuts = readFileSync(join(srcRoot, 'components/HomeShortcuts.tsx'), 'utf8');
+assert.ok(shortcuts.includes('HomeShortcutGlyph'), 'shortcuts use shared set');
+assert.ok(!/fill=\"currentColor\"/.test(shortcuts), 'shortcut icons are no longer heavy filled silhouettes');
+
+const search = readFileSync(join(srcRoot, 'components/SearchBox.tsx'), 'utf8');
+assert.ok(search.includes('IconSearch'), 'search submit uses SVG');
+assert.ok(!search.includes('🔍'), 'search submit dropped emoji');
 
 const header = readFileSync(join(srcRoot, 'components/Header.tsx'), 'utf8');
 assert.ok(header.includes('LOJAS <span>SCHIMITZ</span>'), 'header wordmark text unchanged');
+assert.ok(header.includes('IconCart'), 'header cart uses SVG');
+assert.ok(!header.includes('🛒'), 'header cart dropped emoji');
 
+const catOfertas = readFileSync(join(webRoot, 'public/cats/ofertas.svg'), 'utf8');
+assert.ok(!/<rect[^>]*width=\"120\"[^>]*fill=/.test(catOfertas), 'category fallbacks are transparent over yellow chips');
+assert.ok(catOfertas.includes('stroke="#0a0a0a"'), 'category strokes stay ink');
+assert.ok(catOfertas.includes('#FFD100'), 'category accents keep Schimitz yellow');
 const adaptive = readFileSync(
   join(repoRoot, 'apps/mobile/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml'),
   'utf8',

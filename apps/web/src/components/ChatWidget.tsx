@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, sendChat, type ChatProductHit, waLink } from '@/lib/api';
 import { pixPrice } from '@/lib/pricing';
+import { IconSparkles } from '@/components/icons/StorefrontIcons';
 
 type UiMsg = { id: string; role: 'user' | 'assistant'; text: string; handoff?: boolean; products?: ChatProductHit[] };
 
@@ -205,7 +206,16 @@ export function ChatWidget() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Fechar Schimitz AI' : 'Abrir Schimitz AI'}
       >
-        {open ? '×' : 'AI'}
+        {open ? (
+          '×'
+        ) : (
+          <>
+            <span className="chatw-fab-ico" aria-hidden>
+              <IconSparkles size={16} />
+            </span>
+            AI
+          </>
+        )}
       </button>
     </div>
   );

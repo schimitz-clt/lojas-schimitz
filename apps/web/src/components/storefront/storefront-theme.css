@@ -1421,6 +1421,17 @@
   border-color: var(--sf-ink);
 }
 
+.compare-toggle-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.compare-toggle-ico svg {
+  display: block;
+}
+
 .fav-toggle-card {
   position: absolute;
   top: 8px;

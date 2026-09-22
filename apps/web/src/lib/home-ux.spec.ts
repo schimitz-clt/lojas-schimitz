@@ -116,6 +116,8 @@ assert.ok(css.includes('overflow-x: clip'), 'sticky search is not broken by over
 assert.ok(css.includes('.delivery-bar'), 'location row styled');
 assert.ok(css.includes('.home-shortcuts'), 'shortcut circles styled');
 assert.ok(css.includes('.pcard-shelf'), 'tighter shelf cards');
+assert.ok(css.includes('.bottom-nav-ico svg'), 'bottom nav SVGs are optically sized');
+assert.ok(shortcuts.includes('HomeShortcutGlyph'), 'home shortcuts share the storefront icon set');
 assert.equal(css.includes('.site-chrome-head.is-compact'), false, 'compact collapse CSS removed');
 assert.ok(
   /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
