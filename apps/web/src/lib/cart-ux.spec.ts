@@ -102,5 +102,22 @@ assert.ok(
   /\.bottom-nav\s*\{[^}]*position:\s*fixed/.test(mobileCss),
   'bottom nav stays fixed while checkout scrolls',
 );
+assert.ok(
+  /\.bottom-nav\s*\{[^}]*left:\s*0[^}]*right:\s*0[^}]*bottom:\s*0/.test(mobileCss),
+  'checkout scroll still uses the full-width docked bar',
+);
+
+const chrome = readFileSync(join(root, 'components/StorefrontChrome.tsx'), 'utf8');
+assert.ok(chrome.includes('<BottomNav />'), 'bottom nav is storefront chrome, not a per-page bar');
+assert.equal((chrome.match(/<BottomNav \/>/g) || []).length, 1, 'one bottom nav for every storefront route');
+assert.ok(chrome.includes("path.startsWith('/admin/')"), 'admin is the only chrome opt-out');
+
+const checkout = readFileSync(join(root, 'app/checkout/page.tsx'), 'utf8');
+const cartPage = readFileSync(join(root, 'app/carrinho/page.tsx'), 'utf8');
+const payment = readFileSync(join(root, 'app/pedidos/[publicId]/page.tsx'), 'utf8');
+assert.ok(!checkout.includes('bottom-nav'), 'checkout does not hide or replace the chrome nav');
+assert.ok(!cartPage.includes('bottom-nav'), 'cart does not hide or replace the chrome nav');
+assert.ok(!payment.includes('bottom-nav'), 'payment step does not hide or replace the chrome nav');
+assert.ok(payment.includes('MercadoPagoCardBrick'), 'card payment stays an inline Brick on the order page');
 
 console.log('cart-ux unit + source tests ok');
