@@ -114,9 +114,18 @@ assert.ok(css.includes('.pdp-offer-pills'), 'mobile offer chips styled');
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'gallery slides lock to track width');
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/.test(css), 'gallery uses a full-width square frame');
 assert.equal(/height:\s*min\(28vh,\s*200px\)/.test(css), false, 'gallery must not use the 200px strip cap');
+assert.equal(
+  /padding-bottom:\s*calc\(248px/.test(css),
+  false,
+  'mobile PDP does not reserve space for a fixed purchase bar',
+);
 assert.ok(
-  /@media \(max-width: 720px\)[\s\S]*\.pdp[\s\S]*padding-bottom:\s*calc\(/.test(css),
-  'mobile PDP padding clears sticky ATC + bottom nav',
+  /@media \(max-width: 720px\)[\s\S]*\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(96px\s*\+\s*env\(safe-area-inset-bottom/.test(css),
+  'bottom nav clearance stays on .main-shell',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.bottom-nav\s*\{[^}]*position:\s*fixed/.test(css),
+  'only the bottom nav stays fixed on mobile',
 );
 assert.ok(
   /@media \(min-width: 721px\)[\s\S]*\.pdp-desc\s*\{\s*order:\s*7/.test(css),
@@ -135,27 +144,24 @@ assert.ok(
   'mobile CTAs use a 2-col grid that cannot overflow',
 );
 assert.ok(css.includes('.pdp-cta-buy-now'), 'outlined Comprar agora is styled in the Schimitz palette');
-assert.ok(
-  /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-ctas\s*\{[^}]*grid-template-columns:\s*1fr/.test(css),
-  'mobile sticky bar stacks Adicionar and Comprar agora',
-);
 const mobilePdpCss = css.slice(
   css.indexOf('@media (max-width: 720px)'),
   css.indexOf('@media (max-width: 520px)'),
 );
-assert.ok(
+assert.equal(
   /\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{\s*display:\s*none/.test(mobilePdpCss),
-  'mobile hides in-page Adicionar and Comprar agora; sticky bar keeps them',
+  false,
+  'mobile keeps inline Adicionar à sacola and Comprar agora in the scroll',
+);
+assert.equal(
+  mobilePdpCss.includes('.pdp-sticky-atc'),
+  false,
+  'mobile CSS does not pin a PDP purchase bar',
 );
 assert.equal(
   /\.pdp-actions \.pdp-cta-wa\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
   false,
   'WhatsApp stays in the mobile page body',
-);
-assert.equal(
-  /\.pdp-sticky-atc\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
-  false,
-  'sticky purchase bar stays visible on mobile',
 );
 const desktopPdpCss = css.slice(css.lastIndexOf('@media (min-width: 721px)'));
 assert.equal(

@@ -59,7 +59,7 @@ assert.equal(
 
 assert.equal(pdpPageOverflowX(), 'hidden');
 
-assert.ok(/html, body[\s\S]{0,180}overflow-x:\s*hidden/.test(css), 'document must not scroll sideways');
+assert.ok(/html, body\s*\{[^}]*overflow-x:\s*clip/.test(css), 'document must not scroll sideways');
 assert.ok(/\.pdp\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'PDP hides horizontal overflow');
 assert.ok(/\.pdp-carousel-track[\s\S]{0,280}scroll-snap-type:\s*x mandatory/.test(css), 'gallery swipe is internal scroll-snap');
 assert.ok(/\.pdp-carousel-track[\s\S]{0,280}overflow-x:\s*auto/.test(css), 'only the track scrolls horizontally');
@@ -69,7 +69,16 @@ assert.ok(/minmax\(min\(100%,\s*140px\)/.test(css), 'trust cards cannot force a 
 assert.ok(/\.pdp-gallery-col[\s\S]*margin-left:\s*-12px/.test(css), 'mobile gallery bleeds to wrap edges');
 assert.ok(/\.pdp-carousel-nav[\s\S]*display:\s*none/.test(css), 'mobile uses swipe + dots, not side arrows');
 assert.ok(/\.pdp-carousel-dots[\s\S]*position:\s*static/.test(css), 'dots sit under the photo, centered');
-assert.ok(/\.pdp-sticky-atc \.btn[\s\S]*white-space:\s*nowrap/.test(css), 'sticky ATC is price left + button right');
+assert.equal(
+  /\.pdp-sticky-atc[\s\S]{0,400}position:\s*fixed/.test(css),
+  false,
+  'PDP add-to-bag is not a fixed bar',
+);
+assert.equal(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{\s*display:\s*none/.test(css),
+  false,
+  'inline Adicionar and Comprar agora stay visible on mobile',
+);
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css),
   'mobile buy CTAs sit in a 2-col grid (Adicionar / Comparar / Favoritar / WhatsApp)',

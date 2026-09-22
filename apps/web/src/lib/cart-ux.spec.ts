@@ -79,4 +79,28 @@ assert.ok(css.includes('.cart-empty'), 'empty sacola is styled');
 assert.ok(css.includes('.cart-freight'), 'freight block is styled');
 assert.ok(css.includes('.cart-line-pix'), 'line PIX price is styled');
 
+const globals = readFileSync(join(root, 'app/globals.css'), 'utf8');
+const mobileCss = globals.slice(
+  globals.indexOf('@media (max-width: 720px)'),
+  globals.indexOf('@media (max-width: 520px)'),
+);
+assert.ok(
+  /\.cart-sticky-checkout\s*\{[^}]*position:\s*static/.test(mobileCss),
+  'cart checkout stays in normal flow on mobile',
+);
+assert.equal(
+  /\.cart-sticky-checkout[\s\S]{0,280}position:\s*fixed/.test(mobileCss),
+  false,
+  'cart checkout is not fixed above the bottom nav',
+);
+assert.equal(
+  /padding-bottom:\s*calc\(110px/.test(mobileCss),
+  false,
+  'cart page does not reserve space for a fixed checkout bar',
+);
+assert.ok(
+  /\.bottom-nav\s*\{[^}]*position:\s*fixed/.test(mobileCss),
+  'bottom nav stays fixed while checkout scrolls',
+);
+
 console.log('cart-ux unit + source tests ok');
