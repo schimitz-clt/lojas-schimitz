@@ -14,7 +14,7 @@ import {
 import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { pdpSharePixLabel } from '@/lib/pdp-share';
 import { PdpSkeleton } from '@/components/Skeleton';
-import { buyNowLabel, pdpBuyNowHref, pixHighlight, stickyBuyLabel } from '@/lib/storefront-pro';
+import { buyNowLabel, pdpBuyNowHref, pixHighlight } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
 import { resolveProductStock } from '@/lib/product-media';
 import { ProductGallery } from '@/components/ProductGallery';
@@ -571,34 +571,6 @@ export default function ProductPage({
           </div>
         </div>
       </section>
-
-      <div className="pdp-sticky-atc" aria-label="Comprar">
-        <div className="pdp-sticky-price" style={{ minWidth: 0 }}>
-          <div className="price">{brl(pix)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>
-            no PIX · 5% off · {brl(price)}
-          </div>
-        </div>
-        <div className="pdp-sticky-ctas">
-          {addedToBag && !buyBlocked ? (
-            <Link className="btn" href="/carrinho">
-              {stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: true })}
-            </Link>
-          ) : (
-            <button className="btn" type="button" onClick={add} disabled={buyBlocked || adding}>
-              {stickyBuyLabel({ outOfStock, adding, addedToBag: false, demo })}
-            </button>
-          )}
-          <button
-            className="btn pdp-cta-buy-now"
-            type="button"
-            onClick={buyNow}
-            disabled={buyBlocked || adding}
-          >
-            {buyNowLabel({ outOfStock, adding, demo })}
-          </button>
-        </div>
-      </div>
 
       <PdpRelatedProducts
         productId={p.id}

@@ -1486,8 +1486,7 @@ textarea { resize: vertical; min-height: 72px; }
   box-shadow: none;
   font-weight: 800;
 }
-.pdp-actions .pdp-cta-buy-now:hover,
-.pdp-sticky-atc .pdp-cta-buy-now:hover {
+.pdp-actions .pdp-cta-buy-now:hover {
   background: var(--yellow-soft);
   color: var(--ink);
   border-color: var(--ink);
@@ -1685,7 +1684,6 @@ textarea { resize: vertical; min-height: 72px; }
   display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 0 0 4px;
 }
 .wishlist-item-actions .btn { min-height: 44px; }
-.pdp-sticky-atc { display: none; }
 
 @keyframes skel-pulse { 0%, 100% { opacity: .42; } 50% { opacity: .88; } }
 .skel { background: #ecece8; animation: skel-pulse 1.2s ease-in-out infinite; border-radius: 8px; height: 12px; }
@@ -2384,57 +2382,26 @@ textarea { resize: vertical; min-height: 72px; }
 
   .pdp {
     padding-top: 0;
-    padding-bottom: calc(248px + env(safe-area-inset-bottom, 0px));
+    /* Bottom nav clearance is .main-shell (~96px). Price and CTAs scroll with the page. */
+    padding-bottom: 8px;
     overflow-x: hidden;
     max-width: 100%;
   }
-  .pdp-cart-toast { bottom: calc(248px + env(safe-area-inset-bottom, 0px)); }
-  .pdp-sticky-atc, .cart-sticky-checkout {
-    display: flex; position: fixed; left: 0; right: 0;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 25;
-    gap: 12px; align-items: center;
-    padding: 10px 16px;
-    background: #fff; border-top: 1px solid var(--line);
+  .cart-page { padding-bottom: 8px; }
+  .cart-sticky-checkout {
+    display: flex;
+    position: static;
+    margin-top: 12px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     box-sizing: border-box;
     max-width: 100%;
     min-width: 0;
   }
-  .pdp-sticky-atc {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 10px 12px;
-  }
-  .pdp-sticky-atc > div:first-child { flex: 0 0 auto; min-width: 0; }
-  .pdp-sticky-price {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 2px 8px;
-    min-width: 0;
-  }
-  .pdp-sticky-ctas {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-  }
-  .pdp-sticky-atc .btn {
-    flex: 0 1 auto;
-    min-width: 0;
-    width: 100%;
-    white-space: nowrap;
-    padding: 0 12px;
-    min-height: 44px;
-  }
-  /* In-page Adicionar / Comprar agora duplicate the sticky bar on phones. */
-  .pdp-actions .pdp-cta-primary,
-  .pdp-actions .pdp-cta-buy-now {
-    display: none;
-  }
-  .cart-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
   .cart-sticky-checkout .cart-checkout-btn { flex: 1; width: auto; }
   .chatw { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); right: 12px; }
 
