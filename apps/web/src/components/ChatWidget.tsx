@@ -35,7 +35,7 @@ function ProductMiniCard({ p }: { p: ChatProductHit }) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const pix = p.pixPrice != null ? Number(p.pixPrice) : pixPrice(p.price);
-  const canCart = Boolean(p.id) && p.inStock;
+  const canCart = Boolean(p.id) && p.inStock && !p.isDemo;
 
   async function addToCart() {
     if (!p.id || adding || !p.inStock) return;
@@ -74,7 +74,7 @@ function ProductMiniCard({ p }: { p: ChatProductHit }) {
         </a>
         <div className="chatw-card-price">{brl(Number(p.price))}</div>
         <div className="chatw-card-pix">PIX {brl(pix)}</div>
-        {!p.inStock ? <div className="muted">Sem estoque</div> : null}
+        {p.isDemo ? <div className="muted">Demonstrativo — sem venda</div> : !p.inStock ? <div className="muted">Sem estoque</div> : null}
         <div className="chatw-card-cta">
           <a className="btn ghost" href={p.path || `/produto/${p.slug}`}>
             Ver

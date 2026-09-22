@@ -20,6 +20,7 @@ import {
 } from '@/lib/mixed-cart';
 import { CartCouponField } from '@/components/CartCouponField';
 import { cartDiscountAmount } from '@/lib/cart-coupon';
+import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
 
 type CartItem = {
   id: string;
@@ -31,6 +32,7 @@ type CartItem = {
   image?: string | null;
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string } | null;
+  isDemo?: boolean | null;
 };
 type Cart = {
   items: CartItem[];
@@ -188,6 +190,10 @@ export default function CheckoutPage() {
 
   async function submit() {
     if (submittingRef.current || loading) return;
+    if (cart && cartHasDemoItem(cart.items)) {
+      setErr(DEMO_PURCHASE_BLOCK_MESSAGE);
+      return;
+    }
     if (!addressId) {
       setErr('Salve um endereço de entrega acima para continuar.');
       const el = document.querySelector('.checkout-address');
@@ -258,7 +264,8 @@ export default function CheckoutPage() {
   const pixTotal = skipAutoPix ? displayTotal : pixPrice(displayTotal);
   const pixSave = skipAutoPix ? 0 : pixSavings(displayTotal);
   const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
-  const canConfirm = Boolean(addressId) && !loading && !mixedCart;
+  const demoCart = cartHasDemoItem(cart.items);
+  const canConfirm = Boolean(addressId) && !loading && !mixedCart && !demoCart;
   const supportHref = waLink('Olá! Preciso de ajuda no checkout da Lojas Schimitz.');
 
   return (
@@ -541,6 +548,12 @@ export default function CheckoutPage() {
         <div className="alert checkout-err" role="alert" style={{ marginTop: 12 }}>
           {mixedCartBlockMessagePt(cart.items)}{' '}
           <Link href="/carrinho">Voltar à sacola</Link> para remover itens.
+        </div>
+      ) : null}
+      {demoCart ? (
+        <div className="alert checkout-err" role="alert" style={{ marginTop: 12 }}>
+          {DEMO_PURCHASE_BLOCK_MESSAGE}{' '}
+          <Link href="/carrinho">Voltar à sacola</Link> para remover o item demonstrativo.
         </div>
       ) : null}
 

@@ -126,6 +126,7 @@ export type AdminProduct = {
   compareAtPrice?: string | number | null;
   active: boolean;
   badge?: string | null;
+  isDemo?: boolean;
   categoryId?: string | null;
   category?: Category | null;
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;

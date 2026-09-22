@@ -7,6 +7,7 @@ import { parseHomeShelvesPayload } from '@/lib/home-shelves';
 import { stockBadge, toNumber } from '@/lib/pricing';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { pixHighlight } from '@/lib/storefront-pro';
+import { isDemoCatalogProduct } from '@/lib/demo-catalog';
 
 export const SEARCH_SUGGEST_MIN = 2;
 export const SEARCH_SUGGEST_DEBOUNCE_MS = 280;
@@ -25,6 +26,7 @@ export type SearchProductLike = {
   imageUrl?: string | null;
   images?: { url?: string | null; position?: number }[] | null;
   stock?: number | null;
+  isDemo?: boolean | null;
   inventory?: { qtyOnHand?: number; qtyReserved?: number; available?: number | null } | null;
 };
 
@@ -134,6 +136,7 @@ export function productSuggestionImage(p: SearchProductLike): string | undefined
 /** Quick add uses the same cart rules as cards: known id, not esgotado. */
 export function suggestionCanQuickAdd(p: SearchProductLike): boolean {
   if (!asText(p.id)) return false;
+  if (isDemoCatalogProduct(p)) return false;
   return stockBadge(resolveProductStock(p))?.tone !== 'out';
 }
 

@@ -20,6 +20,7 @@ import {
   VerifiedWebhookEvent,
 } from './payment.provider';
 import { CreatePaymentIntentDto } from './dto';
+import { demoPurchaseRejection } from '../catalog/demo-product';
 import { MailService } from '../mail/mail.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -223,6 +224,8 @@ export class PaymentsService {
         code: 'METHOD_NOT_AVAILABLE',
       });
     }
+
+    await this.rejectDemoOrder(dto.orderId);
 
     const existingRec = await this.prisma.idempotencyRecord.findUnique({ where: { key: scoped } });
     if (existingRec?.requestHash && existingRec.requestHash !== requestHash) {
@@ -1504,6 +1507,16 @@ export class PaymentsService {
     } catch (e: any) {
       this.log.error(`notifyCustomerPaid falhou: ${e?.message || e}`);
     }
+  }
+
+  /** Bloqueia intent Mercado Pago / null se o pedido tiver item demonstrativo. */
+  private async rejectDemoOrder(orderId: string) {
+    const hit = await this.prisma.orderItem.findFirst({
+      where: { orderId, product: { isDemo: true } },
+      select: { product: { select: { isDemo: true, name: true } } },
+    });
+    const rejection = demoPurchaseRejection(hit?.product);
+    if (rejection) throw new BadRequestException(rejection);
   }
 
 }

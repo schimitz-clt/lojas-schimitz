@@ -50,7 +50,9 @@ export function buildAdminProductSearchWhere(input: AdminProductListInput) {
   const q = (input.q || '').trim();
   return {
     ...(input.active !== undefined ? { active: input.active } : {}),
-    ...(input.lowStock != null ? { inventory: { qtyOnHand: { lte: input.lowStock } } } : {}),
+    ...(input.lowStock != null
+      ? { isDemo: false, inventory: { qtyOnHand: { lte: input.lowStock } } }
+      : {}),
     ...(q
       ? {
           OR: [

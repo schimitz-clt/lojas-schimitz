@@ -11,6 +11,7 @@ import {
   wishlistRemoveLabel,
   type WishlistItem,
 } from '@/lib/wishlist-ui';
+import { isDemoCatalogProduct } from '@/lib/demo-catalog';
 
 export function WishlistRow({
   item,
@@ -28,6 +29,7 @@ export function WishlistRow({
   const product = item.product;
   const href = wishlistProductHref(product);
   const img = wishlistProductImage(product);
+  const demo = isDemoCatalogProduct(product);
   const out = isWishlistOutOfStock(product);
   const price = wishlistPriceLabel(product);
   const pix = wishlistPixLabel(product);
@@ -55,8 +57,8 @@ export function WishlistRow({
           </p>
         ) : null}
         <div className="wishlist-row-actions">
-          <button type="button" className="btn" disabled={out || adding} onClick={onAddToCart}>
-            {wishlistAddToCartLabel({ outOfStock: out, adding: Boolean(adding), added: Boolean(added) })}
+          <button type="button" className="btn" disabled={demo || out || adding} onClick={onAddToCart}>
+            {wishlistAddToCartLabel({ outOfStock: out, adding: Boolean(adding), added: Boolean(added), demo })}
           </button>
           <button type="button" className="btn ghost" onClick={onRemove}>
             {wishlistRemoveLabel()}

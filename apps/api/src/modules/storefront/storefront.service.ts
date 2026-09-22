@@ -166,6 +166,7 @@ export class StorefrontService {
       price: true,
       compareAtPrice: true,
       badge: true,
+      isDemo: true,
       ratingAvg: true,
       ratingCount: true,
       active: true,

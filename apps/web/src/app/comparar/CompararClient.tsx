@@ -13,6 +13,7 @@ import {
   type ProductCompareLike,
 } from '@/lib/product-compare';
 import { useCompare } from '@/components/compare/CompareProvider';
+import { isDemoCatalogProduct } from '@/lib/demo-catalog';
 
 export default function CompararClient() {
   const { items, remove, clear } = useCompare();
@@ -61,7 +62,7 @@ export default function CompararClient() {
   const rows = useMemo(() => compareRows(), []);
 
   async function addToCart(item: CompareSnapshot) {
-    if (addingId || (item.stock != null && item.stock <= 0)) return;
+    if (addingId || isDemoCatalogProduct(item) || (item.stock != null && item.stock <= 0)) return;
     setAddingId(item.id);
     try {
       await api('/cart/items', {
@@ -156,6 +157,7 @@ export default function CompararClient() {
                   <th scope="row">Ações</th>
                   {live.map((item) => {
                     const out = item.stock != null && item.stock <= 0;
+                    const demo = isDemoCatalogProduct(item);
                     return (
                       <td key={`${item.id}-actions`}>
                         <div className="compare-actions">
@@ -165,16 +167,18 @@ export default function CompararClient() {
                           <button
                             type="button"
                             className="btn"
-                            disabled={out || addingId === item.id}
+                            disabled={demo || out || addingId === item.id}
                             onClick={() => addToCart(item)}
                           >
-                            {out
-                              ? 'Indisponível'
-                              : addingId === item.id
-                                ? 'Adicionando…'
-                                : addedId === item.id
-                                  ? '✓ Na sacola'
-                                  : 'Adicionar'}
+                            {demo
+                              ? 'Não disponível'
+                              : out
+                                ? 'Indisponível'
+                                : addingId === item.id
+                                  ? 'Adicionando…'
+                                  : addedId === item.id
+                                    ? '✓ Na sacola'
+                                    : 'Adicionar'}
                           </button>
                           <button type="button" className="btn ghost" onClick={() => remove(item.id)}>
                             Remover
@@ -191,6 +195,7 @@ export default function CompararClient() {
           <ul className="compare-cards" aria-label="Comparação no celular">
             {live.map((item) => {
               const out = item.stock != null && item.stock <= 0;
+              const demo = isDemoCatalogProduct(item);
               return (
                 <li key={`m-${item.id}`} className="compare-card">
                   <Link href={`/produto/${item.slug}`} className="compare-card-head">
@@ -220,16 +225,18 @@ export default function CompararClient() {
                     <button
                       type="button"
                       className="btn"
-                      disabled={out || addingId === item.id}
+                      disabled={demo || out || addingId === item.id}
                       onClick={() => addToCart(item)}
                     >
-                      {out
-                        ? 'Indisponível'
-                        : addingId === item.id
-                          ? 'Adicionando…'
-                          : addedId === item.id
-                            ? '✓ Na sacola'
-                            : 'Adicionar'}
+                      {demo
+                        ? 'Não disponível'
+                        : out
+                          ? 'Indisponível'
+                          : addingId === item.id
+                            ? 'Adicionando…'
+                            : addedId === item.id
+                              ? '✓ Na sacola'
+                              : 'Adicionar'}
                     </button>
                     <button type="button" className="btn ghost" onClick={() => remove(item.id)}>
                       Remover

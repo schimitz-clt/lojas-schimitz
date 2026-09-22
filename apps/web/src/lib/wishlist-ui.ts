@@ -27,6 +27,7 @@ export type WishlistProductLike = {
   category?: { slug?: string | null; name?: string | null } | null;
   seller?: { id?: string; name?: string | null; slug?: string | null } | null;
   badge?: string | null;
+  isDemo?: boolean | null;
 };
 
 export type WishlistItem = {
@@ -135,7 +136,9 @@ export function wishlistAddToCartLabel(opts: {
   outOfStock: boolean;
   adding: boolean;
   added: boolean;
+  demo?: boolean;
 }): string {
+  if (opts.demo) return 'Não disponível';
   if (opts.outOfStock) return 'Indisponível';
   if (opts.adding) return 'Adicionando…';
   if (opts.added) return '✓ Na sacola';
@@ -210,6 +213,7 @@ function parseProduct(raw: unknown): WishlistProductLike | null {
     category: category || null,
     seller: seller || null,
     badge: asText(o.badge) || null,
+    isDemo: o.isDemo === true,
   };
 }
 

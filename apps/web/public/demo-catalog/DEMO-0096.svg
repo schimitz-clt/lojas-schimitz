@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Relógio de pulso analógico">
+  <rect width="800" height="800" fill="#221c28"/>
+  <rect x="48" y="48" width="704" height="704" rx="36" fill="none" stroke="#d7c4f0" stroke-opacity="0.35" stroke-width="2"/>
+  <rect x="330" y="120" width="140" height="70" rx="16" fill="#d7c4f0"/><rect x="280" y="180" width="240" height="280" rx="48" fill="#d7c4f0"/><circle cx="400" cy="320" r="78" fill="#10141c"/><rect x="330" y="460" width="140" height="70" rx="16" fill="#d7c4f0"/>
+  <text x="400" y="640" text-anchor="middle" fill="#f4f1ea" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Relógio de pulso analógico</text>
+  <text x="400" y="682" text-anchor="middle" fill="#d7c4f0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="2">SÉRIE DEMO · DEMO-0096</text>
+</svg>

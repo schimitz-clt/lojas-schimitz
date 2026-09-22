@@ -36,6 +36,8 @@ export type ChatProductHit = {
   id?: string;
   image?: string | null;
   pixPrice?: number;
+  /** Vitrine demonstrativa — não comprável. */
+  isDemo?: boolean;
 };
 
 export type ChatReply = {

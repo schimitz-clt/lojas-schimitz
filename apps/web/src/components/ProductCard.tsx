@@ -9,6 +9,7 @@ import { productCardAddLabel, productCardCues, productCardKicker } from '@/lib/p
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
+import { DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 
 export type Product = {
   id: string;
@@ -28,6 +29,7 @@ export type Product = {
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
   createdAt?: string | Date | null;
+  isDemo?: boolean | null;
 };
 
 function ProductImage({
@@ -89,6 +91,7 @@ export function ProductCard({
   const off = discountPercent(price, p.compareAtPrice);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const demo = isDemoCatalogProduct(p);
   const out = sb?.tone === 'out';
   const kicker = productCardKicker(p.category?.name, p.seller?.name);
   const cues = productCardCues();
@@ -97,7 +100,7 @@ export function ProductCard({
   async function addToCart(e: { preventDefault(): void; stopPropagation(): void }) {
     e.preventDefault();
     e.stopPropagation();
-    if (out || adding) return;
+    if (demo || out || adding) return;
     setAdding(true);
     try {
       await api('/cart/items', {
@@ -155,8 +158,9 @@ export function ProductCard({
             <span className="pcard-ph-hint">Imagem em breve</span>
           </div>
           <div className="pcard-tags">
-            {off ? <span className="pcard-off">-{off}%</span> : null}
-            {p.badge ? <span className="pcard-badge">{p.badge}</span> : null}
+            {demo ? <span className="pcard-demo">{DEMO_SEAL_LABEL}</span> : null}
+            {off && !demo ? <span className="pcard-off">-{off}%</span> : null}
+            {p.badge && p.badge !== DEMO_SEAL_LABEL ? <span className="pcard-badge">{p.badge}</span> : null}
           </div>
           {sb ? <span className={`pcard-stock pcard-stock-${sb.tone}`}>{sb.label}</span> : null}
         </div>
@@ -202,7 +206,11 @@ export function ProductCard({
         </div>
       </Link>
       <div className="pcard-cta">
-        {out ? (
+        {demo ? (
+          <button type="button" className="btn pcard-btn ghost" disabled>
+            {productCardAddLabel({ outOfStock: false, adding: false, added: false, demo: true })}
+          </button>
+        ) : out ? (
           <Link className="btn pcard-btn ghost" href={`/produto/${p.slug}`}>
             Ver detalhes
           </Link>

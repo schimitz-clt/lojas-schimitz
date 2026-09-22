@@ -9,6 +9,7 @@ import { publicSellerShape } from '../sellers/sellers.constants';
 import { CouponsService } from '../coupons/coupons.service';
 import { evaluateCoupon, isPermanentCouponFailure } from '../coupons/coupon-evaluate';
 import { isPixPromoCollidingCouponCode, normalizeCouponCode, roundMoney } from '../../common/pricing';
+import { demoPurchaseRejection } from '../catalog/demo-product';
 
 @Injectable()
 export class CartService {
@@ -84,6 +85,7 @@ export class CartService {
           ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
           : 0,
         lineTotal: price * item.qty,
+        isDemo: item.product.isDemo,
         sellerId: item.product.sellerId,
         seller: item.product.seller ? publicSellerShape(item.product.seller) : null,
       };
@@ -204,6 +206,8 @@ export class CartService {
       include: { inventory: true },
     });
     if (!product || !product.active) throw new NotFoundException('Produto não encontrado');
+    const demoBlocked = demoPurchaseRejection(product);
+    if (demoBlocked) throw new BadRequestException(demoBlocked);
 
     const available = product.inventory
       ? availableQty(product.inventory.qtyOnHand, product.inventory.qtyReserved)
@@ -239,6 +243,8 @@ export class CartService {
       include: { product: { include: { inventory: true } } },
     });
     if (!item) throw new NotFoundException('Item não encontrado no carrinho');
+    const demoBlocked = demoPurchaseRejection(item.product);
+    if (demoBlocked) throw new BadRequestException(demoBlocked);
 
     const available = item.product.inventory
       ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
@@ -315,7 +321,7 @@ export class CartService {
 
       for (const item of guestCart.items) {
         const product = item.product;
-        if (!product || !product.active) continue;
+        if (!product || !product.active || product.isDemo) continue;
         const available = product.inventory
           ? availableQty(product.inventory.qtyOnHand, product.inventory.qtyReserved)
           : 0;

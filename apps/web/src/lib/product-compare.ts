@@ -26,6 +26,7 @@ export type CompareSnapshot = {
   sellerName: string | null;
   stock: number | null;
   badge: string | null;
+  isDemo?: boolean;
 };
 
 export type ProductCompareLike = {
@@ -42,6 +43,7 @@ export type ProductCompareLike = {
   category?: { name?: string | null; slug?: string | null } | null;
   seller?: { name?: string | null; slug?: string | null } | null;
   badge?: string | null;
+  isDemo?: boolean | null;
 };
 
 export type CompareRowId =
@@ -93,6 +95,7 @@ export function snapshotFromProduct(p: ProductCompareLike): CompareSnapshot | nu
     sellerName: asText(p.seller?.name) || null,
     stock: resolveProductStock(p),
     badge: asText(p.badge) || null,
+    isDemo: p.isDemo === true,
   };
 }
 
@@ -111,6 +114,7 @@ function parseOne(raw: unknown): CompareSnapshot | null {
     category: { name: asText(o.categoryName) || null },
     seller: { name: asText(o.sellerName) || null },
     badge: asText(o.badge) || null,
+    isDemo: o.isDemo === true,
   });
 }
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Geladeira frost free 340L">
+  <rect width="800" height="800" fill="#241c1a"/>
+  <rect x="48" y="48" width="704" height="704" rx="36" fill="none" stroke="#f0a070" stroke-opacity="0.35" stroke-width="2"/>
+  <rect x="250" y="110" width="300" height="500" rx="20" fill="#f0a070"/><rect x="270" y="140" width="260" height="220" rx="8" fill="#10141c" opacity="0.35"/><rect x="270" y="380" width="260" height="190" rx="8" fill="#10141c" opacity="0.35"/><rect x="500" y="220" width="14" height="50" rx="4" fill="#10141c"/><rect x="500" y="450" width="14" height="50" rx="4" fill="#10141c"/>
+  <text x="400" y="640" text-anchor="middle" fill="#f4f1ea" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Geladeira frost free 340L</text>
+  <text x="400" y="682" text-anchor="middle" fill="#f0a070" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="2">SÉRIE DEMO · DEMO-0031</text>
+</svg>

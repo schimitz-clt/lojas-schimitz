@@ -652,7 +652,7 @@ export function useAdminConsoleState() {
 
   const lowStockProducts = useMemo(() => {
     return products
-      .filter((p) => (p.inventory?.qtyOnHand ?? 0) <= lowStockThreshold)
+      .filter((p) => !p.isDemo && (p.inventory?.qtyOnHand ?? 0) <= lowStockThreshold)
       .sort((a, b) => (a.inventory?.qtyOnHand ?? 0) - (b.inventory?.qtyOnHand ?? 0));
   }, [products, lowStockThreshold]);
 
