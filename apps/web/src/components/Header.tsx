@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { api, userAccountLabel, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
@@ -25,6 +26,8 @@ import {
 } from '@/lib/storefront-pro';
 
 export function Header() {
+  const pathname = usePathname() || '/';
+  const searchParams = useSearchParams();
   const { user } = useSessionUser();
   const [qInit, setQInit] = useState('');
   const [searchResults, setSearchResults] = useState(false);
@@ -38,19 +41,18 @@ export function Header() {
   const favBadge = formatWishlistBadge(favCount);
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const fromUrl = (params.get('q') || '').trim();
-      const onCatalog = window.location.pathname.startsWith('/produtos');
-      if (onCatalog && isCatalogSearchResults(fromUrl)) {
-        setQInit(fromUrl);
-        setSearchResults(true);
-      } else {
-        setSearchResults(false);
-      }
-    } catch {
-      /* ignore */
+    const fromUrl = (searchParams.get('q') || '').trim();
+    const onCatalog = pathname.startsWith('/produtos');
+    if (onCatalog && isCatalogSearchResults(fromUrl)) {
+      setQInit(fromUrl);
+      setSearchResults(true);
+    } else {
+      setQInit('');
+      setSearchResults(false);
     }
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
     try {
       const saved = readStoredCep(localStorage);
       setCep(saved);

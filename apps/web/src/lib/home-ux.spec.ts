@@ -99,6 +99,11 @@ assert.ok(header.includes('<SearchBox'), 'search suggestions stay');
 assert.ok(header.includes('hdr-hide-sm'), 'account stays off the mobile header');
 assert.ok(header.includes('hdr-search-back'), 'search results chrome has back');
 assert.ok(header.includes('is-search-results'), 'results mode marks sticky chrome');
+assert.ok(header.includes('useSearchParams'), 'results mode tracks URL q across client nav');
+assert.ok(header.includes('usePathname'), 'results mode tracks /produtos path');
+
+const chrome = readFileSync(join(srcRoot, 'components/StorefrontChrome.tsx'), 'utf8');
+assert.ok(chrome.includes('Suspense'), 'Header with useSearchParams is Suspense-wrapped');
 
 const bar = readFileSync(join(srcRoot, 'components/HomeDeliveryBar.tsx'), 'utf8');
 assert.ok(bar.includes('Informar CEP'), 'empty state asks for CEP');
