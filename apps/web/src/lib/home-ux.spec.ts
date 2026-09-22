@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { deliveryAddressHref, deliveryBarCopy, homeQuickShortcuts } from './home-ux';
+import { HOME_CATALOG_LOAD_ERROR, deliveryAddressHref, deliveryBarCopy, homeQuickShortcuts } from './home-ux';
 
 {
   const guest = homeQuickShortcuts(null);
@@ -80,6 +80,9 @@ assert.ok(page.includes('HomeShelves'), 'shelves stay');
 assert.ok(page.includes('HomeBanners'), 'hero stays');
 assert.ok(page.includes('Categorias'), 'category section stays');
 assert.ok(page.includes('variant="shelf"'), 'home search cards use shelf density');
+assert.equal(HOME_CATALOG_LOAD_ERROR, 'Não foi possível carregar os produtos agora.');
+assert.ok(page.includes('HOME_CATALOG_LOAD_ERROR'), 'home shows the customer catalog error');
+assert.equal(page.includes('Suba a API e rode o seed'), false, 'home does not tell shoppers to seed');
 
 const shelves = readFileSync(join(srcRoot, 'components/HomeShelves.tsx'), 'utf8');
 assert.ok(shelves.includes('variant="shelf"'), 'shelf rails keep ProductCard, tighter variant');

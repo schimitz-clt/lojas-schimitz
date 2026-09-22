@@ -14,8 +14,13 @@ import {
   looksLikeCompare,
   looksLikeProductQuery,
   needsHandoff,
+  CATALOG_MISS_REPLY,
+  chatMessageValidationMessage,
+  guardUngroundedCatalogReply,
+  llmReplyStatesPriceOrStock,
   noLlmFallbackReply,
   normalizeForSearch,
+  parseGroundedLlmReply,
   parseLlmJson,
   sanitizeChatMessage,
 } from './chat.intent';
@@ -72,6 +77,53 @@ assert.deepEqual(parsed, { reply: 'Olá!', handoff: true });
 assert.ok(parseLlmJson('```json\n{"reply":"ok","handoff":false}\n```')?.reply === 'ok');
 assert.equal(parseLlmJson('{"handoff":true}'), null);
 assert.equal(parseLlmJson('texto solto sem json')?.reply, 'texto solto sem json');
+
+assert.ok(CATALOG_MISS_REPLY.includes('Não encontrei'));
+assert.ok(CATALOG_MISS_REPLY.includes('Não invento'));
+assert.equal(llmReplyStatesPriceOrStock('No PIX você tem 5% de desconto e até 3x sem juros.'), false);
+assert.equal(llmReplyStatesPriceOrStock('Frete grátis em Porto Alegre.'), false);
+assert.equal(llmReplyStatesPriceOrStock('A geladeira custa R$ 2.499,00 e está em estoque.'), true);
+assert.equal(llmReplyStatesPriceOrStock('Está esgotado, restam 0 unidades.'), true);
+assert.equal(llmReplyStatesPriceOrStock('Esse modelo custa 1899 reais.'), true);
+
+const invented = parseGroundedLlmReply(
+  '{"reply":"A geladeira custa R$ 2.499,00 e está em estoque.","handoff":true}',
+  0,
+);
+assert.equal(invented?.keptModelText, false);
+assert.equal(invented?.handoff, false);
+assert.equal(invented?.reply, CATALOG_MISS_REPLY);
+
+const grounded = parseGroundedLlmReply(
+  '{"reply":"A geladeira custa R$ 2.499,00 e está em estoque.","handoff":false}',
+  2,
+);
+assert.equal(grounded?.keptModelText, true);
+assert.equal(grounded?.reply.includes('R$ 2.499,00'), true);
+
+const policy = guardUngroundedCatalogReply(
+  { reply: 'Posso ajudar com frete grátis em Porto Alegre e PIX 5% off.', handoff: false },
+  0,
+);
+assert.equal(policy?.keptModelText, true);
+assert.equal(policy?.reply.includes('Porto Alegre'), true);
+
+const loosePrice = parseGroundedLlmReply('Tem 4 unidades por R$ 99,90.', 0);
+assert.equal(loosePrice?.reply, CATALOG_MISS_REPLY);
+assert.equal(parseGroundedLlmReply('{"handoff":true}', 0), null);
+
+assert.equal(chatMessageValidationMessage(undefined), 'Mensagem vazia');
+assert.equal(chatMessageValidationMessage(null), 'Mensagem vazia');
+assert.equal(chatMessageValidationMessage(''), 'Mensagem vazia');
+assert.equal(chatMessageValidationMessage({}), 'Mensagem vazia');
+assert.equal(chatMessageValidationMessage('oi'), null);
+assert.equal(chatMessageValidationMessage('a'.repeat(CHAT_MESSAGE_MAX_LENGTH)), null);
+assert.equal(chatMessageValidationMessage('a'.repeat(CHAT_MESSAGE_MAX_LENGTH + 1)), 'Mensagem muito longa (máx. 1200)');
+for (const sample of [undefined, '', 'oi', 'a'.repeat(CHAT_MESSAGE_MAX_LENGTH + 1), null]) {
+  const msg = chatMessageValidationMessage(sample);
+  if (!msg) continue;
+  assert.equal(msg.includes('vazia') && msg.includes('muito longa'), false, msg);
+}
 
 const fallbackNoKey = noLlmFallbackReply({ faq: null, hasProducts: false });
 assert.ok(/WhatsApp/i.test(fallbackNoKey));
@@ -173,5 +225,13 @@ assert.equal(extractCategoryHint('aspirador'), 'eletrodomesticos');
 
 const chatSvc = readFileSync(join(__dirname, 'chat.service.ts'), 'utf8');
 assert.ok(/privateTools:\s*\[\]/.test(chatSvc), 'public chat status does not enumerate private tools');
+assert.ok(chatSvc.includes('parseGroundedLlmReply'), 'LLM replies pass the ground-price guard');
+assert.ok(chatSvc.includes('keptModelText'), 'ungrounded price/stock sentences are not returned as the model reply');
+assert.ok(chatSvc.includes('CATALOG_MISS_REPLY'), 'catalog miss uses the deterministic não encontrei reply');
+
+const chatDto = readFileSync(join(__dirname, 'chat.dto.ts'), 'utf8');
+assert.ok(chatDto.includes('chatMessageValidationMessage'), 'POST /chat uses the single validation message');
+assert.equal(/@MinLength\(/.test(chatDto), false, 'empty body must not also fail MinLength');
+assert.equal(/@MaxLength\(1200/.test(chatDto), false, 'empty body must not also fail MaxLength');
 
 console.log('chat alfa routing tests ok');

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { legacyAdminRedirect } from '@/lib/admin-sections';
+import { catalogSearchAliasDestination } from '@/lib/search-alias';
 import { wwwApexRedirectUrl } from '@/lib/www-redirect';
 
 /**
@@ -17,6 +18,14 @@ export function middleware(request: NextRequest) {
   });
   if (location) {
     return NextResponse.redirect(location, 301);
+  }
+
+  const searchTo = catalogSearchAliasDestination({
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+  });
+  if (searchTo) {
+    return NextResponse.redirect(new URL(searchTo, request.url), 307);
   }
 
   const adminTo = legacyAdminRedirect({

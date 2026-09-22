@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { permanentRedirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import ProductClient, { type ProductDetail } from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
+import { isMissingPdp, pdpBreadcrumbName } from '@/lib/pdp-missing';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
 import type { Product } from '@/components/ProductCard';
 import {
@@ -25,11 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const base = siteOrigin();
   const path = `/produto/${encodeURIComponent(slug)}`;
   if (!product) {
-    return {
-      title: 'Produto',
-      description: store.siteDescription,
-      alternates: { canonical: path },
-    };
+    notFound();
   }
   return {
     title: product.name,
@@ -59,20 +56,23 @@ export default async function Page({ params }: Props) {
     permanentRedirect(`/produto/${encodeURIComponent(alias)}`);
   }
   const [product, initial] = await Promise.all([fetchProductMeta(slug), fetchPublicProduct(slug)]);
+  if (isMissingPdp(product, initial) || !product || !initial || typeof initial.slug !== 'string') {
+    notFound();
+  }
   const related = await fetchRelatedCatalogProducts({
     id: publicProductId(initial),
-    slug: (initial && typeof initial.slug === 'string' ? initial.slug : slug) || slug,
-    categorySlug: publicProductCategorySlug(initial) || product?.category?.slug || null,
+    slug: initial.slug,
+    categorySlug: publicProductCategorySlug(initial) || product.category?.slug || null,
   });
   const origin = siteOrigin();
 
   const jsonLd = [];
-  if (product && product.price !== undefined && product.price !== null) {
+  if (product.price !== undefined && product.price !== null) {
     jsonLd.push(
       buildProductJsonLd(origin, {
         name: product.name,
         description: product.description,
-        slug: product.slug || slug,
+        slug: product.slug,
         sku: product.sku,
         price: product.price,
         image: product.image,
@@ -88,7 +88,7 @@ export default async function Page({ params }: Props) {
   }
 
   const crumbItems = [{ name: 'Início', path: '/' }];
-  if (product?.category?.slug && product.category.name) {
+  if (product.category?.slug && product.category.name) {
     crumbItems.push({
       name: product.category.name,
       path: `/departamento/${encodeURIComponent(product.category.slug)}`,
@@ -97,8 +97,8 @@ export default async function Page({ params }: Props) {
     crumbItems.push({ name: 'Produtos', path: '/produtos' });
   }
   crumbItems.push({
-    name: product?.name || slug,
-    path: `/produto/${encodeURIComponent(slug)}`,
+    name: pdpBreadcrumbName(product.name),
+    path: `/produto/${encodeURIComponent(product.slug || slug)}`,
   });
   jsonLd.push(buildBreadcrumbList(origin, crumbItems));
 
