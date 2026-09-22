@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { api, userAccountLabel, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
@@ -19,10 +20,17 @@ import {
   readStoredCep,
 } from '@/lib/pdp-trust';
 import { IconBell, IconCart, IconHeart, IconUser } from '@/components/icons/StorefrontIcons';
+import {
+  catalogSearchBackHref,
+  isCatalogSearchResults,
+} from '@/lib/storefront-pro';
 
 export function Header() {
+  const pathname = usePathname() || '/';
+  const searchParams = useSearchParams();
   const { user } = useSessionUser();
   const [qInit, setQInit] = useState('');
+  const [searchResults, setSearchResults] = useState(false);
   const [unread, setUnread] = useState(0);
   const [cartCount, setCartCount] = useState(0);
   const [cep, setCep] = useState('');
@@ -33,15 +41,18 @@ export function Header() {
   const favBadge = formatWishlistBadge(favCount);
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const fromUrl = (params.get('q') || '').trim();
-      if (fromUrl && window.location.pathname.startsWith('/produtos')) {
-        setQInit(fromUrl);
-      }
-    } catch {
-      /* ignore */
+    const fromUrl = (searchParams.get('q') || '').trim();
+    const onCatalog = pathname.startsWith('/produtos');
+    if (onCatalog && isCatalogSearchResults(fromUrl)) {
+      setQInit(fromUrl);
+      setSearchResults(true);
+    } else {
+      setQInit('');
+      setSearchResults(false);
     }
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
     try {
       const saved = readStoredCep(localStorage);
       setCep(saved);
@@ -146,11 +157,24 @@ export function Header() {
         </span>
         <span>{interestFreeInstallmentClaim()}</span>
       </div>
-      <div className="site-chrome-head">
+      <div className={`site-chrome-head${searchResults ? ' is-search-results' : ''}`}>
       <header className="header">
         <div className="wrap">
           <div className="header-row">
-            <Link href="/" className="logo" aria-label="Lojas Schimitz — início">
+            {searchResults ? (
+              <Link
+                href={catalogSearchBackHref()}
+                className="hdr-search-back"
+                aria-label="Voltar ao início"
+              >
+                <span aria-hidden>←</span>
+              </Link>
+            ) : null}
+            <Link
+              href="/"
+              className={`logo${searchResults ? ' logo-search-hide' : ''}`}
+              aria-label="Lojas Schimitz — início"
+            >
               LOJAS <span>SCHIMITZ</span>
             </Link>
 

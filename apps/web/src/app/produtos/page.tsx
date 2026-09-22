@@ -10,7 +10,9 @@ import {
   CATALOG_SORTS,
   activeFilterCount,
   buildFilterChips,
+  catalogSearchQuickChips,
   emptySearchSuggestions,
+  isCatalogSearchResults,
   isExternalSearchShortcut,
   parseCatalogSort,
   searchEmptyCopy,
@@ -41,6 +43,7 @@ function ProdutosInner() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetFocus, setSheetFocus] = useState<'all' | 'category' | 'price'>('all');
 
   const [draftMin, setDraftMin] = useState(minPrice);
   const [draftMax, setDraftMax] = useState(maxPrice);
@@ -204,6 +207,13 @@ function ProdutosInner() {
   });
   const empty = searchEmptyCopy(q, hasExtraFilters);
   const suggestions = emptySearchSuggestions();
+  const quickChips = catalogSearchQuickChips();
+  const searching = isCatalogSearchResults(q);
+
+  function openSheet(focus: 'all' | 'category' | 'price' = 'all') {
+    setSheetFocus(focus);
+    setSheetOpen(true);
+  }
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -220,9 +230,9 @@ function ProdutosInner() {
   }, [sheetOpen]);
 
   return (
-    <div className="sf-catalog" style={{ padding: '18px 0 28px' }}>
+    <div className={`sf-catalog${searching ? ' sf-catalog-search' : ''}`} style={{ padding: '18px 0 28px' }}>
       <header className="sf-catalog-head">
-        <p className="sf-catalog-kicker">Catálogo</p>
+        {searching ? null : <p className="sf-catalog-kicker">Catálogo</p>}
         <h1 className="sf-catalog-title">{heading.title}</h1>
         <p className="sf-catalog-sub muted">{heading.subtitle}</p>
         {q ? (
@@ -239,18 +249,21 @@ function ProdutosInner() {
       </header>
 
       <div className="sf-filter-bar" role="region" aria-label="Filtros do catálogo">
-        <div className="sf-filter-bar-row">
+        <div className="sf-filter-options" aria-label="Opções de busca">
           <button
             type="button"
-            className="sf-filter-open"
-            onClick={() => setSheetOpen(true)}
+            className="sf-filter-option sf-filter-option-primary"
+            onClick={() => openSheet('all')}
             aria-expanded={sheetOpen}
             aria-controls="sf-filter-sheet"
           >
+            <span className="sf-filter-option-ico" aria-hidden>
+              ☰
+            </span>
             Filtros{filterCount > 0 ? ` (${filterCount})` : ''}
           </button>
-          <label className="sf-filter-sort catalog-field">
-            <span className="sf-filter-sort-label">Ordenar</span>
+          <label className="sf-filter-option sf-filter-option-sort">
+            <span className="sf-filter-option-label">Ordenar</span>
             <select
               value={sort}
               onChange={(e) => pushFilters({ sort: e.target.value })}
@@ -263,12 +276,42 @@ function ProdutosInner() {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className={`sf-filter-option${category ? ' is-active' : ''}`}
+            onClick={() => openSheet('category')}
+            aria-expanded={sheetOpen && sheetFocus === 'category'}
+          >
+            Categoria
+            <span className="sf-filter-option-chev" aria-hidden>
+              ▾
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`sf-filter-option${minPrice || maxPrice ? ' is-active' : ''}`}
+            onClick={() => openSheet('price')}
+            aria-expanded={sheetOpen && sheetFocus === 'price'}
+          >
+            Preço
+            <span className="sf-filter-option-chev" aria-hidden>
+              ▾
+            </span>
+          </button>
           {hasAnyFilter ? (
-            <button className="btn ghost sf-filter-clear" type="button" onClick={clearAll}>
+            <button className="sf-filter-option sf-filter-option-clear" type="button" onClick={clearAll}>
               Limpar
             </button>
           ) : null}
         </div>
+
+        <ul className="sf-filter-quick" aria-label="Condições da loja">
+          {quickChips.map((chip) => (
+            <li key={chip.id}>
+              <span className={`sf-filter-quick-chip sf-filter-quick-${chip.tone}`}>{chip.label}</span>
+            </li>
+          ))}
+        </ul>
 
         {chips.length > 0 ? (
           <ul className="sf-filter-chips" aria-label="Filtros ativos">
@@ -403,7 +446,7 @@ function ProdutosInner() {
         </div>
       ) : null}
       {!loading ? (
-        <div className="grid">
+        <div className={`grid${searching ? ' grid-search' : ''}`}>
           {products.map((p, i) => (
             <ProductCard key={p.id} p={p} priority={i < 4} variant={q ? 'shelf' : 'default'} />
           ))}
@@ -430,7 +473,13 @@ function ProdutosInner() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sf-filter-sheet-head">
-              <h2>Filtros</h2>
+              <h2>
+                {sheetFocus === 'category'
+                  ? 'Categoria'
+                  : sheetFocus === 'price'
+                    ? 'Preço'
+                    : 'Filtros'}
+              </h2>
               <button
                 type="button"
                 className="sf-filter-sheet-close"
@@ -441,57 +490,63 @@ function ProdutosInner() {
               </button>
             </div>
             <form className="sf-filter-sheet-body" onSubmit={applySheet}>
-              <label className="catalog-field">
-                Categoria
-                <select
-                  value={draftCategory}
-                  onChange={(e) => setDraftCategory(e.target.value)}
-                  aria-label="Filtrar por categoria"
-                >
-                  <option value="">Todas</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.slug}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="catalog-field">
-                Ordenar
-                <select
-                  value={draftSort}
-                  onChange={(e) => setDraftSort(parseCatalogSort(e.target.value))}
-                  aria-label="Ordenar produtos"
-                >
-                  {CATALOG_SORTS.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="catalog-price sf-filter-sheet-price">
+              {sheetFocus === 'all' || sheetFocus === 'category' ? (
                 <label className="catalog-field">
-                  Preço mín.
-                  <input
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={draftMin}
-                    onChange={(e) => setDraftMin(e.target.value)}
-                    aria-label="Preço mínimo"
-                  />
+                  Categoria
+                  <select
+                    value={draftCategory}
+                    onChange={(e) => setDraftCategory(e.target.value)}
+                    aria-label="Filtrar por categoria"
+                  >
+                    <option value="">Todas</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
+              ) : null}
+              {sheetFocus === 'all' ? (
                 <label className="catalog-field">
-                  Preço máx.
-                  <input
-                    inputMode="decimal"
-                    placeholder="9999"
-                    value={draftMax}
-                    onChange={(e) => setDraftMax(e.target.value)}
-                    aria-label="Preço máximo"
-                  />
+                  Ordenar
+                  <select
+                    value={draftSort}
+                    onChange={(e) => setDraftSort(parseCatalogSort(e.target.value))}
+                    aria-label="Ordenar produtos"
+                  >
+                    {CATALOG_SORTS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              </div>
+              ) : null}
+              {sheetFocus === 'all' || sheetFocus === 'price' ? (
+                <div className="catalog-price sf-filter-sheet-price">
+                  <label className="catalog-field">
+                    Preço mín.
+                    <input
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={draftMin}
+                      onChange={(e) => setDraftMin(e.target.value)}
+                      aria-label="Preço mínimo"
+                    />
+                  </label>
+                  <label className="catalog-field">
+                    Preço máx.
+                    <input
+                      inputMode="decimal"
+                      placeholder="9999"
+                      value={draftMax}
+                      onChange={(e) => setDraftMax(e.target.value)}
+                      aria-label="Preço máximo"
+                    />
+                  </label>
+                </div>
+              ) : null}
               <div className="sf-filter-sheet-actions">
                 <button className="btn" type="submit">
                   Ver resultados

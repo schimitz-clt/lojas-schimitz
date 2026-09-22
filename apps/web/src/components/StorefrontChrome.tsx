@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -27,7 +27,9 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
   return (
     <CompareProvider>
       <FavoritesProvider>
-        <Header />
+        <Suspense fallback={null}>
+          <Header />
+        </Suspense>
         <main className="wrap main-shell">{children}</main>
       <footer className="footer">
         <div className="wrap">

@@ -5,11 +5,14 @@ import {
   buyNowLabel,
   cartCheckoutLabel,
   cartTrustItems,
+  catalogSearchBackHref,
+  catalogSearchQuickChips,
   catalogSortLabel,
   departmentTitle,
   discountPercent,
   emptySearchSuggestions,
   formatPriceRangeChip,
+  isCatalogSearchResults,
   isExternalSearchShortcut,
   parseCatalogSort,
   pdpBuyNowHref,
@@ -126,5 +129,14 @@ assert.ok(SEARCH_EMPTY_WHATSAPP_TEXT.includes('Lojas Schimitz'));
 assert.ok(searchEmptyWhatsAppHref('51996253766').includes('wa.me'));
 assert.equal(isExternalSearchShortcut({ href: '/produtos' }), false);
 assert.equal(isExternalSearchShortcut({ href: 'https://wa.me/x', external: true }), true);
+
+assert.equal(isCatalogSearchResults('tv'), true);
+assert.equal(isCatalogSearchResults('  '), false);
+assert.equal(isCatalogSearchResults(null), false);
+assert.equal(catalogSearchBackHref(), '/');
+const quick = catalogSearchQuickChips();
+assert.ok(quick.some((c) => /frete/i.test(c.label) && /poa/i.test(c.label)));
+assert.ok(quick.some((c) => /pix/i.test(c.label)));
+assert.ok(!quick.some((c) => /retire|amanhã|full|samsung|lg/i.test(c.label)));
 
 console.log('storefront-pro unit tests ok');
