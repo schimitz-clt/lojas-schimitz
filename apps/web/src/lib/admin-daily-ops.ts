@@ -5,7 +5,7 @@
  */
 
 import { nextFulfillmentStatus, orderStatusLabel } from './order-status';
-import { isMissingOrPlaceholderImage } from './placeholder-image';
+import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from './placeholder-image';
 
 /** ready_for_pickup → in_transit prompts for rastreio — not bulk-safe. */
 export function fulfillmentNeedsExtraInput(status: string): boolean {
@@ -294,6 +294,27 @@ export function collectProductGalleryUrls(
 
 export function extraProductImageUrls(urls: string[]): string[] {
   return urls.slice(1);
+}
+
+/** Same copy as the API reject helper. Does not rewrite the URL. */
+export const PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE =
+  'URL de imagem recusada: hosts de placeholder (placehold.co, placehold.it, via.placeholder.com e similares) não são aceitos. Envie uma foto real da loja.';
+
+/** PT-BR error for a new admin image URL. Empty is not an error. */
+export function placeholderProductImageUrlError(url: string | null | undefined): string | null {
+  const t = typeof url === 'string' ? url.trim() : '';
+  if (!t || !isPlaceholderImageUrl(t)) return null;
+  return PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE;
+}
+
+export function placeholderProductImageUrlsError(
+  urls: Array<string | null | undefined> | null | undefined,
+): string | null {
+  for (const url of urls || []) {
+    const message = placeholderProductImageUrlError(url);
+    if (message) return message;
+  }
+  return null;
 }
 
 /**

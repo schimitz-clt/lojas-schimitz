@@ -58,6 +58,8 @@ import {
   extraProductImageUrls,
   missingProductImageUrls,
   applyProductSaveImageFields,
+  placeholderProductImageUrlError,
+  placeholderProductImageUrlsError,
 } from '@/lib/admin-daily-ops';
 import {
   ADMIN_BANNER_FORM_ID,
@@ -982,6 +984,11 @@ export function useAdminConsoleState() {
       setErr('Informe a URL da foto.');
       return false;
     }
+    const placeholderError = placeholderProductImageUrlError(url);
+    if (placeholderError) {
+      setErr(placeholderError);
+      return false;
+    }
     if (formImages.length >= MAX_PRODUCT_IMAGES) {
       setErr(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto.`);
       return false;
@@ -1041,6 +1048,14 @@ export function useAdminConsoleState() {
     }
 
     const galleryUrls = collectProductGalleryUrls(formImages, form.imageUrl, MAX_PRODUCT_IMAGES);
+    if (!editingId) {
+      const placeholderError = placeholderProductImageUrlsError(galleryUrls);
+      if (placeholderError) {
+        setErr(placeholderError);
+        setSaving(false);
+        return;
+      }
+    }
     const body: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim(),

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { shouldInsertPlaceholderProductImages } from './seed-placeholder-policy';
 
 const prisma = new PrismaClient();
 
@@ -154,7 +155,8 @@ async function main() {
     });
 
     const hasImg = await prisma.productImage.findFirst({ where: { productId: product.id } });
-    if (!hasImg) {
+    // Demo CDN only for local/dev. Production must not grow placeholder rows.
+    if (!hasImg && shouldInsertPlaceholderProductImages()) {
       await prisma.productImage.create({
         data: {
           productId: product.id,
@@ -247,27 +249,34 @@ async function main() {
     data: { name: 'Eletrodomésticos', active: true },
   });
 
-  // Active products missing images → placehold.co
-  const missingImg = await prisma.$queryRaw<{ id: string; name: string }[]>`
-    SELECT p.id, p.name FROM "Product" p
-    WHERE p.active = true
-      AND NOT EXISTS (
-        SELECT 1 FROM "ProductImage" pi
-        WHERE pi."productId" = p.id AND pi.url IS NOT NULL AND btrim(pi.url) <> ''
-      )
-  `;
-  for (const row of missingImg) {
-    await prisma.productImage.create({
-      data: {
-        productId: row.id,
-        url: `https://placehold.co/800x800/1a1a1a/f5c518?text=${encodeURIComponent(row.name)}`,
-        alt: row.name,
-        position: 0,
-      },
-    });
-  }
-  if (missingImg.length) {
-    console.log(`Seed: added placeholders for ${missingImg.length} product(s)`);
+  // Active products missing images → placehold.co (local/dev only).
+  // Production does not insert or backfill. Existing rows are left as they are.
+  if (shouldInsertPlaceholderProductImages()) {
+    const missingImg = await prisma.$queryRaw<{ id: string; name: string }[]>`
+      SELECT p.id, p.name FROM "Product" p
+      WHERE p.active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM "ProductImage" pi
+          WHERE pi."productId" = p.id AND pi.url IS NOT NULL AND btrim(pi.url) <> ''
+        )
+    `;
+    for (const row of missingImg) {
+      await prisma.productImage.create({
+        data: {
+          productId: row.id,
+          url: `https://placehold.co/800x800/1a1a1a/f5c518?text=${encodeURIComponent(row.name)}`,
+          alt: row.name,
+          position: 0,
+        },
+      });
+    }
+    if (missingImg.length) {
+      console.log(`Seed: added placeholders for ${missingImg.length} product(s)`);
+    }
+  } else {
+    console.log(
+      'Seed: skipped placeholder image insert/backfill (production). Existing photos were not changed.',
+    );
   }
 
 

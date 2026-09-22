@@ -12,7 +12,11 @@ import {
   AdminUpdateProductDto,
   MAX_PRODUCT_IMAGES,
 } from './dto';
-import { collectCreateImageUrls, coverUrlToApplyOnUpdate } from './admin-product-images';
+import {
+  assertNoPlaceholderProductImageUrls,
+  collectCreateImageUrls,
+  coverUrlToApplyOnUpdate,
+} from './admin-product-images';
 import { SellersService } from '../sellers/sellers.service';
 import { InventoryService } from '../inventory/inventory.service';
 
@@ -67,6 +71,7 @@ export class AdminProductsService {
     }
     const sellerId = await this.sellers.resolveActiveSellerId(dto.sellerId);
     const imageUrls = collectCreateImageUrls(dto, MAX_PRODUCT_IMAGES);
+    assertNoPlaceholderProductImageUrls(imageUrls);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -146,6 +151,9 @@ export class AdminProductsService {
       data.seller = { connect: { id: sid } };
     }
 
+    const coverUrl = coverUrlToApplyOnUpdate(dto.imageUrl);
+    assertNoPlaceholderProductImageUrls([coverUrl]);
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         if (dto.stock !== undefined) {
@@ -155,7 +163,6 @@ export class AdminProductsService {
 
         // Never delete ProductImage rows because imageUrl is empty/null.
         // Clearing photos is DELETE /admin/products/:id/images/:imageId only.
-        const coverUrl = coverUrlToApplyOnUpdate(dto.imageUrl);
         if (coverUrl) {
           const first = existing.images[0];
           if (first) {
@@ -202,6 +209,7 @@ export class AdminProductsService {
     }
     const url = dto.url.trim();
     if (!url) throw new BadRequestException('URL da imagem obrigatória');
+    assertNoPlaceholderProductImageUrls([url]);
     const nextPos =
       product.images.length === 0
         ? 0

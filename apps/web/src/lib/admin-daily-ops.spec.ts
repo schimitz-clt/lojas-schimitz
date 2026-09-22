@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   bulkConfirmMessage,
   bulkProgressLabel,
@@ -27,6 +29,9 @@ import {
   extraProductImageUrls,
   missingProductImageUrls,
   applyProductSaveImageFields,
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+  placeholderProductImageUrlError,
+  placeholderProductImageUrlsError,
 } from './admin-daily-ops';
 
 assert.equal(nextOneClickFulfillmentStatus('paid'), 'organizing');
@@ -206,5 +211,42 @@ assert.deepEqual(createMulti.imageUrls, ['https://cdn.example/b.jpg']);
 
 assert.ok(emptyPhotoQueueMessage('needs_photo').includes('Fila sem foto vazia'));
 assert.ok(emptyPhotoQueueMessage('all').includes('Nenhum produto'));
+
+assert.equal(placeholderProductImageUrlError(''), null);
+assert.equal(placeholderProductImageUrlError('   '), null);
+assert.equal(placeholderProductImageUrlError('https://cdn.example/a.jpg'), null);
+assert.equal(
+  placeholderProductImageUrlError('https://placehold.co/800x800?text=Roblox'),
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+);
+assert.equal(
+  placeholderProductImageUrlError('https://via.placeholder.com/800'),
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+);
+assert.equal(
+  placeholderProductImageUrlError('https://placehold.it/800'),
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+);
+assert.equal(
+  placeholderProductImageUrlError('https://assets.placehold.co/a.png'),
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+);
+assert.equal(
+  placeholderProductImageUrlsError(['https://cdn.example/a.jpg', 'https://www.placeholder.com/1']),
+  PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE,
+);
+assert.equal(placeholderProductImageUrlsError(['https://cdn.example/a.jpg']), null);
+assert.equal(PLACEHOLDER_PRODUCT_IMAGE_URL_MESSAGE.startsWith('http'), false);
+
+const adminState = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
+const addPhotoAt = adminState.indexOf('async function addPhotoFromUrl');
+const saveAt = adminState.indexOf('async function saveProduct');
+const saveCouponAt = adminState.indexOf('async function saveCoupon');
+assert.ok(addPhotoAt > 0 && saveAt > addPhotoAt && saveCouponAt > saveAt);
+const addPhotoBody = adminState.slice(addPhotoAt, saveAt);
+const saveBody = adminState.slice(saveAt, saveCouponAt);
+assert.ok(addPhotoBody.includes('placeholderProductImageUrlError(url)'));
+assert.ok(saveBody.includes('if (!editingId)'));
+assert.ok(saveBody.includes('placeholderProductImageUrlsError(galleryUrls)'));
 
 console.log('admin-daily-ops web unit ok');
