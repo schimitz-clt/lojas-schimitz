@@ -3,6 +3,8 @@
  * No network — safe to unit-test without DOM.
  */
 
+import { brl } from './api';
+
 export type AdminPaymentLike = {
   status?: string | null;
   method?: string | null;
@@ -290,7 +292,13 @@ const PEDIDOS_SIGNAL_CODES = new Set(['awaiting_payment_orders', 'order_terminal
 /** Catálogo attention includes the info photo alert — the API already emits it. */
 const CATALOGO_ATTENTION_CODES = new Set(['out_of_stock', 'low_stock', 'placeholder_photos']);
 
-export type AdminCommandSection = 'pedidos' | 'catalogo';
+/**
+ * Vendas attention = money alerts already on GET /admin/ops.
+ * Same codes and counts as the snapshot. No sales-only alert is invented.
+ */
+const VENDAS_ATTENTION_CODES = new Set(['open_reconciliations', 'pending_payments']);
+
+export type AdminCommandSection = 'pedidos' | 'catalogo' | 'vendas';
 
 export function partitionSectionAlerts<T extends OpsAlertLike>(
   alerts: T[] | null | undefined,
@@ -308,6 +316,16 @@ export function partitionSectionAlerts<T extends OpsAlertLike>(
             PEDIDOS_SIGNAL_CODES.has(a.code) ||
             (PEDIDOS_ATTENTION_CODES.has(a.code) && String(a.severity) === 'info'),
         ),
+      ),
+    };
+  }
+  if (section === 'vendas') {
+    return {
+      attention: sortOpsAlertsForAttention(
+        list.filter((a) => VENDAS_ATTENTION_CODES.has(a.code) && String(a.severity) !== 'info'),
+      ),
+      signals: sortOpsAlertsForAttention(
+        list.filter((a) => VENDAS_ATTENTION_CODES.has(a.code) && String(a.severity) === 'info'),
       ),
     };
   }
@@ -515,6 +533,182 @@ export function catalogoQuickActionFigure(
     return counts.placeholderPhotos == null ? null : `${counts.placeholderPhotos} no snapshot`;
   }
   return null;
+}
+
+/** Vendas command copy — revenue windows are the ops snapshot, not a second calculation. */
+export const VENDAS_NOW_LEDE =
+  'Receita de hoje e de 30 dias deste GET /admin/ops — a mesma janela do Centro de comando. Zero continua zero. Sem janela, o valor fica —.';
+
+export const VENDAS_DO_LEDE =
+  'Período, CSV do relatório já carregado e atalhos para Pedidos e Clientes. Nenhum deles cobra, estorna ou grava venda.';
+
+export const VENDAS_EVIDENCE_LEDE =
+  'Evidência do período em GET /admin/reports/sales. Campo ausente fica —. Zero continua zero. A tabela não completa dias que a API não devolveu.';
+
+export const VENDAS_READONLY_NOTE =
+  'Vendas é leitura. Não há cobrança, estorno nem gravação neste relatório. O CSV baixa o GET /admin/reports/sales já carregado. O payload não traz cliente por venda — o atalho abre o CRM.';
+
+export const VENDAS_CHART_FILL_NOTE =
+  'O gráfico completa dias sem pedido pago com zero para a linha ficar contínua. A tabela Por dia lista só as datas que GET /admin/reports/sales devolveu.';
+
+export const VENDAS_REPORT_MISSING =
+  'O relatório não veio. Atualizar lê GET /admin/reports/sales de novo. Nenhum total foi estimado.';
+
+export const VENDAS_QUICK_ACTIONS = [
+  { id: 'today', label: 'Relatório de hoje', hint: 'GET /admin/reports/sales na janela de hoje' },
+  { id: 'days30', label: 'Relatório de 30 dias', hint: 'GET /admin/reports/sales na janela do snapshot' },
+  { id: 'csv', label: 'Exportar CSV', hint: 'Arquivo do relatório já carregado' },
+  { id: 'pedidos', label: 'Abrir Pedidos', hint: 'Fila que já existe' },
+  { id: 'clientes', label: 'Abrir Clientes', hint: 'CRM — este payload não traz o cliente' },
+] as const;
+
+export type VendasQuickActionId = (typeof VENDAS_QUICK_ACTIONS)[number]['id'];
+
+export type VendasWindowCounts = {
+  from: string | null;
+  to: string | null;
+  orderCount: number | null;
+  revenue: number | null;
+};
+
+export type VendasCommandCounts = {
+  ready: boolean;
+  today: VendasWindowCounts | null;
+  last30d: VendasWindowCounts | null;
+};
+
+const BLANK_VENDAS_COUNTS: VendasCommandCounts = {
+  ready: false,
+  today: null,
+  last30d: null,
+};
+
+function finiteMoney(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s || !Number.isFinite(Number(s))) return null;
+  return Number(s);
+}
+
+function readCount(value: unknown): number | null {
+  if (typeof value === 'number') return finiteOrNull(value);
+  if (typeof value !== 'string' || !/^-?\d+$/.test(value.trim())) return null;
+  return finiteOrNull(Number(value.trim()));
+}
+
+function readSalesWindow(value: unknown): VendasWindowCounts | null {
+  if (value == null || typeof value !== 'object') return null;
+  const window = value as {
+    from?: unknown;
+    to?: unknown;
+    orderCount?: unknown;
+    revenue?: unknown;
+  };
+  const from = typeof window.from === 'string' ? window.from.trim() : '';
+  const to = typeof window.to === 'string' ? window.to.trim() : '';
+  return {
+    from: from || null,
+    to: to || null,
+    orderCount: readCount(window.orderCount),
+    revenue: finiteMoney(window.revenue),
+  };
+}
+
+/** Snapshot sales windows only. A missing window stays null — never a guessed zero. */
+export function vendasCommandCounts(
+  ops: {
+    sales?: {
+      today?: unknown;
+      last30d?: unknown;
+    } | null;
+  } | null | undefined,
+  ready: boolean,
+): VendasCommandCounts {
+  if (!ready || !ops) return { ...BLANK_VENDAS_COUNTS };
+  return {
+    ready: true,
+    today: readSalesWindow(ops.sales?.today),
+    last30d: readSalesWindow(ops.sales?.last30d),
+  };
+}
+
+function vendasWindowSentence(label: string, window: VendasWindowCounts | null, absent: string): string {
+  if (!window) return absent;
+  const hasOrders = window.orderCount != null;
+  const hasRevenue = window.revenue != null;
+  if (hasOrders && hasRevenue) {
+    return `${label} ${brl(window.revenue as number)} em ${window.orderCount} pedido(s) pagos.`;
+  }
+  if (hasOrders) return `${label} ${window.orderCount} pedido(s) pagos. Receita não veio nesta janela.`;
+  if (hasRevenue) return `${label} ${brl(window.revenue as number)}. Pedidos pagos não vieram nesta janela.`;
+  return `${label} a janela veio sem receita e sem contagem.`;
+}
+
+export function vendasNowSummary(
+  counts: VendasCommandCounts,
+  snapshot: 'pending' | 'ready' | 'error',
+): string {
+  if (!counts.ready) {
+    return snapshot === 'error'
+      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
+      : 'Lendo o snapshot…';
+  }
+  return [
+    vendasWindowSentence('Hoje', counts.today, 'Receita de hoje não veio neste snapshot.'),
+    vendasWindowSentence('30 dias', counts.last30d, 'Receita de 30 dias não veio neste snapshot.'),
+  ].join(' ');
+}
+
+/** Live figure for a Vendas shortcut. Null when that sales window did not include the count. */
+export function vendasQuickActionFigure(
+  id: VendasQuickActionId,
+  counts: VendasCommandCounts,
+): string | null {
+  if (!counts.ready) return null;
+  if (id === 'today') return counts.today?.orderCount == null ? null : `${counts.today.orderCount} no snapshot`;
+  if (id === 'days30') {
+    return counts.last30d?.orderCount == null ? null : `${counts.last30d.orderCount} no snapshot`;
+  }
+  return null;
+}
+
+/**
+ * Compare paid-order counts only when the report period is exactly that snapshot window.
+ * Different dates, or a missing count, produce null — no invented delta.
+ */
+export function salesWindowAlignmentNote(
+  reportFrom: string | null | undefined,
+  reportTo: string | null | undefined,
+  reportOrderCount: number | null | undefined,
+  window: VendasWindowCounts | null,
+  windowLabel: string,
+): string | null {
+  if (!window?.from || !window.to) return null;
+  if (!reportFrom || !reportTo) return null;
+  if (reportFrom !== window.from || reportTo !== window.to) return null;
+  if (window.orderCount == null) return null;
+  if (typeof reportOrderCount !== 'number' || !Number.isFinite(reportOrderCount)) return null;
+  const reportN = Math.trunc(reportOrderCount);
+  if (reportN === window.orderCount) {
+    return `${windowLabel}: relatório ${reportN} pedido(s) pagos · igual ao snapshot.`;
+  }
+  return `${windowLabel}: relatório ${reportN} pedido(s) pagos · snapshot ${window.orderCount}. O relatório é GET /admin/reports/sales; o snapshot é GET /admin/ops.`;
+}
+
+/** Shown when the loaded report period matches neither snapshot window that actually has dates. */
+export function salesReportOutsideSnapshotNote(
+  reportFrom: string | null | undefined,
+  reportTo: string | null | undefined,
+  today: VendasWindowCounts | null,
+  last30d: VendasWindowCounts | null,
+): string | null {
+  if (!reportFrom || !reportTo) return null;
+  const windows = [today, last30d].filter((window) => window?.from && window?.to);
+  if (!windows.length) return null;
+  const match = windows.some((window) => window?.from === reportFrom && window?.to === reportTo);
+  if (match) return null;
+  return 'O recorte do relatório não é a janela de hoje nem a de 30 dias deste snapshot. Os números não são comparados.';
 }
 
 /**

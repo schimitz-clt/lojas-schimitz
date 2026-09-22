@@ -4,9 +4,10 @@
  */
 
 import { brl } from './api';
+import { formatSalesDatePt, salesPaymentMethodLabel } from './admin-sales-ui';
 import { batchSelectionError } from './catalog-import-ui';
 import { formatAdminDateTime } from './admin-customers-ui';
-import { nextFulfillmentStatus, orderStatusLabel } from './order-status';
+import { ADMIN_ORDER_QUEUE_BUCKETS, nextFulfillmentStatus, orderStatusLabel } from './order-status';
 
 export const ENTERPRISE_MISSING = '—';
 
@@ -391,4 +392,197 @@ export function catalogBatchFeedback(report: CatalogBatchReport): { summary: str
   });
   if (report.errorsTruncated) lines.push('A API truncou a lista de erros.');
   return { summary, lines };
+}
+
+/**
+ * Vendas evidence — fields already on GET /admin/reports/sales.
+ * Omitted block → missing (UI shows —). Empty array stays empty. No computed KPI.
+ * sellerId === null is the API's own-store row (Loja própria). Undefined is not that row.
+ */
+const SALES_STATUS_BUCKETS = new Set<string>(ADMIN_ORDER_QUEUE_BUCKETS);
+
+export type SalesEvidenceInput = {
+  from?: string | null;
+  to?: string | null;
+  timezone?: string | null;
+  summary?: {
+    orderCount?: number | null;
+    revenue?: number | null;
+    averageTicket?: number | null;
+  } | null;
+  byStatus?: Record<string, number | null | undefined> | null;
+  byDay?: Array<{ date?: string | null; orderCount?: number | null; revenue?: number | null }> | null;
+  bySeller?: Array<{
+    sellerId?: string | null;
+    sellerName?: string | null;
+    orderCount?: number | null;
+    itemQty?: number | null;
+    revenue?: number | null;
+  }> | null;
+  topProducts?: Array<{
+    productId?: string | null;
+    name?: string | null;
+    qty?: number | null;
+    revenue?: number | null;
+  }> | null;
+  byPaymentMethod?: Array<{
+    method?: string | null;
+    orderCount?: number | null;
+    revenue?: number | null;
+  }> | null;
+};
+
+export type SalesStatusRow = {
+  status: string;
+  label: string;
+  count: string;
+  /** Queue bucket selectOpsBucket already accepts. Null when this status is not a bucket. */
+  bucket: string | null;
+};
+
+export type SalesDayRow = { date: string; label: string; orderCount: string; revenue: string };
+
+export type SalesSellerRow = {
+  sellerId: string;
+  name: string;
+  ownStore: boolean;
+  orderCount: string;
+  itemQty: string;
+  revenue: string;
+};
+
+export type SalesProductRow = { productId: string; name: string; qty: string; revenue: string };
+
+export type SalesPaymentRow = { method: string; label: string; orderCount: string; revenue: string };
+
+export type SalesEvidenceModel = {
+  periodFrom: string;
+  periodTo: string;
+  timezone: string;
+  orderCount: string;
+  revenue: string;
+  averageTicket: string;
+  byStatus: SalesStatusRow[];
+  byStatusMissing: boolean;
+  byDay: SalesDayRow[];
+  byDayMissing: boolean;
+  bySeller: SalesSellerRow[];
+  bySellerMissing: boolean;
+  topProducts: SalesProductRow[];
+  topProductsMissing: boolean;
+  byPaymentMethod: SalesPaymentRow[];
+  byPaymentMissing: boolean;
+};
+
+function ymdLabel(value: unknown): string {
+  const raw = textOrDash(value);
+  if (raw === ENTERPRISE_MISSING) return raw;
+  return formatSalesDatePt(raw);
+}
+
+function recordList<T>(value: unknown): { missing: boolean; rows: T[] } {
+  if (!Array.isArray(value)) return { missing: true, rows: [] };
+  return { missing: false, rows: value as T[] };
+}
+
+function rowRecord(value: unknown): Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+export function salesEvidenceModel(report: SalesEvidenceInput | null | undefined): SalesEvidenceModel {
+  const summary = report?.summary;
+  const byStatusRaw = report?.byStatus;
+  const byStatusMissing = byStatusRaw == null || typeof byStatusRaw !== 'object' || Array.isArray(byStatusRaw);
+  const byStatus = byStatusMissing
+    ? []
+    : Object.entries(byStatusRaw)
+        .map(([status, count]) => {
+          const key = status.trim();
+          return {
+            status: key,
+            label: key ? orderStatusLabel(key) : ENTERPRISE_MISSING,
+            count: countOrDash(count),
+            bucket: key && SALES_STATUS_BUCKETS.has(key) ? key : null,
+          };
+        })
+        .sort((a, b) => {
+          const an = Number(a.count);
+          const bn = Number(b.count);
+          const aOk = a.count !== ENTERPRISE_MISSING && Number.isFinite(an);
+          const bOk = b.count !== ENTERPRISE_MISSING && Number.isFinite(bn);
+          if (aOk && bOk && an !== bn) return bn - an;
+          if (aOk !== bOk) return aOk ? -1 : 1;
+          return a.label.localeCompare(b.label, 'pt-BR');
+        });
+
+  const days = recordList<NonNullable<SalesEvidenceInput['byDay']>[number]>(report?.byDay);
+  const sellers = recordList<NonNullable<SalesEvidenceInput['bySeller']>[number]>(report?.bySeller);
+  const products = recordList<NonNullable<SalesEvidenceInput['topProducts']>[number]>(report?.topProducts);
+  const payments = recordList<NonNullable<SalesEvidenceInput['byPaymentMethod']>[number]>(
+    report?.byPaymentMethod,
+  );
+
+  return {
+    periodFrom: ymdLabel(report?.from),
+    periodTo: ymdLabel(report?.to),
+    timezone: textOrDash(report?.timezone),
+    orderCount: countOrDash(summary?.orderCount),
+    revenue: moneyOrDash(summary?.revenue),
+    averageTicket: moneyOrDash(summary?.averageTicket),
+    byStatus,
+    byStatusMissing,
+    byDay: days.rows
+      .map((row) => {
+        const rec = rowRecord(row);
+        const date = textOrDash(rec.date);
+        return {
+          date,
+          label: date === ENTERPRISE_MISSING ? ENTERPRISE_MISSING : formatSalesDatePt(date),
+          orderCount: countOrDash(rec.orderCount),
+          revenue: moneyOrDash(rec.revenue),
+        };
+      })
+      .sort((a, b) => {
+        if (a.date === ENTERPRISE_MISSING) return 1;
+        if (b.date === ENTERPRISE_MISSING) return -1;
+        return a.date.localeCompare(b.date);
+      }),
+    byDayMissing: days.missing,
+    bySeller: sellers.rows.map((row) => {
+      const rec = rowRecord(row);
+      const ownStore = rec.sellerId === null;
+      return {
+        sellerId: ownStore ? ENTERPRISE_MISSING : textOrDash(rec.sellerId),
+        name: textOrDash(rec.sellerName),
+        ownStore,
+        orderCount: countOrDash(rec.orderCount),
+        itemQty: countOrDash(rec.itemQty),
+        revenue: moneyOrDash(rec.revenue),
+      };
+    }),
+    bySellerMissing: sellers.missing,
+    topProducts: products.rows.map((row) => {
+      const rec = rowRecord(row);
+      return {
+        productId: textOrDash(rec.productId),
+        name: textOrDash(rec.name),
+        qty: countOrDash(rec.qty),
+        revenue: moneyOrDash(rec.revenue),
+      };
+    }),
+    topProductsMissing: products.missing,
+    byPaymentMethod: payments.rows.map((row) => {
+      const rec = rowRecord(row);
+      const method = textOrDash(rec.method);
+      return {
+        method,
+        label: method === ENTERPRISE_MISSING ? ENTERPRISE_MISSING : salesPaymentMethodLabel(method),
+        orderCount: countOrDash(rec.orderCount),
+        revenue: moneyOrDash(rec.revenue),
+      };
+    }),
+    byPaymentMissing: payments.missing,
+  };
 }
