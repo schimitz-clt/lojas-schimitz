@@ -208,7 +208,10 @@ export function useAdminConsoleState() {
   const [savingSeller, setSavingSeller] = useState(false);
   const [sellerBusyId, setSellerBusyId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<AdminCustomerListItem[]>([]);
-  const [customersTotal, setCustomersTotal] = useState(0);
+  const [customersTotal, setCustomersTotal] = useState<number | null>(null);
+  const [customersSnapshot, setCustomersSnapshot] = useState<'pending' | 'ready' | 'error'>('pending');
+  /** Store lists from the shared admin load. Pending until that response — empty arrays are not zero yet. */
+  const [storePayload, setStorePayload] = useState<'pending' | 'ready' | 'error'>('pending');
   const [customerQ, setCustomerQ] = useState('');
   const [customerBusy, setCustomerBusy] = useState(false);
   const [customerDetail, setCustomerDetail] = useState<AdminCustomerDetail | null>(null);
@@ -265,6 +268,7 @@ export function useAdminConsoleState() {
     });
     setOrderServerSearchActive(false);
     orderServerSearchRef.current = false;
+    setStorePayload((prev) => (prev === 'ready' ? prev : 'pending'));
     return Promise.all([
       api<AdminProduct[]>('/admin/products'),
       api<AdminOrder[]>(ordersPath),
@@ -300,6 +304,7 @@ export function useAdminConsoleState() {
         setAdmins(adminsList);
         setSellers(sellersList);
         setCommissions(commissionsList || []);
+        setStorePayload('ready');
         setErr('');
       })
       .catch((e) => {
@@ -307,6 +312,7 @@ export function useAdminConsoleState() {
           adminUnauthorizedRedirect();
           return;
         }
+        setStorePayload((prev) => (prev === 'ready' ? prev : 'error'));
         setErr(e.message);
       });
   }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
@@ -315,6 +321,7 @@ export function useAdminConsoleState() {
     const u = await ensureHydratedSession();
     if (!u || u.role !== 'admin') return;
     setCustomerBusy(true);
+    setCustomersSnapshot((prev) => (prev === 'ready' ? prev : 'pending'));
     try {
       const qs = new URLSearchParams();
       if (q.trim()) qs.set('q', q.trim());
@@ -323,12 +330,14 @@ export function useAdminConsoleState() {
         `/admin/customers?${qs.toString()}`,
       );
       setCustomers(data.items || []);
-      setCustomersTotal(data.total || 0);
+      setCustomersTotal(typeof data.total === 'number' && Number.isFinite(data.total) ? data.total : null);
+      setCustomersSnapshot('ready');
     } catch (e: any) {
       if (isUnauthorizedError(e)) {
         adminUnauthorizedRedirect();
         return;
       }
+      setCustomersSnapshot((prev) => (prev === 'ready' ? prev : 'error'));
       setErr(e.message || 'Falha ao carregar clientes');
     } finally {
       setCustomerBusy(false);
@@ -2133,6 +2142,8 @@ export function useAdminConsoleState() {
     setCustomers,
     customersTotal,
     setCustomersTotal,
+    customersSnapshot,
+    storePayload,
     customerQ,
     setCustomerQ,
     customerBusy,

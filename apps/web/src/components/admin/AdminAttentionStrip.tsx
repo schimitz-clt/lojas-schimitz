@@ -34,6 +34,13 @@ type Props = {
   infoCount?: number;
   /** Info-level alerts to list under the priority queue. Command variant only. */
   signals?: AdminAttentionItem[];
+  /** Optional copy for sections whose evidence is their own list, not GET /admin/ops. */
+  lede?: string;
+  emptyMessage?: string;
+  pendingTitle?: string;
+  pendingBody?: string;
+  unavailableTitle?: string;
+  unavailableBody?: string;
 };
 
 function tone(sev: Severity): 'high' | 'warn' {
@@ -132,6 +139,12 @@ export function AdminAttentionStrip({
   snapshot = 'ready',
   infoCount = 0,
   signals = [],
+  lede,
+  emptyMessage,
+  pendingTitle,
+  pendingBody,
+  unavailableTitle,
+  unavailableBody,
 }: Props): ReactNode {
   const visible = items.slice(0, max);
   const visibleSignals = signals.slice(0, 12);
@@ -149,25 +162,25 @@ export function AdminAttentionStrip({
           </h2>
         </div>
         <p className="admin-attn__lede">
-          Cada alerta do snapshot: o problema, onde abrir e como resolver. Os atalhos são os que já
-          existem. Nada é estimado e nada se resolve sozinho.
+          {lede ||
+            'Cada alerta do snapshot: o problema, onde abrir e como resolver. Os atalhos são os que já existem. Nada é estimado e nada se resolve sozinho.'}
         </p>
         {pending ? (
           <div className="admin-shell-state admin-shell-state--loading" role="status">
-            <p className="admin-shell-state__title">Lendo o snapshot…</p>
-            <p>Os alertas aparecem quando o centro de comando responder.</p>
+            <p className="admin-shell-state__title">{pendingTitle || 'Lendo o snapshot…'}</p>
+            <p>{pendingBody || 'Os alertas aparecem quando o centro de comando responder.'}</p>
           </div>
         ) : null}
         {unavailable ? (
           <div className="admin-shell-state" role="status">
-            <p className="admin-shell-state__title">Snapshot indisponível</p>
-            <p>{opsAttentionUnavailableMessage()}</p>
+            <p className="admin-shell-state__title">{unavailableTitle || 'Snapshot indisponível'}</p>
+            <p>{unavailableBody || opsAttentionUnavailableMessage()}</p>
           </div>
         ) : null}
         {empty ? (
           <div className="admin-shell-state admin-shell-state--empty" role="status">
             <p className="admin-shell-state__title">Nada em aberto</p>
-            <p>{opsAttentionEmptyMessage(infoCount)}</p>
+            <p>{emptyMessage || opsAttentionEmptyMessage(infoCount)}</p>
           </div>
         ) : null}
         {visible.length > 0 ? (

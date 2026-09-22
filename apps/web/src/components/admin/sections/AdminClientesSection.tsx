@@ -1,91 +1,46 @@
 'use client';
 
-import Link from 'next/link';
 import { brl } from '@/lib/api';
+import { orderStatusLabel } from '@/lib/order-status';
+import { ENTERPRISE_MISSING, moneyOrDash, textOrDash } from '@/lib/admin-enterprise-ui';
 import {
-  orderStatusLabel,
-  adminQueueBucketLabel,
-  POST_PAYMENT_OPS_HINT,
-  isPostPaidStatus,
-} from '@/lib/order-status';
-import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
-import { shouldServerOrderSearch } from '@/lib/admin-order-search';
-import {
-  emptyOrdersQueueMessage,
-  paymentMethodBadge,
-  whatsAppOpsButtonLabel,
-} from '@/lib/admin-ops-ui';
-import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
-import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
-import {
-  AdminOrderStatusChip,
-  AdminProductActiveChip,
-  AdminProductStockChip,
-  AdminStatusChip,
-} from '@/components/admin/AdminStatusChip';
-import {
-  adminUserStatusLabel,
-  adminUserStatusTone,
-  bannerActiveLabel,
-  commissionStatusLabel,
-  commissionStatusTone,
-  couponIsExhausted,
-  couponIsExpired,
-  couponListStats,
-  customerAccountLabel,
-  customerAccountTone,
-  paidQueueBannerClass,
-  paidQueueBannerTone,
-  productPhotoBadgeKind,
-  productPhotoBadgeLabel,
-  reviewStars,
-  reviewStatusLabel,
-  reviewStatusTone,
-  salesPresetActive,
-  sellerStatusLabel,
-  sellerStatusTone,
-  shippingZoneActiveLabel,
-  shouldStickyOrderActions,
-} from '@/lib/admin-pro-ui';
-import {
-  emptyPhotoQueueMessage,
-  isBulkAdvanceEligible,
-  isBulkSepararEligible,
-  photoQueueAlignmentNote,
-  productNeedsStorePhoto,
-  selectVisibleEligibleIds,
-  toggleIdInList,
-} from '@/lib/admin-daily-ops';
+  CLIENTES_DO_LEDE,
+  CLIENTES_EVIDENCE_LEDE,
+  CLIENTES_NOW_LEDE,
+  CLIENTES_READONLY_NOTE,
+  clientesPrimeModel,
+} from '@/lib/admin-prime-sections-ui';
+import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
+import { AdminOrderStatusChip, AdminStatusChip } from '@/components/admin/AdminStatusChip';
+import { customerAccountLabel, customerAccountTone } from '@/lib/admin-pro-ui';
 import {
   customerHistoryEmptyMessage,
   customerOrderPaymentLabel,
   customerOrdersEmptyMessage,
-  customerVerClienteLabel,
   formatAdminDate,
   formatAdminDateTime,
   formatCustomerAddressLine,
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
-import {
-  DEFAULT_LOW_STOCK,
-  MAX_PRODUCT_IMAGES,
-  availableStock,
-  customerHint,
-  formatStuckHours,
-  isPaidStuckOrder,
-  hoursSincePaid,
-  advanceButtonLabel,
-  orderWa,
-} from '@/components/admin/admin-console-model';
+
+const ANCHOR: Record<string, string> = {
+  customers_inactive: 'admin-clientes-list',
+  customers_truncated: 'admin-clientes-list',
+  customers_no_phone: 'admin-clientes-list',
+  search: 'admin-clientes-search',
+  list: 'admin-clientes-list',
+  total: 'admin-clientes-list',
+  shown: 'admin-clientes-list',
+  inactive: 'admin-clientes-list',
+  paid: 'admin-clientes-list',
+};
 
 export function AdminClientesSection() {
   const {
-    orders,
-    form,
     customers,
     customersTotal,
+    customersSnapshot,
     customerQ,
     setCustomerQ,
     customerBusy,
@@ -96,14 +51,45 @@ export function AdminClientesSection() {
     closeCustomer,
     openPedidoFromCustomer,
   } = useAdminConsole();
+
+  const model = clientesPrimeModel({
+    load: customersSnapshot,
+    total: customersSnapshot === 'ready' ? customersTotal : null,
+    items: customersSnapshot === 'ready' ? customers : null,
+  });
+
+  function go(id: string) {
+    const anchor = ANCHOR[id];
+    if (anchor) scrollAdminAnchor(anchor);
+  }
+
   return (
     <>
-      <div className="admin-section-panel admin-crm-panel">
-      <p className="admin-section-intro">
-        CRM leve, somente leitura: cadastro, endereço, total pago e histórico real de pedidos.
-        Sem edição, exclusão ou automação de marketing.
-      </p>
-      <div className="admin-toolbar admin-crm-toolbar">
+      <AdminPrimeCommand
+        eyebrow="Clientes"
+        title="Cadastro e histórico, só leitura."
+        endpoint="GET /admin/customers · GET /admin/customers/:id"
+        busy={customerBusy}
+        onRefresh={() => void loadCustomers(customerQ)}
+        nowLede={CLIENTES_NOW_LEDE}
+        summary={model.summary}
+        kpis={model.kpis}
+        onKpi={go}
+        load={customersSnapshot}
+        attention={model.attention}
+        signals={model.signals}
+        onAttention={go}
+        doLede={CLIENTES_DO_LEDE}
+        actions={model.actions}
+        onAction={go}
+      />
+
+      <div className="admin-section-panel admin-crm-panel" id="admin-clientes-evidence">
+        <p className="admin-ent-kicker">Evidência</p>
+        <h2 className="admin-cc-block__title">O que o cadastro mostra</h2>
+        <p className="admin-cc-block__lede">{CLIENTES_EVIDENCE_LEDE}</p>
+        <p className="admin-ent-note">{CLIENTES_READONLY_NOTE}</p>
+        <div className="admin-toolbar admin-crm-toolbar" id="admin-clientes-search">
           <form
             className="admin-toolbar__row"
             onSubmit={(e) => {
@@ -134,65 +120,65 @@ export function AdminClientesSection() {
               Limpar
             </button>
           </form>
-          <div className="admin-dense-row__meta">
-            {customersTotal} cliente(s) · mostrando {customers.length}
-            {customerDetail ? ` · aberto: ${customerDetail.name}` : ''}
+        </div>
+        <div className="admin-crm-layout">
+          <div className="admin-crm-list" id="admin-clientes-list">
+            <div className="admin-dense-list">
+              {customersSnapshot === 'ready'
+                ? customers.map((c) => {
+                    const selected = customerDetail?.id === c.id;
+                    const cityUf = formatCustomerCityUf(c);
+                    return (
+                      <div key={c.id} className={`admin-dense-row${selected ? ' is-selected' : ''}`}>
+                        <div className="admin-dense-row__main">
+                          <div className="admin-dense-row__title">
+                            <b>{textOrDash(c.name)}</b>
+                            <AdminStatusChip
+                              label={customerAccountLabel(c.status)}
+                              tone={customerAccountTone(c.status)}
+                            />
+                          </div>
+                          <div className="admin-dense-row__meta">
+                            {textOrDash(c.email)}
+                            {c.phone ? ` · ${c.phone}` : ` · tel. ${ENTERPRISE_MISSING}`}
+                            {cityUf ? ` · ${cityUf}` : ''}
+                          </div>
+                          <div className="admin-dense-row__meta">
+                            {c.ordersCount} pedido(s) · pagos {c.paidOrdersCount} · {moneyOrDash(c.paidTotal)}
+                            {c.lastOrderAt ? ` · último ${formatAdminDate(c.lastOrderAt)}` : ` · último ${ENTERPRISE_MISSING}`}
+                          </div>
+                        </div>
+                        <div className="admin-dense-row__actions">
+                          <button
+                            type="button"
+                            className="btn ghost admin-btn-ghost-pro"
+                            disabled={customerDetailBusy}
+                            onClick={() => void openCustomer(c.id)}
+                          >
+                            {selected ? 'Atualizar' : 'Ver histórico'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                : null}
+              {customersSnapshot === 'ready' && !customers.length ? (
+                <p className="admin-empty">{customerHistoryEmptyMessage(Boolean(customerQ.trim()))}</p>
+              ) : null}
+              {customersSnapshot !== 'ready' ? (
+                <p className="admin-empty">
+                  {customersSnapshot === 'error'
+                    ? 'Lista indisponível. Nenhum cliente foi estimado.'
+                    : 'Lendo GET /admin/customers…'}
+                </p>
+              ) : null}
+            </div>
           </div>
-      </div>
-      <div className="admin-crm-layout">
-      <div className="admin-crm-list">
-      <div className="admin-dense-list">
-            {customers.map((c) => {
-              const selected = customerDetail?.id === c.id;
-              const cityUf = formatCustomerCityUf(c);
-              return (
-              <div
-                key={c.id}
-                className={`admin-dense-row${selected ? ' is-selected' : ''}`}
-              >
-                <div className="admin-dense-row__main">
-                  <div className="admin-dense-row__title">
-                    <b>{c.name}</b>
-                    <AdminStatusChip
-                      label={customerAccountLabel(c.status)}
-                      tone={customerAccountTone(c.status)}
-                    />
-                  </div>
-                  <div className="admin-dense-row__meta">
-                    {c.email}
-                    {c.phone ? ` · ${c.phone}` : ''}
-                    {cityUf ? ` · ${cityUf}` : ''}
-                  </div>
-                  <div className="admin-dense-row__meta">
-                    {c.ordersCount} pedido(s) · pagos {c.paidOrdersCount} · {brl(c.paidTotal)}
-                    {c.lastOrderAt
-                      ? ` · último ${formatAdminDate(c.lastOrderAt)}`
-                      : ''}
-                  </div>
-                </div>
-                <div className="admin-dense-row__actions">
-                <button
-                  type="button"
-                  className="btn ghost admin-btn-ghost-pro"
-                  disabled={customerDetailBusy}
-                  onClick={() => void openCustomer(c.id)}
-                >
-                  {selected ? 'Atualizar' : 'Ver histórico'}
-                </button>
-                </div>
-              </div>
-              );
-            })}
-            {!customers.length ? (
-              <p className="admin-empty">{customerHistoryEmptyMessage(Boolean(customerQ.trim()))}</p>
-            ) : null}
-      </div>
-      </div>
           {customerDetail ? (
             <div id="admin-customer-detail" className="admin-detail-panel admin-crm-detail">
               <div className="admin-crm-detail__head">
                 <h3 style={{ margin: 0 }}>
-                  {customerDetail.name}{' '}
+                  {textOrDash(customerDetail.name)}{' '}
                   <AdminStatusChip
                     label={customerAccountLabel(customerDetail.status)}
                     tone={customerAccountTone(customerDetail.status)}
@@ -202,42 +188,42 @@ export function AdminClientesSection() {
                   Fechar
                 </button>
               </div>
-              <div className="admin-crm-fields">
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">E-mail</span>
-                  <span className="admin-crm-field__value">{customerDetail.email || '—'}</span>
+              <div className="admin-ent-facts">
+                <div className="admin-ent-fact">
+                  <span>E-mail</span>
+                  <strong>{textOrDash(customerDetail.email)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Telefone</span>
-                  <span className="admin-crm-field__value">{customerDetail.phone || '—'}</span>
+                <div className="admin-ent-fact">
+                  <span>Telefone</span>
+                  <strong>{textOrDash(customerDetail.phone)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Cliente desde</span>
-                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.createdAt)}</span>
+                <div className="admin-ent-fact">
+                  <span>Cliente desde</span>
+                  <strong>{formatAdminDate(customerDetail.createdAt)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Pedidos</span>
-                  <span className="admin-crm-field__value">{customerDetail.ordersCount}</span>
+                <div className="admin-ent-fact">
+                  <span>Pedidos</span>
+                  <strong>{customerDetail.ordersCount}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Pagos</span>
-                  <span className="admin-crm-field__value">{customerDetail.paidOrdersCount}</span>
+                <div className="admin-ent-fact">
+                  <span>Pagos</span>
+                  <strong>{customerDetail.paidOrdersCount}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Total pago</span>
-                  <span className="admin-crm-field__value">{brl(customerDetail.paidTotal)}</span>
+                <div className="admin-ent-fact">
+                  <span>Total pago</span>
+                  <strong>{moneyOrDash(customerDetail.paidTotal)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Último pedido</span>
-                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.lastOrderAt)}</span>
+                <div className="admin-ent-fact">
+                  <span>Último pedido</span>
+                  <strong>{formatAdminDate(customerDetail.lastOrderAt)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">Último pago</span>
-                  <span className="admin-crm-field__value">{formatAdminDate(customerDetail.lastPaidAt)}</span>
+                <div className="admin-ent-fact">
+                  <span>Último pago</span>
+                  <strong>{formatAdminDate(customerDetail.lastPaidAt)}</strong>
                 </div>
-                <div className="admin-crm-field">
-                  <span className="admin-crm-field__label">SCHIMITZ+</span>
-                  <span className="admin-crm-field__value">{brl(customerDetail.cashbackBalance)}</span>
+                <div className="admin-ent-fact">
+                  <span>SCHIMITZ+</span>
+                  <strong>{moneyOrDash(customerDetail.cashbackBalance)}</strong>
                 </div>
               </div>
               <div className="admin-crm-addresses">
@@ -247,9 +233,7 @@ export function AdminClientesSection() {
                     {(customerDetail.addresses || []).map((a, idx) => (
                       <li key={a.id || `${a.cep}-${idx}`}>
                         {a.isDefault ? <AdminStatusChip label="Padrão" tone="accent" /> : null}
-                        {a.label ? <b>{a.label}</b> : null}
-                        {' '}
-                        {formatCustomerAddressLine(a) || '—'}
+                        {a.label ? <b>{a.label}</b> : null} {formatCustomerAddressLine(a) || ENTERPRISE_MISSING}
                       </li>
                     ))}
                   </ul>
@@ -285,7 +269,9 @@ export function AdminClientesSection() {
                             tone={o.paymentMethod === 'pix' ? 'ok' : 'info'}
                             title={o.paymentStatus ? `status ${o.paymentStatus}` : undefined}
                           />
-                        ) : null}
+                        ) : (
+                          <AdminStatusChip label={ENTERPRISE_MISSING} tone="neutral" />
+                        )}
                       </div>
                       <div className="admin-dense-row__meta">
                         {brl(o.total)}
@@ -295,7 +281,7 @@ export function AdminClientesSection() {
                         {formatAdminDateTime(o.createdAt)}
                       </div>
                       <div className="admin-dense-row__meta">
-                        {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ')}
+                        {o.items.map((it) => `${it.qty}× ${it.name}`).join(', ') || ENTERPRISE_MISSING}
                       </div>
                     </div>
                     <div className="admin-dense-row__actions">
@@ -321,8 +307,7 @@ export function AdminClientesSection() {
               </p>
             </div>
           )}
-      </div>
-
+        </div>
       </div>
     </>
   );
