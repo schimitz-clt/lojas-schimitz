@@ -1,91 +1,39 @@
 'use client';
 
-import Link from 'next/link';
-import { brl } from '@/lib/api';
+import { ENTERPRISE_MISSING, moneyOrDash, textOrDash } from '@/lib/admin-enterprise-ui';
 import {
-  orderStatusLabel,
-  adminQueueBucketLabel,
-  POST_PAYMENT_OPS_HINT,
-  isPostPaidStatus,
-} from '@/lib/order-status';
-import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
-import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
-import { shouldServerOrderSearch } from '@/lib/admin-order-search';
+  MARKETPLACE_DO_LEDE,
+  MARKETPLACE_EVIDENCE_LEDE,
+  MARKETPLACE_NOW_LEDE,
+  marketplacePrimeModel,
+} from '@/lib/admin-prime-sections-ui';
+import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
+import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
 import {
-  emptyOrdersQueueMessage,
-  paymentMethodBadge,
-  whatsAppOpsButtonLabel,
-} from '@/lib/admin-ops-ui';
-import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
-import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
-import {
-  AdminOrderStatusChip,
-  AdminProductActiveChip,
-  AdminProductStockChip,
-  AdminStatusChip,
-} from '@/components/admin/AdminStatusChip';
-import {
-  adminUserStatusLabel,
-  adminUserStatusTone,
-  bannerActiveLabel,
   commissionStatusLabel,
   commissionStatusTone,
-  couponIsExhausted,
-  couponIsExpired,
-  couponListStats,
-  customerAccountLabel,
-  customerAccountTone,
-  paidQueueBannerClass,
-  paidQueueBannerTone,
-  productPhotoBadgeKind,
-  productPhotoBadgeLabel,
-  reviewStars,
-  reviewStatusLabel,
-  reviewStatusTone,
-  salesPresetActive,
   sellerMpOAuthLabel,
   sellerMpOAuthTone,
   sellerStatusLabel,
   sellerStatusTone,
-  shippingZoneActiveLabel,
-  shouldStickyOrderActions,
 } from '@/lib/admin-pro-ui';
-import {
-  emptyPhotoQueueMessage,
-  isBulkAdvanceEligible,
-  isBulkSepararEligible,
-  photoQueueAlignmentNote,
-  productNeedsStorePhoto,
-  selectVisibleEligibleIds,
-  toggleIdInList,
-} from '@/lib/admin-daily-ops';
-import {
-  customerHistoryEmptyMessage,
-  customerOrderPaymentLabel,
-  customerOrdersEmptyMessage,
-  customerVerClienteLabel,
-  formatAdminDate,
-  formatAdminDateTime,
-  formatCustomerAddressLine,
-  formatCustomerCityUf,
-} from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
-import {
-  DEFAULT_LOW_STOCK,
-  MAX_PRODUCT_IMAGES,
-  availableStock,
-  customerHint,
-  formatStuckHours,
-  isPaidStuckOrder,
-  hoursSincePaid,
-  advanceButtonLabel,
-  orderWa,
-} from '@/components/admin/admin-console-model';
+
+const ANCHOR: Record<string, string> = {
+  sellers_pending: 'admin-marketplace-sellers',
+  sellers_mp_problem: 'admin-marketplace-sellers',
+  sellers_active_unlinked: 'admin-marketplace-sellers',
+  commissions_pending: 'admin-marketplace-commissions',
+  create: 'admin-marketplace-create',
+  sellers: 'admin-marketplace-sellers',
+  commissions: 'admin-marketplace-commissions',
+  active: 'admin-marketplace-sellers',
+  pending: 'admin-marketplace-sellers',
+  products: 'admin-marketplace-sellers',
+};
 
 export function AdminMarketplaceSection() {
   const {
-    products,
-    form,
     sellers,
     commissions,
     commissionStatusFilter,
@@ -110,123 +58,161 @@ export function AdminMarketplaceSection() {
     approveCommission,
     markCommissionPaid,
     exportCommissionsCsv,
+    storePayload,
+    load,
   } = useAdminConsole();
+
+  const model = marketplacePrimeModel({
+    load: storePayload,
+    sellers: storePayload === 'ready' ? sellers : null,
+    commissions: storePayload === 'ready' ? commissions : null,
+    commissionFilter: commissionStatusFilter,
+  });
+
+  function go(id: string) {
+    const anchor = ANCHOR[id];
+    if (anchor) scrollAdminAnchor(anchor);
+  }
+
   return (
     <>
+      <AdminPrimeCommand
+        eyebrow="Marketplace"
+        title="Vendedores e comissão do ledger."
+        endpoint="GET /admin/sellers · GET /admin/commissions · PATCH já existentes"
+        busy={savingSeller || Boolean(commissionBusyId) || Boolean(ownerBusyId)}
+        onRefresh={() => void load()}
+        nowLede={MARKETPLACE_NOW_LEDE}
+        summary={model.summary}
+        kpis={model.kpis}
+        onKpi={go}
+        load={storePayload}
+        attention={model.attention}
+        signals={model.signals}
+        onAttention={go}
+        doLede={MARKETPLACE_DO_LEDE}
+        actions={model.actions}
+        onAction={go}
+      />
+
       <div className="admin-section-panel">
-      <p className="admin-section-intro">
-        Vendedor vinculado: o valor cobrado vai para a conta Mercado Pago dele e a
-        plataforma retém a comissão como application_fee (split live com ENABLED,
-        ALLOW_LIVE e credencial APP_USR). Sem vínculo, o checkout conclui e o valor
-        integral fica na conta da loja (repasse manual). PIX pode cair na loja se o
-        Mercado Pago recusar a taxa. A loja própria não faz split.
-      </p>
-      <section className="admin-card-pro">
-        <div className="body">
-          <h2>Novo vendedor</h2>
-          <form className="form admin-form-pro" style={{ marginTop: 12, marginBottom: 0 }} onSubmit={saveSeller}>
-            <label>
-              Nome *
-              <input
-                value={sellerForm.name}
-                onChange={(e) => setSellerForm({ ...sellerForm, name: e.target.value })}
-                placeholder="Ex.: Parceiro Centro"
-                required
-              />
-            </label>
-            <label>
-              Slug (opcional)
-              <input
-                value={sellerForm.slug}
-                onChange={(e) => setSellerForm({ ...sellerForm, slug: e.target.value })}
-                placeholder="parceiro-centro"
-              />
-            </label>
-            <label>
-              Status inicial
-              <select
-                value={sellerForm.status}
-                onChange={(e) =>
-                  setSellerForm({
-                    ...sellerForm,
-                    status: e.target.value as 'pending' | 'active' | 'suspended',
-                  })
-                }
-              >
-                <option value="pending">Pendente</option>
-                <option value="active">Ativo</option>
-                <option value="suspended">Suspenso</option>
-              </select>
-            </label>
-            <label>
-              Comissão % (opcional)
-              <input
-                inputMode="decimal"
-                value={sellerForm.commissionPercent}
-                onChange={(e) => setSellerForm({ ...sellerForm, commissionPercent: e.target.value })}
-                placeholder="10"
-              />
-            </label>
-            <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeller}>
-              {savingSeller ? 'Salvando...' : 'Criar vendedor'}
-            </button>
-          </form>
-        </div>
-      </section>
-      <h3 className="admin-section-heading">Vendedores ({sellers.length})</h3>
-      <div className="admin-dense-list">
-            {sellers.map((s) => (
-              <div key={s.id} className={`admin-dense-row${s.status === 'suspended' ? ' admin-dense-row--muted' : ''}`}>
-                <div className="admin-dense-row__main">
+        <p className="admin-ent-kicker">Evidência</p>
+        <h2 className="admin-cc-block__title">Split e repasse como a API já descreve</h2>
+        <p className="admin-cc-block__lede">{MARKETPLACE_EVIDENCE_LEDE}</p>
+        <p className="admin-section-intro">
+          Vendedor vinculado: o valor cobrado vai para a conta Mercado Pago dele e a plataforma retém a comissão
+          como application_fee (split live com ENABLED, ALLOW_LIVE e credencial APP_USR). Sem vínculo, o checkout
+          conclui e o valor integral fica na conta da loja (repasse manual). PIX pode cair na loja se o Mercado
+          Pago recusar a taxa. A loja própria não faz split.
+        </p>
+
+        <section className="admin-card-pro" id="admin-marketplace-create">
+          <div className="body">
+            <h2>Novo vendedor</h2>
+            <form className="form admin-form-pro" style={{ marginTop: 12, marginBottom: 0 }} onSubmit={saveSeller}>
+              <label>
+                Nome *
+                <input
+                  value={sellerForm.name}
+                  onChange={(e) => setSellerForm({ ...sellerForm, name: e.target.value })}
+                  placeholder="Ex.: Parceiro Centro"
+                  required
+                />
+              </label>
+              <label>
+                Slug (opcional)
+                <input
+                  value={sellerForm.slug}
+                  onChange={(e) => setSellerForm({ ...sellerForm, slug: e.target.value })}
+                  placeholder="parceiro-centro"
+                />
+              </label>
+              <label>
+                Status inicial
+                <select
+                  value={sellerForm.status}
+                  onChange={(e) =>
+                    setSellerForm({
+                      ...sellerForm,
+                      status: e.target.value as 'pending' | 'active' | 'suspended',
+                    })
+                  }
+                >
+                  <option value="pending">Pendente</option>
+                  <option value="active">Ativo</option>
+                  <option value="suspended">Suspenso</option>
+                </select>
+              </label>
+              <label>
+                Comissão % (opcional)
+                <input
+                  inputMode="decimal"
+                  value={sellerForm.commissionPercent}
+                  onChange={(e) => setSellerForm({ ...sellerForm, commissionPercent: e.target.value })}
+                  placeholder="10"
+                />
+              </label>
+              <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeller}>
+                {savingSeller ? 'Salvando...' : 'Criar vendedor'}
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <h3 className="admin-section-heading" id="admin-marketplace-sellers">
+          Vendedores ({storePayload === 'ready' ? sellers.length : ENTERPRISE_MISSING})
+        </h3>
+        <div className="admin-dense-list">
+          {storePayload === 'ready'
+            ? sellers.map((s) => (
+                <div key={s.id} className={`admin-dense-row${s.status === 'suspended' ? ' admin-dense-row--muted' : ''}`}>
+                  <div className="admin-dense-row__main">
                     <div className="admin-dense-row__title">
-                    <b>{s.name}</b>
-                    <AdminStatusChip label={sellerStatusLabel(s.status)} tone={sellerStatusTone(s.status)} />
-                    <AdminStatusChip
-                      label={sellerMpOAuthLabel(s.mpOAuthStatus)}
-                      tone={sellerMpOAuthTone(s.mpOAuthStatus)}
-                      title={s.mpOAuthStatus || 'pending'}
-                    />
+                      <b>{textOrDash(s.name)}</b>
+                      <AdminStatusChip label={sellerStatusLabel(s.status)} tone={sellerStatusTone(s.status)} />
+                      <AdminStatusChip
+                        label={sellerMpOAuthLabel(s.mpOAuthStatus)}
+                        tone={sellerMpOAuthTone(s.mpOAuthStatus)}
+                        title={s.mpOAuthStatus || 'pending'}
+                      />
                     </div>
                     <div className="admin-dense-row__meta">
-                      /{s.slug}
-                      {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ''}
+                      /{textOrDash(s.slug)}
+                      {s._count?.products != null ? ` · ${s._count.products} produto(s)` : ` · produtos ${ENTERPRISE_MISSING}`}
                       {s.commissionPercent != null && s.commissionPercent !== ''
                         ? ` · comissão ${s.commissionPercent}%`
                         : ' · comissão 10% (padrão)'}
                       {s.owner?.email ? ` · dono ${s.owner.email}` : ' · sem dono'}
                     </div>
-                  <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
-                  <label className="admin-owner-field">
-                    E-mail do dono (portal /vendedor)
-                    <input
-                      type="email"
-                      value={ownerDraft[s.id] ?? s.owner?.email ?? ''}
-                      onChange={(e) => setOwnerDraft((d) => ({ ...d, [s.id]: e.target.value }))}
-                      placeholder="vendedor@email.com"
-                    />
-                  </label>
-                  <label className="admin-owner-field">
-                    Comissão %
-                    <input
-                      inputMode="decimal"
-                      value={
-                        percentDraft[s.id] ??
-                        (s.commissionPercent != null ? String(s.commissionPercent) : '')
-                      }
-                      onChange={(e) => setPercentDraft((d) => ({ ...d, [s.id]: e.target.value }))}
-                      placeholder="10"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="btn admin-btn-primary-accent"
-                    disabled={ownerBusyId === s.id}
-                    onClick={() => void setSellerOwner(s)}
-                  >
-                    {ownerBusyId === s.id ? '...' : 'Salvar dono / %'}
-                  </button>
+                    <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
+                      <label className="admin-owner-field">
+                        E-mail do dono (portal /vendedor)
+                        <input
+                          type="email"
+                          value={ownerDraft[s.id] ?? s.owner?.email ?? ''}
+                          onChange={(e) => setOwnerDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                          placeholder="vendedor@email.com"
+                        />
+                      </label>
+                      <label className="admin-owner-field">
+                        Comissão %
+                        <input
+                          inputMode="decimal"
+                          value={percentDraft[s.id] ?? (s.commissionPercent != null ? String(s.commissionPercent) : '')}
+                          onChange={(e) => setPercentDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                          placeholder="10"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn admin-btn-primary-accent"
+                        disabled={ownerBusyId === s.id}
+                        onClick={() => void setSellerOwner(s)}
+                      >
+                        {ownerBusyId === s.id ? '...' : 'Salvar dono / %'}
+                      </button>
+                    </div>
                   </div>
-                </div>
                   <div className="admin-dense-row__actions">
                     {s.status !== 'active' ? (
                       <button
@@ -249,138 +235,144 @@ export function AdminMarketplaceSection() {
                       </button>
                     ) : null}
                   </div>
-              </div>
-            ))}
-            {!sellers.length ? (
-              <p className="admin-empty">Nenhum vendedor ainda (rode a migration SCH-008).</p>
-            ) : null}
-      </div>
-
-      <section className="admin-card-pro" style={{ marginTop: 16 }}>
-        <div className="body">
-          <h2>Comissão da plataforma</h2>
-          <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
-            O valor de cada linha é a <b>comissão da plataforma (~10% dos itens)</b>, não o PIX
-            do líquido ao vendedor. Linhas <code>mp_application_fee</code> já foram retidas no
-            Mercado Pago — não marcar PIX. Sem vínculo, ou quando o PIX recusa a taxa
-            (<code>pending_manual_or_pix_no_fee</code> e <code>manual_pix</code>), o valor integral
-            ficou na conta da loja e o repasse do restante é manual. Marcar pago só encerra esta
-            comissão no ledger.
-          </p>
-          <div className="admin-toolbar" style={{ marginBottom: 12 }}>
-          <div className="admin-toolbar__row">
-            <label className="admin-date-field" style={{ minWidth: 140 }}>
-              Status
-              <select
-                className="admin-filter-select"
-                value={commissionStatusFilter}
-                onChange={(e) =>
-                  setCommissionStatusFilter(e.target.value as 'pending' | 'approved' | 'paid' | 'all')
-                }
-              >
-                <option value="pending">Pendente</option>
-                <option value="approved">Aprovada</option>
-                <option value="paid">Paga</option>
-                <option value="all">Todas</option>
-              </select>
-            </label>
-            <label className="admin-date-field" style={{ minWidth: 200, flex: 1 }}>
-              Vendedor
-              <select
-                className="admin-filter-select"
-                value={commissionSellerFilter}
-                onChange={(e) => setCommissionSellerFilter(e.target.value)}
-              >
-                <option value="">Todos</option>
-                {sellers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="btn ghost admin-btn-ghost-pro"
-              disabled={!commissionSellerFilter}
-              onClick={() => void exportCommissionsCsv()}
-              title={!commissionSellerFilter ? 'Selecione um vendedor' : 'Exportar CSV'}
-            >
-              Exportar CSV
-            </button>
-          </div>
-          </div>
-          <div className="admin-dense-list">
-            {commissions.map((c) => (
-              <div key={c.id} className="admin-dense-row">
-                <div className="admin-dense-row__main">
-                    <div className="admin-dense-row__title">
-                    <b>{c.seller.name}</b>
-                    <AdminStatusChip
-                      label={commissionStatusLabel(c.status)}
-                      tone={commissionStatusTone(c.status)}
-                    />
-                    <AdminStatusChip label={`comissão ${brl(c.amount)}`} tone="accent" />
-                    <AdminStatusChip label={`${c.percent}%`} tone="neutral" />
-                    </div>
-                    <div className="admin-dense-row__meta">
-                      {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
-                      {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
-                      {c.source === 'mp_application_fee'
-                        ? ' · comissão retida (application_fee)'
-                        : c.source === 'pending_manual_or_pix_no_fee'
-                          ? ' · comissão no ledger (PIX sem taxa; valor integral na loja)'
-                          : c.source === 'manual_pix'
-                            ? ' · comissão no ledger (repasse manual; valor integral na loja)'
-                            : ''}
-                    </div>
-                {c.source === 'mp_application_fee' ? (
-                  <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
-                    Comissão retida via application_fee. Não marcar PIX manual.
-                  </p>
-                ) : null}
-                {c.source !== 'mp_application_fee' && (c.status === 'pending' || c.status === 'approved') ? (
-                  <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
-                    <label className="admin-owner-field">
-                      Ref. PIX / nota
-                      <input
-                        value={payoutDraft[c.id] ?? ''}
-                        onChange={(e) =>
-                          setPayoutDraft((d) => ({ ...d, [c.id]: e.target.value }))
-                        }
-                        placeholder="E2E id ou observação"
-                      />
-                    </label>
-                    {c.status === 'pending' ? (
-                      <button
-                        type="button"
-                        className="btn ghost admin-btn-ghost-pro"
-                        disabled={commissionBusyId === c.id}
-                        onClick={() => void approveCommission(c)}
-                      >
-                        {commissionBusyId === c.id ? '...' : 'Aprovar'}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="btn admin-btn-primary-accent"
-                      disabled={commissionBusyId === c.id}
-                      onClick={() => void markCommissionPaid(c)}
-                    >
-                      {commissionBusyId === c.id ? '...' : 'Marcar pago'}
-                    </button>
-                  </div>
-                ) : null}
                 </div>
-              </div>
-            ))}
-            {!commissions.length ? (
-              <p className="admin-empty">Nenhuma comissão neste filtro.</p>
-            ) : null}
-          </div>
+              ))
+            : null}
+          {storePayload === 'ready' && !sellers.length ? (
+            <p className="admin-empty">Nenhum vendedor ainda.</p>
+          ) : null}
+          {storePayload !== 'ready' ? (
+            <p className="admin-empty">
+              {storePayload === 'error'
+                ? 'Vendedores indisponíveis. Nenhum vínculo foi estimado.'
+                : 'Lendo GET /admin/sellers…'}
+            </p>
+          ) : null}
         </div>
-      </section>
 
+        <section className="admin-card-pro" id="admin-marketplace-commissions" style={{ marginTop: 16 }}>
+          <div className="body">
+            <h2>Comissão da plataforma</h2>
+            <p className="admin-section-intro" style={{ marginTop: 8, marginBottom: 12 }}>
+              O valor de cada linha é a <b>comissão da plataforma (~10% dos itens)</b>, não o PIX do líquido ao
+              vendedor. Linhas <code>mp_application_fee</code> já foram retidas no Mercado Pago — não marcar PIX.
+              Sem vínculo, ou quando o PIX recusa a taxa (<code>pending_manual_or_pix_no_fee</code> e{' '}
+              <code>manual_pix</code>), o valor integral ficou na conta da loja e o repasse do restante é manual.
+              Marcar pago só encerra esta comissão no ledger.
+            </p>
+            <div className="admin-toolbar" style={{ marginBottom: 12 }}>
+              <div className="admin-toolbar__row">
+                <label className="admin-date-field" style={{ minWidth: 140 }}>
+                  Status
+                  <select
+                    className="admin-filter-select"
+                    value={commissionStatusFilter}
+                    onChange={(e) => setCommissionStatusFilter(e.target.value as 'pending' | 'approved' | 'paid' | 'all')}
+                  >
+                    <option value="pending">Pendente</option>
+                    <option value="approved">Aprovada</option>
+                    <option value="paid">Paga</option>
+                    <option value="all">Todas</option>
+                  </select>
+                </label>
+                <label className="admin-date-field" style={{ minWidth: 200, flex: 1 }}>
+                  Vendedor
+                  <select
+                    className="admin-filter-select"
+                    value={commissionSellerFilter}
+                    onChange={(e) => setCommissionSellerFilter(e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    {sellers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="btn ghost admin-btn-ghost-pro"
+                  disabled={!commissionSellerFilter}
+                  onClick={() => void exportCommissionsCsv()}
+                  title={!commissionSellerFilter ? 'Selecione um vendedor' : 'Exportar CSV'}
+                >
+                  Exportar CSV
+                </button>
+              </div>
+            </div>
+            <div className="admin-dense-list">
+              {storePayload === 'ready'
+                ? commissions.map((c) => (
+                    <div key={c.id} className="admin-dense-row">
+                      <div className="admin-dense-row__main">
+                        <div className="admin-dense-row__title">
+                          <b>{c.seller.name}</b>
+                          <AdminStatusChip label={commissionStatusLabel(c.status)} tone={commissionStatusTone(c.status)} />
+                          <AdminStatusChip label={`comissão ${moneyOrDash(c.amount)}`} tone="accent" />
+                          <AdminStatusChip label={`${c.percent}%`} tone="neutral" />
+                        </div>
+                        <div className="admin-dense-row__meta">
+                          {c.order.publicId} · {c.orderItem.qty}× {c.orderItem.name}
+                          {c.payoutReference ? ` · ref ${c.payoutReference}` : ''}
+                          {c.source === 'mp_application_fee'
+                            ? ' · comissão retida (application_fee)'
+                            : c.source === 'pending_manual_or_pix_no_fee'
+                              ? ' · comissão no ledger (PIX sem taxa; valor integral na loja)'
+                              : c.source === 'manual_pix'
+                                ? ' · comissão no ledger (repasse manual; valor integral na loja)'
+                                : ''}
+                        </div>
+                        {c.source === 'mp_application_fee' ? (
+                          <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
+                            Comissão retida via application_fee. Não marcar PIX manual.
+                          </p>
+                        ) : null}
+                        {c.source !== 'mp_application_fee' && (c.status === 'pending' || c.status === 'approved') ? (
+                          <div className="admin-toolbar__row" style={{ marginTop: 10 }}>
+                            <label className="admin-owner-field">
+                              Ref. PIX / nota
+                              <input
+                                value={payoutDraft[c.id] ?? ''}
+                                onChange={(e) => setPayoutDraft((d) => ({ ...d, [c.id]: e.target.value }))}
+                                placeholder="E2E id ou observação"
+                              />
+                            </label>
+                            {c.status === 'pending' ? (
+                              <button
+                                type="button"
+                                className="btn ghost admin-btn-ghost-pro"
+                                disabled={commissionBusyId === c.id}
+                                onClick={() => void approveCommission(c)}
+                              >
+                                {commissionBusyId === c.id ? '...' : 'Aprovar'}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="btn admin-btn-primary-accent"
+                              disabled={commissionBusyId === c.id}
+                              onClick={() => void markCommissionPaid(c)}
+                            >
+                              {commissionBusyId === c.id ? '...' : 'Marcar pago'}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                : null}
+              {storePayload === 'ready' && !commissions.length ? (
+                <p className="admin-empty">Nenhuma comissão neste filtro.</p>
+              ) : null}
+              {storePayload !== 'ready' ? (
+                <p className="admin-empty">
+                  {storePayload === 'error' ? 'Comissões indisponíveis.' : 'Lendo GET /admin/commissions…'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
       </div>
     </>
   );
