@@ -48,7 +48,7 @@ export function BottomNav() {
     },
     {
       href: '/produtos',
-      label: 'Buscar',
+      label: 'Departamentos',
       icon: 'search',
       match: (p) =>
         p.startsWith('/produtos') ||
@@ -57,14 +57,14 @@ export function BottomNav() {
     },
     {
       href: '/carrinho',
-      label: 'Carrinho',
+      label: 'Sacola',
       icon: 'cart',
       badge: cartCount,
       match: (p) => p.startsWith('/carrinho') || p.startsWith('/checkout'),
     },
     {
       href: '/conta/salvos',
-      label: 'Salvos',
+      label: 'Favoritos',
       icon: 'heart',
       badge: favBadgeNum,
       match: (p) => isWishlistPath(p),
