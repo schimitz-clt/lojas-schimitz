@@ -78,12 +78,19 @@ button, input, select, textarea { font: inherit; }
   opacity: .55;
   font-weight: 700;
 }
-.header {
-  background: var(--header-bg);
-  color: var(--header-fg);
+/* Sticky no wrapper (não no .header interno): a topbar fica FORA deste
+   wrapper para rolar fora sozinha. Sticky num filho dentro de um pai curto
+   (só chrome) não tem “pista” para grudar e some com o scroll. */
+.site-chrome-head {
   position: sticky;
   top: 0;
   z-index: 40;
+  background: var(--header-bg);
+}
+.header {
+  background: var(--header-bg);
+  color: var(--header-fg);
+  position: relative;
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
 .header .wrap {
@@ -2055,26 +2062,20 @@ textarea { resize: vertical; min-height: 72px; }
     pointer-events: auto;
     touch-action: manipulation;
   }
+  /* Topbar está fora do wrapper sticky (Header.tsx) — rola fora sem JS.
+     Evita is-compact/display:none que mudava a altura do sticky e tremia. */
   .site-chrome-head {
     position: sticky;
     top: 0;
     z-index: 45;
     background: var(--header-bg);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
   .site-chrome-head .header {
     position: relative;
     top: auto;
-    box-shadow: none;
-  }
-  .site-chrome-head.is-compact {
     box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  }
-  .site-chrome-head.is-compact .topbar { display: none; }
-  .site-chrome-head.is-compact .header-row { padding-top: 6px; padding-bottom: 4px; }
-  .site-chrome-head .search {
-    position: sticky;
-    top: 0;
-    z-index: 2;
   }
   .delivery-bar {
     display: flex;
