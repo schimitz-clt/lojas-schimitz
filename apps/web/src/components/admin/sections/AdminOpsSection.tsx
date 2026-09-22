@@ -337,7 +337,7 @@ export function AdminOpsSection() {
                   className={`admin-chip${orderStatusFilter === key ? ' is-active' : ''}`}
                   onClick={() => selectOpsBucket(key)}
                 >
-                  {adminQueueBucketLabel(key)}: {ops?.orders?.buckets?.[key] ?? 0}
+                  {adminQueueBucketLabel(key)}: {ops ? (ops.orders?.buckets?.[key] ?? 0) : '—'}
                 </button>
               ))}
             </div>
