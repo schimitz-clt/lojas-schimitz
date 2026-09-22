@@ -13,6 +13,7 @@ import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
+import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
 import {
   parseHomeShelvesPayload,
   shelvesFromCatalog,
@@ -135,7 +136,7 @@ function HomeInner() {
           </p>
         </section>
         {err ? (
-          <div className="alert">API offline ou sem dados: {err}. Suba a API e rode o seed.</div>
+          <div className="alert" role="alert">{HOME_CATALOG_LOAD_ERROR}</div>
         ) : null}
         {loading ? <ProductGridSkeleton count={8} /> : null}
         {!loading && !err && products.length === 0 ? (
@@ -176,7 +177,7 @@ function HomeInner() {
       </section>
 
       {err ? (
-        <div className="alert">API offline ou sem dados: {err}. Suba a API e rode o seed.</div>
+        <div className="alert" role="alert">{HOME_CATALOG_LOAD_ERROR}</div>
       ) : null}
 
       {loading ? <ProductGridSkeleton count={8} /> : null}

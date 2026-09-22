@@ -7,6 +7,7 @@ import {
   pdpOfferPills,
   productDescriptionText,
 } from './pdp-offer';
+import { isMissingPdp, pdpBreadcrumbName } from './pdp-missing';
 import { interestFreeInstallmentClaim } from './pricing';
 
 assert.equal(productDescriptionText(null), '');
@@ -14,6 +15,17 @@ assert.equal(productDescriptionText(undefined), '');
 assert.equal(productDescriptionText('   '), '');
 assert.equal(productDescriptionText(123), '');
 assert.equal(productDescriptionText('Samsung Galaxy A54 5G\n\nTela 6,4"'), 'Samsung Galaxy A54 5G\n\nTela 6,4"');
+
+assert.equal(isMissingPdp(null, null), true);
+assert.equal(isMissingPdp({ name: 'TV' }, null), true);
+assert.equal(isMissingPdp(null, { slug: 'tv' }), true);
+assert.equal(isMissingPdp({ name: 'TV' }, { slug: '  ' }), true);
+assert.equal(isMissingPdp({ name: 'TV' }, { slug: 1 }), true);
+assert.equal(isMissingPdp({ name: 'TV' }, { slug: 'tv-50' }), false);
+assert.equal(pdpBreadcrumbName(''), 'Produto');
+assert.equal(pdpBreadcrumbName('   '), 'Produto');
+assert.equal(pdpBreadcrumbName(null), 'Produto');
+assert.equal(pdpBreadcrumbName('Ar-condicionado aiwa'), 'Ar-condicionado aiwa');
 
 const pills = pdpOfferPills();
 assert.equal(pills.length, 2);
@@ -45,6 +57,16 @@ assert.ok(pdp.includes('productDescriptionText'), 'PDP uses trimmed Admin descri
 
 const pdpPage = readFileSync(join(srcRoot, 'app/produto/[slug]/page.tsx'), 'utf8');
 assert.ok(pdpPage.includes('fetchPublicProduct'), 'PDP server page loads public product for SSR');
+assert.ok(pdpPage.includes('isMissingPdp'), 'missing PDP uses the miss helper');
+assert.ok(pdpPage.includes('notFound()'), 'unknown slug calls notFound');
+assert.ok(pdpPage.includes('pdpBreadcrumbName'), 'breadcrumb name comes from the catalog');
+assert.equal(pdpPage.includes('product?.name || slug'), false, 'raw slug is not the product name');
+const pdpBody = pdpPage.slice(pdpPage.indexOf('export default'));
+assert.ok(pdpBody.includes('notFound()'), 'page component 404s a missing product');
+assert.ok(
+  pdpBody.indexOf('notFound()') < pdpBody.indexOf('buildProductJsonLd('),
+  '404 happens before Product JSON-LD',
+);
 assert.ok(pdpPage.includes('initial='), 'PDP server page passes initial product to client');
 assert.ok(pdp.includes('pdpOfferPills'), 'PDP shows Pix 5% / 3x chips');
 assert.ok(pdp.includes('className="pdp-title"'), 'PDP keeps h1.pdp-title');

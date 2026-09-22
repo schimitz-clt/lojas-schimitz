@@ -1,9 +1,21 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, ValidateBy, type ValidationOptions } from 'class-validator';
+import { chatMessageValidationMessage } from './chat.intent';
+
+function IsChatMessage(options?: ValidationOptions): PropertyDecorator {
+  return ValidateBy(
+    {
+      name: 'isChatMessage',
+      validator: {
+        validate: (value: unknown) => chatMessageValidationMessage(value) === null,
+        defaultMessage: (args) => chatMessageValidationMessage(args?.value) || 'Mensagem vazia',
+      },
+    },
+    options,
+  );
+}
 
 export class ChatMessageDto {
-  @IsString()
-  @MinLength(1, { message: 'Mensagem vazia' })
-  @MaxLength(1200, { message: 'Mensagem muito longa (máx. 1200)' })
+  @IsChatMessage()
   message!: string;
 
   @IsOptional()

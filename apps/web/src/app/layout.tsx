@@ -4,6 +4,7 @@ import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
+import { shareImageMetadata } from '@/lib/og-image';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -20,6 +21,7 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   const s = await fetchStoreSettings();
   const base = siteOrigin();
+  const share = shareImageMetadata(s.ogImageUrl, base);
   return {
     title: { default: s.siteTitle, template: `%s | ${s.siteTitle}` },
     description: s.siteDescription,
@@ -32,13 +34,13 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       url: base,
       siteName: s.siteTitle,
-      ...(s.ogImageUrl ? { images: [{ url: s.ogImageUrl }] } : {}),
+      ...(share.imageUrl ? { images: [{ url: share.imageUrl }] } : {}),
     },
     twitter: {
-      card: s.ogImageUrl ? 'summary_large_image' : 'summary',
+      card: share.twitterCard,
       title: s.siteTitle,
       description: s.siteDescription,
-      ...(s.ogImageUrl ? { images: [s.ogImageUrl] } : {}),
+      ...(share.imageUrl ? { images: [share.imageUrl] } : {}),
     },
     appleWebApp: {
       capable: true,

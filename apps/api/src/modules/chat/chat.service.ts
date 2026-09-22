@@ -7,8 +7,9 @@ import { HANDOFF_MESSAGE, storeWhatsAppUrl } from './chat.facts';
 import {
   faqReply,
   isConversationId,
+  CATALOG_MISS_REPLY,
   noLlmFallbackReply,
-  parseLlmJson,
+  parseGroundedLlmReply,
 } from './chat.intent';
 import { appendTurn, getConversation, type ChatTurn } from './chat.memory';
 import { buildSystemPrompt } from './chat.prompt';
@@ -122,13 +123,12 @@ export class ChatService {
     const products = collectProducts(toolResults);
 
     let llmUsed = false;
-    let generated: { reply: string; handoff: boolean } | null = null;
+    let generated: { reply: string; handoff: boolean; keptModelText: boolean } | null = null;
     if (plan.useLlm && llmAllowed(mode, hasLlm)) {
       try {
         const provider = createAiProvider();
         if (provider) {
           generated = await this.callLlm(provider, history, message, products, toolResults);
-          if (generated) llmUsed = true;
         }
       } catch (err) {
         this.log.warn(`LLM falhou, usando fallback: ${err instanceof Error ? err.message : err}`);
@@ -137,9 +137,14 @@ export class ChatService {
 
     let reply: string;
     let handoff = false;
-    if (generated) {
+    if (generated?.keptModelText) {
+      llmUsed = true;
       handoff = generated.handoff;
       reply = handoff && !/wa\.me\//i.test(generated.reply) ? `${generated.reply}\n\nWhatsApp: ${wa}` : generated.reply;
+    } else if (generated) {
+      llmUsed = false;
+      handoff = false;
+      reply = generated.reply;
     } else {
       reply = this.deterministicReply(message, plan.intent, toolResults, products);
     }
@@ -224,7 +229,7 @@ export class ChatService {
     if (intent === 'get_product' || intent === 'availability') {
       const miss = toolResults.find((t) => t.code === 'NOT_FOUND');
       if (miss && !products.length) {
-        return 'Não encontrei esse produto no catálogo atual. Não invento item, preço nem estoque. Tente outro nome/modelo ou veja /produtos.';
+        return CATALOG_MISS_REPLY;
       }
     }
 
@@ -268,7 +273,7 @@ export class ChatService {
     message: string,
     products: ChatProductHit[],
     priorTools: ToolResult[],
-  ): Promise<{ reply: string; handoff: boolean } | null> {
+  ): Promise<{ reply: string; handoff: boolean; keptModelText: boolean } | null> {
     const toolNote = priorTools.length
       ? `\nRESULTADOS DAS TOOLS (fonte única; não invente além disto):\n${JSON.stringify(
           priorTools.map((t) => ({ name: t.name, code: t.code, data: t.data })),
@@ -289,6 +294,7 @@ export class ChatService {
       maxTokens: 400,
     });
 
+    const followup: ToolResult[] = [];
     if (completion.toolCalls.length) {
       const ctx: ToolContext = { prisma: this.prisma, shipping: this.shipping, userId: null };
       messages.push({
@@ -298,6 +304,7 @@ export class ChatService {
       for (const call of completion.toolCalls.slice(0, 3)) {
         // Private tools are not in toolsExposedToLlm; still deny if a model hallucinates the name.
         const result = await executeTool(call.name, call.arguments, ctx);
+        followup.push(result);
         messages.push({
           role: 'tool',
           name: call.name,
@@ -313,6 +320,7 @@ export class ChatService {
       });
     }
 
-    return parseLlmJson(completion.content || '');
+    const productCount = collectProducts([...priorTools, ...followup]).length;
+    return parseGroundedLlmReply(completion.content || '', productCount);
   }
 }

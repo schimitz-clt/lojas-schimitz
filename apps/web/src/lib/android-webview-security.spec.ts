@@ -31,5 +31,10 @@ assert.ok(manifest.includes('usesCleartextTraffic="false"'), 'cleartext off');
 assert.ok(manifest.includes('android.intent.action.GET_CONTENT'), 'manifest queries GET_CONTENT for picker');
 assert.ok(!manifest.includes('READ_EXTERNAL_STORAGE'), 'no broad storage permission for file chooser');
 assert.ok(!manifest.includes('READ_MEDIA_IMAGES'), 'no READ_MEDIA_IMAGES — SAF picker only');
+assert.ok(
+  /LojasSchimitzApp\/\$\{BuildConfig\.VERSION_NAME\}/.test(kotlin),
+  'WebView UA uses BuildConfig.VERSION_NAME',
+);
+assert.equal(kotlin.includes('LojasSchimitzApp/1.0.3'), false, 'UA is not hardcoded 1.0.3');
 
 console.log('android-webview-security tests ok');

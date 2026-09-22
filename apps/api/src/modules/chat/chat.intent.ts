@@ -167,6 +167,47 @@ export function isConversationId(value?: string): value is string {
   return Boolean(value && UUID_RE.test(value));
 }
 
+/** Deterministic catalog miss — do not invent item, price, or stock. */
+export const CATALOG_MISS_REPLY =
+  'Não encontrei esse produto no catálogo atual. Não invento item, preço nem estoque. Tente outro nome/modelo ou veja /produtos.';
+
+/**
+ * True when an LLM sentence states a monetary price or a stock position.
+ * PIX percentages and installment policy (5%, 3x) are not prices.
+ */
+export function llmReplyStatesPriceOrStock(reply: string): boolean {
+  const t = reply || '';
+  if (/R\$\s*\d/.test(t)) return true;
+  if (/\b\d{1,3}(?:\.\d{3})+,\d{2}\b/.test(t)) return true;
+  if (/\b\d+,\d{2}\b/.test(t)) return true;
+  if (/\b\d[\d.\s]{0,12}\s*reais\b/i.test(t)) return true;
+  if (/\b(?:custa|pre[cç]o(?:\s+de)?|por\s+apenas|sai\s+por)\s+(?:r\$\s*)?\d{2,}\b/i.test(t)) return true;
+  if (/\bestoque\b/i.test(t)) return true;
+  if (/\besgotad[oa]s?\b/i.test(t)) return true;
+  if (/\b\d+\s+unidades?\b/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * When tool results contain no products, drop an LLM sentence that states a price or stock.
+ * Keeps other sentences (policies, “não sei”) unchanged.
+ */
+export function guardUngroundedCatalogReply(
+  parsed: { reply: string; handoff: boolean } | null,
+  productCount: number,
+): { reply: string; handoff: boolean; keptModelText: boolean } | null {
+  if (!parsed) return null;
+  if (productCount > 0 || !llmReplyStatesPriceOrStock(parsed.reply)) {
+    return { reply: parsed.reply, handoff: parsed.handoff, keptModelText: true };
+  }
+  return { reply: CATALOG_MISS_REPLY, handoff: false, keptModelText: false };
+}
+
+/** parseLlmJson + ground-price guard. productCount is the number of catalog hits in tool results. */
+export function parseGroundedLlmReply(raw: string, productCount: number) {
+  return guardUngroundedCatalogReply(parseLlmJson(raw), productCount);
+}
+
 export function parseLlmJson(raw: string): { reply: string; handoff: boolean } | null {
   if (!raw) return null;
   let text = raw.trim();
@@ -184,8 +225,20 @@ export function parseLlmJson(raw: string): { reply: string; handoff: boolean } |
   }
 }
 
-/** Max length after sanitize (aligned with ChatMessageDto @MaxLength). */
+/** Max length after sanitize (aligned with POST /chat). */
 export const CHAT_MESSAGE_MAX_LENGTH = 1200;
+
+/**
+ * One message for POST /chat. Empty/missing is only "vazia"; over-long is only "muito longa".
+ * Non-strings (empty JSON body) are empty, not both.
+ */
+export function chatMessageValidationMessage(
+  value: unknown,
+): 'Mensagem vazia' | 'Mensagem muito longa (máx. 1200)' | null {
+  if (typeof value !== 'string' || value.length < 1) return 'Mensagem vazia';
+  if (value.length > CHAT_MESSAGE_MAX_LENGTH) return 'Mensagem muito longa (máx. 1200)';
+  return null;
+}
 
 /**
  * Basic prompt-injection hygiene for user chat text.

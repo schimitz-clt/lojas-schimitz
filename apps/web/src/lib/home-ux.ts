@@ -109,6 +109,9 @@ export function deliveryBarCopy(input: {
   };
 }
 
+/** Customer-facing home catalog failure. No operator/seed instructions. */
+export const HOME_CATALOG_LOAD_ERROR = 'Não foi possível carregar os produtos agora.';
+
 /** Light path to the existing address form — login first when there is no session. */
 export function deliveryAddressHref(loggedIn: boolean): string {
   return loggedIn ? '/conta/dados' : accountLoginHref('/conta/dados');
