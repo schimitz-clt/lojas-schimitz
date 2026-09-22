@@ -10,6 +10,7 @@ import {
   parseSort,
 } from './catalog.query';
 import { isPublicSellerVisible, publicSellerShape } from '../sellers/sellers.constants';
+import { demoProductWhere, sellableProductWhere } from './demo-product';
 
 /** Soft-merged duplicate slugs → canonical active product (never invent SKUs). */
 const PRODUCT_SLUG_ALIASES: Record<string, string> = {
@@ -51,7 +52,8 @@ export class CatalogController {
     const where = buildProductWhere({ q, category, minPrice, maxPrice, seller });
     const orderBy = buildProductOrderBy(sortKey);
 
-    const [data, total] = await this.prisma.$transaction([
+    // total = catálogo de navegação (active, inclui DEMO). sellableTotal = active && !isDemo.
+    const [data, total, sellableTotal, demoTotal] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
         // List cards need primary image + stock + seller — avoid over-fetching description/dims/all images.
@@ -62,6 +64,7 @@ export class CatalogController {
           price: true,
           compareAtPrice: true,
           badge: true,
+          isDemo: true,
           ratingAvg: true,
           ratingCount: true,
           active: true,
@@ -77,10 +80,14 @@ export class CatalogController {
         take,
       }),
       this.prisma.product.count({ where }),
+      this.prisma.product.count({ where: sellableProductWhere(where) }),
+      this.prisma.product.count({ where: demoProductWhere(where) }),
     ]);
     return ok({
       items: serializePublicProducts(data),
       total,
+      sellableTotal,
+      demoTotal,
       page: pageNum,
       pageSize: take,
       sort: sortKey,

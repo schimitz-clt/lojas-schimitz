@@ -185,9 +185,25 @@ const FIXTURE = [
   assert.ok(controller.includes("@Post('products/batch')"));
   const schema = readFileSync(join(__dirname, '../../../../../prisma/schema.prisma'), 'utf8');
   assert.ok(schema.includes('@@index([categoryId])'));
+  assert.ok(schema.includes('isDemo'));
+  assert.ok(service.includes('isDemo: false'));
   assert.ok(!/^\s+ean\s/m.test(schema));
   assert.ok(!/^\s+gtin\s/m.test(schema));
   console.log('catalog-csv: no wipe + category index — PASSOU');
+}
+
+{
+  const csv = 'sku;nome;preco;isDemo;demo\nREAL-CSV-1;Produto comercial;19,90;true;sim\n';
+  const parsed = validateCatalogCsv(csv);
+  assert.equal(parsed.fileError, null);
+  assert.equal(parsed.rows.length, 1);
+  assert.equal(parsed.rows[0].sku, 'REAL-CSV-1');
+  assert.equal(parsed.rows[0].price, 19.9);
+  assert.equal('isDemo' in parsed.rows[0], false);
+  const plan = planCatalogUpserts(parsed.rows, new Set());
+  assert.equal(plan.actions[0]?.kind, 'create');
+  assert.equal(JSON.stringify(plan).includes('"isDemo"'), false);
+  console.log('catalog-csv: coluna isDemo ignorada — PASSOU');
 }
 
 console.log('catalog-csv.spec ok');

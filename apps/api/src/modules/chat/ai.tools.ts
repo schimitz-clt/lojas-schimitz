@@ -156,6 +156,7 @@ export function toProductHit(p: {
   price: unknown;
   compareAtPrice?: unknown;
   badge?: string | null;
+  isDemo?: boolean | null;
   images?: { url?: string | null; position?: number }[];
   inventory?: { qtyOnHand: number; qtyReserved: number } | null;
 }): ChatProductHit {
@@ -163,6 +164,7 @@ export function toProductHit(p: {
   const onHand = p.inventory?.qtyOnHand ?? 0;
   const reserved = p.inventory?.qtyReserved ?? 0;
   const image = rewritePublicUploadUrl(primaryImageUrl(p.images));
+  const isDemo = p.isDemo === true;
   return {
     id: p.id,
     name: p.name,
@@ -171,7 +173,8 @@ export function toProductHit(p: {
     pixPrice: pixChargeAmount(price),
     compareAtPrice: p.compareAtPrice == null ? null : Number(p.compareAtPrice),
     badge: p.badge ?? null,
-    inStock: availableQty(onHand, reserved) > 0,
+    inStock: !isDemo && availableQty(onHand, reserved) > 0,
+    isDemo,
     path: `/produto/${p.slug}`,
     image,
   };
@@ -184,6 +187,7 @@ const PRODUCT_SELECT = {
   price: true,
   compareAtPrice: true,
   badge: true,
+  isDemo: true,
   images: { orderBy: { position: 'asc' as const }, take: 1, select: { url: true, position: true } },
   inventory: { select: { qtyOnHand: true, qtyReserved: true } },
 };

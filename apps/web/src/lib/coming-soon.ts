@@ -2,6 +2,8 @@
  * Home "Em breve" teaser — marketing only.
  * These are not SKUs: no price, no stock, no PDP, no cart.
  * Hide as soon as GET /products reports at least one active product.
+ * Active includes demonstrative SKUs (isDemo). They are a navigation catalog.
+ * Sellable stock is active && !isDemo and is not what this shelf counts.
  */
 
 export const COMING_SOON_HIDE_WHEN_ACTIVE_AT_LEAST = 1;

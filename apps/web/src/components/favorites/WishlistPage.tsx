@@ -16,6 +16,7 @@ import {
   type WishlistProductLike,
 } from '@/lib/wishlist-ui';
 import { ACCOUNT_HUB_TITLE } from '@/lib/account-menu';
+import { isDemoCatalogProduct } from '@/lib/demo-catalog';
 
 export function WishlistPage() {
   const { items, count, loggedIn, loading, refresh, remove } = useFavorites();
@@ -35,7 +36,7 @@ export function WishlistPage() {
 
   async function addToCart(product: WishlistProductLike) {
     const id = String(product.id || '');
-    if (!id || isWishlistOutOfStock(product) || addingId) return;
+    if (!id || isDemoCatalogProduct(product) || isWishlistOutOfStock(product) || addingId) return;
     setAddingId(id);
     setErr('');
     try {

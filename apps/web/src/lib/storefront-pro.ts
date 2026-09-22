@@ -62,10 +62,12 @@ export type StickyBuyState = {
   outOfStock: boolean;
   adding: boolean;
   addedToBag: boolean;
+  demo?: boolean;
 };
 
 /** Mobile sticky CTA label — Portuguese, deterministic. */
 export function stickyBuyLabel(state: StickyBuyState): string {
+  if (state.demo) return 'Não disponível';
   if (state.outOfStock) return 'Indisponível';
   if (state.adding) return 'Adicionando...';
   if (state.addedToBag) return 'Ir para a sacola';
@@ -75,10 +77,12 @@ export function stickyBuyLabel(state: StickyBuyState): string {
 export type BuyNowState = {
   outOfStock: boolean;
   adding: boolean;
+  demo?: boolean;
 };
 
 /** Secondary PDP CTA — outlined, under “Adicionar à sacola”. */
 export function buyNowLabel(state: BuyNowState): string {
+  if (state.demo) return 'Não disponível';
   if (state.outOfStock) return 'Indisponível';
   if (state.adding) return 'Adicionando...';
   return 'Comprar agora';

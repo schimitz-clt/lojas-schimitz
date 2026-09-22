@@ -27,6 +27,7 @@ import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/Pro
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import type { Product } from '@/components/ProductCard';
+import { DEMO_PURCHASE_BLOCK_MESSAGE, DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 import {
   pdpBenefitTrustItems,
   pdpCompactTrustChips,
@@ -54,6 +55,7 @@ export type ProductDetail = {
   seller?: { id: string; name: string; slug: string } | null;
   category?: { slug: string; name: string } | null;
   sku?: string | null;
+  isDemo?: boolean | null;
 };
 
 type Review = {
@@ -202,7 +204,7 @@ export default function ProductPage({
   }, [slug, loadReviews, loadEligibility]);
 
   async function postToCart(): Promise<boolean> {
-    if (!p || adding) return false;
+    if (!p || adding || isDemoCatalogProduct(p)) return false;
     setAdding(true);
     setErr('');
     try {
@@ -262,9 +264,10 @@ export default function ProductPage({
   if (err && !p) return <div className="alert" style={{ marginTop: 24 }}>{err}</div>;
   if (!p) return <PdpSkeleton />;
 
+  const demo = isDemoCatalogProduct(p);
   const stock = resolveProductStock(p);
   const urgency = pdpLowStockUrgency(stock);
-  const stockLabel = pdpStockLine(stock);
+  const stockLabel = demo ? 'Catálogo demonstrativo — sem venda' : pdpStockLine(stock);
   const trustChips = pdpCompactTrustChips(p.seller?.name, pdpPriceTrustLines());
   const benefitTrust = pdpBenefitTrustItems().filter((item) => item.id === 'frete');
   const avg = Number(p.ratingAvg ?? 0);
@@ -275,6 +278,7 @@ export default function ProductPage({
   const highlight = pixHighlight(price);
   const sharePix = pdpSharePixLabel(price);
   const outOfStock = stock != null && stock <= 0;
+  const buyBlocked = demo || outOfStock;
   const description = productDescriptionText(p.description);
   const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
   const offerPills = pdpOfferPills();
@@ -399,6 +403,11 @@ export default function ProductPage({
             {stockLabel}
           </p>
 
+          {demo ? (
+            <p className="pdp-demo-note" role="status">
+              {DEMO_SEAL_LABEL}. {DEMO_PURCHASE_BLOCK_MESSAGE}
+            </p>
+          ) : null}
           {msg && !addedToBag ? <p className="ok">{msg}</p> : null}
           {err ? <p className="alert">{err}</p> : null}
 
@@ -417,24 +426,24 @@ export default function ProductPage({
           ) : null}
 
           <div className="actions pdp-actions">
-            {addedToBag && !outOfStock ? (
+            {addedToBag && !buyBlocked ? (
               <Link className="btn pdp-cta-primary" href="/carrinho">
                 Ir para a sacola
               </Link>
             ) : (
-              <button className="btn pdp-cta-primary" onClick={add} disabled={outOfStock || adding}>
-                {outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
+              <button className="btn pdp-cta-primary" onClick={add} disabled={buyBlocked || adding}>
+                {demo ? 'Não disponível' : outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
               </button>
             )}
             <button
               className="btn pdp-cta-buy-now"
               type="button"
               onClick={buyNow}
-              disabled={outOfStock || adding}
+              disabled={buyBlocked || adding}
             >
-              {buyNowLabel({ outOfStock, adding })}
+              {buyNowLabel({ outOfStock, adding, demo })}
             </button>
-            {addedToBag && !outOfStock ? (
+            {addedToBag && !buyBlocked ? (
               <>
                 <button
                   className="btn ghost"
@@ -571,22 +580,22 @@ export default function ProductPage({
           </div>
         </div>
         <div className="pdp-sticky-ctas">
-          {addedToBag && !outOfStock ? (
+          {addedToBag && !buyBlocked ? (
             <Link className="btn" href="/carrinho">
               {stickyBuyLabel({ outOfStock: false, adding: false, addedToBag: true })}
             </Link>
           ) : (
-            <button className="btn" type="button" onClick={add} disabled={outOfStock || adding}>
-              {stickyBuyLabel({ outOfStock, adding, addedToBag: false })}
+            <button className="btn" type="button" onClick={add} disabled={buyBlocked || adding}>
+              {stickyBuyLabel({ outOfStock, adding, addedToBag: false, demo })}
             </button>
           )}
           <button
             className="btn pdp-cta-buy-now"
             type="button"
             onClick={buyNow}
-            disabled={outOfStock || adding}
+            disabled={buyBlocked || adding}
           >
-            {buyNowLabel({ outOfStock, adding })}
+            {buyNowLabel({ outOfStock, adding, demo })}
           </button>
         </div>
       </div>

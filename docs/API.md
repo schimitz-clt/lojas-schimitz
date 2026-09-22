@@ -23,14 +23,14 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | GET | `/me/loyalty` | user (SCHIMITZ+ saldo + extrato) |
 | GET/POST/PATCH/DELETE | `/me/addresses` | user |
 | GET | `/categories` | público |
-| GET | `/products` `?q=&category=&seller=&minPrice=&maxPrice=&sort=&page=&pageSize=` → items com `stock`, `image`, `imageUrl` (+ nested images/inventory/seller). Só produtos de vendedor `active`. `seller` = slug público | público |
+| GET | `/products` `?q=&category=&seller=&minPrice=&maxPrice=&sort=&page=&pageSize=` → items com `stock`, `image`, `imageUrl`, `isDemo` (+ nested images/inventory/seller). `total` = ativos da navegação (inclui DEMO). `sellableTotal` = active && !isDemo. `demoTotal` = active && isDemo. Só produtos de vendedor `active`. `seller` = slug público | público |
 | GET | `/products/:slug` → mesmo shape (stock = disponível; image = URL primária). 404 se vendedor não estiver `active` | público |
 | GET | `/sellers` → `[{ id, name, slug, productCount }]` vendedores **active** (sem PII / comissão / dono) | público |
 | GET/DELETE | `/cart` | user ou guest — `coupon`, `couponError`, `discount`, `total` quando um código está persistido |
 | POST/PATCH/DELETE | `/cart/items` | user ou guest |
 | POST | `/cart/coupon` body `{ code }` — valida e persiste no carrinho (idempotente) | user ou guest |
 | DELETE | `/cart/coupon` — remove o cupom da sacola | user ou guest |
-| POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também) | user |
+| POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também); **400 `DEMO_NOT_PURCHASABLE`** se houver item `isDemo` (não reserva estoque). O mesmo código bloqueia `POST /cart/items` e a intenção de pagamento | user |
 | GET | `/orders/:publicId` | user — inclui `marketplaceSplit: { active, bricksPublicKey }` (public key TEST- do seller só no sandbox; sem tokens) |
 | POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |
 | POST | `/shipping/quote` body `{ cep, subtotal }` | user |
@@ -49,6 +49,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | PATCH | `/admin/reviews/:id` body `{ status: "published"|"hidden" }` | admin |
 | DELETE | `/admin/reviews/:id` | admin |
 | GET | `/admin/orders` `?status=` (OrderStatus ou bucket `problems`) `&q=` (publicId prefix / e-mail / nome; ≥3 ou SCH-…; take≤50, throttle) — sem `q` take 100; inclui `user.phone`; `/admin/products` `/admin/categories` | admin |
+| GET | `/admin/products/catalog-counts` → `{ total, demo, real, sellable }` com `sellable = active && !isDemo` | admin |
 | GET | `/admin/reports/sales` `?from=&to=` (YYYY-MM-DD) → resumo, byStatus, byDay, bySeller, topProducts, byPaymentMethod | admin |
 | POST | `/admin/uploads` multipart `file` (jpg/png/webp ≤15MB; magic-bytes; erros `UPLOAD_*`) → `{ url, filename }` (url apex se SITE_URL/APP_URL) | admin |
 | POST | `/admin/products` body `{ name, price, description?, sku?, stock?, categoryId?, sellerId?, active?, imageUrl?, compareAtPrice?, badge? }` | admin |

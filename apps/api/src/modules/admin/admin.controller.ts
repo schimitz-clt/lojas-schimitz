@@ -132,8 +132,12 @@ export class AdminController {
       salesTodayAgg,
       salesLast30Agg,
     ] = await Promise.all([
-      this.prisma.inventory.count({ where: { qtyOnHand: { lte: threshold } } }),
-      this.prisma.inventory.count({ where: { qtyOnHand: { lte: 0 } } }),
+      this.prisma.inventory.count({
+        where: { qtyOnHand: { lte: threshold }, product: { isDemo: false } },
+      }),
+      this.prisma.inventory.count({
+        where: { qtyOnHand: { lte: 0 }, product: { isDemo: false } },
+      }),
       this.prisma.payment.count({ where: { status: 'pending' } }),
       this.prisma.product.findMany({
         select: {
@@ -504,6 +508,14 @@ export class AdminController {
     @CurrentUser() user: { sub?: string },
   ) {
     return ok(await this.productsService.applyBatch(dto, user?.sub));
+  }
+
+  @Get('products/catalog-counts')
+  @ApiOperation({
+    summary: 'Totais DEMO vs vendável (sellable = active && !isDemo). Não mistura com estoque real.',
+  })
+  async productCatalogCounts() {
+    return ok(await this.productsService.catalogCounts());
   }
 
   @Get('products')

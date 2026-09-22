@@ -348,6 +348,7 @@ export type ChatProductHit = {
   id?: string;
   image?: string | null;
   pixPrice?: number;
+  isDemo?: boolean;
 };
 
 export type ChatReply = {

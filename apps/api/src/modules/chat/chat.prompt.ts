@@ -11,7 +11,11 @@ export function formatCatalogForPrompt(products: ChatProductHit[]): string {
   }
   return products
     .map((p) => {
-      const stock = p.inStock ? 'em estoque' : 'sem estoque no momento';
+      const stock = p.isDemo
+        ? 'catálogo demonstrativo — não vendável'
+        : p.inStock
+          ? 'em estoque'
+          : 'sem estoque no momento';
       const badge = p.badge ? ` · selo ${p.badge}` : '';
       const compare = p.compareAtPrice ? ` (de ${brl(p.compareAtPrice)})` : '';
       const pix = p.pixPrice != null ? ` · PIX ${brl(p.pixPrice)}` : '';

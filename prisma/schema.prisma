@@ -218,6 +218,8 @@ model Product {
   ratingCount    Int               @default(0)
   badge          String?
   active         Boolean           @default(true)
+  /** Vitrine demonstrativa. Nunca entra em pedido, reserva ou cobrança. Default false no import comercial. */
+  isDemo         Boolean           @default(false)
   widthCm        Decimal?          @db.Decimal(8, 2)
   heightCm       Decimal?          @db.Decimal(8, 2)
   lengthCm       Decimal?          @db.Decimal(8, 2)
@@ -237,6 +239,8 @@ model Product {
   @@index([sellerId])
   @@index([active])
   @@index([categoryId])
+  @@index([isDemo])
+  @@index([active, isDemo])
 }
 
 model ProductImage {

@@ -56,6 +56,20 @@ export class AdminProductsService {
     private readonly audit?: AuditService,
   ) {}
 
+  /**
+   * Totais do cadastro. sellable = active && !isDemo (mercadoria navegável para venda).
+   * demo não entra nessa conta mesmo quando active.
+   */
+  async catalogCounts() {
+    const [total, demo, real, sellable] = await Promise.all([
+      this.prisma.product.count(),
+      this.prisma.product.count({ where: { isDemo: true } }),
+      this.prisma.product.count({ where: { isDemo: false } }),
+      this.prisma.product.count({ where: { active: true, isDemo: false } }),
+    ]);
+    return { total, demo, real, sellable };
+  }
+
   async get(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -71,7 +85,7 @@ export class AdminProductsService {
       return this.prisma.product.findMany({
         where:
           input.lowStock != null
-            ? { inventory: { qtyOnHand: { lte: input.lowStock } } }
+            ? { isDemo: false, inventory: { qtyOnHand: { lte: input.lowStock } } }
             : undefined,
         include: productInclude,
         orderBy:
@@ -277,6 +291,7 @@ export class AdminProductsService {
               dto.compareAtPrice == null ? null : new Prisma.Decimal(dto.compareAtPrice),
             badge: dto.badge?.trim() || null,
             active,
+            isDemo: false,
             inventory: {
               create: { qtyOnHand: stock, qtyReserved: 0 },
             },
@@ -521,6 +536,7 @@ export class AdminProductsService {
             compareAtPrice:
               row.compareAtPrice == null ? null : new Prisma.Decimal(row.compareAtPrice.toFixed(2)),
             active: row.active ?? true,
+            isDemo: false,
             weightKg: row.weightKg == null ? null : new Prisma.Decimal(row.weightKg.toFixed(3)),
             widthCm: row.widthCm == null ? null : new Prisma.Decimal(row.widthCm.toFixed(2)),
             heightCm: row.heightCm == null ? null : new Prisma.Decimal(row.heightCm.toFixed(2)),

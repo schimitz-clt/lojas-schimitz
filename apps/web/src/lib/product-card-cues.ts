@@ -27,7 +27,9 @@ export function productCardAddLabel(opts: {
   outOfStock: boolean;
   adding: boolean;
   added: boolean;
+  demo?: boolean;
 }): string {
+  if (opts.demo) return 'Não disponível';
   if (opts.outOfStock) return 'Ver detalhes';
   if (opts.adding) return 'Adicionando…';
   if (opts.added) return '✓ Na sacola';

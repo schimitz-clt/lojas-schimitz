@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Fone Bluetooth com estojo">
+  <rect width="800" height="800" fill="#1a2230"/>
+  <rect x="48" y="48" width="704" height="704" rx="36" fill="none" stroke="#7eb6ff" stroke-opacity="0.35" stroke-width="2"/>
+  <path d="M230 360 v-80 a170 170 0 0 1 340 0 v80" fill="none" stroke="#7eb6ff" stroke-width="28"/><rect x="180" y="340" width="90" height="150" rx="24" fill="#7eb6ff"/><rect x="530" y="340" width="90" height="150" rx="24" fill="#7eb6ff"/>
+  <text x="400" y="640" text-anchor="middle" fill="#f4f1ea" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Fone Bluetooth com estojo</text>
+  <text x="400" y="682" text-anchor="middle" fill="#7eb6ff" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="2">SÉRIE DEMO · DEMO-0017</text>
+</svg>

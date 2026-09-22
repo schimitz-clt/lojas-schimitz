@@ -16,6 +16,7 @@ import { mixedCartBlockMessagePt, isMixedSellerCart } from '@/lib/mixed-cart';
 import { CartCouponField } from '@/components/CartCouponField';
 import { cartDiscountAmount, cartPayableTotal } from '@/lib/cart-coupon';
 import { cartEmptyCopy, cartFreightNote, cartLinePriceView } from '@/lib/cart-ux';
+import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
 
 type CartItem = {
   id: string;
@@ -29,6 +30,7 @@ type CartItem = {
   stock?: number | null;
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string } | null;
+  isDemo?: boolean | null;
 };
 
 type Cart = {
@@ -252,6 +254,7 @@ export default function CartPage() {
   const loggedIn = Boolean(user);
   const checkoutHref = cartCheckoutHref(loggedIn);
   const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
+  const demoCart = cartHasDemoItem(cart.items);
   const emptyCopy = cartEmptyCopy();
   const freightNote = cartFreightNote();
 
@@ -265,6 +268,11 @@ export default function CartPage() {
       {mixedCart ? (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>
           {mixedCartBlockMessagePt(cart.items)}
+        </div>
+      ) : null}
+      {demoCart ? (
+        <div className="alert" role="alert" style={{ marginBottom: 12 }}>
+          {DEMO_PURCHASE_BLOCK_MESSAGE}
         </div>
       ) : null}
       {!hasItems ? (
@@ -480,7 +488,7 @@ export default function CartPage() {
                   <div className="cart-sticky-pix">{brl(pixSubtotal)} no PIX</div>
                 ) : null}
               </div>
-              {mixedCart ? (
+              {mixedCart || demoCart ? (
                 <button className="btn cart-checkout-btn" type="button" disabled>
                   {cartCheckoutLabel(loggedIn)}
                 </button>

@@ -35,6 +35,7 @@ import { structuredLog } from '../../common/structured-log';
 import { shouldSkipReservationExpiry } from './reservation-expiry-policy';
 import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item.serialize';
 import { assertSingleSellerCart, uniqueSellerIds } from '../marketplace-mp/mixed-cart';
+import { demoPurchaseRejection } from '../catalog/demo-product';
 import { customerMarketplaceSplitPreview } from '../marketplace-mp/mp-split-live';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
@@ -196,6 +197,11 @@ export class OrdersService {
     });
 
     if (!cart || cart.items.length === 0) throw new BadRequestException('Carrinho vazio');
+
+    for (const item of cart.items) {
+      const demoBlocked = demoPurchaseRejection(item.product);
+      if (demoBlocked) throw new BadRequestException(demoBlocked);
+    }
 
     // v2.1: one seller per order — always, even when split flags are off.
     assertSingleSellerCart(cart.items.map((i) => ({ sellerId: i.product.sellerId })));

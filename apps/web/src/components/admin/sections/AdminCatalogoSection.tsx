@@ -70,6 +70,7 @@ import {
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 import { AdminCatalogImportPanel } from '@/components/admin/sections/AdminCatalogImportPanel';
+import { catalogSplitCounts } from '@/lib/demo-catalog';
 import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
 import {
   DEFAULT_LOW_STOCK,
@@ -476,6 +477,11 @@ export function AdminCatalogoSection() {
         </div>
       </section>
 
+      <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+        Vendáveis (ativos, não demonstrativos): {catalogSplitCounts(products).sellable}. Demonstrativos:{' '}
+        {catalogSplitCounts(products).demo}. Reais no cadastro: {catalogSplitCounts(products).real}. O CSV comercial
+        não marca demonstrativo.
+      </p>
       <h3 id="admin-photo-queue" className="admin-section-heading">
         Produtos (
         {catalogPhotoFilter === 'needs_photo'
@@ -526,7 +532,7 @@ export function AdminCatalogoSection() {
         {visibleCatalogProducts.map((p) => {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
-          const isLow = onHand <= lowStockThreshold;
+          const isLow = !p.isDemo && onHand <= lowStockThreshold;
           const imgUrl = rewritePublicUploadUrl(p.images?.[0]?.url) || p.images?.[0]?.url;
           const isPlaceholderImg = productNeedsStorePhoto(imgUrl);
           const photoKind = productPhotoBadgeKind({
@@ -553,6 +559,7 @@ export function AdminCatalogoSection() {
               <div className="admin-product-row__main">
                 <div className="admin-product-row__title">
                   <b>{p.name}</b>
+                  {p.isDemo ? <AdminStatusChip label="Demonstrativo" tone="warn" /> : null}
                   <AdminProductActiveChip active={Boolean(p.active)} />
                   {photoLabel ? (
                     <AdminStatusChip label={photoLabel} tone="warn" />

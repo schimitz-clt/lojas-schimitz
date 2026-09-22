@@ -2,6 +2,8 @@
  * Pure CSV parse / validate / upsert planning for admin catalog import.
  * No database. No product rows are invented here — callers pass existing SKUs.
  * Import never deletes products. Empty cells do not erase stored values.
+ * A coluna isDemo / demo é ignorada de propósito: o CSV comercial nunca liga
+ * o catálogo demonstrativo. O seed DEMO é um script separado.
  */
 
 import { CREATE_IMAGE_URL_MAX, placeholderProductImageUrlError } from './admin-product-images';

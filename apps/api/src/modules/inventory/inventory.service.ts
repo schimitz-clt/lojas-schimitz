@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { availableQty } from './inventory.math';
+import { demoPurchaseRejection } from '../catalog/demo-product';
 
 @Injectable()
 export class InventoryService {
@@ -16,6 +17,7 @@ export class InventoryService {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
+    await this.rejectDemo(tx, productId);
     const inv = await tx.inventory.findUnique({ where: { productId } });
     if (!inv) {
       throw new BadRequestException({
@@ -62,6 +64,7 @@ export class InventoryService {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
+    await this.rejectDemo(tx, productId);
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyOnHand" = "qtyOnHand" - ${qty},
@@ -160,5 +163,15 @@ export class InventoryService {
         `Estoque não pode ser menor que a reserva atual (${reserved})`,
       );
     }
+  }
+
+  /** Demo nunca reserva nem confirma venda, mesmo com qtyOnHand alto. */
+  private async rejectDemo(tx: Prisma.TransactionClient, productId: string) {
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { isDemo: true, name: true },
+    });
+    const rejection = demoPurchaseRejection(product);
+    if (rejection) throw new BadRequestException(rejection);
   }
 }

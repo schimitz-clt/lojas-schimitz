@@ -55,6 +55,11 @@ assert.equal(activeProductCountFromCatalog([{ id: 'a' }]), 1);
 assert.equal(activeProductCountFromCatalog(null), 0);
 assert.equal(shouldShowComingSoonShelf(activeProductCountFromCatalog({ items: [], total: 0 })), true);
 assert.equal(shouldShowComingSoonShelf(activeProductCountFromCatalog({ items: [], total: 1 })), false);
+assert.equal(
+  shouldShowComingSoonShelf(activeProductCountFromCatalog({ items: [], total: 100, demoTotal: 100, sellableTotal: 0 })),
+  false,
+  '100 DEMO ativos escondem Em breve; vendável continua separado no payload',
+);
 
 const href = waLink(comingSoonWhatsAppText());
 assert.ok(href.startsWith('https://wa.me/'), 'CTA uses wa.me');
