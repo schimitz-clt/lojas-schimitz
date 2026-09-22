@@ -749,6 +749,83 @@ textarea { resize: vertical; min-height: 72px; }
 .home-shelf-prev { left: 4px; }
 .home-shelf-next { right: 4px; }
 .home-shelf-nav:hover { background: var(--yellow); }
+
+/* —— Em breve teaser (not a product card: no price, no PDP, no bag) —— */
+.home-shelf-rail > .soon-card {
+  flex: 0 0 min(68vw, 220px);
+  width: min(68vw, 220px);
+  max-width: 220px;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.soon-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--ink);
+}
+.soon-card-media {
+  position: relative;
+  aspect-ratio: 1;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f4f0 100%);
+  display: grid;
+  place-items: center;
+}
+.soon-card-media img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+.soon-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.soon-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 14px;
+}
+.soon-chip {
+  align-self: flex-start;
+  max-width: 100%;
+  background: var(--yellow-soft);
+  color: var(--ink);
+  border: 1px solid rgba(255, 209, 0, .55);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+  padding: 3px 8px;
+}
+.soon-card-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.soon-card-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
 .home-search-head { padding: 14px 0 6px; }
 .home-search-head h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.03em; }
 .home-benefits { margin: 28px 0 8px; }
@@ -2173,7 +2250,8 @@ textarea { resize: vertical; min-height: 72px; }
     margin: 0 -12px;
     padding: 4px 12px 14px;
   }
-  .home-shelf-rail > .pcard {
+  .home-shelf-rail > .pcard,
+  .home-shelf-rail > .soon-card {
     flex: 0 0 min(68vw, 220px);
     width: min(68vw, 220px);
   }
@@ -2320,7 +2398,8 @@ textarea { resize: vertical; min-height: 72px; }
   .pcard-cta { padding: 10px 14px 14px; }
   .pcard-btn { min-height: 44px; font-size: 14px; }
   .grid-rail { /* desktop keeps multi-column grid via .grid-vitrine */ }
-  .home-shelf-rail > .pcard {
+  .home-shelf-rail > .pcard,
+  .home-shelf-rail > .soon-card {
     flex: 0 0 220px;
     width: 220px;
   }
