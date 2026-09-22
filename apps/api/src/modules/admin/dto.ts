@@ -16,6 +16,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { IsRealProductImageUrl } from './is-real-product-image-url';
 
 /** Converte string/número; preserva null/undefined (limpar preço “de”). */
 function optionalMoney({ value }: { value: unknown }) {
@@ -71,11 +72,12 @@ export class AdminCreateProductDto {
   @IsBoolean()
   active?: boolean;
 
-  /** URL pública da imagem (upload local /uploads ou URL externa). */
+  /** URL pública da imagem (upload local /uploads ou URL externa). Placeholder CDN é recusado. */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUrl({ require_protocol: true })
   @MaxLength(2000)
+  @IsRealProductImageUrl()
   imageUrl?: string | null;
 
   /** Fotos extras (além da capa). Dedupes com imageUrl; máx. MAX_PRODUCT_IMAGES no service. */
@@ -84,6 +86,7 @@ export class AdminCreateProductDto {
   @IsString({ each: true })
   @IsUrl({ require_protocol: true }, { each: true })
   @MaxLength(2000, { each: true })
+  @IsRealProductImageUrl({ each: true })
   imageUrls?: string[];
 
   @IsOptional()
@@ -141,11 +144,12 @@ export class AdminUpdateProductDto {
   @IsBoolean()
   active?: boolean;
 
-  /** Real cover URL only. Empty/null is ignored — does not delete ProductImage rows. */
+  /** Real cover URL only. Empty/null is ignored — does not delete ProductImage rows. Placeholder CDN é recusado. */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUrl({ require_protocol: true })
   @MaxLength(2000)
+  @IsRealProductImageUrl()
   imageUrl?: string | null;
 
   @IsOptional()
@@ -598,6 +602,7 @@ export const MAX_PRODUCT_IMAGES = 10;
 export class AdminAddProductImageDto {
   @IsUrl({ require_protocol: true })
   @MaxLength(2000)
+  @IsRealProductImageUrl()
   url!: string;
 
   @IsOptional()
