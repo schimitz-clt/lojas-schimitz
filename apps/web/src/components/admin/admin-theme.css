@@ -1048,6 +1048,47 @@ button.admin-kpi:active {
   gap: 16px;
 }
 
+.admin-import-help {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.admin-import-report {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-import-errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.admin-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.admin-import-table th,
+.admin-import-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--admin-line);
+  vertical-align: middle;
+}
+
 .admin-catalog-form.admin-card-pro > .body,
 .admin-catalog-panel.admin-card-pro > .body {
   padding: 16px 18px;

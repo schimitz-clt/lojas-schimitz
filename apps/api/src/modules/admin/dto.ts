@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -194,7 +196,7 @@ export class AdminOrdersQueryDto {
   take?: number;
 }
 
-/** Query GET /admin/products?lowStock=5 */
+/** Query GET /admin/products. Sem q/page/pageSize/active a resposta continua um array. */
 export class AdminProductsQueryDto {
   /** Se informado, retorna só produtos com qtyOnHand <= este valor. */
   @IsOptional()
@@ -202,6 +204,74 @@ export class AdminProductsQueryDto {
   @IsInt()
   @Min(0)
   lowStock?: number;
+
+  /** Busca por SKU ou nome. Liga a resposta paginada. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (value === true || value === 'true' || value === '1' || value === 'ativo') return true;
+    if (value === false || value === 'false' || value === '0' || value === 'inativo') return false;
+    return value;
+  })
+  @IsBoolean()
+  active?: boolean;
+}
+
+/** CSV de catálogo. Validado antes de gravar. Não apaga produtos. */
+export class AdminImportProductsDto {
+  @IsString()
+  @MinLength(1, { message: 'CSV vazio. Nada foi gravado.' })
+  @MaxLength(450_000, { message: 'CSV grande demais. Divida o arquivo. Nada foi gravado.' })
+  csv!: string;
+}
+
+/** Lote explícito por SKU. Sem lista, nada é alterado. */
+export class AdminProductBatchDto {
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Informe ao menos um SKU. Nenhum produto foi alterado.' })
+  @ArrayMaxSize(200, { message: 'Máximo de 200 SKUs por lote. Nenhum produto foi alterado.' })
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  skus!: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @IsOptional()
+  @IsIn(['set', 'percent'])
+  priceMode?: 'set' | 'percent';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  priceValue?: number;
+
+  @IsOptional()
+  @IsIn(['set', 'delta'])
+  stockMode?: 'set' | 'delta';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  stockValue?: number;
 }
 
 /** Admin: criar cupom */

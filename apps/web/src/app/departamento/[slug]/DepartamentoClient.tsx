@@ -19,6 +19,8 @@ import {
   type FilterChip,
 } from '@/lib/storefront-pro';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
+import { CatalogPager } from '@/components/storefront/CatalogPager';
+import { CATALOG_PAGE_SIZE, catalogPageSearch, parseCatalogPage } from '@/lib/catalog-pagination';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number };
@@ -31,6 +33,7 @@ export default function DepartamentoClient() {
   const minPrice = sp.get('minPrice') || '';
   const maxPrice = sp.get('maxPrice') || '';
   const sort = parseCatalogSort(sp.get('sort') || 'newest');
+  const page = parseCatalogPage(sp.get('page'));
 
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -66,8 +69,10 @@ export default function DepartamentoClient() {
     if (minPrice) params.set('minPrice', minPrice);
     if (maxPrice) params.set('maxPrice', maxPrice);
     if (sort) params.set('sort', sort);
+    params.set('page', String(page));
+    params.set('pageSize', String(CATALOG_PAGE_SIZE));
     return `/products?${params.toString()}`;
-  }, [slug, minPrice, maxPrice, sort]);
+  }, [slug, minPrice, maxPrice, sort, page]);
 
   useEffect(() => {
     setLoading(true);
@@ -114,6 +119,19 @@ export default function DepartamentoClient() {
   function clearExtra() {
     router.push(`/departamento/${encodeURIComponent(slug)}`);
     setSheetOpen(false);
+  }
+
+  function goPage(next: number) {
+    const params = new URLSearchParams();
+    if (minPrice) params.set('minPrice', minPrice);
+    if (maxPrice) params.set('maxPrice', maxPrice);
+    if (sort && sort !== 'relevance') params.set('sort', sort);
+    const qs = catalogPageSearch(params, next);
+    router.push(
+      qs
+        ? `/departamento/${encodeURIComponent(slug)}?${qs}`
+        : `/departamento/${encodeURIComponent(slug)}`,
+    );
   }
 
   function clearChip(chip: FilterChip) {
@@ -297,6 +315,9 @@ export default function DepartamentoClient() {
             <ProductCard key={p.id} p={p} priority={i < 4} />
           ))}
         </div>
+      ) : null}
+      {!loading && !err ? (
+        <CatalogPager page={page} total={total} pageSize={CATALOG_PAGE_SIZE} onPage={goPage} />
       ) : null}
 
       <RecentlyViewedStrip />

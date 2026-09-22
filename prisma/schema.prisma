@@ -236,6 +236,7 @@ model Product {
 
   @@index([sellerId])
   @@index([active])
+  @@index([categoryId])
 }
 
 model ProductImage {

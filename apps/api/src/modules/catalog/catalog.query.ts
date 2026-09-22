@@ -34,6 +34,17 @@ export function parsePageSize(pageSize?: string): number {
   return Math.min(60, Math.max(1, Number(pageSize) || 24));
 }
 
+/** Page window used by GET /products. pageSize is capped at 60. */
+export function catalogListWindow(page?: string, pageSize?: string): {
+  page: number;
+  pageSize: number;
+  skip: number;
+} {
+  const take = parsePageSize(pageSize);
+  const pageNum = parsePage(page);
+  return { page: pageNum, pageSize: take, skip: (pageNum - 1) * take };
+}
+
 export function parseSort(sort?: string): ProductSort {
   const s = (sort || 'relevance').trim().toLowerCase();
   if (s === 'price_asc' || s === 'price_desc' || s === 'newest' || s === 'relevance') return s;

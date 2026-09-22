@@ -69,6 +69,7 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminCatalogImportPanel } from '@/components/admin/sections/AdminCatalogImportPanel';
 import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
 import {
   DEFAULT_LOW_STOCK,
@@ -123,6 +124,7 @@ export function AdminCatalogoSection() {
   return (
     <>
       <div className="admin-section-panel admin-catalog">
+      <AdminCatalogImportPanel />
       <section id="admin-product-form" className="admin-card-pro admin-catalog-form" style={{ marginTop: 0, marginBottom: 0 }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 12 }}>

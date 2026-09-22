@@ -6,8 +6,7 @@ import { serializePublicProduct, serializePublicProducts } from './product.seria
 import {
   buildProductOrderBy,
   buildProductWhere,
-  parsePage,
-  parsePageSize,
+  catalogListWindow,
   parseSort,
 } from './catalog.query';
 import { isPublicSellerVisible, publicSellerShape } from '../sellers/sellers.constants';
@@ -44,9 +43,10 @@ export class CatalogController {
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '24',
   ) {
-    const take = parsePageSize(pageSize);
-    const pageNum = parsePage(page);
-    const skip = (pageNum - 1) * take;
+    const listWindow = catalogListWindow(page, pageSize);
+    const take = listWindow.pageSize;
+    const pageNum = listWindow.page;
+    const skip = listWindow.skip;
     const sortKey = parseSort(sort);
     const where = buildProductWhere({ q, category, minPrice, maxPrice, seller });
     const orderBy = buildProductOrderBy(sortKey);
@@ -66,6 +66,7 @@ export class CatalogController {
           ratingCount: true,
           active: true,
           createdAt: true,
+          updatedAt: true,
           images: { orderBy: { position: 'asc' }, take: 1, select: { url: true, position: true, alt: true } },
           inventory: { select: { qtyOnHand: true, qtyReserved: true } },
           category: { select: { id: true, name: true, slug: true } },

@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
+import { AuditService } from '../../common/audit.service';
 import {
   AdminAddProductImageDto,
   AdminCreateProductDto,
+  AdminProductBatchDto,
   AdminUpdateProductDto,
   MAX_PRODUCT_IMAGES,
 } from './dto';
@@ -19,6 +21,24 @@ import {
 } from './admin-product-images';
 import { SellersService } from '../sellers/sellers.service';
 import { InventoryService } from '../inventory/inventory.service';
+import {
+  capCatalogErrors,
+  matchCategory,
+  planCatalogUpserts,
+  slugifyProductName,
+  validateCatalogCsv,
+  type CatalogRowError,
+  type ValidatedCatalogRow,
+} from './catalog-csv';
+import {
+  adminProductListWindow,
+  buildAdminProductSearchWhere,
+  isLegacyAdminProductList,
+  nextBatchPrice,
+  nextBatchStock,
+  planProductBatch,
+  type AdminProductListInput,
+} from './admin-products-query';
 
 const productInclude = {
   inventory: true,
@@ -33,6 +53,7 @@ export class AdminProductsService {
     private readonly prisma: PrismaService,
     private readonly sellers: SellersService,
     private readonly inventory: InventoryService,
+    private readonly audit?: AuditService,
   ) {}
 
   async get(id: string) {
@@ -44,18 +65,186 @@ export class AdminProductsService {
     return product;
   }
 
-  list(opts?: { lowStock?: number }) {
-    return this.prisma.product.findMany({
-      where:
-        opts?.lowStock != null
-          ? { inventory: { qtyOnHand: { lte: opts.lowStock } } }
-          : undefined,
-      include: productInclude,
-      orderBy:
-        opts?.lowStock != null
-          ? [{ inventory: { qtyOnHand: 'asc' } }, { name: 'asc' }]
-          : { createdAt: 'desc' },
+  list(opts?: AdminProductListInput) {
+    const input = opts || {};
+    if (isLegacyAdminProductList(input)) {
+      return this.prisma.product.findMany({
+        where:
+          input.lowStock != null
+            ? { inventory: { qtyOnHand: { lte: input.lowStock } } }
+            : undefined,
+        include: productInclude,
+        orderBy:
+          input.lowStock != null
+            ? [{ inventory: { qtyOnHand: 'asc' } }, { name: 'asc' }]
+            : { createdAt: 'desc' },
+      });
+    }
+    const listWindow = adminProductListWindow(input);
+    const where = buildAdminProductSearchWhere(input);
+    return this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: productInclude,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        skip: listWindow.skip,
+        take: listWindow.pageSize,
+      }),
+      this.prisma.product.count({ where }),
+    ]).then(([items, total]) => ({
+      items,
+      total,
+      page: listWindow.page,
+      pageSize: listWindow.pageSize,
+    }));
+  }
+
+  /**
+   * Upsert by SKU. Validates the whole file first.
+   * A bad row is skipped; other rows continue in their own transaction.
+   * Never deletes products or image rows. Empty cells do not clear stored values.
+   */
+  async importCsv(csv: string, actorId?: string) {
+    const validated = validateCatalogCsv(csv);
+    if (validated.fileError) {
+      return {
+        applied: false,
+        created: 0,
+        updated: 0,
+        failed: 0,
+        errors: [] as CatalogRowError[],
+        errorsTruncated: false,
+        fileError: validated.fileError,
+        deleted: 0,
+      };
+    }
+    const existing = await this.findSkus(validated.rows.map((r) => r.sku));
+    const plan = planCatalogUpserts(validated.rows, new Set(existing.keys()));
+    const errors: CatalogRowError[] = [...validated.errors, ...plan.errors];
+    if (!plan.actions.length) {
+      const capped = capCatalogErrors(errors);
+      return {
+        applied: false,
+        created: 0,
+        updated: 0,
+        failed: errors.length,
+        errors: capped.errors,
+        errorsTruncated: capped.truncated,
+        fileError: 'Nenhuma linha válida para gravar. Nada foi gravado.',
+        deleted: 0,
+      };
+    }
+
+    const categories = await this.prisma.category.findMany({
+      select: { id: true, slug: true, name: true },
     });
+    const needsCreate = plan.actions.some((a) => a.kind === 'create');
+    const sellerId = needsCreate ? await this.sellers.resolveActiveSellerId(undefined) : null;
+
+    let created = 0;
+    let updated = 0;
+    for (const action of plan.actions) {
+      try {
+        if (action.kind === 'create') {
+          await this.importCreate(action.row, categories, sellerId!);
+          created += 1;
+        } else {
+          await this.importUpdate(action.row, categories);
+          updated += 1;
+        }
+      } catch (e) {
+        errors.push({
+          line: action.row.line,
+          sku: action.row.sku,
+          message: this.rowErrorMessage(e),
+        });
+      }
+    }
+    const capped = capCatalogErrors(errors);
+    await this.audit?.log('catalog.import', {
+      actorId,
+      entity: 'Product',
+      meta: { created, updated, failed: errors.length, deleted: 0 },
+    });
+    return {
+      applied: created + updated > 0,
+      created,
+      updated,
+      failed: errors.length,
+      errors: capped.errors,
+      errorsTruncated: capped.truncated,
+      fileError: null as string | null,
+      deleted: 0,
+    };
+  }
+
+  /**
+   * Scoped batch: only the SKUs in the request. Unknown SKUs fail that SKU.
+   * Does not touch products outside the list and does not delete anything.
+   */
+  async applyBatch(dto: AdminProductBatchDto, actorId?: string) {
+    const plan = planProductBatch(dto);
+    if (!plan.ok) throw new BadRequestException(plan.error);
+    const found = await this.findSkus(plan.skus);
+    const errors: { sku: string; message: string }[] = [];
+    let updated = 0;
+    for (const sku of plan.skus) {
+      const hit = found.get(sku);
+      if (!hit) {
+        errors.push({ sku, message: 'SKU não encontrado. Nada foi criado.' });
+        continue;
+      }
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const product = await tx.product.findUnique({
+            where: { id: hit.id },
+            include: { inventory: true },
+          });
+          if (!product) throw new NotFoundException('SKU não encontrado. Nada foi criado.');
+          const data: Prisma.ProductUpdateInput = {};
+          if (plan.active !== undefined) data.active = plan.active;
+          if (plan.price) {
+            const current = Number(product.price);
+            const next = nextBatchPrice(current, plan.price.mode, plan.price.value);
+            if (next == null) throw new BadRequestException('Preço resultante inválido.');
+            data.price = new Prisma.Decimal(next.toFixed(2));
+          }
+          if (Object.keys(data).length) {
+            await tx.product.update({ where: { id: product.id }, data });
+          }
+          if (plan.stock) {
+            const onHand = product.inventory?.qtyOnHand ?? 0;
+            const next = nextBatchStock(onHand, plan.stock.mode, plan.stock.value);
+            if (next == null) throw new BadRequestException('Estoque resultante inválido.');
+            await this.inventory.setOnHandCas(tx, product.id, next);
+          }
+        });
+        updated += 1;
+      } catch (e) {
+        errors.push({ sku, message: this.rowErrorMessage(e) });
+      }
+    }
+    const capped = capCatalogErrors(errors);
+    await this.audit?.log('catalog.batch', {
+      actorId,
+      entity: 'Product',
+      meta: {
+        updated,
+        failed: errors.length,
+        skuCount: plan.skus.length,
+        active: plan.active ?? null,
+        price: plan.price ?? null,
+        stock: plan.stock ?? null,
+        deleted: 0,
+      },
+    });
+    return {
+      updated,
+      failed: errors.length,
+      errors: capped.errors,
+      errorsTruncated: capped.truncated,
+      deleted: 0,
+    };
   }
 
   async create(dto: AdminCreateProductDto) {
@@ -302,14 +491,158 @@ export class AdminProductsService {
     });
   }
 
+  private async importCreate(
+    row: ValidatedCatalogRow,
+    categories: { id: string; slug: string; name: string }[],
+    sellerId: string,
+  ) {
+    const category = matchCategory(row.category, categories);
+    if (category.kind === 'error') throw new BadRequestException(category.message);
+    const imageUrls = collectCreateImageUrls({ imageUrls: row.imageUrls }, MAX_PRODUCT_IMAGES);
+    assertNoPlaceholderProductImageUrls(imageUrls);
+    const base = row.slug || slugifyProductName(row.name || row.sku);
+    if (row.slug) {
+      const taken = await this.prisma.product.findUnique({ where: { slug: row.slug } });
+      if (taken) throw new ConflictException('Slug já cadastrado');
+    }
+    const slug = row.slug || (await this.uniqueSlug(base));
+    const name = row.name!.trim();
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.product.create({
+          data: {
+            sku: row.sku,
+            name,
+            slug,
+            description: row.description ?? '',
+            sellerId,
+            categoryId: category.kind === 'id' ? category.id : null,
+            price: new Prisma.Decimal(row.price!.toFixed(2)),
+            compareAtPrice:
+              row.compareAtPrice == null ? null : new Prisma.Decimal(row.compareAtPrice.toFixed(2)),
+            active: row.active ?? true,
+            weightKg: row.weightKg == null ? null : new Prisma.Decimal(row.weightKg.toFixed(3)),
+            widthCm: row.widthCm == null ? null : new Prisma.Decimal(row.widthCm.toFixed(2)),
+            heightCm: row.heightCm == null ? null : new Prisma.Decimal(row.heightCm.toFixed(2)),
+            lengthCm: row.lengthCm == null ? null : new Prisma.Decimal(row.lengthCm.toFixed(2)),
+            inventory: { create: { qtyOnHand: row.stock ?? 0, qtyReserved: 0 } },
+            ...(imageUrls.length
+              ? {
+                  images: {
+                    create: imageUrls.map((url, position) => ({
+                      url,
+                      alt: position === 0 ? name : `${name} — foto ${position + 1}`,
+                      position,
+                    })),
+                  },
+                }
+              : {}),
+          },
+        });
+      });
+    } catch (e) {
+      this.rethrowUnique(e, 'SKU ou slug já cadastrado');
+    }
+  }
+
+  private async importUpdate(
+    row: ValidatedCatalogRow,
+    categories: { id: string; slug: string; name: string }[],
+  ) {
+    const category = matchCategory(row.category, categories);
+    if (category.kind === 'error') throw new BadRequestException(category.message);
+    const imageUrls = row.imageUrls?.length
+      ? collectCreateImageUrls({ imageUrls: row.imageUrls }, MAX_PRODUCT_IMAGES)
+      : [];
+    assertNoPlaceholderProductImageUrls(imageUrls);
+
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({
+        where: { sku: row.sku },
+        include: { images: { orderBy: { position: 'asc' } } },
+      });
+      if (!existing) throw new NotFoundException('SKU não encontrado');
+      const data: Prisma.ProductUpdateInput = {};
+      if (row.name !== undefined) data.name = row.name;
+      if (row.description !== undefined) data.description = row.description;
+      if (row.price !== undefined) data.price = new Prisma.Decimal(row.price.toFixed(2));
+      if (row.compareAtPrice !== undefined) {
+        data.compareAtPrice = new Prisma.Decimal(row.compareAtPrice.toFixed(2));
+      }
+      if (row.active !== undefined) data.active = row.active;
+      if (row.weightKg !== undefined) data.weightKg = new Prisma.Decimal(row.weightKg.toFixed(3));
+      if (row.widthCm !== undefined) data.widthCm = new Prisma.Decimal(row.widthCm.toFixed(2));
+      if (row.heightCm !== undefined) data.heightCm = new Prisma.Decimal(row.heightCm.toFixed(2));
+      if (row.lengthCm !== undefined) data.lengthCm = new Prisma.Decimal(row.lengthCm.toFixed(2));
+      if (category.kind === 'id') data.category = { connect: { id: category.id } };
+      // Slug stays. Renaming must not invent a new PDP URL.
+
+      if (imageUrls.length) {
+        const have = new Set(existing.images.map((img) => img.url));
+        const toAdd = imageUrls.filter((url) => !have.has(url));
+        if (existing.images.length + toAdd.length > MAX_PRODUCT_IMAGES) {
+          throw new BadRequestException(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`);
+        }
+        let position =
+          existing.images.length === 0
+            ? 0
+            : Math.max(...existing.images.map((img) => img.position)) + 1;
+        for (const url of toAdd) {
+          await tx.productImage.create({
+            data: {
+              productId: existing.id,
+              url,
+              alt: `${(row.name ?? existing.name).trim()} — foto ${position + 1}`.slice(0, 160),
+              position,
+            },
+          });
+          position += 1;
+        }
+      }
+
+      if (row.stock !== undefined) {
+        await this.inventory.setOnHandCas(tx, existing.id, row.stock);
+      }
+      if (Object.keys(data).length) {
+        await tx.product.update({ where: { id: existing.id }, data });
+      }
+    });
+  }
+
+  private async findSkus(skus: string[]) {
+    const map = new Map<string, { id: string; sku: string }>();
+    const size = 200;
+    for (let i = 0; i < skus.length; i += size) {
+      const chunk = skus.slice(i, i + size);
+      if (!chunk.length) continue;
+      const rows = await this.prisma.product.findMany({
+        where: { sku: { in: chunk } },
+        select: { id: true, sku: true },
+      });
+      for (const row of rows) map.set(row.sku, row);
+    }
+    return map;
+  }
+
+  private rowErrorMessage(e: unknown): string {
+    if (
+      e instanceof BadRequestException ||
+      e instanceof ConflictException ||
+      e instanceof NotFoundException
+    ) {
+      const res = e.getResponse();
+      if (typeof res === 'string') return res;
+      if (res && typeof res === 'object' && 'message' in res) {
+        const message = (res as { message?: unknown }).message;
+        if (typeof message === 'string') return message;
+        if (Array.isArray(message)) return message.map(String).join('; ');
+      }
+    }
+    return 'Falha ao gravar esta linha';
+  }
+
   private slugify(name: string) {
-    return name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80) || 'produto';
+    return slugifyProductName(name);
   }
 
   private async uniqueSlug(base: string, excludeId?: string) {

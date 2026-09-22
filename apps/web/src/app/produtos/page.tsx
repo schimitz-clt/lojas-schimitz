@@ -18,6 +18,8 @@ import {
   type FilterChip,
 } from '@/lib/storefront-pro';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
+import { CatalogPager } from '@/components/storefront/CatalogPager';
+import { CATALOG_PAGE_SIZE, catalogPageSearch, parseCatalogPage } from '@/lib/catalog-pagination';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number; page?: number; pageSize?: number; sort?: string };
@@ -31,6 +33,7 @@ function ProdutosInner() {
   const minPrice = sp.get('minPrice') || '';
   const maxPrice = sp.get('maxPrice') || '';
   const sort = parseCatalogSort(sp.get('sort'));
+  const page = parseCatalogPage(sp.get('page'));
 
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -70,9 +73,10 @@ function ProdutosInner() {
     if (maxPrice) params.set('maxPrice', maxPrice);
     if (sort && sort !== 'relevance') params.set('sort', sort);
     if (seller) params.set('seller', seller);
-    const qs = params.toString();
-    return qs ? `/products?${qs}` : '/products';
-  }, [q, category, minPrice, maxPrice, sort, seller]);
+    params.set('page', String(page));
+    params.set('pageSize', String(CATALOG_PAGE_SIZE));
+    return `/products?${params.toString()}`;
+  }, [q, category, minPrice, maxPrice, sort, seller, page]);
 
   useEffect(() => {
     setLoading(true);
@@ -135,6 +139,18 @@ function ProdutosInner() {
 
   function clearSearchKeepFilters() {
     pushFilters({ q: '' });
+  }
+
+  function goPage(next: number) {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (category) params.set('category', category);
+    if (minPrice) params.set('minPrice', minPrice);
+    if (maxPrice) params.set('maxPrice', maxPrice);
+    if (sort && sort !== 'relevance') params.set('sort', sort);
+    if (seller) params.set('seller', seller);
+    const qs = catalogPageSearch(params, next);
+    router.push(qs ? `/produtos?${qs}` : '/produtos');
   }
 
   function clearChip(chip: FilterChip) {
@@ -392,6 +408,9 @@ function ProdutosInner() {
             <ProductCard key={p.id} p={p} priority={i < 4} variant={q ? 'shelf' : 'default'} />
           ))}
         </div>
+      ) : null}
+      {!loading && !err ? (
+        <CatalogPager page={page} total={total} pageSize={CATALOG_PAGE_SIZE} onPage={goPage} />
       ) : null}
 
       <RecentlyViewedStrip />
