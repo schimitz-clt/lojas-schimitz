@@ -6,12 +6,13 @@ import { usePathname } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
 import { formatWishlistBadge, isWishlistPath } from '@/lib/wishlist-ui';
+import { BottomNavGlyph, type BottomNavIconId } from '@/components/icons/StorefrontIcons';
 
 type NavItem = {
   href: string;
   label: string;
   match: (path: string) => boolean;
-  ico?: string;
+  icon?: BottomNavIconId;
   iconSrc?: string;
   badge?: number;
 };
@@ -42,13 +43,13 @@ export function BottomNav() {
     {
       href: '/',
       label: 'Início',
-      ico: '🏠',
+      icon: 'home',
       match: (p) => p === '/',
     },
     {
       href: '/produtos',
       label: 'Buscar',
-      ico: '🔍',
+      icon: 'search',
       match: (p) =>
         p.startsWith('/produtos') ||
         p.startsWith('/departamento') ||
@@ -57,14 +58,14 @@ export function BottomNav() {
     {
       href: '/carrinho',
       label: 'Carrinho',
-      ico: '🛒',
+      icon: 'cart',
       badge: cartCount,
       match: (p) => p.startsWith('/carrinho') || p.startsWith('/checkout'),
     },
     {
       href: '/conta/salvos',
       label: 'Salvos',
-      ico: '♥',
+      icon: 'heart',
       badge: favBadgeNum,
       match: (p) => isWishlistPath(p),
     },
@@ -100,9 +101,9 @@ export function BottomNav() {
                   width={22}
                   height={22}
                 />
-              ) : (
-                item.ico
-              )}
+              ) : item.icon ? (
+                <BottomNavGlyph id={item.icon} active={active} />
+              ) : null}
               {item.badge && item.badge > 0 ? (
                 <span className="bottom-nav-badge">{item.badge > 99 ? '99+' : item.badge}</span>
               ) : null}

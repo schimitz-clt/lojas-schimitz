@@ -39,6 +39,7 @@ import {
   isExternalSearchShortcut,
   searchEmptyCopy,
 } from '@/lib/storefront-pro';
+import { IconSearch } from '@/components/icons/StorefrontIcons';
 
 type Props = {
   initialQuery?: string;
@@ -352,7 +353,7 @@ export function SearchBox({ initialQuery = '' }: Props) {
         autoComplete="off"
       />
       <button type="submit" className="search-submit" aria-label="Buscar">
-        🔍
+        <IconSearch size={18} />
       </button>
       <p id={statusId} className="sr-only" aria-live="polite">
         {status}

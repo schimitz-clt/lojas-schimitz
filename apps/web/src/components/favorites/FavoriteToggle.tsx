@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { wishlistToggleLabel, type WishlistProductLike } from '@/lib/wishlist-ui';
 import { useFavorites } from '@/components/favorites/FavoritesProvider';
+import { IconHeart } from '@/components/icons/StorefrontIcons';
 
 type Props = {
   productId?: string | null;
@@ -11,17 +12,7 @@ type Props = {
 };
 
 function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-      <path
-        d="M12 20s-7.4-4.5-9.4-8.4C1.2 8.8 2.1 5.6 5.2 4.8 7.2 4.2 9 5.1 12 8c3-2.9 4.8-3.8 6.8-3.2 3.1.8 4 4 2.6 6.8C19.4 15.5 12 20 12 20z"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <IconHeart size={20} filled={filled} />;
 }
 
 export function FavoriteToggle({ productId, product, variant = 'card' }: Props) {

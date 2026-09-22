@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { compareToggleLabel, type ProductCompareLike } from '@/lib/product-compare';
 import { useCompare } from '@/components/compare/CompareProvider';
+import { IconCheck, IconCompare } from '@/components/icons/StorefrontIcons';
 
 type Props = {
   product: ProductCompareLike;
@@ -38,7 +39,7 @@ export function CompareToggle({ product, variant = 'card' }: Props) {
         title={hint || compareToggleLabel(on)}
       >
         <span aria-hidden className="compare-toggle-ico">
-          {on ? '✓' : '⇄'}
+          {on ? <IconCheck size={16} /> : <IconCompare size={16} />}
         </span>
         <span className="compare-toggle-txt">{compareToggleLabel(on)}</span>
       </button>
