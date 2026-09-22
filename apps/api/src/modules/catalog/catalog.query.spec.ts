@@ -8,6 +8,7 @@ import {
   buildProductOrderBy,
   buildProductWhere,
   parseMoneyBound,
+  catalogListWindow,
   parsePage,
   parsePageSize,
   parseSellerSlug,
@@ -23,6 +24,14 @@ import {
   assert.equal(parsePageSize(undefined), 24);
   assert.equal(parsePageSize('100'), 60);
   assert.equal(parsePageSize('12'), 12);
+  assert.equal(parsePageSize('1000'), 60);
+  const page3 = catalogListWindow('3', '24');
+  assert.equal(page3.page, 3);
+  assert.equal(page3.pageSize, 24);
+  assert.equal(page3.skip, 48);
+  const capped = catalogListWindow('2', '1000');
+  assert.equal(capped.pageSize, 60);
+  assert.equal(capped.skip, 60);
   console.log('catalog.query: pagination — PASSOU');
 }
 

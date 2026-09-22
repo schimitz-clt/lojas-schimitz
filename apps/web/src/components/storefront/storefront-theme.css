@@ -1030,6 +1030,28 @@
   margin-bottom: 14px;
 }
 
+.sf-catalog-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+
+.sf-catalog-pager-range {
+  margin: 0;
+  color: var(--sf-muted);
+  font-size: var(--sf-type-sm, 14px);
+}
+
+.sf-catalog-pager-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .sf-empty-suggestions {
   list-style: none;
   margin: 0;

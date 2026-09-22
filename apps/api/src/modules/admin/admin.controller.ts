@@ -37,6 +37,8 @@ import {
   AdminCreateCouponDto,
   AdminAddProductImageDto,
   AdminCreateProductDto,
+  AdminImportProductsDto,
+  AdminProductBatchDto,
   AdminCreateShippingCepRuleDto,
   AdminOrdersQueryDto,
   AdminProductsQueryDto,
@@ -484,9 +486,37 @@ export class AdminController {
     );
   }
 
+  @Post('products/import')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Importar CSV de catálogo (upsert por SKU, sem apagar)' })
+  async importProducts(
+    @Body() dto: AdminImportProductsDto,
+    @CurrentUser() user: { sub?: string },
+  ) {
+    return ok(await this.productsService.importCsv(dto.csv, user?.sub));
+  }
+
+  @Post('products/batch')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ApiOperation({ summary: 'Lote por SKU: ativo, preço ou estoque' })
+  async batchProducts(
+    @Body() dto: AdminProductBatchDto,
+    @CurrentUser() user: { sub?: string },
+  ) {
+    return ok(await this.productsService.applyBatch(dto, user?.sub));
+  }
+
   @Get('products')
   async products(@Query() query: AdminProductsQueryDto) {
-    return ok(await this.productsService.list({ lowStock: query.lowStock }));
+    return ok(
+      await this.productsService.list({
+        lowStock: query.lowStock,
+        q: query.q,
+        page: query.page,
+        pageSize: query.pageSize,
+        active: query.active,
+      }),
+    );
   }
 
   @Get('products/:id')
