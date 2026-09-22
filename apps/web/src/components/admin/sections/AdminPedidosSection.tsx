@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { brl } from '@/lib/api';
 import {
@@ -33,6 +34,7 @@ import {
   type PedidosQuickActionId,
 } from '@/lib/admin-ops-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
+import { AdminOrderDossier } from '@/components/admin/AdminOrderDossier';
 import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
 import {
   AdminOrderStatusChip,
@@ -128,10 +130,42 @@ export function AdminPedidosSection() {
     resendStorePaidNotify,
     copyOrderField,
     selectOpsAlert,
+    err,
+    msg,
     opsSnapshot,
     opsBusy,
   } = useAdminConsole();
   const ready = ops != null;
+  const [confirmAdvance, setConfirmAdvance] = useState(false);
+  const [trackingDraft, setTrackingDraft] = useState('');
+  const [carrierDraft, setCarrierDraft] = useState('');
+  const openOrder = orders.find((order) => order.id === openOrderId) || null;
+
+  function closeDossier() {
+    setOpenOrderId(null);
+    setConfirmAdvance(false);
+  }
+
+  function openDossier(orderId: string, order: (typeof orders)[number]) {
+    setOpenOrderId(orderId);
+    setConfirmAdvance(false);
+    setTrackingDraft(order.trackingCode || '');
+    setCarrierDraft(order.carrier || '');
+  }
+
+  function askAdvance(order: (typeof orders)[number]) {
+    if (!nextFulfillmentStatus(order.status)) return;
+    setOpenOrderId(order.id);
+    setConfirmAdvance(true);
+    setTrackingDraft(order.trackingCode || '');
+    setCarrierDraft(order.carrier || 'propria');
+  }
+
+  async function confirmAdvanceNow() {
+    if (!openOrder) return;
+    const ok = await advance(openOrder, { trackingCode: trackingDraft, carrier: carrierDraft });
+    if (ok) setConfirmAdvance(false);
+  }
   const counts = pedidosCommandCounts(ops, ready);
   const sectionAlerts = partitionSectionAlerts(ops?.alerts, 'pedidos');
   const snapshotState = ops ? 'ready' : opsSnapshot;
@@ -338,7 +372,7 @@ export function AdminPedidosSection() {
           {OPS_DO_HEADING}
         </h2>
         <p className="admin-cc-block__lede">{PEDIDOS_DO_LEDE}</p>
-        <div className="admin-cc-actions">
+        <div className="admin-cc-actions admin-cc-actions--sticky">
           {PEDIDOS_QUICK_ACTIONS.map((action) => {
             const figure = pedidosQuickActionFigure(action.id, counts);
             return (
@@ -478,6 +512,16 @@ export function AdminPedidosSection() {
           </button>
         </div>
       ) : null}
+      {err ? (
+        <p role="alert" className="alert admin-ent-banner admin-ent-banner--err">
+          {err}
+        </p>
+      ) : null}
+      {msg && !err ? (
+        <p role="status" className="ok admin-ent-banner">
+          {msg}
+        </p>
+      ) : null}
       <div className="admin-order-list">
       {filteredOrders.map((o) => {
         const next = nextFulfillmentStatus(o.status);
@@ -501,7 +545,7 @@ export function AdminPedidosSection() {
           o.status === 'separating' ||
           stuck;
         return (
-          <div key={o.id} className={`admin-order-card${cardMod}${selected ? ' is-selected' : ''}`}>
+          <div key={o.id} className={`admin-order-card${cardMod}${selected ? ' is-selected' : ''}${open ? ' is-open' : ''}`}>
             <div className="admin-order-card__body">
               <div className="admin-order-card__top">
                 <div className="admin-order-card__main">
@@ -598,16 +642,17 @@ export function AdminPedidosSection() {
                   <button
                     type="button"
                     className="btn ghost admin-btn-ghost-pro"
-                    onClick={() => setOpenOrderId(open ? null : o.id)}
+                    onClick={() => (open ? closeDossier() : openDossier(o.id, o))}
                   >
                     {open ? 'Fechar' : 'Detalhe'}
                   </button>
                   {next ? (
                     <button
+                      type="button"
                       className={`btn${needsSepararStyle ? ' admin-btn-separar' : ''}`}
                       disabled={busyId === o.id || bulkBusy}
-                      onClick={() => advance(o)}
-                      title={`Avançar para ${orderStatusLabel(next)}`}
+                      onClick={() => askAdvance(o)}
+                      title={`Confirmar avanço para ${orderStatusLabel(next)}`}
                       style={needsSepararStyle ? undefined : { minHeight: 44, minWidth: 44 }}
                     >
                       {busyId === o.id ? 'Salvando...' : advanceButtonLabel(o.status, next)}
@@ -697,121 +742,6 @@ export function AdminPedidosSection() {
                   : 'Cliente sem telefone — abre o WhatsApp da loja (NEXT_PUBLIC_WHATSAPP) com rascunho interno.'}
               </p>
 
-              {open ? (
-                <div className="admin-order-card__detail">
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                    <span>
-                      <b>publicId:</b> {o.publicId}{' '}
-                      <span style={{ opacity: 0.7 }}>(id {o.id})</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="btn ghost admin-btn-ghost-pro"
-                      onClick={() => void copyOrderField('publicId', o.publicId)}
-                      style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
-                    >
-                      Copiar ID
-                    </button>
-                  </div>
-                  <div><b>Cliente:</b> {o.user?.name || '—'}</div>
-                  <div><b>E-mail:</b> {o.user?.email || '—'}</div>
-                  <div><b>WhatsApp:</b> {phone || 'não cadastrado'}</div>
-                  {o.user?.id ? (
-                    <button
-                      type="button"
-                      className="btn ghost admin-btn-ghost-pro"
-                      onClick={() => void openCustomer(o.user!.id)}
-                    >
-                      {customerVerClienteLabel(true)}
-                    </button>
-                  ) : null}
-                  {o.addressSnap?.city ? (
-                    <div>
-                      <b>Entrega:</b>{' '}
-                      {o.addressSnap.label ? `${o.addressSnap.label} · ` : ''}
-                      {o.addressSnap.city}/{o.addressSnap.uf}
-                    </div>
-                  ) : null}
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                    <span>
-                      <b>Rastreio:</b>{' '}
-                      {o.trackingCode || '—'}
-                      {o.carrier ? ` · ${o.carrier}` : ''}
-                    </span>
-                    {o.trackingCode?.trim() ? (
-                      <button
-                        type="button"
-                        className="btn ghost admin-btn-ghost-pro"
-                        onClick={() => void copyOrderField('tracking', o.trackingCode || '')}
-                        style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
-                      >
-                        Copiar rastreio
-                      </button>
-                    ) : null}
-                  </div>
-                  <div style={{ marginTop: 6 }}>
-                    <b>Pagamento(s):</b>
-                    {o.payments?.length ? (
-                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                        {o.payments.map((pay) => (
-                          <li key={pay.id}>
-                            {pay.status}
-                            {pay.method ? ` · ${pay.method}` : ''}
-                            {pay.provider ? ` · ${pay.provider}` : ''}
-                            {pay.externalId ? ` · ext ${pay.externalId}` : ''}
-                            {pay.amount != null ? ` · ${brl(Number(pay.amount))}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span> — (nenhum registro na API)</span>
-                    )}
-                  </div>
-                  <div style={{ marginTop: 6 }}>
-                    <b>Frete / envio:</b>{' '}
-                    {o.freightSnap?.label || '—'}
-                    {o.freight != null ? ` · ${brl(Number(o.freight))}` : ''}
-                    {o.freightSnap?.estimatedDays != null
-                      ? ` · ~${o.freightSnap.estimatedDays} dia(s)`
-                      : ''}
-                    {o.carrier ? ` · carrier ${o.carrier}` : ''}
-                  </div>
-                  <div style={{ marginTop: 6 }}>
-                    <b>Histórico:</b>
-                    {o.statusHistory?.length ? (
-                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                        {o.statusHistory.map((h) => (
-                          <li key={h.id}>
-                            {h.fromStatus ? `${h.fromStatus} → ` : ''}
-                            {h.toStatus}
-                            {' · '}
-                            {new Date(h.createdAt).toLocaleString('pt-BR')}
-                            {h.note ? ` · ${h.note}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span>
-                        {' '}
-                        — (sem histórico; criado{' '}
-                        {o.createdAt
-                          ? new Date(o.createdAt).toLocaleString('pt-BR')
-                          : '—'}
-                        )
-                      </span>
-                    )}
-                  </div>
-                  {o.status === 'paid' ? (
-                    <div style={{ marginTop: 8, color: stuck ? 'var(--admin-danger)' : undefined }}>
-                      <b>Tempo em pago:</b>{' '}
-                      {formatStuckHours(hoursSincePaid(o))}
-                      {stuck
-                        ? ` — acima de ${PAID_STUCK_HOURS_UI}h (travado)`
-                        : ` (limite alerta ${PAID_STUCK_HOURS_UI}h)`}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
           </div>
         );
@@ -829,6 +759,33 @@ export function AdminPedidosSection() {
         </p>
       ) : null}
       </div>
+      {openOrder ? (
+        <AdminOrderDossier
+          order={openOrder}
+          busy={busyId === openOrder.id}
+          bulkBusy={bulkBusy}
+          confirming={confirmAdvance}
+          trackingDraft={trackingDraft}
+          carrierDraft={carrierDraft}
+          err={err}
+          msg={msg}
+          waGeneric={orderWa(openOrder, 'generic')}
+          waPaid={orderWa(openOrder, 'paid')}
+          waShipped={orderWa(openOrder, 'shipped')}
+          onTrackingDraft={setTrackingDraft}
+          onCarrierDraft={setCarrierDraft}
+          onClose={closeDossier}
+          onAskAdvance={() => askAdvance(openOrder)}
+          onConfirmAdvance={() => void confirmAdvanceNow()}
+          onCancelAdvance={() => setConfirmAdvance(false)}
+          onResend={() => void resendStorePaidNotify(openOrder)}
+          onCopyPublicId={() => void copyOrderField('publicId', openOrder.publicId)}
+          onCopyTracking={() => void copyOrderField('tracking', openOrder.trackingCode || '')}
+          onOpenCustomer={
+            openOrder.user?.id ? () => void openCustomer(openOrder.user!.id) : undefined
+          }
+        />
+      ) : null}
       </section>
       </div>
     </>

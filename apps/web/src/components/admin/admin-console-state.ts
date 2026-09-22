@@ -10,6 +10,7 @@ import {
   POST_PAYMENT_OPS_HINT,
   isPostPaidStatus,
 } from '@/lib/order-status';
+import { orderMutationErrorText } from '@/lib/admin-enterprise-ui';
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
@@ -1350,19 +1351,18 @@ export function useAdminConsoleState() {
     }
   }
 
-  async function advance(order: AdminOrder) {
+  async function advance(
+    order: AdminOrder,
+    opts?: { trackingCode?: string; carrier?: string },
+  ): Promise<boolean> {
     const next = nextFulfillmentStatus(order.status);
-    if (!next) return;
+    if (!next) return false;
     const body: Record<string, unknown> = { status: next };
     if (next === 'in_transit') {
-      const code = window.prompt(
-        'Código de rastreio (opcional — aparece para o cliente):',
-        order.trackingCode || '',
-      );
-      if (code === null) return; // cancelou
-      const trimmed = code.trim();
+      const trimmed = (opts?.trackingCode ?? '').trim();
       if (trimmed) body.trackingCode = trimmed;
-      body.carrier = order.carrier || 'propria';
+      const carrier = (opts?.carrier ?? order.carrier ?? 'propria').trim();
+      if (carrier) body.carrier = carrier;
     }
     setBusyId(order.id);
     setErr('');
@@ -1375,8 +1375,11 @@ export function useAdminConsoleState() {
       setMsg(advanceSuccessMessage(order.publicId, orderStatusLabel(next)));
       await load();
       void loadOps();
-    } catch (e: any) {
-      setErr(e.message || 'Falha ao atualizar status');
+      return true;
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '';
+      setErr(orderMutationErrorText(message));
+      return false;
     } finally {
       setBusyId(null);
     }
