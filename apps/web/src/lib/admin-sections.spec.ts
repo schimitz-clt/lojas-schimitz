@@ -207,11 +207,15 @@ const opsSectionSrc = readFileSync(
 );
 assert.ok(opsSectionSrc.includes('variant="command"'), 'Ops home uses the attention question');
 assert.ok(opsSectionSrc.includes('selectOpsAlert'), 'Ops alerts keep existing deep-link');
+assert.ok(opsSectionSrc.includes('OPS_NOW_HEADING'), 'Ops answers what is happening now');
+assert.ok(opsSectionSrc.includes('OPS_DO_HEADING'), 'Ops answers what can be done now');
+assert.ok(opsSectionSrc.includes('OPS_QUICK_ACTIONS'), 'Ops quick actions are the existing navigation set');
 
 const stateSrc = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
 assert.ok(stateSrc.includes('if (!u)'), 'logged-out /admin hits guest gate');
 assert.ok(stateSrc.includes('adminEntrarHref('), 'guest gate uses existing Entrar login');
 assert.ok(stateSrc.includes("u.role !== 'admin'"), 'non-admin keeps in-shell restriction');
+assert.ok(stateSrc.includes('opsAlertDestination'), 'alert clicks use the existing destination map');
 
 const themeSrc = readFileSync(join(__dirname, '../components/admin/admin-theme.css'), 'utf8');
 assert.ok(themeSrc.includes('.admin-header__logout'), 'logout button styled in admin theme');

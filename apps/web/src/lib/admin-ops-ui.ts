@@ -169,8 +169,124 @@ export function whatsAppOpsButtonLabel(
 
 export type OpsAlertSeverityLike = 'critical' | 'high' | 'warn' | 'info' | string;
 
-/** Ops home question — copy only; counts come from the snapshot. */
+/** Ops home questions — copy only; counts come from the snapshot. */
+export const OPS_NOW_HEADING = 'O que está acontecendo agora?';
 export const OPS_ATTENTION_HEADING = 'O que precisa de atenção?';
+export const OPS_DO_HEADING = 'O que posso fazer agora?';
+
+export const OPS_NOW_LEDE =
+  'Receita, filas e situação deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+
+export const OPS_DO_LEDE =
+  'Atalhos para seções que já existem. Nenhum deles grava, estorna ou resolve sozinho.';
+
+/**
+ * Quick actions are navigation only. Hints never invent a count —
+ * a live figure is added separately when the snapshot actually has one.
+ */
+export const OPS_QUICK_ACTIONS = [
+  { id: 'paid', label: 'Organizar pagos', hint: 'Abre Pedidos no bucket Pago' },
+  { id: 'photos', label: 'Trocar fotos', hint: 'Abre Catálogo na fila de fotos' },
+  { id: 'catalog', label: 'Catálogo', hint: 'Abre produtos e estoque' },
+  { id: 'recon', label: 'Reconciliações', hint: 'Rola até a fila nesta página' },
+  { id: 'push', label: 'Nova campanha', hint: 'Abre Notificações' },
+  { id: 'orders', label: 'Fila de pedidos', hint: 'Abre Pedidos' },
+  { id: 'vendas', label: 'Vendas', hint: 'Abre o relatório' },
+  { id: 'clientes', label: 'Clientes', hint: 'Abre o CRM' },
+] as const;
+
+export type OpsQuickActionId = (typeof OPS_QUICK_ACTIONS)[number]['id'];
+
+export type OpsQuickActionSnapshot = {
+  paidAwaiting?: number | null;
+  ordersTotal?: number | null;
+  placeholderPhotos?: number | null;
+  lowStock?: number | null;
+  outOfStock?: number | null;
+  openRecon?: number | null;
+};
+
+function finiteCount(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(Number(value))) return null;
+  return String(Math.trunc(Number(value)));
+}
+
+/** Live figure for a quick action. Null when the snapshot has no such field — never a guessed 0. */
+export function opsQuickActionFigure(
+  id: OpsQuickActionId,
+  snap: OpsQuickActionSnapshot | null | undefined,
+): string | null {
+  if (!snap) return null;
+  if (id === 'paid') {
+    const n = finiteCount(snap.paidAwaiting);
+    return n == null ? null : `${n} no snapshot`;
+  }
+  if (id === 'orders') {
+    const n = finiteCount(snap.ordersTotal);
+    return n == null ? null : `${n} no snapshot`;
+  }
+  if (id === 'photos') {
+    const n = finiteCount(snap.placeholderPhotos);
+    return n == null ? null : `${n} no snapshot`;
+  }
+  if (id === 'catalog') {
+    const low = finiteCount(snap.lowStock);
+    const out = finiteCount(snap.outOfStock);
+    if (low == null && out == null) return null;
+    const bits = [
+      low != null ? `estoque baixo ${low}` : null,
+      out != null ? `zerados ${out}` : null,
+    ].filter(Boolean);
+    return bits.join(' · ');
+  }
+  if (id === 'recon') {
+    const n = finiteCount(snap.openRecon);
+    return n == null ? null : `${n} aberta(s)`;
+  }
+  return null;
+}
+
+/** Display a snapshot count. Missing or not-ready → em dash, including never substituting 0. */
+export function opsCountOrDash(value: number | null | undefined, ready: boolean): string {
+  if (!ready) return '—';
+  const n = finiteCount(value);
+  return n == null ? '—' : n;
+}
+
+export function formatOpsSnapshotTime(iso?: string | null): string {
+  const raw = String(iso || '').trim();
+  if (!raw) return '—';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR');
+}
+
+export type OpsMailStatusInput = {
+  configured?: boolean;
+  providerOffWithStoreNotify?: boolean;
+  storeNotifyFailureCount?: number | null;
+};
+
+export function opsMailStatusLabel(
+  mail: OpsMailStatusInput | null | undefined,
+  ready: boolean,
+): { label: string; tone: 'ok' | 'danger' | 'muted' } {
+  if (!ready || mail == null) return { label: '—', tone: 'muted' };
+  const failures = Math.max(0, Math.floor(Number(mail.storeNotifyFailureCount) || 0));
+  if (failures > 0) return { label: `${failures} falha(s)`, tone: 'danger' };
+  if (mail.providerOffWithStoreNotify) return { label: 'Provedor off', tone: 'danger' };
+  if (mail.configured) return { label: 'Configurado', tone: 'ok' };
+  return { label: 'Ausente', tone: 'danger' };
+}
+
+/** Uploads durability is omitted from the payload when unknown — do not invent a status. */
+export function opsUploadsStatusLabel(
+  uploads: { persistent?: boolean; dir?: string | null } | null | undefined,
+): string | null {
+  if (!uploads || typeof uploads.persistent !== 'boolean') return null;
+  const dir = uploads.dir ? ` · ${uploads.dir}` : '';
+  return uploads.persistent ? `Volume persistente${dir}` : `Disco efêmero${dir}`;
+}
 
 /**
  * Empty attention copy. `infoCount` is the number of info-level alerts
@@ -204,7 +320,42 @@ export type OpsAlertLike = {
   severity: OpsAlertSeverityLike;
   section?: string | null;
   queueBucket?: string | null;
+  evidenceIds?: string[] | null;
 };
+
+export type OpsAlertDestination =
+  | { kind: 'reconciliations' }
+  | { kind: 'mail'; publicId: string | null }
+  | { kind: 'catalog_photos' }
+  | { kind: 'catalog' }
+  | { kind: 'orders'; bucket: string }
+  | { kind: 'none' };
+
+/**
+ * Existing console path for an ops alert. Stock opens Catálogo (painel de estoque).
+ * Alerts with no in-app section stay `none` — no invented screen.
+ */
+export function opsAlertDestination(a: OpsAlertLike): OpsAlertDestination {
+  if (a.section === 'reconciliations' || a.code === 'open_reconciliations') {
+    return { kind: 'reconciliations' };
+  }
+  if (
+    a.section === 'mail' ||
+    a.code === 'store_notify_mail_failed' ||
+    a.code === 'mail_off_with_store_notify'
+  ) {
+    const publicId = String(a.evidenceIds?.[0] || '').trim();
+    return { kind: 'mail', publicId: publicId || null };
+  }
+  if (a.section === 'catalog' || a.code === 'placeholder_photos') {
+    return { kind: 'catalog_photos' };
+  }
+  if (a.code === 'out_of_stock' || a.code === 'low_stock' || a.section === 'inventory') {
+    return { kind: 'catalog' };
+  }
+  if (a.queueBucket) return { kind: 'orders', bucket: String(a.queueBucket) };
+  return { kind: 'none' };
+}
 
 /**
  * Recon + store-mail first so they survive the ATENÇÃO AGORA cap.
@@ -232,14 +383,12 @@ export function sortOpsAlertsForAttention<T extends OpsAlertLike>(alerts: T[]): 
 }
 
 export function opsAlertCtaHintPt(a: OpsAlertLike): string | null {
-  if (a.section === 'reconciliations' || a.code === 'open_reconciliations') {
-    return '→ abrir fila Reconciliações';
-  }
-  if (a.section === 'mail' || a.code === 'store_notify_mail_failed' || a.code === 'mail_off_with_store_notify') {
-    return '→ Pedidos / reenviar aviso';
-  }
-  if (a.section === 'catalog') return '→ Catálogo (fotos)';
-  if (a.queueBucket) return '→ abrir fila';
+  const dest = opsAlertDestination(a);
+  if (dest.kind === 'reconciliations') return '→ abrir fila Reconciliações';
+  if (dest.kind === 'mail') return '→ Pedidos / reenviar aviso';
+  if (dest.kind === 'catalog_photos') return '→ Catálogo (fotos)';
+  if (dest.kind === 'catalog') return '→ Catálogo (estoque)';
+  if (dest.kind === 'orders') return '→ abrir fila';
   return null;
 }
 

@@ -20,6 +20,7 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   copyTextToClipboard,
+  opsAlertDestination,
   sortOpsAlertsForAttention,
   storePaidNotifyResultMessage,
 } from '@/lib/admin-ops-ui';
@@ -401,7 +402,14 @@ export function useAdminConsoleState() {
   /** Deep-link alert → section or order queue (review only). */
   const selectOpsAlert = useCallback(
     (a: AdminOpsAlert) => {
-      if (a.section === 'reconciliations') {
+      const dest = opsAlertDestination({
+        code: a.code,
+        severity: a.severity,
+        section: a.section,
+        queueBucket: a.queueBucket,
+        evidenceIds: a.evidence?.ids,
+      });
+      if (dest.kind === 'reconciliations') {
         router.push(buildAdminSectionHref('ops'));
         requestAnimationFrame(() => {
           const el = document.getElementById('admin-reconciliations');
@@ -410,9 +418,8 @@ export function useAdminConsoleState() {
         void loadReconciliations();
         return;
       }
-      if (a.section === 'mail' || a.code === 'store_notify_mail_failed' || a.code === 'mail_off_with_store_notify') {
-        const publicId = a.evidence?.ids?.[0];
-        if (publicId) setOrderJumpQ(publicId);
+      if (dest.kind === 'mail') {
+        if (dest.publicId) setOrderJumpQ(dest.publicId);
         router.push(buildAdminSectionHref('pedidos'));
         requestAnimationFrame(() => {
           const el = document.getElementById('admin-orders-queue');
@@ -420,11 +427,19 @@ export function useAdminConsoleState() {
         });
         return;
       }
-      if (a.section === 'catalog' || a.code === 'placeholder_photos') {
+      if (dest.kind === 'catalog_photos') {
         openCatalogPhotoQueue();
         return;
       }
-      if (a.queueBucket) selectOpsBucket(a.queueBucket);
+      if (dest.kind === 'catalog') {
+        router.push(buildAdminSectionHref('catalogo'));
+        requestAnimationFrame(() => {
+          const el = document.getElementById('admin-low-stock');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return;
+      }
+      if (dest.kind === 'orders') selectOpsBucket(dest.bucket);
     },
     [loadReconciliations, selectOpsBucket, openCatalogPhotoQueue, router],
   );
