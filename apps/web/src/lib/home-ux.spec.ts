@@ -91,7 +91,8 @@ assert.ok(shelves.includes('ProductCard'), 'rails still reuse ProductCard');
 const header = readFileSync(join(srcRoot, 'components/Header.tsx'), 'utf8');
 assert.ok(header.includes('HomeDeliveryBar'), 'CEP row under the search');
 assert.ok(header.includes('site-chrome-head'), 'sticky search chrome');
-assert.ok(header.includes('is-compact'), 'search stays reachable after scroll');
+assert.equal(header.includes('is-compact'), false, 'no scroll-driven compact class (avoids sticky height jitter)');
+assert.equal(header.includes('setCompact'), false, 'no scroll listener toggling chrome height');
 assert.ok(header.includes('/me/addresses'), 'logged-in bar uses saved addresses');
 assert.ok(header.includes('STOREFRONT_CEP_KEY') || header.includes('readStoredCep'), 'reuses sch_cep');
 assert.ok(header.includes('<SearchBox'), 'search suggestions stay');
@@ -115,7 +116,16 @@ assert.ok(css.includes('overflow-x: clip'), 'sticky search is not broken by over
 assert.ok(css.includes('.delivery-bar'), 'location row styled');
 assert.ok(css.includes('.home-shortcuts'), 'shortcut circles styled');
 assert.ok(css.includes('.pcard-shelf'), 'tighter shelf cards');
-assert.ok(css.includes('.site-chrome-head.is-compact'), 'compact sticky search');
+assert.equal(css.includes('.site-chrome-head.is-compact'), false, 'compact collapse CSS removed');
+assert.ok(
+  /\.site-chrome-head\s+\.header\s*\{[^}]*position:\s*sticky/s.test(css),
+  'mobile sticks only .header so topbar scrolls away without height thrash',
+);
+assert.equal(
+  /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
+  false,
+  'wrapper itself is not sticky on mobile',
+);
 assert.ok(!/magalu/i.test(bar + shortcuts), 'new home UI has no Magalu trademark');
 
 console.log('home-ux unit tests ok');

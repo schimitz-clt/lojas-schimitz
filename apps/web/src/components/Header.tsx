@@ -28,7 +28,6 @@ export function Header() {
   const [editingCep, setEditingCep] = useState(false);
   const [cepDraft, setCepDraft] = useState('');
   const [addresses, setAddresses] = useState<AccountAddressRecord[]>([]);
-  const [compact, setCompact] = useState(false);
   const { count: favCount } = useFavorites();
   const favBadge = formatWishlistBadge(favCount);
 
@@ -58,18 +57,8 @@ export function Header() {
         .catch(() => {});
     };
     window.addEventListener('sch-cart-updated', onCart);
-    let lastCompact = false;
-    const onScroll = () => {
-      const next = (window.scrollY || 0) > 12;
-      if (next === lastCompact) return;
-      lastCompact = next;
-      setCompact(next);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('sch-cart-updated', onCart);
-      window.removeEventListener('scroll', onScroll);
     };
   }, []);
 
@@ -144,7 +133,7 @@ export function Header() {
   const delivery = deliveryBarCopy({ addresses, storedCep: cep });
 
   return (
-    <div className={`site-chrome-head${compact ? ' is-compact' : ''}`}>
+    <div className="site-chrome-head">
       <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
         <span>Frete grátis em POA</span>
         <span className="topbar-sep" aria-hidden>

@@ -2055,26 +2055,21 @@ textarea { resize: vertical; min-height: 72px; }
     pointer-events: auto;
     touch-action: manipulation;
   }
+  /* Sticky só no .header (como no desktop): a topbar rola fora sozinha.
+     Colapsar a topbar via JS (is-compact + display:none) mudava a altura do
+     sticky no meio do scroll e causava tremor no WebView / Chrome mobile. */
   .site-chrome-head {
+    position: static;
+    background: transparent;
+  }
+  .site-chrome-head .header {
     position: sticky;
     top: 0;
     z-index: 45;
-    background: var(--header-bg);
-  }
-  .site-chrome-head .header {
-    position: relative;
-    top: auto;
-    box-shadow: none;
-  }
-  .site-chrome-head.is-compact {
     box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  }
-  .site-chrome-head.is-compact .topbar { display: none; }
-  .site-chrome-head.is-compact .header-row { padding-top: 6px; padding-bottom: 4px; }
-  .site-chrome-head .search {
-    position: sticky;
-    top: 0;
-    z-index: 2;
+    /* Evita subpixel jitter do sticky com barra de endereço / overscroll. */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
   .delivery-bar {
     display: flex;
