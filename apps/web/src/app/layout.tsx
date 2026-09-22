@@ -14,7 +14,13 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+/** Page/layout zoom locked like Magalu-style storefronts (pinch + double-tap).
+ *  PDP photo enlarge remains the lightbox ("Ampliar"), not browser zoom. */
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: '#0a0a0a',
 };
 

@@ -196,8 +196,9 @@ class MainActivity : AppCompatActivity() {
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = true
-            setSupportZoom(true)
-            builtInZoomControls = true
+            // Match storefront viewport: no page pinch/double-tap zoom (PDP uses lightbox).
+            setSupportZoom(false)
+            builtInZoomControls = false
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
