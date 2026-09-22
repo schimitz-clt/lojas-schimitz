@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import {
   isProductionPlaceholderSeedEnv,
   shouldInsertPlaceholderProductImages,
-} from '../../../../../prisma/seed-placeholder-policy';
+} from './seed-placeholder-policy';
 
 assert.equal(isProductionPlaceholderSeedEnv({ NODE_ENV: 'production' }), true);
 assert.equal(isProductionPlaceholderSeedEnv({ NODE_ENV: 'Production' }), true);

@@ -1,25 +1,10 @@
 /**
- * Seed may insert placehold.co only outside production.
- * NODE_ENV=production or RAILWAY_ENVIRONMENT=production → do not insert or backfill.
- * Never deletes existing ProductImage rows and never invents a real photo.
+ * Seed entry re-export. Implementation is in apps/api so the API Docker build
+ * (`tsc`, rootDir ./src) does not pull this file in from a spec import.
+ * Behavior is the same module seed.ts already calls.
  */
-
-export type PlaceholderSeedEnv = {
-  NODE_ENV?: string | null;
-  RAILWAY_ENVIRONMENT?: string | null;
-};
-
-function flag(value: string | null | undefined): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase();
-}
-
-export function isProductionPlaceholderSeedEnv(env: PlaceholderSeedEnv = process.env): boolean {
-  return flag(env.NODE_ENV) === 'production' || flag(env.RAILWAY_ENVIRONMENT) === 'production';
-}
-
-/** Local/dev: true. Production: false (skip placeholder insert and backfill). */
-export function shouldInsertPlaceholderProductImages(env: PlaceholderSeedEnv = process.env): boolean {
-  return !isProductionPlaceholderSeedEnv(env);
-}
+export {
+  isProductionPlaceholderSeedEnv,
+  shouldInsertPlaceholderProductImages,
+  type PlaceholderSeedEnv,
+} from '../apps/api/src/modules/catalog/seed-placeholder-policy';
