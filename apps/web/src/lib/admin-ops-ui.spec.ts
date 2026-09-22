@@ -3,11 +3,22 @@ import {
   advanceSuccessMessage,
   copySuccessMessage,
   emptyOrdersQueueMessage,
+  formatOpsSnapshotTime,
   opsAlertCtaHintPt,
+  opsAlertDestination,
   opsAlertSeverityLabelPt,
   opsAttentionEmptyMessage,
   opsAttentionUnavailableMessage,
+  opsCountOrDash,
+  opsMailStatusLabel,
+  opsQuickActionFigure,
+  opsUploadsStatusLabel,
   OPS_ATTENTION_HEADING,
+  OPS_DO_HEADING,
+  OPS_DO_LEDE,
+  OPS_NOW_HEADING,
+  OPS_NOW_LEDE,
+  OPS_QUICK_ACTIONS,
   paymentMethodBadge,
   paymentMethodLabelPt,
   pickPrimaryPayment,
@@ -81,7 +92,59 @@ assert.equal(opsAlertSeverityLabelPt('critical'), 'CRÍTICO');
 assert.equal(opsAlertSeverityLabelPt('high'), 'URGENTE');
 assert.equal(opsAlertSeverityLabelPt('warn'), 'ATENÇÃO');
 assert.equal(opsAlertSeverityLabelPt('info'), 'INFO');
+assert.equal(OPS_NOW_HEADING, 'O que está acontecendo agora?');
 assert.equal(OPS_ATTENTION_HEADING, 'O que precisa de atenção?');
+assert.equal(OPS_DO_HEADING, 'O que posso fazer agora?');
+assert.ok(OPS_NOW_LEDE.includes('GET /admin/ops'));
+assert.ok(OPS_DO_LEDE.includes('seções'));
+assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'push' && /campanha/i.test(a.label)));
+assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'catalog'));
+assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'paid'));
+assert.equal(opsQuickActionFigure('paid', null), null);
+assert.equal(opsQuickActionFigure('paid', { paidAwaiting: 0 }), '0 no snapshot');
+assert.equal(opsQuickActionFigure('push', { paidAwaiting: 4 }), null);
+assert.equal(opsQuickActionFigure('recon', {}), null);
+assert.equal(opsQuickActionFigure('recon', { openRecon: 2 }), '2 aberta(s)');
+assert.equal(
+  opsQuickActionFigure('catalog', { lowStock: 1, outOfStock: 0 }),
+  'estoque baixo 1 · zerados 0',
+);
+assert.equal(opsCountOrDash(0, true), '0');
+assert.equal(opsCountOrDash(null, true), '—');
+assert.equal(opsCountOrDash(3, false), '—');
+assert.equal(formatOpsSnapshotTime(null), '—');
+assert.equal(formatOpsSnapshotTime('nope'), '—');
+assert.notEqual(formatOpsSnapshotTime('2026-09-22T12:00:00.000Z'), '—');
+assert.equal(opsMailStatusLabel(undefined, false).label, '—');
+assert.equal(opsMailStatusLabel({ configured: true, storeNotifyFailureCount: 0 }, true).label, 'Configurado');
+assert.equal(
+  opsMailStatusLabel({ configured: false, providerOffWithStoreNotify: true }, true).label,
+  'Provedor off',
+);
+assert.equal(opsMailStatusLabel({ configured: false }, true).label, 'Ausente');
+assert.equal(opsMailStatusLabel({ configured: true, storeNotifyFailureCount: 2 }, true).label, '2 falha(s)');
+assert.equal(opsUploadsStatusLabel(null), null);
+assert.equal(opsUploadsStatusLabel({ persistent: true, dir: '/data/uploads' }), 'Volume persistente · /data/uploads');
+assert.equal(opsUploadsStatusLabel({ persistent: false }), 'Disco efêmero');
+assert.equal(opsAlertDestination({ code: 'out_of_stock', severity: 'critical' }).kind, 'catalog');
+assert.equal(opsAlertDestination({ code: 'low_stock', severity: 'warn' }).kind, 'catalog');
+assert.equal(
+  opsAlertDestination({ code: 'paid_needs_organizing', severity: 'warn', queueBucket: 'paid' }).kind,
+  'orders',
+);
+assert.deepEqual(opsAlertDestination({ code: 'uploads_ephemeral', severity: 'warn' }), { kind: 'none' });
+assert.equal(opsAlertDestination({ code: 'mail_not_configured', severity: 'info' }).kind, 'none');
+assert.equal(
+  opsAlertDestination({
+    code: 'store_notify_mail_failed',
+    severity: 'high',
+    section: 'mail',
+    evidenceIds: ['SCH-9'],
+  }).kind,
+  'mail',
+);
+assert.equal(opsAlertCtaHintPt({ code: 'out_of_stock', severity: 'critical' }), '→ Catálogo (estoque)');
+assert.equal(opsAlertCtaHintPt({ code: 'placeholder_photos', severity: 'info', section: 'catalog' }), '→ Catálogo (fotos)');
 assert.equal(opsAttentionEmptyMessage(0), 'Nada precisa de atenção neste snapshot.');
 assert.ok(opsAttentionEmptyMessage(2).includes('informativos'));
 assert.ok(opsAttentionUnavailableMessage().includes('GET /admin/ops'));

@@ -53,7 +53,7 @@ function badgeFor(
 
 function pageLead(section: AdminSectionId, description: string): string {
   if (section === 'ops') {
-    return 'Command — centro de comando. Atenção e indicadores vêm só do snapshot real.';
+    return 'O que está acontecendo, o que precisa de atenção e o que dá para fazer agora — só com o snapshot real.';
   }
   return description;
 }

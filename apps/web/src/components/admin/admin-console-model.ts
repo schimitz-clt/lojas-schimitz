@@ -451,6 +451,8 @@ export type AdminOpsSnapshot = {
     today: AdminOpsSalesWindow | null;
     last30d: AdminOpsSalesWindow | null;
   };
+  /** Present only when the API checked the uploads dir. Null/omitted = unknown, not a status. */
+  uploads?: { dir: string; persistent: boolean } | null;
   alerts?: AdminOpsAlert[];
 };
 

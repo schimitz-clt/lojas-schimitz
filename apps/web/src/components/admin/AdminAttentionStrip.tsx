@@ -14,6 +14,8 @@ export type AdminAttentionItem = {
   code: string;
   severity: Severity;
   message: string;
+  /** Alert count from the snapshot. Null when the payload omitted it. */
+  count?: number | null;
   recommendedAction?: string | null;
   evidenceLine?: string | null;
   ctaHint?: string | null;
@@ -30,10 +32,61 @@ type Props = {
   snapshot?: SnapshotState;
   /** Info-level alerts already on the snapshot and not listed in `items`. */
   infoCount?: number;
+  /** Info-level alerts to list under the priority queue. Command variant only. */
+  signals?: AdminAttentionItem[];
 };
 
 function tone(sev: Severity): 'high' | 'warn' {
   return sev === 'critical' || sev === 'high' ? 'high' : 'warn';
+}
+
+function commandTone(sev: Severity): 'high' | 'warn' | 'info' {
+  if (sev === 'critical' || sev === 'high') return 'high';
+  if (sev === 'info') return 'info';
+  return 'warn';
+}
+
+function CommandCard({
+  item,
+  onSelect,
+}: {
+  item: AdminAttentionItem;
+  onSelect: (code: string) => void;
+}) {
+  const t = commandTone(item.severity);
+  const actionable = Boolean(item.ctaHint);
+  const countLabel = item.count == null || !Number.isFinite(Number(item.count)) ? '—' : String(item.count);
+  const body = (
+    <>
+      <span className="admin-cc-alert__top">
+        <span className="admin-cc-alert__sev">{opsAlertSeverityLabelPt(item.severity)}</span>
+        <span className="admin-cc-alert__count">
+          {countLabel}
+          <span className="admin-cc-alert__count-label">contagem</span>
+        </span>
+      </span>
+      <span className="admin-cc-alert__problem">{item.message}</span>
+      {item.evidenceLine ? <span className="admin-cc-alert__meta">{item.evidenceLine}</span> : null}
+      <span className="admin-cc-alert__paths">
+        <span className="admin-cc-alert__path">
+          <span className="admin-cc-alert__k">Abrir</span>
+          {item.ctaHint || 'Sem atalho neste console'}
+        </span>
+        <span className="admin-cc-alert__path">
+          <span className="admin-cc-alert__k">Resolver</span>
+          {item.recommendedAction || '—'}
+        </span>
+      </span>
+    </>
+  );
+  if (!actionable) {
+    return <div className={`admin-cc-alert admin-cc-alert--${t} admin-cc-alert--static`}>{body}</div>;
+  }
+  return (
+    <button type="button" className={`admin-cc-alert admin-cc-alert--${t}`} onClick={() => onSelect(item.code)}>
+      {body}
+    </button>
+  );
 }
 
 function AttentionList({
@@ -78,23 +131,26 @@ export function AdminAttentionStrip({
   variant = 'strip',
   snapshot = 'ready',
   infoCount = 0,
+  signals = [],
 }: Props): ReactNode {
   const visible = items.slice(0, max);
+  const visibleSignals = signals.slice(0, 12);
 
   if (variant === 'command') {
     const pending = snapshot === 'pending' && visible.length === 0;
     const unavailable = snapshot === 'error' && visible.length === 0;
     const empty = snapshot === 'ready' && visible.length === 0;
     return (
-      <section className="admin-attn admin-attn--command" aria-labelledby="admin-attention-heading">
+      <section className="admin-attn admin-attn--command admin-cc-block" aria-labelledby="admin-attention-heading">
+        <p className="admin-cc-block__step">02</p>
         <div className="admin-attn__head">
           <h2 id="admin-attention-heading" className="admin-attn__title">
             {OPS_ATTENTION_HEADING}
           </h2>
         </div>
         <p className="admin-attn__lede">
-          Condições reais de GET /admin/ops. O atalho de cada alerta continua o mesmo. Nada aqui é
-          estimado.
+          Cada alerta do snapshot: o problema, onde abrir e como resolver. Os atalhos são os que já
+          existem. Nada é estimado e nada se resolve sozinho.
         </p>
         {pending ? (
           <div className="admin-shell-state admin-shell-state--loading" role="status">
@@ -114,7 +170,27 @@ export function AdminAttentionStrip({
             <p>{opsAttentionEmptyMessage(infoCount)}</p>
           </div>
         ) : null}
-        {visible.length > 0 ? <AttentionList items={visible} onSelect={onSelect} /> : null}
+        {visible.length > 0 ? (
+          <ol className="admin-cc-alert-list">
+            {visible.map((a) => (
+              <li key={`attn-${a.code}`}>
+                <CommandCard item={a} onSelect={onSelect} />
+              </li>
+            ))}
+          </ol>
+        ) : null}
+        {visibleSignals.length > 0 ? (
+          <div className="admin-cc-signals">
+            <h3 className="admin-cc-signals__title">Sinais informativos</h3>
+            <ol className="admin-cc-alert-list">
+              {visibleSignals.map((a) => (
+                <li key={`signal-${a.code}`}>
+                  <CommandCard item={a} onSelect={onSelect} />
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </section>
     );
   }

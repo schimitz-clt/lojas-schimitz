@@ -422,7 +422,7 @@ export function AdminCatalogoSection() {
       
       </div>
       <div className="admin-section-panel admin-catalog">
-<section className={`admin-card-pro admin-catalog-panel${lowStockProducts.length ? ' admin-catalog-panel--low' : ''}`} style={{ marginBottom: 0, borderColor: lowStockProducts.length ? 'var(--admin-danger)' : undefined }}>
+<section id="admin-low-stock" className={`admin-card-pro admin-catalog-panel${lowStockProducts.length ? ' admin-catalog-panel--low' : ''}`} style={{ marginBottom: 0, borderColor: lowStockProducts.length ? 'var(--admin-danger)' : undefined }}>
         <div className="body">
           <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
             <h2>
