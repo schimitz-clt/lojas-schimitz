@@ -3,7 +3,12 @@
  * Display helpers. No new address or coupon APIs.
  */
 
-import { accountAddressToEdit, accountLoginHref, type AccountAddressRecord } from '@/lib/account-menu';
+import {
+  ACCOUNT_ENDERECO_PATH,
+  accountAddressToEdit,
+  accountLoginHref,
+  type AccountAddressRecord,
+} from '@/lib/account-menu';
 import { formatCepInput, isCompleteCep } from '@/lib/pdp-trust';
 
 export type HomeShortcutId = 'cupons' | 'ofertas' | 'categorias';
@@ -52,8 +57,8 @@ export type DeliveryBarCopy = {
   detail: string;
   /** Formatted CEP when we actually have 8 digits. */
   cep: string;
-  /** Saved street/city row opens the account address page. */
-  accountHref: '/conta/dados' | null;
+  /** Saved street/city row opens the address block on Dados pessoais. */
+  accountHref: typeof ACCOUNT_ENDERECO_PATH | null;
 };
 
 function streetLine(addr: AccountAddressRecord): string {
@@ -86,7 +91,7 @@ export function deliveryBarCopy(input: {
       title: titled,
       detail: cep ? `CEP ${cep}` : 'Endereço salvo',
       cep,
-      accountHref: '/conta/dados',
+      accountHref: ACCOUNT_ENDERECO_PATH,
     };
   }
 
@@ -114,5 +119,5 @@ export const HOME_CATALOG_LOAD_ERROR = 'Não foi possível carregar os produtos 
 
 /** Light path to the existing address form — login first when there is no session. */
 export function deliveryAddressHref(loggedIn: boolean): string {
-  return loggedIn ? '/conta/dados' : accountLoginHref('/conta/dados');
+  return loggedIn ? ACCOUNT_ENDERECO_PATH : accountLoginHref(ACCOUNT_ENDERECO_PATH);
 }

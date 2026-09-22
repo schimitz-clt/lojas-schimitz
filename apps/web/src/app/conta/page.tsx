@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api, brl, clearSession, waLink } from '@/lib/api';
 import { AccountMenu } from '@/components/account/AccountMenu';
+import { AccountShortcuts } from '@/components/account/AccountShortcuts';
 import { OrderCardThumb } from '@/components/order/OrderCardThumb';
 import {
   ACCOUNT_HUB_TITLE,
@@ -11,6 +12,7 @@ import {
   accountGreeting,
   accountLoginHref,
   accountMenuSections,
+  accountQuickShortcuts,
 } from '@/lib/account-menu';
 import { authRegisterHref } from '@/lib/checkout-auth';
 import { useSessionUser } from '@/lib/use-session-user';
@@ -47,15 +49,17 @@ export default function ContaPage() {
     ? { title: 'Olá', subtitle: 'Carregando sua conta...' }
     : accountGreeting(user);
   const whatsappHref = waLink(ACCOUNT_WHATSAPP_HELP_TEXT);
+  const loggedIn = Boolean(user);
   const sections = useMemo(
     () =>
       accountMenuSections({
-        loggedIn: Boolean(user),
+        loggedIn,
         role: user?.role,
         whatsappHref,
       }),
-    [user, whatsappHref],
+    [loggedIn, user?.role, whatsappHref],
   );
+  const shortcuts = useMemo(() => accountQuickShortcuts(loggedIn), [loggedIn]);
 
   const activeOrder = user && orders ? pickInProgressOrder(orders) : null;
   const activePaths = activeOrder ? orderRecoveryPaths(activeOrder.publicId) : null;
@@ -86,6 +90,8 @@ export default function ContaPage() {
           </div>
         ) : null}
       </header>
+
+      {ready ? <AccountShortcuts items={shortcuts} onLogout={logout} /> : null}
 
       {user ? (
         <section className="account-hub-progress" aria-labelledby="conta-pedido-andamento">
@@ -139,10 +145,16 @@ export default function ContaPage() {
                 </div>
               </>
             ) : (
-              <p className="muted" style={{ marginBottom: 0 }}>
-                Nenhum pedido em andamento.{' '}
-                <Link href="/pedidos">Ver meus pedidos</Link>
-              </p>
+              <>
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  Nenhum pedido em andamento.
+                </p>
+                <div className="account-hub-cta" style={{ marginTop: 12, marginBottom: 0 }}>
+                  <Link className="btn" href="/pedidos">
+                    Meus pedidos
+                  </Link>
+                </div>
+              </>
             )}
           </div>
         </section>

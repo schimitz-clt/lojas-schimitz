@@ -11,6 +11,7 @@ export type AccountIconId =
   | 'orders'
   | 'recent'
   | 'profile'
+  | 'address'
   | 'heart'
   | 'bell'
   | 'logout'
@@ -42,6 +43,9 @@ export type AccountMenuUser = {
 
 export const ACCOUNT_HUB_TITLE = 'Sua conta';
 export const ACCOUNT_DADOS_PATH = '/conta/dados';
+/** Anchor on Dados pessoais — the address block, not the loyalty card above it. */
+export const ACCOUNT_ENDERECO_ID = 'enderecos';
+export const ACCOUNT_ENDERECO_PATH = `${ACCOUNT_DADOS_PATH}#${ACCOUNT_ENDERECO_ID}`;
 export const ACCOUNT_VISTOS_PATH = '/conta/vistos';
 export const ACCOUNT_SALVOS_PATH = '/conta/salvos';
 export const ACCOUNT_EDIT_ADDRESS_CTA = 'Alterar endereço';
@@ -171,6 +175,38 @@ export type AccountMenuOptions = {
   whatsappHref: string;
 };
 
+export type AccountShortcut = {
+  id: 'orders' | 'address' | 'favorites' | 'logout';
+  label: string;
+  href: string;
+  action?: 'logout';
+};
+
+/**
+ * First-screen actions: pedidos, endereço, salvos, and sair when the cookie session exists.
+ * Guest rows stay useful; sair is omitted until login. No staff destinations.
+ */
+export function accountQuickShortcuts(loggedIn: boolean): AccountShortcut[] {
+  const inSession = Boolean(loggedIn);
+  const items: AccountShortcut[] = [
+    {
+      id: 'orders',
+      label: 'Pedidos',
+      href: inSession ? '/pedidos' : accountLoginHref('/pedidos'),
+    },
+    {
+      id: 'address',
+      label: 'Endereço',
+      href: inSession ? ACCOUNT_ENDERECO_PATH : accountLoginHref(ACCOUNT_ENDERECO_PATH),
+    },
+    { id: 'favorites', label: 'Salvos', href: ACCOUNT_SALVOS_PATH },
+  ];
+  if (inSession) {
+    items.push({ id: 'logout', label: 'Sair', href: '#sair', action: 'logout' });
+  }
+  return items;
+}
+
 /**
  * Sectioned hub rows. Guest still gets useful links + Entrar is rendered by the page.
  * Auth-gated destinations use /entrar?next= so the row is never a dead end.
@@ -180,6 +216,7 @@ export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSectio
   const loggedIn = Boolean(opts.loggedIn);
   const ordersHref = loggedIn ? '/pedidos' : accountLoginHref('/pedidos');
   const dadosHref = loggedIn ? ACCOUNT_DADOS_PATH : accountLoginHref(ACCOUNT_DADOS_PATH);
+  const enderecoHref = loggedIn ? ACCOUNT_ENDERECO_PATH : accountLoginHref(ACCOUNT_ENDERECO_PATH);
   const notifHref = loggedIn ? '/notificacoes' : accountLoginHref('/notificacoes');
 
   const pedidos: AccountMenuSection = {
@@ -198,6 +235,7 @@ export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSectio
 
   const contaItems: AccountMenuItem[] = [
     { id: 'profile', label: 'Dados pessoais', href: dadosHref, icon: 'profile' },
+    { id: 'address', label: 'Endereço', href: enderecoHref, icon: 'address' },
     { id: 'favorites', label: 'Salvos', href: ACCOUNT_SALVOS_PATH, icon: 'heart' },
     { id: 'notifications', label: 'Notificações', href: notifHref, icon: 'bell' },
   ];

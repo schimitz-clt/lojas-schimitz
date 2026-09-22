@@ -43,7 +43,7 @@ import { HOME_CATALOG_LOAD_ERROR, deliveryAddressHref, deliveryBarCopy, homeQuic
   assert.equal(saved.title, 'Avenida Major Manoel Jose Monteiro, 100 · Porto Alegre');
   assert.equal(saved.detail, 'CEP 91160-390');
   assert.equal(saved.cep, '91160-390');
-  assert.equal(saved.accountHref, '/conta/dados');
+  assert.equal(saved.accountHref, '/conta/dados#enderecos');
 
   const cepOnly = deliveryBarCopy({ addresses: [], storedCep: '91160-390' });
   assert.equal(cepOnly.mode, 'cep');
@@ -70,8 +70,8 @@ import { HOME_CATALOG_LOAD_ERROR, deliveryAddressHref, deliveryBarCopy, homeQuic
   assert.equal(cityOnly.title, 'Porto Alegre');
 }
 
-assert.equal(deliveryAddressHref(true), '/conta/dados');
-assert.equal(deliveryAddressHref(false), '/entrar?next=%2Fconta%2Fdados');
+assert.equal(deliveryAddressHref(true), '/conta/dados#enderecos');
+assert.equal(deliveryAddressHref(false), '/entrar?next=%2Fconta%2Fdados%23enderecos');
 
 const srcRoot = join(__dirname, '..');
 const page = readFileSync(join(srcRoot, 'app/page.tsx'), 'utf8');
