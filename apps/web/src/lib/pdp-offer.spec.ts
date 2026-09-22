@@ -120,12 +120,24 @@ assert.equal(
   'mobile PDP does not reserve space for a fixed purchase bar',
 );
 assert.ok(
-  /@media \(max-width: 720px\)[\s\S]*\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(96px\s*\+\s*env\(safe-area-inset-bottom/.test(css),
+  /@media \(max-width: 720px\)[\s\S]*\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(80px\s*\+\s*env\(safe-area-inset-bottom/.test(css),
   'bottom nav clearance stays on .main-shell',
 );
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.bottom-nav\s*\{[^}]*position:\s*fixed/.test(css),
   'only the bottom nav stays fixed on mobile',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.bottom-nav\s*\{[^}]*left:\s*0[^}]*right:\s*0[^}]*bottom:\s*0/.test(css),
+  'mobile bottom nav is full-width and docked to the screen edge',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.bottom-nav\s*\{[^}]*border-radius:\s*0/.test(css),
+  'mobile bottom nav is not a floating pill',
+);
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.bottom-nav\s*\{[^}]*env\(safe-area-inset-bottom/.test(css),
+  'docked bar keeps safe-area padding above the system nav',
 );
 assert.ok(
   /@media \(min-width: 721px\)[\s\S]*\.pdp-desc\s*\{\s*order:\s*7/.test(css),

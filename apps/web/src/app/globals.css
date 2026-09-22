@@ -2224,31 +2224,33 @@ textarea { resize: vertical; min-height: 72px; }
   .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
   .nav-depts { display: none; }
 
-  /* App-like bottom nav */
+  /* Full-width docked tab bar. Background runs to the screen edge; labels sit above the system inset. */
   .bottom-nav {
-    position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    background: rgba(10,10,10,.94); color: #fff;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    box-sizing: border-box;
+    min-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    background: var(--header-bg); color: #fff;
     display: flex; justify-content: space-around; align-items: stretch;
-    padding: 6px 4px 8px;
-    border: 1px solid rgba(255,255,255,.1);
-    border-radius: 20px;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 0;
     z-index: 30;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    box-shadow: none;
   }
   .bottom-nav-item {
-    flex: 1; min-width: 0; min-height: 48px;
+    flex: 1; min-width: 0; min-height: 0;
+    container-type: inline-size;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2px; padding: 4px 2px; color: #a8a8a8; font-size: 10px; font-weight: 700;
-    position: relative; border-radius: 14px; transition: color .12s, background .12s;
+    gap: 3px; padding: 0 2px; color: #c8c8c8; font-size: 10px; font-weight: 700;
+    line-height: 1.15;
+    position: relative; border-radius: 0; background: transparent;
+    transition: color .12s;
+    -webkit-tap-highlight-color: transparent;
   }
   .bottom-nav-item.active {
     color: var(--yellow);
-    background: rgba(255,209,0,.1);
-  }
-  .bottom-nav-item.active .bottom-nav-ico::after {
-    content: ""; display: block; width: 4px; height: 4px; border-radius: 50%;
-    background: var(--yellow); margin: 3px auto 0;
+    background: transparent;
   }
   .bottom-nav-ico {
     font-size: 18px;
@@ -2259,6 +2261,7 @@ textarea { resize: vertical; min-height: 72px; }
     justify-content: center;
     width: 24px;
     height: 24px;
+    flex-shrink: 0;
   }
   .bottom-nav-ico svg {
     display: block;
@@ -2274,7 +2277,17 @@ textarea { resize: vertical; min-height: 72px; }
     display: block;
     flex-shrink: 0;
   }
-  .bottom-nav-label { letter-spacing: .01em; }
+  .bottom-nav-label {
+    display: block;
+    max-width: 100%;
+    font-size: 10px;
+    font-size: clamp(8.5px, 13.5cqw, 11px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+  }
   .bottom-nav-badge {
     position: absolute; top: -6px; right: -10px;
     background: var(--yellow); color: var(--ink);
@@ -2282,7 +2295,7 @@ textarea { resize: vertical; min-height: 72px; }
     border-radius: 999px; display: grid; place-items: center; padding: 0 3px;
   }
 
-  .main-shell { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); padding-top: 6px; }
+  .main-shell { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); padding-top: 6px; }
 
   /* Horizontal product rails on mobile */
   .grid-rail {
@@ -2356,7 +2369,7 @@ textarea { resize: vertical; min-height: 72px; }
   .cat-chip-label { font-size: 11.5px; line-height: 1.3; }
 
   .footer {
-    padding: 24px 0 calc(100px + env(safe-area-inset-bottom, 0px));
+    padding: 24px 0 calc(84px + env(safe-area-inset-bottom, 0px));
     font-size: 13px;
   }
   .footer-grid {
@@ -2382,7 +2395,7 @@ textarea { resize: vertical; min-height: 72px; }
 
   .pdp {
     padding-top: 0;
-    /* Bottom nav clearance is .main-shell (~96px). Price and CTAs scroll with the page. */
+    /* Bottom nav clearance is .main-shell (~80px). Price and CTAs scroll with the page. */
     padding-bottom: 8px;
     overflow-x: hidden;
     max-width: 100%;

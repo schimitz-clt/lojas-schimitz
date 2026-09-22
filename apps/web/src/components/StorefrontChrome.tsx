@@ -112,6 +112,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
         </div>
       </footer>
       <CompareBar />
+      {/* Shared docked bar for every non-admin route: home, busca, PDP, sacola, checkout, conta, and the order payment step. Card Brick renders inline on /pedidos — it is not a fullscreen WebView — so the bar stays. */}
       <BottomNav />
       <StorefrontToast />
       <ChatWidget />
