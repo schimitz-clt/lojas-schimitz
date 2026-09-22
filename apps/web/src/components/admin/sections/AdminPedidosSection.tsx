@@ -8,16 +8,29 @@ import {
   POST_PAYMENT_OPS_HINT,
   isPostPaidStatus,
   nextFulfillmentStatus,
+  ADMIN_ORDER_QUEUE_BUCKETS,
 } from '@/lib/order-status';
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import { shouldServerOrderSearch } from '@/lib/admin-order-search';
 import {
   emptyOrdersQueueMessage,
+  formatOpsSnapshotTime,
   opsAlertCtaHintPt,
+  opsCountOrDash,
+  OPS_DO_HEADING,
+  OPS_NOW_HEADING,
+  partitionSectionAlerts,
   paymentMethodBadge,
+  pedidosCommandCounts,
+  pedidosNowSummary,
+  pedidosQuickActionFigure,
+  PEDIDOS_DO_LEDE,
+  PEDIDOS_NOW_LEDE,
+  PEDIDOS_QUICK_ACTIONS,
   storePaidNotifyCardHint,
   whatsAppOpsButtonLabel,
+  type PedidosQuickActionId,
 } from '@/lib/admin-ops-ui';
 import { AdminAttentionStrip } from '@/components/admin/AdminAttentionStrip';
 import { AdminSalesCharts } from '@/components/admin/AdminSalesCharts';
@@ -74,7 +87,6 @@ import { useAdminConsole } from '@/components/admin/admin-console-context';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
-  ORDER_STATUS_TABS,
   PAID_STUCK_HOURS_UI,
   availableStock,
   customerHint,
@@ -84,6 +96,7 @@ import {
   hoursSincePaid,
   advanceButtonLabel,
   orderWa,
+  type AdminOpsAlert,
 } from '@/components/admin/admin-console-model';
 
 export function AdminPedidosSection() {
@@ -114,110 +127,246 @@ export function AdminPedidosSection() {
     runBulkFulfillment,
     resendStorePaidNotify,
     copyOrderField,
-    attentionAlerts,
     selectOpsAlert,
+    opsSnapshot,
+    opsBusy,
   } = useAdminConsole();
+  const ready = ops != null;
+  const counts = pedidosCommandCounts(ops, ready);
+  const sectionAlerts = partitionSectionAlerts(ops?.alerts, 'pedidos');
+  const snapshotState = ops ? 'ready' : opsSnapshot;
+
+  function toAttentionItem(a: AdminOpsAlert) {
+    const count = typeof a.count === 'number' && Number.isFinite(a.count) ? a.count : null;
+    return {
+      code: a.code,
+      severity: a.severity,
+      message: a.message,
+      count,
+      recommendedAction: a.recommendedAction,
+      evidenceLine: a.evidence?.reason
+        ? `Evidência: ${a.evidence.reason}${
+            a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''
+          }${a.evidence.externalReference ? ` · ref ${a.evidence.externalReference}` : ''}`
+        : null,
+      ctaHint: opsAlertCtaHintPt(a),
+    };
+  }
+
+  function runQuickAction(id: PedidosQuickActionId) {
+    if (id === 'paid') {
+      setOrderRoiFilter('all');
+      selectOpsBucket('paid');
+      return;
+    }
+    if (id === 'stuck') {
+      setOrderRoiFilter('stuck_paid');
+      selectOpsBucket('paid');
+      return;
+    }
+    if (id === 'problems') {
+      setOrderRoiFilter('all');
+      selectOpsBucket('problems');
+      return;
+    }
+    if (id === 'awaiting') {
+      setOrderRoiFilter('all');
+      selectOpsBucket('awaiting_payment');
+      return;
+    }
+    setOrderRoiFilter('no_shipping');
+    document.getElementById('admin-orders-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function kpiTone(n: number | null, kind: 'warn' | 'danger'): string {
+    if (!ready || n == null || n <= 0) return '';
+    return kind === 'danger' ? ' admin-cc-kpi--danger' : ' admin-cc-kpi--warn';
+  }
+
   return (
     <>
-      <div className="admin-section-panel admin-pedidos">
+      <div className="admin-section-panel admin-pedidos admin-cc">
+      <header className="admin-cc-banner">
+        <div>
+          <p className="admin-cc-banner__eyebrow">Pedidos</p>
+          <p className="admin-cc-banner__title">Fila operacional, um snapshot.</p>
+          <p className="admin-cc-banner__meta">
+            Snapshot{' '}
+            {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
+            {' · '}
+            GET /admin/ops
+          </p>
+        </div>
+        <button
+          type="button"
+          className="admin-cc-banner__refresh"
+          disabled={opsBusy}
+          onClick={() => void loadOps()}
+        >
+          {opsBusy ? 'Atualizando…' : 'Atualizar'}
+        </button>
+      </header>
+
+      <section className="admin-cc-block" aria-labelledby="pedidos-now-heading">
+        <p className="admin-cc-block__step">01</p>
+        <h2 id="pedidos-now-heading" className="admin-cc-block__title">
+          {OPS_NOW_HEADING}
+        </h2>
+        <p className="admin-cc-block__lede">{PEDIDOS_NOW_LEDE}</p>
+        <p className="admin-cc-nowline" role="status">
+          {pedidosNowSummary(counts, snapshotState)}
+        </p>
+        <div className="admin-cc-kpi-grid">
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}${
+              ready && (counts.stuckPaid ?? 0) === 0 ? kpiTone(counts.paidAwaiting, 'warn') : ''
+            }`}
+            onClick={() => runQuickAction('paid')}
+          >
+            <div className="admin-cc-kpi__label">Pagos p/ organizar</div>
+            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.paidAwaiting, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">
+              {!ready
+                ? 'aguardando snapshot'
+                : counts.stuckPaid == null
+                  ? 'travados —'
+                  : counts.stuckPaid > 0
+                    ? `${counts.stuckPaid} travado(s)${
+                        counts.stuckHoursThreshold != null ? ` ≥${counts.stuckHoursThreshold}h` : ''
+                      }`
+                    : counts.stuckHoursThreshold != null
+                      ? `limite ${counts.stuckHoursThreshold}h`
+                      : '0 travado'}
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}`}
+            onClick={() => runQuickAction('stuck')}
+          >
+            <div className="admin-cc-kpi__label">Pagos travados</div>
+            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.stuckPaid, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">
+              {!ready
+                ? 'aguardando snapshot'
+                : counts.oldestStuckHours != null
+                  ? `mais antigo ~${counts.oldestStuckHours}h`
+                  : counts.stuckPaid === 0
+                    ? 'nenhum acima do limite'
+                    : 'sem horas neste snapshot'}
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.legacyStuck, 'danger')}`}
+            onClick={() => runQuickAction('problems')}
+          >
+            <div className="admin-cc-kpi__label">Legado travado</div>
+            <div className={`admin-cc-kpi__value${(counts.legacyStuck ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.legacyStuck, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">separando / saiu para entrega</div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.awaitingPayment, 'warn')}`}
+            onClick={() => runQuickAction('awaiting')}
+          >
+            <div className="admin-cc-kpi__label">Aguardando pagamento</div>
+            <div className="admin-cc-kpi__value">{opsCountOrDash(counts.awaitingPayment, ready)}</div>
+            <div className="admin-cc-kpi__hint">bucket do snapshot</div>
+          </button>
+        </div>
+        {counts.stuckPublicIds.length ? (
+          <p className="admin-cc-work__note">IDs travados: {counts.stuckPublicIds.join(', ')}</p>
+        ) : null}
+        <p className="admin-cc-flow__label">Fila por status real — o clique filtra esta página</p>
+        <div className="admin-cc-flow" role="list">
+          <button
+            type="button"
+            role="listitem"
+            className={`admin-cc-flow__step${orderStatusFilter === '' ? ' is-active' : ''}`}
+            onClick={() => {
+              setOrderRoiFilter('all');
+              selectOpsBucket('');
+            }}
+          >
+            <span>Todos</span>
+            <strong>{opsCountOrDash(counts.total, ready)}</strong>
+          </button>
+          {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="listitem"
+              className={`admin-cc-flow__step${orderStatusFilter === key ? ' is-active' : ''}${
+                ready && key === 'problems' && (counts.legacyStuck ?? 0) > 0 ? ' is-hot' : ''
+              }${ready && key === 'paid' && (counts.stuckPaid ?? 0) > 0 ? ' is-hot' : ''}`}
+              onClick={() => {
+                setOrderRoiFilter('all');
+                selectOpsBucket(key);
+              }}
+            >
+              <span>{adminQueueBucketLabel(key)}</span>
+              <strong>{opsCountOrDash(counts.buckets ? counts.buckets[key] : null, ready)}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <AdminAttentionStrip
-        items={attentionAlerts.map((a) => ({
-          code: a.code,
-          severity: a.severity,
-          message: a.message,
-          recommendedAction: a.recommendedAction,
-          evidenceLine: a.evidence?.reason
-            ? `Evidência: ${a.evidence.reason}${
-                a.evidence.providerStatus ? ` · status ${a.evidence.providerStatus}` : ''
-              }${
-                a.evidence.externalReference
-                  ? ` · ref ${a.evidence.externalReference}`
-                  : ''
-              }`
-            : null,
-          ctaHint: opsAlertCtaHintPt(a),
-        }))}
+        variant="command"
+        snapshot={snapshotState}
+        infoCount={sectionAlerts.signals.length}
+        max={Math.max(sectionAlerts.attention.length, 1)}
+        items={sectionAlerts.attention.map(toAttentionItem)}
+        signals={sectionAlerts.signals.map(toAttentionItem)}
         onSelect={(code) => {
-          const a = attentionAlerts.find((x) => x.code === code);
+          const a = (ops?.alerts ?? []).find((x) => x.code === code);
           if (a) selectOpsAlert(a);
         }}
       />
-      <h3 id="admin-orders-queue" className="admin-section-heading">
-        Pedidos ({filteredOrders.length}{orderJumpQ.trim() ? ` / ${orders.length}` : ''})
-      </h3>
-      {(() => {
-        const awaiting =
-          ops?.paidAwaitingOrg?.paidAwaitingCount ?? ops?.orders?.buckets?.paid ?? 0;
-        const stuck = ops?.paidAwaitingOrg?.stuckCount ?? 0;
-        const tone = paidQueueBannerTone({
-          paidAwaitingCount: awaiting,
-          stuckCount: stuck,
-        });
-        return (
-          <div className={paidQueueBannerClass(tone)}>
-            <div className="body">
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <span className="admin-queue-banner__title">
-                  {tone === 'empty' ? 'Fila Pagos' : 'Pagos aguardando organização'}
-                </span>
-                <div className="admin-queue-banner__meta">
-                  {tone === 'empty' ? (
-                    <>
-                      Nenhum pedido em Pago aguardando Separar agora. Quando um PIX/cartão confirmar,
-                      aparece aqui.
-                    </>
-                  ) : (
-                    <>
-                      {awaiting} pedido(s) em Pago
-                      {stuck > 0
-                        ? ` · ${stuck} travado(s) ≥${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`
-                        : ` · nenhum acima de ${ops?.paidAwaitingOrg?.stuckHoursThreshold ?? PAID_STUCK_HOURS_UI}h`}
-                      {ops?.paidAwaitingOrg?.oldestStuckHours != null
-                        ? ` · mais antigo ~${ops.paidAwaitingOrg.oldestStuckHours}h`
-                        : ''}
-                    </>
-                  )}
-                </div>
-                {ops?.paidAwaitingOrg?.stuckPublicIds?.length ? (
-                  <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
-                    IDs travados: {ops.paidAwaitingOrg.stuckPublicIds.join(', ')}
-                  </div>
-                ) : null}
-              </div>
-              {tone === 'empty' ? (
-                <button
-                  type="button"
-                  className="btn ghost admin-btn-accent"
-                  onClick={() => {
-                    void loadOps();
-                    selectOpsBucket('paid');
-                  }}
-                  style={{ minHeight: 44 }}
-                >
-                  Atualizar / ver Pagos
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn admin-btn-primary-accent"
-                  onClick={() => selectOpsBucket('paid')}
-                  style={{ minHeight: 44, minWidth: 44 }}
-                >
-                  Abrir fila Pagos
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-      <p className="admin-pedidos__intro">
-        Fila operacional (entrega própria): Aguardando pagamento → Pago → Organizando → Embalagem →
-        Pronto para coleta → Em trânsito → Entregue. Bucket Problemas = histórico (cancelado/reembolsado)
-        + legado stuck (separando/saiu). Alerta crítico do Ops conta só o legado travado.
-        “Separar” = Organizando / Embalagem (sem status novo). Ao marcar Em trânsito, informe o rastreio (opcional).
-        Seleção em lote: Separar agora (Pago → Organizando) e Avançar só nas transições de um clique já existentes.
-        Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp é wa.me — não envia sozinho.
-      </p>
+
+      <section className="admin-cc-block" aria-labelledby="pedidos-do-heading">
+        <p className="admin-cc-block__step">03</p>
+        <h2 id="pedidos-do-heading" className="admin-cc-block__title">
+          {OPS_DO_HEADING}
+        </h2>
+        <p className="admin-cc-block__lede">{PEDIDOS_DO_LEDE}</p>
+        <div className="admin-cc-actions">
+          {PEDIDOS_QUICK_ACTIONS.map((action) => {
+            const figure = pedidosQuickActionFigure(action.id, counts);
+            return (
+              <button
+                key={action.id}
+                type="button"
+                className="admin-cc-action"
+                onClick={() => runQuickAction(action.id)}
+              >
+                <span className="admin-cc-action__label">{action.label}</span>
+                <span className="admin-cc-action__hint">{action.hint}</span>
+                {figure ? <span className="admin-cc-action__figure">{figure}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="admin-cc-block" aria-labelledby="admin-orders-queue">
+        <h2 id="admin-orders-queue" className="admin-cc-block__title">
+          Fila carregada ({filteredOrders.length}
+          {orderJumpQ.trim() ? ` / ${orders.length}` : ''})
+        </h2>
+        <p className="admin-cc-block__lede">
+          Lista de GET /admin/orders com o status real de cada pedido. Os números da faixa acima são o
+          snapshot. Separar continua Pago → Organizando e Organizando → Embalagem — sem status novo.
+          Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp abre wa.me e não envia sozinho.
+        </p>
       <div className="admin-pedidos__toolbar">
       <label className="admin-search-field">
         <span>
@@ -235,7 +384,7 @@ export function AdminPedidosSection() {
         {(
           [
             { key: 'all', label: 'Filtro ROI: todos' },
-            { key: 'stuck_paid', label: 'Pagos travados (≥24h)' },
+            { key: 'stuck_paid', label: `Pagos travados (≥${PAID_STUCK_HOURS_UI}h)` },
             { key: 'no_shipping', label: 'Sem frete/rastreio (pago→pronto)' },
           ] as const
         ).map((f) => (
@@ -258,37 +407,6 @@ export function AdminPedidosSection() {
       <p className="ok" style={{ fontSize: 13, margin: 0 }}>
         {POST_PAYMENT_OPS_HINT}
       </p>
-      <div className="admin-filter-row">
-        {ORDER_STATUS_TABS.map((tab) => {
-          const active = orderStatusFilter === tab.key;
-          const opsCount =
-            tab.key === ''
-              ? ops?.orders?.total
-              : ops?.orders?.buckets?.[tab.key];
-          const listCount =
-            tab.key === ''
-              ? orders.length
-              : tab.key === 'problems'
-                ? orders.length
-                : orders.filter((o) => o.status === tab.key).length;
-          const count = active
-            ? listCount
-            : opsCount != null
-              ? opsCount
-              : null;
-          return (
-            <button
-              key={tab.key || 'all'}
-              type="button"
-              className={`admin-filter-chip${active ? ' is-active' : ''}`}
-              onClick={() => selectOpsBucket(tab.key)}
-            >
-              {tab.label}
-              {count != null ? ` (${count})` : ''}
-            </button>
-          );
-        })}
-      </div>
       <div className="admin-filter-row">
         <button
           type="button"
@@ -711,6 +829,7 @@ export function AdminPedidosSection() {
         </p>
       ) : null}
       </div>
+      </section>
       </div>
     </>
   );
