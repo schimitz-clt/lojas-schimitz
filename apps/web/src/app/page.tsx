@@ -1,9 +1,6 @@
-'use client';
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { api } from '@/lib/api';
-import { ProductCard, Product } from '@/components/ProductCard';
+import { ProductCard, type Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { HomeShortcuts } from '@/components/HomeShortcuts';
 import { HomeShelves } from '@/components/HomeShelves';
@@ -15,13 +12,14 @@ import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
 import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
 import {
+  catalogProductsFromResponse,
   parseHomeShelvesPayload,
   shelvesFromCatalog,
   visibleHomeShelves,
   type HomeShelfView,
 } from '@/lib/home-shelves';
-
-type ListResponse = { items: Product[]; total?: number };
+import { fetchStoreData, type StoreDataResult } from '@/lib/storefront';
+import { takeUsableHomeBanners, type HomeBanner } from '@/lib/home-banners';
 
 function SectionHead({
   id,
@@ -81,117 +79,91 @@ function CategoryStrip({ products }: { products: Product[] }) {
   );
 }
 
-function HomeInner() {
-  const q = useSearchParams().get('q') || '';
-  const [products, setProducts] = useState<Product[]>([]);
-  const [activeCount, setActiveCount] = useState<number | null>(null);
-  const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
-  const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(true);
+function readCatalog(result: StoreDataResult): {
+  items: Product[];
+  activeCount: number | null;
+  err: boolean;
+} {
+  if (!result.ok) return { items: [], activeCount: null, err: true };
+  return {
+    items: catalogProductsFromResponse<Product>(result.data),
+    activeCount: activeProductCountFromCatalog(result.data),
+    err: false,
+  };
+}
 
-  useEffect(() => {
-    setLoading(true);
-    setErr('');
-    setActiveCount(null);
-    const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
-    let cancelled = false;
-    (async () => {
-      try {
-        const catalog = await api<Product[] | ListResponse>(path);
-        const items = Array.isArray(catalog) ? catalog : catalog.items || [];
-        if (cancelled) return;
-        setProducts(items);
-        setActiveCount(activeProductCountFromCatalog(catalog));
-        if (q) {
-          setShelves(null);
-          return;
-        }
-        try {
-          const payload = await api<unknown>('/store/shelves');
-          if (cancelled) return;
-          const parsed = parseHomeShelvesPayload<Product>(payload);
-          setShelves(parsed ?? shelvesFromCatalog(items));
-        } catch {
-          if (cancelled) return;
-          setShelves(shelvesFromCatalog(items));
-        }
-      } catch (e) {
-        if (cancelled) return;
-        setErr(e instanceof Error ? e.message : 'Erro ao carregar');
-        setProducts([]);
-        setActiveCount(null);
-        setShelves(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [q]);
+function readBanners(result: StoreDataResult): HomeBanner[] | null {
+  if (!result.ok || !Array.isArray(result.data)) return null;
+  return result.data as HomeBanner[];
+}
 
-  const visibleShelves = useMemo(() => visibleHomeShelves(shelves), [shelves]);
-  const showComingSoon =
-    !loading && !err && activeCount != null && shouldShowComingSoonShelf(activeCount);
+function readShelves(result: StoreDataResult | null, items: Product[]): HomeShelfView<Product>[] | null {
+  if (!result || !result.ok) return shelvesFromCatalog(items);
+  return parseHomeShelvesPayload<Product>(result.data) ?? shelvesFromCatalog(items);
+}
 
-  if (q) {
-    return (
-      <>
-        <section className="home-search-head">
-          <h1>Resultados para “{q}”</h1>
-          <p className="muted">
-            Busca na vitrine ·{' '}
-            <Link href={`/produtos?q=${encodeURIComponent(q)}`}>ver no catálogo com filtros</Link>
-          </p>
-        </section>
-        {err ? (
-          <div className="alert" role="alert">{HOME_CATALOG_LOAD_ERROR}</div>
-        ) : null}
-        {loading ? <ProductGridSkeleton count={8} /> : null}
-        {!loading && !err && products.length === 0 ? (
-          <div className="catalog-empty">
-            <p style={{ margin: 0, fontWeight: 700 }}>Não encontramos resultados para “{q}”.</p>
-            <p className="muted" style={{ margin: '8px 0 12px' }}>
-              Tente outra busca ou confira o <Link href="/produtos">catálogo completo</Link>.
-            </p>
-            <Link className="btn ghost" href="/">
-              Limpar busca
-            </Link>
-          </div>
-        ) : null}
-        {!loading ? (
-          <div className="grid">
-            {products.map((p, i) => (
-              <ProductCard key={p.id} p={p} priority={i < 4} variant="shelf" />
-            ))}
-          </div>
-        ) : null}
-        <RecentlyViewedStrip />
-      </>
-    );
-  }
-
+function HomeSearch({ q, catalogRes }: { q: string; catalogRes: StoreDataResult }) {
+  const { items, err } = readCatalog(catalogRes);
   return (
-    <div className="home sf-pro-home">
-      {/* 1. Banner / hero */}
-      <HomeBanners products={loading ? [] : products} />
+    <>
+      <section className="home-search-head">
+        <h1>Resultados para “{q}”</h1>
+        <p className="muted">
+          Busca na vitrine ·{' '}
+          <Link href={`/produtos?q=${encodeURIComponent(q)}`}>ver no catálogo com filtros</Link>
+        </p>
+      </section>
+      {err ? (
+        <div className="alert" role="alert">{HOME_CATALOG_LOAD_ERROR}</div>
+      ) : null}
+      {!err && items.length === 0 ? (
+        <div className="catalog-empty">
+          <p style={{ margin: 0, fontWeight: 700 }}>Não encontramos resultados para “{q}”.</p>
+          <p className="muted" style={{ margin: '8px 0 12px' }}>
+            Tente outra busca ou confira o <Link href="/produtos">catálogo completo</Link>.
+          </p>
+          <Link className="btn ghost" href="/">
+            Limpar busca
+          </Link>
+        </div>
+      ) : null}
+      {!err ? (
+        <div className="grid">
+          {items.map((p, i) => (
+            <ProductCard key={p.id} p={p} priority={i < 4} variant="shelf" />
+          ))}
+        </div>
+      ) : null}
+      <RecentlyViewedStrip />
+    </>
+  );
+}
 
-      {/* Shortcuts sit above Categorias — the photo strip stays. */}
-      <HomeShortcuts />
-
-      {/* 2. Categories — photo circles, no emoji */}
+function HomeLower({
+  items,
+  err,
+  activeCount,
+  shelves,
+}: {
+  items: Product[];
+  err: boolean;
+  activeCount: number | null;
+  shelves: HomeShelfView<Product>[] | null;
+}) {
+  const visibleShelves = visibleHomeShelves(shelves);
+  const showComingSoon = !err && activeCount != null && shouldShowComingSoonShelf(activeCount);
+  return (
+    <>
       <section className="home-cats" id="home-cats" aria-labelledby="home-cats-title">
         <SectionHead id="home-cats-title" title="Categorias" href="/produtos" linkLabel="Ver todas" />
-        <CategoryStrip products={products} />
+        <CategoryStrip products={items} />
       </section>
 
       {err ? (
         <div className="alert" role="alert">{HOME_CATALOG_LOAD_ERROR}</div>
       ) : null}
 
-      {loading ? <ProductGridSkeleton count={8} /> : null}
-
-      {!loading && !err && products.length === 0 ? (
+      {!err && items.length === 0 ? (
         <div className="catalog-empty">
           <p style={{ margin: 0, fontWeight: 700 }}>Nenhuma oferta no momento.</p>
           <p className="muted" style={{ margin: '8px 0 12px' }}>
@@ -201,15 +173,12 @@ function HomeInner() {
         </div>
       ) : null}
 
-      {/* Teaser only while GET /products has zero active items. */}
       {showComingSoon ? <ComingSoonShelf /> : null}
 
-      {/* 3–5. Prateleiras Magalu — Ofertas / Novidades / Mais vendidos */}
-      {!loading && visibleShelves.length > 0 ? <HomeShelves shelves={visibleShelves} /> : null}
+      {!err && visibleShelves.length > 0 ? <HomeShelves shelves={visibleShelves} /> : null}
 
       <RecentlyViewedStrip />
 
-      {/* 6. Benefits → then footer (layout) */}
       <section className="home-benefits" aria-labelledby="home-benefits-title">
         <h2 id="home-benefits-title" className="sr-only">
           Por que comprar na Schimitz
@@ -237,14 +206,87 @@ function HomeInner() {
           </div>
         </div>
       </section>
+    </>
+  );
+}
+
+async function HomeCatalogBlock({
+  catalogPromise,
+  shelvesPromise,
+}: {
+  catalogPromise: Promise<StoreDataResult>;
+  shelvesPromise: Promise<StoreDataResult>;
+}) {
+  const [catalogRes, shelvesRes] = await Promise.all([catalogPromise, shelvesPromise]);
+  const { items, activeCount, err } = readCatalog(catalogRes);
+  return (
+    <HomeLower
+      items={items}
+      err={err}
+      activeCount={activeCount}
+      shelves={err ? null : readShelves(shelvesRes, items)}
+    />
+  );
+}
+
+async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const sp = await searchParams;
+  const rawQ = Array.isArray(sp.q) ? sp.q[0] : sp.q;
+  const q = (rawQ || '').trim();
+
+  if (q) {
+    const catalogRes = await fetchStoreData(`/products?q=${encodeURIComponent(q)}`);
+    return <HomeSearch q={q} catalogRes={catalogRes} />;
+  }
+
+  // Banners decide the hero. Catalog + shelves stay in flight so a slow rail
+  // does not hold the first banner bitmap.
+  const catalogPromise = fetchStoreData('/products?sort=newest&pageSize=48');
+  const shelvesPromise = fetchStoreData('/store/shelves');
+  const bannerRes = await fetchStoreData('/store/banners');
+  const initialBanners = readBanners(bannerRes);
+  const usable = initialBanners ? takeUsableHomeBanners(initialBanners) : [];
+
+  if (!initialBanners || usable.length === 0) {
+    const [catalogRes, shelvesRes] = await Promise.all([catalogPromise, shelvesPromise]);
+    const { items, activeCount, err } = readCatalog(catalogRes);
+    return (
+      <div className="home sf-pro-home">
+        <HomeBanners products={err ? [] : items} initialBanners={initialBanners} />
+        <HomeShortcuts />
+        <HomeLower
+          items={items}
+          err={err}
+          activeCount={activeCount}
+          shelves={err ? null : readShelves(shelvesRes, items)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="home sf-pro-home">
+      <HomeBanners products={[]} initialBanners={initialBanners} />
+      <HomeShortcuts />
+      <Suspense fallback={<ProductGridSkeleton count={8} />}>
+        <HomeCatalogBlock catalogPromise={catalogPromise} shelvesPromise={shelvesPromise} />
+      </Suspense>
     </div>
   );
 }
 
-export default function Page() {
+export default function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   return (
     <Suspense fallback={<ProductGridSkeleton count={8} />}>
-      <HomeInner />
+      <HomePage searchParams={searchParams} />
     </Suspense>
   );
 }

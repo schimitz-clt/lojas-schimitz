@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 import { INTEREST_FREE_INSTALLMENTS, interestFreeInstallmentClaim, pixPrice } from '@/lib/pricing';
@@ -11,6 +12,11 @@ import {
   resolveRealProductImageUrl,
   type CatProductLike,
 } from '@/lib/category-visual';
+import {
+  HOME_BANNER_IMAGE_QUALITY,
+  HOME_BANNER_IMAGE_SIZES,
+  storefrontImageUnoptimized,
+} from '@/lib/storefront-image';
 import {
   HOME_BANNER_AUTO_MS,
   HOME_BANNER_RESUME_MS,
@@ -22,7 +28,7 @@ import {
   bannerDotLabel,
   bannerImageIsPriority,
   bannerImagePreload,
-  bannerImageUrl,
+  bannerFileUrl,
   bannerNavNextLabel,
   bannerNavPrevLabel,
   bannerScrollBehavior,
@@ -115,17 +121,16 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
         </div>
         <div className="home-hero-visual" aria-hidden={img ? undefined : true}>
           {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={img}
               alt=""
               className="home-hero-product-img"
               width={560}
               height={560}
               sizes="(max-width: 720px) 70vw, 360px"
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
+              quality={HOME_BANNER_IMAGE_QUALITY}
+              priority
+              unoptimized={storefrontImageUnoptimized(img)}
             />
           ) : (
             <div className="home-hero-visual-ph">
@@ -152,11 +157,24 @@ function BannerSkeleton() {
   );
 }
 
-export function HomeBanners({ products }: { products?: HeroProduct[] }) {
-  const [banners, setBanners] = useState<HomeBanner[] | null>(null);
+export function HomeBanners({
+  products,
+  initialBanners,
+}: {
+  products?: HeroProduct[];
+  /** Server payload from GET /store/banners. null/omit = load in the browser. */
+  initialBanners?: HomeBanner[] | null;
+}) {
+  const seeded = initialBanners != null;
+  const [banners, setBanners] = useState<HomeBanner[] | null>(() =>
+    seeded ? takeUsableHomeBanners(initialBanners) : null,
+  );
   const [idx, setIdx] = useState(0);
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
   const [paused, setPaused] = useState(false);
+  // Clones sit before slide 1. They mount after hydration so the first paint
+  // (scrollLeft 0) is the real first banner, not the wrap clone.
+  const [loopOn, setLoopOn] = useState(false);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const idxRef = useRef(0);
   const interacting = useRef(false);
@@ -170,6 +188,7 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const featured = pickFeaturedHeroProduct(products || []);
 
   useEffect(() => {
+    if (seeded) return;
     let cancelled = false;
     api<HomeBanner[]>('/store/banners')
       .then((d) => {
@@ -184,13 +203,19 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [seeded]);
 
   const slides = (banners || []).filter((b) => !failedIds.has(b.id));
   const total = slides.length;
   const multi = shouldShowBannerChrome(total);
   const safeIdx = clampBannerIndex(idx, total);
   const loopSlides = homeBannerLoopSlides(slides);
+  const trackSlots = loopOn && multi ? loopSlides : slides.map((item, logicalIndex) => ({
+    key: item.id,
+    item,
+    clone: false,
+    logicalIndex,
+  }));
   const slideSetKey = slides.map((b) => b.id).join('|');
   idxRef.current = safeIdx;
 
@@ -277,10 +302,14 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   }, []);
 
   useLayoutEffect(() => {
+    setLoopOn(true);
+  }, []);
+
+  useLayoutEffect(() => {
     const el = trackRef.current;
-    if (!el || total <= 1) return;
+    if (!el || !loopOn || total <= 1) return;
     jumpToTrack(loopingTrackIndex(clampBannerIndex(idxRef.current, total), total));
-  }, [jumpToTrack, slideSetKey, total]);
+  }, [jumpToTrack, loopOn, slideSetKey, total]);
 
   useEffect(() => {
     const el = trackRef.current;
@@ -412,23 +441,24 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
           ref={trackRef}
           onPointerDown={onTrackPointerDown}
         >
-          {loopSlides.map((slot) => {
+          {trackSlots.map((slot) => {
             const b = slot.item;
             const priority = bannerImageIsPriority(slot.clone, slot.logicalIndex);
             const eager = bannerImagePreload(slot.clone, slot.logicalIndex, total);
             const href = bannerCtaHref(b);
+            const src = bannerFileUrl(b);
             const img = (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={bannerImageUrl(b)}
+              <Image
+                src={src}
                 alt={slot.clone ? '' : bannerAlt(b)}
                 className="home-banner-img"
-                width={1400}
-                height={520}
-                sizes="100vw"
-                loading={eager ? 'eager' : 'lazy'}
+                fill
+                sizes={HOME_BANNER_IMAGE_SIZES}
+                quality={HOME_BANNER_IMAGE_QUALITY}
+                priority={priority}
+                loading={priority ? 'eager' : eager ? 'eager' : 'lazy'}
                 fetchPriority={priority ? 'high' : 'low'}
-                decoding="async"
+                unoptimized={storefrontImageUnoptimized(src)}
                 draggable={false}
                 onError={() => {
                   setFailedIds((prev) => {
