@@ -754,6 +754,24 @@ export function opsMailStatusLabel(
   return { label: 'Ausente', tone: 'danger' };
 }
 
+/** STORE_NOTIFY_EMAIL flag from GET /admin/ops mail. Missing stays —. */
+export function opsStoreNotifyConfiguredLabel(
+  value: boolean | null | undefined,
+  ready: boolean,
+): string {
+  if (!ready || typeof value !== 'boolean') return '—';
+  return value ? 'Configurado' : 'Ausente';
+}
+
+/** Process-local failure count. Zero stays zero. Missing stays —. */
+export function opsMailFailureCountLabel(
+  count: number | null | undefined,
+  ready: boolean,
+): string {
+  if (!ready || typeof count !== 'number' || !Number.isFinite(count)) return '—';
+  return String(Math.max(0, Math.trunc(count)));
+}
+
 /** Uploads durability is omitted from the payload when unknown — do not invent a status. */
 export function opsUploadsStatusLabel(
   uploads: { persistent?: boolean; dir?: string | null } | null | undefined,

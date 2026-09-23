@@ -11,12 +11,13 @@ import {
 } from '@/lib/admin-prime-sections-ui';
 import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
-import { couponIsExhausted, couponIsExpired } from '@/lib/admin-pro-ui';
+import { couponIsExhausted, couponIsExpired, couponNotStarted, couponStartsAtLine } from '@/lib/admin-pro-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 
 const ANCHOR: Record<string, string> = {
   coupons_expired_active: 'admin-cupons-list',
   coupons_exhausted_active: 'admin-cupons-list',
+  coupons_not_started: 'admin-cupons-list',
   create: 'admin-cupons-form',
   list: 'admin-cupons-list',
   total: 'admin-cupons-list',
@@ -117,6 +118,14 @@ export function AdminCuponsSection() {
               </div>
               <div className="row" style={{ alignItems: 'stretch' }}>
                 <label style={{ flex: 1 }}>
+                  Início (opcional)
+                  <input
+                    type="date"
+                    value={couponForm.startsAt}
+                    onChange={(e) => setCouponForm({ ...couponForm, startsAt: e.target.value })}
+                  />
+                </label>
+                <label style={{ flex: 1 }}>
                   Validade (opcional)
                   <input
                     type="date"
@@ -124,6 +133,8 @@ export function AdminCuponsSection() {
                     onChange={(e) => setCouponForm({ ...couponForm, endsAt: e.target.value })}
                   />
                 </label>
+              </div>
+              <div className="row" style={{ alignItems: 'stretch' }}>
                 <label style={{ flex: 1 }}>
                   Limite de usos (opcional)
                   <input
@@ -156,6 +167,7 @@ export function AdminCuponsSection() {
           {storePayload === 'ready'
             ? coupons.map((c) => {
                 const expired = couponIsExpired(c.endsAt);
+                const notStarted = couponNotStarted(c.startsAt);
                 const exhausted = couponIsExhausted(c.maxUses, c.usedCount);
                 return (
                   <div
@@ -168,10 +180,13 @@ export function AdminCuponsSection() {
                         <AdminStatusChip label={c.type === 'percent' ? `${c.value}%` : brl(c.value)} tone="accent" />
                         <AdminStatusChip label={c.active ? 'Ativo' : 'Inativo'} tone={c.active ? 'ok' : 'neutral'} />
                         {expired ? <AdminStatusChip label="Expirado" tone="danger" /> : null}
+                        {notStarted ? <AdminStatusChip label="Ainda não começou" tone="info" /> : null}
                         {exhausted ? <AdminStatusChip label="Esgotado" tone="warn" /> : null}
                       </div>
                       <div className="admin-dense-row__meta">
                         {c.minSubtotal != null ? `Mín. ${moneyOrDash(c.minSubtotal)} · ` : ''}
+                        {couponStartsAtLine(c.startsAt)}
+                        {' · '}
                         {c.endsAt ? `válido até ${formatAdminDate(c.endsAt)} · ` : 'sem validade · '}
                         usos {c.usedCount}
                         {c.maxUses != null ? `/${c.maxUses}` : ''}

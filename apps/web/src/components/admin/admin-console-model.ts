@@ -214,6 +214,7 @@ export type CouponForm = {
   type: 'percent' | 'fixed';
   value: string;
   minSubtotal: string;
+  startsAt: string;
   endsAt: string;
   maxUses: string;
   active: boolean;
@@ -370,6 +371,7 @@ export const emptyCouponForm = (): CouponForm => ({
   type: 'percent',
   value: '',
   minSubtotal: '',
+  startsAt: '',
   endsAt: '',
   maxUses: '',
   active: true,

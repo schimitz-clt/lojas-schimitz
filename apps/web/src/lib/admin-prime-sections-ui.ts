@@ -5,8 +5,8 @@
 
 import { ENTERPRISE_MISSING, countOrDash, moneyOrDash, textOrDash } from './admin-enterprise-ui';
 import { MAX_HOME_BANNERS } from './home-banners';
-import { couponIsExhausted, couponIsExpired } from './admin-pro-ui';
-import { opsUploadsStatusLabel } from './admin-ops-ui';
+import { couponIsExhausted, couponIsExpired, couponNotStarted } from './admin-pro-ui';
+import { opsMailStatusLabel, opsUploadsStatusLabel } from './admin-ops-ui';
 
 export type PrimeLoad = 'pending' | 'ready' | 'error';
 
@@ -101,19 +101,19 @@ export const AVALIACOES_EVIDENCE_LEDE =
   'Publicadas aparecem na loja. Ocultas saem da vitrine e continuam nesta lista até excluir.';
 
 export const NOTIFICACOES_NOW_LEDE =
-  'Push de GET /admin/push/campaigns, GET /admin/push/tokens e GET /admin/push/abandoned-views. O e-mail da loja não é desta seção — ele fica no snapshot de Ops.';
+  'Push de GET /admin/push/campaigns, GET /admin/push/tokens e GET /admin/push/abandoned-views. O e-mail da loja entra só se GET /admin/ops trouxer mail.';
 
 export const NOTIFICACOES_DO_LEDE =
-  'Nova campanha, cancelar agendada e teste no aparelho. A recuperação de produto não dispara nesta tela.';
+  'Nova campanha, disparar agendada com confirmação, cancelar e teste no aparelho. A recuperação de produto não dispara nesta tela. O e-mail da loja é só leitura.';
 
 export const NOTIFICACOES_EVIDENCE_LEDE =
-  'Token FCM completo não aparece. Firebase ausente grava a campanha e não envia o push.';
+  'Token FCM completo não aparece. Firebase ausente grava a campanha e não envia o push. O detalhe de envios é GET /admin/push/campaigns/:id.';
 
 export const MARKETPLACE_NOW_LEDE =
   'Vendedores de GET /admin/sellers e comissões do filtro já carregado em GET /admin/commissions. GET /admin/ops não traz marketplace.';
 
 export const MARKETPLACE_DO_LEDE =
-  'Criar vendedor, status, dono e comissão % usam os POST/PATCH já existentes. Aprovar e marcar pago são o ledger local — não cobram, não estornam e não gravam no Mercado Pago.';
+  'Criar vendedor, status, dono e comissão % usam os POST/PATCH já existentes. Aprovar, suspender e marcar pago pedem confirmação e continuam no ledger local — não cobram, não estornam e não gravam no Mercado Pago.';
 
 export const MARKETPLACE_EVIDENCE_LEDE =
   'O valor da linha é a comissão da plataforma, não o PIX do líquido ao vendedor. O filtro de status limita esta lista.';
@@ -504,6 +504,7 @@ export function cuponsPrimeModel(input: {
   load: PrimeLoad;
   coupons: Array<{
     active?: boolean | null;
+    startsAt?: string | null;
     endsAt?: string | null;
     maxUses?: number | null;
     usedCount?: number | null;
@@ -538,6 +539,9 @@ export function cuponsPrimeModel(input: {
         return couponIsExhausted(row.maxUses, row.usedCount);
       }).length
     : null;
+  const notStarted = coupons
+    ? coupons.filter((row) => row.active === true && couponNotStarted(row.startsAt, now)).length
+    : null;
 
   const summary = loadSummary(
     input.load,
@@ -551,6 +555,7 @@ export function cuponsPrimeModel(input: {
   );
 
   const alerts: PrimeAttentionItem[] = [];
+  const signals: PrimeAttentionItem[] = [];
   if (ready && expiredActive != null && expiredActive > 0) {
     alerts.push(
       attention({
@@ -575,6 +580,18 @@ export function cuponsPrimeModel(input: {
       }),
     );
   }
+  if (ready && notStarted != null && notStarted > 0) {
+    signals.push(
+      attention({
+        code: 'coupons_not_started',
+        severity: 'info',
+        message: `${notStarted} cupom(ns) ativo(s) com início no futuro`,
+        count: notStarted,
+        recommendedAction: 'O código já existe. A sacola só aceita depois de startsAt.',
+        ctaHint: '→ lista de cupons',
+      }),
+    );
+  }
 
   return {
     summary,
@@ -590,7 +607,7 @@ export function cuponsPrimeModel(input: {
       },
     ],
     attention: alerts,
-    signals: [],
+    signals,
     actions: [
       { id: 'create', label: 'Novo cupom', hint: 'POST /admin/coupons', figure: null },
       {
@@ -757,30 +774,70 @@ export function avaliacoesPrimeModel(input: {
   };
 }
 
+const MAIL_ALERT_CODES = new Set([
+  'store_notify_mail_failed',
+  'mail_off_with_store_notify',
+  'mail_not_configured',
+]);
+
+function mailAlertSeverity(value: unknown): PrimeAttentionItem['severity'] | null {
+  const severity = String(value || '').trim().toLowerCase();
+  if (severity === 'critical' || severity === 'high' || severity === 'warn' || severity === 'info') return severity;
+  return null;
+}
+
 export function notificacoesPrimeModel(input: {
   load: PrimeLoad;
   enabledDevices: number | null;
   firebaseConfigured: boolean | null;
+  firebaseProjectId?: string | null;
   campaigns: Array<{ status?: string | null }> | null;
+  campaignTotal?: number | null;
   tokenCount: number | null;
   abandoned: { openViews?: unknown; dueViews?: unknown; sentLast7Days?: unknown } | null;
+  opsReady?: boolean;
+  mail?: {
+    configured?: boolean;
+    providerOffWithStoreNotify?: boolean;
+    storeNotifyFailureCount?: number | null;
+    lastPublicId?: string | null;
+  } | null;
+  mailAlerts?: Array<{
+    code?: string | null;
+    severity?: string | null;
+    message?: string | null;
+    count?: number | null;
+    recommendedAction?: string | null;
+  }> | null;
 }): PrimeSectionModel {
   const ready = input.load === 'ready';
   const devices = ready ? finiteInt(input.enabledDevices) : null;
   const tokens = ready ? finiteInt(input.tokenCount) : null;
   const campaigns = ready ? input.campaigns : null;
-  const campaignTotal = campaigns ? campaigns.length : null;
-  const failed = campaigns
-    ? campaigns.filter((row) => String(row.status || '').trim().toLowerCase() === 'failed').length
-    : null;
-  const scheduled = campaigns
-    ? campaigns.filter((row) => String(row.status || '').trim().toLowerCase() === 'scheduled').length
-    : null;
+  const pageCount = campaigns ? campaigns.length : null;
+  const reportedTotal = ready ? finiteInt(input.campaignTotal) : null;
+  const campaignKpi = reportedTotal != null ? reportedTotal : pageCount;
+  const statusOf = (row: { status?: string | null }) => String(row.status || '').trim().toLowerCase();
+  const failed = campaigns ? campaigns.filter((row) => statusOf(row) === 'failed').length : null;
+  const scheduled = campaigns ? campaigns.filter((row) => statusOf(row) === 'scheduled').length : null;
+  const sending = campaigns ? campaigns.filter((row) => statusOf(row) === 'sending').length : null;
+  const sendable =
+    scheduled != null && sending != null ? scheduled + sending : null;
   const abandoned = ready ? input.abandoned : null;
   const openViews = abandoned ? finiteInt(abandoned.openViews) : null;
   const dueViews = abandoned ? finiteInt(abandoned.dueViews) : null;
   const sent7 = abandoned ? finiteInt(abandoned.sentLast7Days) : null;
   const firebase = ready ? input.firebaseConfigured : null;
+  const projectId = ready ? String(input.firebaseProjectId || '').trim() : '';
+  const opsReady = input.opsReady === true;
+  const mail = opsReady ? input.mail : null;
+  const mailKnown =
+    mail != null &&
+    (typeof mail.configured === 'boolean' ||
+      mail.providerOffWithStoreNotify === true ||
+      (finiteInt(mail.storeNotifyFailureCount) != null && (finiteInt(mail.storeNotifyFailureCount) as number) > 0));
+  const mailStatus = opsMailStatusLabel(mailKnown ? mail : null, opsReady && mailKnown);
+  const lastPublicId = String(mail?.lastPublicId || '').trim();
 
   const summary = loadSummary(
     input.load,
@@ -788,6 +845,11 @@ export function notificacoesPrimeModel(input: {
       devices == null ? 'Aparelhos ativos não vieram.' : `${devices} aparelho(s) ativo(s).`,
       firebase == null ? 'Firebase não veio no payload.' : firebase ? 'Firebase pronto.' : 'Firebase ausente.',
       dueViews == null ? 'Recuperação automática sem contagem.' : `${dueViews} visita(s) com atraso cumprido.`,
+      !opsReady
+        ? 'E-mail da loja aguarda GET /admin/ops.'
+        : mail == null
+          ? 'E-mail da loja não veio no snapshot.'
+          : `E-mail da loja: ${mailStatus.label}.`,
     ].join(' '),
   );
 
@@ -812,10 +874,30 @@ export function notificacoesPrimeModel(input: {
         severity: 'warn',
         message: `${failed} campanha(s) com status failed`,
         count: failed,
-        recommendedAction: 'Conferir o histórico. Esta tela não reenvia sozinha.',
+        recommendedAction: 'Conferir o histórico. Campanha já encerrada não dispara de novo.',
         ctaHint: '→ histórico',
       }),
     );
+  }
+  if (opsReady && input.mailAlerts) {
+    for (const alert of input.mailAlerts) {
+      const code = String(alert.code || '').trim();
+      if (!MAIL_ALERT_CODES.has(code)) continue;
+      const severity = mailAlertSeverity(alert.severity);
+      const message = String(alert.message || '').trim();
+      if (!severity || !message) continue;
+      const item = attention({
+        code,
+        severity,
+        message,
+        count: finiteInt(alert.count),
+        recommendedAction: String(alert.recommendedAction || '').trim() || ENTERPRISE_MISSING,
+        evidenceLine: code === 'store_notify_mail_failed' && lastPublicId ? `último ${lastPublicId}` : null,
+        ctaHint: '→ e-mail da loja',
+      });
+      if (severity === 'info') signals.push(item);
+      else alerts.push(item);
+    }
   }
   if (ready && scheduled != null && scheduled > 0) {
     signals.push(
@@ -824,7 +906,21 @@ export function notificacoesPrimeModel(input: {
         severity: 'info',
         message: `${scheduled} campanha(s) agendada(s)`,
         count: scheduled,
-        recommendedAction: 'Cancelar se não deve sair. Não há disparo extra nesta lista.',
+        recommendedAction:
+          'Disparar agora pede confirmação e chama POST /admin/push/campaigns/:id/send. Cancelar continua nesta lista. A recuperação de produto não dispara.',
+        ctaHint: '→ histórico',
+      }),
+    );
+  }
+  if (ready && sending != null && sending > 0) {
+    signals.push(
+      attention({
+        code: 'push_sending',
+        severity: 'info',
+        message: `${sending} campanha(s) ainda em envio`,
+        count: sending,
+        recommendedAction:
+          'Disparar agora retoma POST /admin/push/campaigns/:id/send se a API ainda aceitar. Não cria outra campanha.',
         ctaHint: '→ histórico',
       }),
     );
@@ -844,6 +940,10 @@ export function notificacoesPrimeModel(input: {
 
   const firebaseValue =
     !ready || firebase == null ? ENTERPRISE_MISSING : firebase ? 'Pronto' : 'Ausente';
+  const campaignHint =
+    reportedTotal != null && pageCount != null && reportedTotal !== pageCount
+      ? `${pageCount} nesta página`
+      : 'histórico carregado';
 
   return {
     summary,
@@ -853,10 +953,10 @@ export function notificacoesPrimeModel(input: {
         id: 'firebase',
         label: 'Firebase',
         value: firebaseValue,
-        hint: 'sem segredo',
+        hint: projectId ? `projeto ${projectId}` : 'sem segredo',
         tone: firebase === false ? 'danger' : undefined,
       },
-      { id: 'campaigns', label: 'Campanhas', value: countLabel(campaignTotal, ready), hint: 'histórico carregado' },
+      { id: 'campaigns', label: 'Campanhas', value: countLabel(campaignKpi, ready), hint: campaignHint },
       {
         id: 'abandoned',
         label: 'Atraso cumprido',
@@ -866,11 +966,24 @@ export function notificacoesPrimeModel(input: {
             ? 'GET /admin/push/abandoned-views'
             : `${openViews} em aberto · ${sent7} em 7 dias`,
       },
+      {
+        id: 'mail',
+        label: 'E-mail da loja',
+        value: mailStatus.label,
+        hint: opsReady ? 'GET /admin/ops mail' : 'aguardando snapshot',
+        tone: mailStatus.tone === 'danger' ? 'danger' : undefined,
+      },
     ],
     attention: alerts,
     signals,
     actions: [
       { id: 'create', label: 'Nova campanha', hint: 'POST /admin/push/campaigns', figure: figure(devices, ready, 'aparelho(s)') },
+      {
+        id: 'send',
+        label: 'Disparar agendada',
+        hint: 'POST /admin/push/campaigns/:id/send',
+        figure: figure(sendable, ready, 'pronta(s)'),
+      },
       {
         id: 'history',
         label: 'Histórico',
@@ -882,6 +995,12 @@ export function notificacoesPrimeModel(input: {
         label: 'Aparelhos',
         hint: 'POST /admin/push/test',
         figure: figure(tokens, ready, 'token(s)'),
+      },
+      {
+        id: 'mail',
+        label: 'E-mail da loja',
+        hint: 'somente leitura',
+        figure: opsReady && mailStatus.label !== ENTERPRISE_MISSING ? mailStatus.label : null,
       },
     ],
   };

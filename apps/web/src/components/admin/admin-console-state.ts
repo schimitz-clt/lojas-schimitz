@@ -1181,6 +1181,15 @@ export function useAdminConsoleState() {
       setSavingCoupon(false);
       return;
     }
+    if (
+      couponForm.startsAt.trim() &&
+      couponForm.endsAt.trim() &&
+      couponForm.endsAt.trim() < couponForm.startsAt.trim()
+    ) {
+      setErr('A validade deve ser posterior ao início.');
+      setSavingCoupon(false);
+      return;
+    }
     try {
       await api('/admin/coupons', {
         method: 'POST',
@@ -1190,6 +1199,7 @@ export function useAdminConsoleState() {
           value,
           minSubtotal,
           maxUses,
+          startsAt: couponForm.startsAt.trim() ? `${couponForm.startsAt.trim()}T00:00:00` : null,
           endsAt: couponForm.endsAt.trim() ? `${couponForm.endsAt.trim()}T23:59:59` : null,
           active: couponForm.active,
         }),

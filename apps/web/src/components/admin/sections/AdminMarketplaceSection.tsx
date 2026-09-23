@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { ENTERPRISE_MISSING, moneyOrDash, textOrDash } from '@/lib/admin-enterprise-ui';
 import {
   MARKETPLACE_DO_LEDE,
@@ -10,10 +11,12 @@ import {
 import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
 import {
+  commissionLedgerConfirmCopy,
   commissionStatusLabel,
   commissionStatusTone,
   sellerMpOAuthLabel,
   sellerMpOAuthTone,
+  sellerStatusConfirmCopy,
   sellerStatusLabel,
   sellerStatusTone,
 } from '@/lib/admin-pro-ui';
@@ -32,7 +35,43 @@ const ANCHOR: Record<string, string> = {
   products: 'admin-marketplace-sellers',
 };
 
+type LedgerConfirm =
+  | { kind: 'approve' | 'paid'; id: string }
+  | { kind: 'seller'; id: string; status: 'active' | 'suspended' };
+
+function ConfirmPanel({
+  title,
+  detail,
+  busy,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  detail: string;
+  busy: boolean;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="admin-ent-confirm" role="region" aria-label="Confirmar ação">
+      <p className="admin-ent-confirm__title">{title}</p>
+      <p className="admin-ent-confirm__detail">{detail}</p>
+      <div className="admin-ent-actions">
+        <button type="button" className="btn admin-btn-primary-accent" disabled={busy} onClick={onConfirm}>
+          {busy ? 'Salvando...' : confirmLabel}
+        </button>
+        <button type="button" className="btn ghost" disabled={busy} onClick={onCancel}>
+          Voltar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminMarketplaceSection() {
+  const [confirm, setConfirm] = useState<LedgerConfirm | null>(null);
   const {
     sellers,
     commissions,
@@ -212,6 +251,20 @@ export function AdminMarketplaceSection() {
                         {ownerBusyId === s.id ? '...' : 'Salvar dono / %'}
                       </button>
                     </div>
+                    {confirm?.kind === 'seller' && confirm.id === s.id ? (
+                      <ConfirmPanel
+                        title={sellerStatusConfirmCopy({ name: s.name, toStatus: confirm.status }).title}
+                        detail={sellerStatusConfirmCopy({ name: s.name, toStatus: confirm.status }).detail}
+                        busy={sellerBusyId === s.id}
+                        confirmLabel={confirm.status === 'active' ? 'Confirmar ativação' : 'Confirmar suspensão'}
+                        onConfirm={() => {
+                          const status = confirm.status;
+                          setConfirm(null);
+                          void setSellerStatus(s, status);
+                        }}
+                        onCancel={() => setConfirm(null)}
+                      />
+                    ) : null}
                   </div>
                   <div className="admin-dense-row__actions">
                     {s.status !== 'active' ? (
@@ -219,7 +272,7 @@ export function AdminMarketplaceSection() {
                         type="button"
                         className="btn admin-btn-primary-accent"
                         disabled={sellerBusyId === s.id}
-                        onClick={() => void setSellerStatus(s, 'active')}
+                        onClick={() => setConfirm({ kind: 'seller', id: s.id, status: 'active' })}
                       >
                         Ativar
                       </button>
@@ -229,7 +282,7 @@ export function AdminMarketplaceSection() {
                         type="button"
                         className="btn ghost admin-btn-ghost-pro"
                         disabled={sellerBusyId === s.id}
-                        onClick={() => void setSellerStatus(s, 'suspended')}
+                        onClick={() => setConfirm({ kind: 'seller', id: s.id, status: 'suspended' })}
                       >
                         Suspender
                       </button>
@@ -343,7 +396,7 @@ export function AdminMarketplaceSection() {
                                 type="button"
                                 className="btn ghost admin-btn-ghost-pro"
                                 disabled={commissionBusyId === c.id}
-                                onClick={() => void approveCommission(c)}
+                                onClick={() => setConfirm({ kind: 'approve', id: c.id })}
                               >
                                 {commissionBusyId === c.id ? '...' : 'Aprovar'}
                               </button>
@@ -352,11 +405,38 @@ export function AdminMarketplaceSection() {
                               type="button"
                               className="btn admin-btn-primary-accent"
                               disabled={commissionBusyId === c.id}
-                              onClick={() => void markCommissionPaid(c)}
+                              onClick={() => setConfirm({ kind: 'paid', id: c.id })}
                             >
                               {commissionBusyId === c.id ? '...' : 'Marcar pago'}
                             </button>
                           </div>
+                        ) : null}
+                        {confirm && confirm.kind !== 'seller' && confirm.id === c.id ? (
+                          <ConfirmPanel
+                            title={
+                              commissionLedgerConfirmCopy({
+                                kind: confirm.kind,
+                                sellerName: c.seller.name,
+                                amountLabel: moneyOrDash(c.amount),
+                              }).title
+                            }
+                            detail={
+                              commissionLedgerConfirmCopy({
+                                kind: confirm.kind,
+                                sellerName: c.seller.name,
+                                amountLabel: moneyOrDash(c.amount),
+                              }).detail
+                            }
+                            busy={commissionBusyId === c.id}
+                            confirmLabel={confirm.kind === 'approve' ? 'Confirmar aprovação' : 'Confirmar no ledger'}
+                            onConfirm={() => {
+                              const kind = confirm.kind;
+                              setConfirm(null);
+                              if (kind === 'approve') void approveCommission(c);
+                              else void markCommissionPaid(c);
+                            }}
+                            onCancel={() => setConfirm(null)}
+                          />
                         ) : null}
                       </div>
                     </div>

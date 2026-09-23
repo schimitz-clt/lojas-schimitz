@@ -34,7 +34,9 @@ import {
   VENDAS_QUICK_ACTIONS,
   VENDAS_READONLY_NOTE,
   opsCountOrDash,
+  opsMailFailureCountLabel,
   opsMailStatusLabel,
+  opsStoreNotifyConfiguredLabel,
   opsQuickActionFigure,
   opsUploadsStatusLabel,
   OPS_ATTENTION_HEADING,
@@ -302,6 +304,13 @@ assert.equal(
 );
 assert.equal(opsMailStatusLabel({ configured: false }, true).label, 'Ausente');
 assert.equal(opsMailStatusLabel({ configured: true, storeNotifyFailureCount: 2 }, true).label, '2 falha(s)');
+assert.equal(opsStoreNotifyConfiguredLabel(undefined, false), '—');
+assert.equal(opsStoreNotifyConfiguredLabel(undefined, true), '—');
+assert.equal(opsStoreNotifyConfiguredLabel(false, true), 'Ausente');
+assert.equal(opsStoreNotifyConfiguredLabel(true, true), 'Configurado');
+assert.equal(opsMailFailureCountLabel(0, true), '0', 'zero mail failures stay zero');
+assert.equal(opsMailFailureCountLabel(2, false), '—');
+assert.equal(opsMailFailureCountLabel(null, true), '—');
 assert.equal(opsUploadsStatusLabel(null), null);
 assert.equal(opsUploadsStatusLabel({ persistent: true, dir: '/data/uploads' }), 'Volume persistente · /data/uploads');
 assert.equal(opsUploadsStatusLabel({ persistent: false }), 'Disco efêmero');
