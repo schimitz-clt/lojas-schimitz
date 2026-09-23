@@ -237,8 +237,10 @@ assert.ok(
   /html,\s*body\s*\{[^}]*overflow-x:\s*clip/.test(css),
   'document clips sideways without a body scrollport (sticky search)',
 );
-assert.ok(/\.home\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'home page hides horizontal overflow');
-assert.ok(/\.home-banners\s*\{[^}]*overflow-x:\s*hidden/.test(css), 'banner shell does not leak sideways');
+assert.ok(/\.home\s*\{[^}]*overflow-x:\s*clip/.test(css), 'home clips sideways without becoming a scrollport');
+assert.ok(/\.main-shell\s*\{[^}]*overflow-x:\s*clip/.test(css), 'page shell is not the vertical scrollport');
+assert.ok(/\.wrap\s*\{[^}]*overflow-x:\s*clip/.test(css), 'wrap clips sideways without becoming a scrollport');
+assert.ok(/\.home-banners\s*\{[^}]*overflow-x:\s*clip/.test(css), 'banner shell does not leak sideways');
 assert.ok(/\.home-banner-track[\s\S]{0,420}scroll-snap-type:\s*x mandatory/.test(css), 'home swipe is internal scroll-snap');
 assert.ok(/\.home-banner-track[\s\S]{0,420}overflow-x:\s*auto/.test(css), 'only the banner track scrolls horizontally');
 assert.ok(/\.home-banner-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'slides lock to track width');
@@ -311,11 +313,8 @@ assert.ok(src.includes('settleLoopRef'), 'clone jump after wrap uses the latest 
 assert.ok(src.includes('bannerImageIsPriority'), 'fetchPriority high only on the first real slide');
 assert.ok(src.includes('bannerImagePreload'), 'adjacent slides decode before the first swipe');
 assert.ok(src.includes('lastTrackWidth'), 'resize snap ignores viewport-height chrome changes');
-{
-  const onTrackScrollFn = src.slice(src.indexOf('const onTrackScroll'));
-  const onTrackScrollBody = onTrackScrollFn.slice(0, onTrackScrollFn.indexOf('useEffect'));
-  assert.equal(onTrackScrollBody.includes('setIdx'), false, 'banner scroll must not setState per frame');
-}
+assert.equal(src.includes('onScroll='), false, 'banner does not listen to every scroll frame');
+assert.ok(src.includes("addEventListener('scrollend'"), 'dots and clone jump wait until the swipe ends');
 assert.ok(src.includes('onDragStart'), 'banner drag ghost must not overlay the track');
 assert.equal(src.includes('onTouchStart'), false, 'JS swipe must not fight native scroll-snap');
 assert.equal(src.includes('scrollSyncLock'), false, 'must not lock scrollLeft updates for 350ms');

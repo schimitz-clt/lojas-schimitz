@@ -50,12 +50,14 @@ html, body {
   padding-top: 10px;
   padding-bottom: 28px;
   min-width: 0;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden computes the other axis to auto and makes this
+     the page scrollport, which is what made the home feel stuck on touch. */
+  overflow-x: clip;
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 button, input, select, textarea { font: inherit; }
-.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 18px; min-width: 0; overflow-x: hidden; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 18px; min-width: 0; overflow-x: clip; }
 
 /* —— Top bar & header —— */
 .topbar {
@@ -656,7 +658,7 @@ textarea { resize: vertical; min-height: 72px; }
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
+  scroll-snap-type: none;
   scrollbar-width: none;
   padding: 6px 2px 14px; margin-left: -2px; margin-right: -2px;
   scroll-behavior: auto;
@@ -671,8 +673,6 @@ textarea { resize: vertical; min-height: 72px; }
   display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 2px;
   background: transparent; border: 0; border-radius: var(--radius);
   text-align: center; font-size: 12px; font-weight: 700; color: var(--text);
-  scroll-snap-align: start;
-  scroll-snap-stop: normal;
 }
 .cat-chip:active .cat-chip-ico { transform: scale(.98); }
 .cat-chip-ico {
@@ -712,7 +712,7 @@ textarea { resize: vertical; min-height: 72px; }
 }
 
 /* —— Section chrome —— */
-.home { display: flex; flex-direction: column; gap: 0; max-width: 100%; min-width: 0; overflow-x: hidden; }
+.home { display: flex; flex-direction: column; gap: 0; max-width: 100%; min-width: 0; overflow-x: clip; }
 .section-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   margin: 8px 0 14px; flex-wrap: wrap;
@@ -744,7 +744,9 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 10px 0 22px;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
 }
 .home-shelf-head { align-items: flex-start; }
 .home-shelf-heading { min-width: 0; }
@@ -887,13 +889,13 @@ textarea { resize: vertical; min-height: 72px; }
 .home-benefits { margin: 28px 0 8px; }
 .home-benefits-top { margin-top: 4px; margin-bottom: 4px; }
 
-/* —— Banner carousel (swipe on the track only — page overflow-x stays hidden) —— */
+/* —— Banner carousel (swipe on the track only — page overflow-x stays clip) —— */
 .home-banners {
   margin: 10px 0 18px;
   position: relative;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   --home-banner-aspect: 21 / 8;
 }
 .home-banners:focus { outline: none; }
@@ -906,7 +908,7 @@ textarea { resize: vertical; min-height: 72px; }
   height: auto;
   aspect-ratio: var(--home-banner-aspect);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: clip;
   background: #111;
   box-shadow: var(--shadow);
 }
@@ -1575,7 +1577,7 @@ textarea { resize: vertical; min-height: 72px; }
   list-style: none; margin: 0 -12px; padding: 4px 12px 10px;
   display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity; scrollbar-width: none;
+  scroll-snap-type: none; scrollbar-width: none;
   scroll-behavior: auto;
   touch-action: pan-x pan-y;
   overscroll-behavior-x: contain;

@@ -129,7 +129,8 @@ assert.equal(
   'category row keeps native momentum',
 );
 assert.ok(/\.cat-strip\s*\{[^}]*touch-action:\s*pan-x pan-y/.test(css), 'category row allows vertical page scroll');
-assert.ok(/\.cat-strip\s*\{[^}]*scroll-snap-type:\s*x proximity/.test(css), 'category icons still snap');
+assert.ok(/\.cat-strip\s*\{[^}]*scroll-snap-type:\s*none/.test(css), 'category row does not snap against the finger');
+assert.ok(/\.main-shell\s*\{[^}]*overflow-x:\s*clip/.test(css), 'home scroll stays on the document');
 assert.ok(/\.cat-strip\s*\{[^}]*align-items:\s*flex-start/.test(css), 'category circles share one top edge');
 assert.equal(
   /\.cat-chip-label\s*\{[^}]*hyphens:\s*auto/.test(css),

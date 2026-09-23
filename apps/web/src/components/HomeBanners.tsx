@@ -318,19 +318,29 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   }, [total]);
 
   const scheduleSettle = useCallback(() => {
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(settleLoop, HOME_BANNER_SETTLE_MS);
-  }, [settleLoop]);
-
-  const onTrackScroll = useCallback(() => {
-    if (jumping.current || interacting.current || programmatic.current) return;
-    scheduleSettle();
-  }, [scheduleSettle]);
+    const tick = () => {
+      const node = trackRef.current;
+      const left = node ? node.scrollLeft : 0;
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(() => {
+        const now = trackRef.current;
+        if (interacting.current || programmatic.current || jumping.current) return;
+        if (now && Math.abs(now.scrollLeft - left) > 1) {
+          tick();
+          return;
+        }
+        settleLoopRef.current();
+      }, HOME_BANNER_SETTLE_MS);
+    };
+    tick();
+  }, []);
 
   useEffect(() => {
     const el = trackRef.current;
     if (!el || total <= 1) return;
     const onEnd = () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = null;
       if (!interacting.current && !programmatic.current) settleLoop();
     };
     el.addEventListener('scrollend', onEnd);
@@ -400,7 +410,6 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
         <div
           className="home-banner-track"
           ref={trackRef}
-          onScroll={onTrackScroll}
           onPointerDown={onTrackPointerDown}
         >
           {loopSlides.map((slot) => {
