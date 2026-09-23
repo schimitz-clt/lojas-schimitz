@@ -1,6 +1,18 @@
+# API service (repo root). Web is apps/web/railway.toml with rootDirectory apps/web.
+# Builder is Dockerfile only. /Dockerfile exists so a redeploy that drops
+# dockerfilePath still auto-detects Docker instead of Railpack.
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "apps/api/Dockerfile"
+watchPatterns = [
+  "apps/api/**",
+  "prisma/**",
+  "/Dockerfile",
+  "/railway.toml",
+  "/package.json",
+  "/package-lock.json",
+  "/.dockerignore",
+]
 
 [deploy]
 healthcheckPath = "/api/v1/health"
