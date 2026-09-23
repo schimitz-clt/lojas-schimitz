@@ -61,6 +61,34 @@ html, body {
      the page scrollport, which is what made the home feel stuck on touch. */
   overflow-x: clip;
 }
+.not-found {
+  padding: 28px 0 8px;
+  max-width: 34rem;
+}
+.not-found-kicker {
+  display: inline-flex;
+  margin: 0 0 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: var(--ink);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.not-found h1 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 4vw, 34px);
+  line-height: 1.15;
+}
+.not-found p {
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 button, input, select, textarea { font: inherit; }

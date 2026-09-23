@@ -59,6 +59,14 @@ assert.ok(STOREFRONT_PERMISSIONS_POLICY.includes('usb=()'));
 assert.ok(!STOREFRONT_PERMISSIONS_POLICY.includes('payment='), 'do not block MP wallets');
 assert.ok(!STOREFRONT_PERMISSIONS_POLICY.includes('clipboard'), 'do not block PIX copia-e-cola');
 assert.ok(
+  !STOREFRONT_PERMISSIONS_POLICY.includes('bluetooth'),
+  'bluetooth is unrecognized in Permissions-Policy and only logs a console error',
+);
+assert.ok(
+  !STOREFRONT_PERMISSIONS_POLICY.includes('document-domain'),
+  'document-domain is not a Permissions-Policy feature',
+);
+assert.ok(
   !prodKeys.includes('Cross-Origin-Embedder-Policy'),
   'COEP would break Mercado Pago Brick without CORP on MP CDNs',
 );
@@ -105,6 +113,10 @@ assert.ok(!/script-src[^;]*'unsafe-eval'/.test(reportOnly), 'report-only probes 
 assert.ok(reportOnly.includes('https://sdk.mercadopago.com'), 'report-only still allows Brick');
 assert.ok(reportOnly.includes(`report-uri ${CSP_REPORT_PATH}`));
 assert.ok(!reportOnly.includes('http://localhost'), 'report-only is production-shaped');
+assert.ok(
+  !reportOnly.includes('upgrade-insecure-requests'),
+  'report-only must omit upgrade-insecure-requests (Chrome logs it as ignored)',
+);
 
 assert.ok(CSP_SCRIPT_HOSTS.includes('https://sdk.mercadopago.com'));
 assert.ok(CSP_SCRIPT_HOSTS.includes('https://js.mercadopago.com'));
