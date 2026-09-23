@@ -72,6 +72,20 @@ export function pushSendConfirmCopy(input: {
   };
 }
 
+/** POST /admin/push/campaigns/:id/cancel — só campanha ainda agendada. */
+export function pushCancelConfirmCopy(input: {
+  title?: string | null;
+  status?: string | null;
+}): { title: string; detail: string } {
+  const title = String(input.title || '').trim() || ENTERPRISE_MISSING;
+  const status = pushStatusLabel(String(input.status || '').trim());
+  return {
+    title: `Cancelar campanha: ${title} (${status})?`,
+    detail:
+      'POST /admin/push/campaigns/:id/cancel. Só campanha agendada. O envio deixa de acontecer. Não cobra, não estorna e não dispara a recuperação de produto.',
+  };
+}
+
 export function pushSendResultMessage(
   result: {
     dispatched?: boolean | null;

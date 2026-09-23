@@ -29,6 +29,7 @@ import {
   firebaseStatusHint,
   isNaoExecutado,
   pushAudienceLabel,
+  pushCancelConfirmCopy,
   pushDispatchEvidenceLine,
   pushDispatchListSummary,
   pushSendConfirmCopy,
@@ -134,6 +135,7 @@ export function AdminNotificacoesSection() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmSendId, setConfirmSendId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [dispatchFor, setDispatchFor] = useState<string | null>(null);
   const [dispatches, setDispatches] = useState<DispatchRow[] | null>(null);
   const [dispatchState, setDispatchState] = useState<'idle' | PrimeLoad>('idle');
@@ -200,6 +202,7 @@ export function AdminNotificacoesSection() {
     try {
       await api(`/admin/push/campaigns/${id}/cancel`, { method: 'POST' });
       setMsg('Campanha cancelada.');
+      setConfirmCancelId(null);
       if (confirmSendId === id) setConfirmSendId(null);
       await load();
     } catch (e: unknown) {
@@ -489,6 +492,25 @@ export function AdminNotificacoesSection() {
                       </div>
                     </div>
                   ) : null}
+                  {confirmCancelId === c.id && c.status === 'scheduled' ? (
+                    <div className="admin-ent-confirm" role="region" aria-label="Confirmar cancelamento da campanha">
+                      <p className="admin-ent-confirm__title">{pushCancelConfirmCopy(c).title}</p>
+                      <p className="admin-ent-confirm__detail">{pushCancelConfirmCopy(c).detail}</p>
+                      <div className="admin-ent-actions">
+                        <button
+                          type="button"
+                          className="btn admin-btn-primary-accent"
+                          disabled={busy}
+                          onClick={() => void cancelCampaign(c.id)}
+                        >
+                          {busy ? 'Cancelando…' : 'Confirmar cancelamento'}
+                        </button>
+                        <button type="button" className="btn ghost" disabled={busy} onClick={() => setConfirmCancelId(null)}>
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {dispatchFor === c.id ? (
                     <div className="admin-ent-note" style={{ marginTop: 8 }}>
                       {dispatchState === 'pending' ? (
@@ -526,7 +548,7 @@ export function AdminNotificacoesSection() {
                     </button>
                   ) : null}
                   {c.status === 'scheduled' ? (
-                    <button type="button" className="btn ghost" disabled={busy} onClick={() => void cancelCampaign(c.id)}>
+                    <button type="button" className="btn ghost" disabled={busy} onClick={() => setConfirmCancelId(c.id)}>
                       Cancelar
                     </button>
                   ) : null}

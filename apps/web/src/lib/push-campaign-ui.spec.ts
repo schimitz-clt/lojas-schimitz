@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   abandonedViewAdminNote,
   abandonedViewPreviewLine,
@@ -9,6 +11,7 @@ import {
   firebaseStatusHint,
   isNaoExecutado,
   pushAudienceLabel,
+  pushCancelConfirmCopy,
   pushDispatchEvidenceLine,
   pushDispatchListSummary,
   pushSendConfirmCopy,
@@ -90,6 +93,33 @@ assert.ok(sendCopy.detail.includes('Não cobra'));
 assert.ok(sendCopy.detail.includes('não estorna'));
 assert.ok(sendCopy.detail.includes('NÃO EXECUTADO'));
 assert.equal(pushSendConfirmCopy({ title: '', status: '' }).title.includes(ENTERPRISE_MISSING), true);
+
+const cancelCopy = pushCancelConfirmCopy({ title: 'Frete grátis', status: 'scheduled' });
+assert.ok(cancelCopy.title.includes('Cancelar campanha'));
+assert.ok(cancelCopy.title.includes('Frete grátis'));
+assert.ok(cancelCopy.title.includes('Agendada'));
+assert.ok(cancelCopy.detail.includes('POST /admin/push/campaigns/:id/cancel'));
+assert.ok(cancelCopy.detail.includes('Não cobra'));
+assert.ok(cancelCopy.detail.includes('não estorna'));
+assert.equal(pushCancelConfirmCopy({ title: '', status: '' }).title.includes(ENTERPRISE_MISSING), true);
+
+const adminNotificacoes = readFileSync(
+  join(__dirname, '../components/admin/sections/AdminNotificacoesSection.tsx'),
+  'utf8',
+);
+assert.ok(adminNotificacoes.includes('pushCancelConfirmCopy'), 'cancel copy is the confirm panel');
+assert.ok(
+  adminNotificacoes.includes('onClick={() => setConfirmCancelId(c.id)}'),
+  'Cancelar opens confirmation and does not call the API',
+);
+assert.ok(
+  adminNotificacoes.includes('onClick={() => setConfirmCancelId(null)}'),
+  'Voltar dismisses without cancelling',
+);
+assert.ok(
+  adminNotificacoes.includes('`/admin/push/campaigns/${id}/cancel`'),
+  'confirmed cancel keeps the existing endpoint',
+);
 
 assert.ok(pushSendResultMessage(null).includes('não confirmou'));
 assert.ok(pushSendResultMessage({ reason: 'nao_executado', dispatched: false }).includes('NÃO EXECUTADO'));
