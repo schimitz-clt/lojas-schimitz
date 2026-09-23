@@ -6,6 +6,8 @@ import {
   SIGNUP_STORE_NAME,
   buildRegisterBody,
   continueFromEmail,
+  maskCpf,
+  signupBirthDateBounds,
   signupDetailsIssue,
   type RegisterBody,
   type SignupField,
@@ -120,6 +122,8 @@ export function CreateAccountFlow({
   const [email, setEmail] = useState('');
   const [displayEmail, setDisplayEmail] = useState('');
   const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -160,6 +164,8 @@ export function CreateAccountFlow({
     const nextIssue = signupDetailsIssue({
       email: displayEmail,
       name,
+      cpf,
+      birthDate,
       phone,
       password,
       confirmPassword,
@@ -174,12 +180,15 @@ export function CreateAccountFlow({
       buildRegisterBody({
         email: displayEmail,
         name,
+        cpf,
+        birthDate,
         phone,
         password,
       }),
     );
   }
 
+  const birthBounds = signupBirthDateBounds();
   const message = error || issue?.message || '';
   const accountAction = (
     <HaveAccount
@@ -197,7 +206,7 @@ export function CreateAccountFlow({
         <h1 className="acct-title">Criar meu cadastro</h1>
         <span className="acct-kicker" aria-hidden />
         <p className="acct-lead">
-          Comece com o e-mail. No próximo passo ele fica fixo e você completa nome, WhatsApp e senha.
+          Comece com o e-mail. No próximo passo ele fica fixo e você completa nome, CPF, data de nascimento, WhatsApp e senha.
         </p>
         {message ? (
           <div className="alert" role="alert">
@@ -286,6 +295,47 @@ export function CreateAccountFlow({
                 touch();
               }}
             />
+          </div>
+          <div className={fieldInvalid('cpf') ? 'acct-field is-invalid' : 'acct-field'}>
+            <label className="acct-label" htmlFor="signup-cpf">
+              CPF
+            </label>
+            <input
+              id="signup-cpf"
+              name="cpf"
+              className="acct-line"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="000.000.000-00"
+              maxLength={14}
+              value={cpf}
+              aria-invalid={fieldInvalid('cpf') || undefined}
+              onChange={(e) => {
+                setCpf(maskCpf(e.target.value));
+                touch();
+              }}
+            />
+          </div>
+          <div className={fieldInvalid('birthDate') ? 'acct-field is-invalid' : 'acct-field'}>
+            <label className="acct-label" htmlFor="signup-birth">
+              Data de nascimento
+            </label>
+            <input
+              id="signup-birth"
+              name="bday"
+              className="acct-line"
+              type="date"
+              autoComplete="bday"
+              min={birthBounds.min}
+              max={birthBounds.max}
+              value={birthDate}
+              aria-invalid={fieldInvalid('birthDate') || undefined}
+              onChange={(e) => {
+                setBirthDate(e.target.value);
+                touch();
+              }}
+            />
+            <p className="acct-hint">É preciso ter 18 anos ou mais.</p>
           </div>
           <div className={fieldInvalid('phone') ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-phone">

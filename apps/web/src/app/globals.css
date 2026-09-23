@@ -2904,6 +2904,11 @@ textarea { resize: vertical; min-height: 72px; }
   border-bottom-color: var(--ink);
   box-shadow: none;
 }
+.acct-sheet input[type="date"].acct-line {
+  min-height: 44px;
+  color-scheme: light;
+}
+.acct-sheet .acct-line::placeholder { color: #8a8a84; font-weight: 500; }
 .acct-field:focus-within .acct-label { color: var(--ink); }
 .acct-field.is-invalid .acct-label,
 .acct-privacy.is-invalid { color: var(--danger); }

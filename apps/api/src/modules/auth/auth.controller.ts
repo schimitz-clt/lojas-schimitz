@@ -44,7 +44,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Registrar cliente',
     description:
-      'Resposta genérica (anti-enumeração): o mesmo sucesso se o e-mail é novo ou já existe. Sem sessão — faça login em seguida. Merge de carrinho guest ocorre no login.',
+      'Resposta genérica (anti-enumeração): o mesmo sucesso se o e-mail ou o CPF já existe. CPF inválido ou idade menor que 18 anos responde 400. Sem sessão — faça login em seguida. Merge de carrinho guest ocorre no login.',
   })
   @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
