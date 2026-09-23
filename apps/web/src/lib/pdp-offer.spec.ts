@@ -82,7 +82,7 @@ assert.ok(pdp.includes('pdp-title-row'), 'title + rating sit in Magalu-style hea
 assert.ok(pdp.includes('pdp-rating-score'), 'rating score sits beside the product name');
 assert.ok(pdp.includes('pdp-gallery-col'), 'gallery column wraps full-bleed photo + tools');
 assert.ok(pdp.includes('pdp-gallery-tools'), 'favoritar/compartilhar overlay the photo on mobile');
-assert.ok(pdp.includes('pdp-cta-primary'), 'primary ATC spans the mobile CTA grid');
+assert.ok(pdp.includes('pdp-cta-primary'), 'primary ATC stays in the buy box for desktop');
 assert.ok(pdp.includes('pdp-cta-buy-now'), 'Comprar agora sits under Adicionar à sacola');
 assert.ok(pdp.includes('buyNowLabel'), 'Comprar agora label comes from the helper');
 assert.ok(pdp.includes('pdpBuyNowHref'), 'Comprar agora navigates with the sacola helper');
@@ -101,6 +101,17 @@ const priceAt = pdp.indexOf('className="pdp-price-block"');
 const descAt = pdp.indexOf('className={`pdp-desc');
 const stockAt = pdp.indexOf('className={`pdp-stock');
 const actionsAt = pdp.indexOf('className="actions pdp-actions"');
+const stickyAt = pdp.indexOf('className="pdp-sticky-atc"');
+assert.ok(actionsAt > 0 && stickyAt > actionsAt, 'sticky bar follows the in-page buy box');
+const buyBox = pdp.slice(actionsAt, stickyAt);
+const sticky = pdp.slice(stickyAt);
+assert.ok(buyBox.includes('pdp-cta-primary'), 'buy box keeps Adicionar à sacola for desktop');
+assert.ok(buyBox.includes('pdp-cta-buy-now'), 'buy box keeps Comprar agora for desktop');
+assert.ok(buyBox.includes('CompareToggle'), 'Comparar stays in the buy box');
+assert.ok(buyBox.includes('FavoriteToggle'), 'Salvar stays in the buy box');
+assert.ok(buyBox.includes('pdp-cta-wa'), 'WhatsApp stays in the buy box');
+assert.ok(sticky.includes('stickyBuyLabel'), 'sticky bar keeps Adicionar à sacola');
+assert.ok(sticky.includes('pdp-cta-buy-now'), 'sticky bar keeps Comprar agora');
 assert.ok(titleAt > 0 && ratingAt > titleAt && ratingAt < priceAt, 'rating sits with title, before price');
 assert.ok(modelAt > ratingAt && modelAt < priceAt, 'model under title/rating');
 assert.ok(sellerAt > modelAt && sellerAt < priceAt, 'seller before price');
@@ -114,10 +125,9 @@ assert.ok(css.includes('.pdp-offer-pills'), 'mobile offer chips styled');
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*min-width:\s*100%/.test(css), 'gallery slides lock to track width');
 assert.ok(/\.pdp-carousel-slide\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/.test(css), 'gallery uses a full-width square frame');
 assert.equal(/height:\s*min\(28vh,\s*200px\)/.test(css), false, 'gallery must not use the 200px strip cap');
-assert.equal(
-  /padding-bottom:\s*calc\(248px/.test(css),
-  false,
-  'mobile PDP does not reserve space for a fixed purchase bar',
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.pdp\s*\{[^}]*padding-bottom:\s*156px/.test(css),
+  'mobile PDP clears the sticky purchase bar above the docked nav',
 );
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(80px\s*\+\s*env\(safe-area-inset-bottom/.test(css),
@@ -160,15 +170,17 @@ const mobilePdpCss = css.slice(
   css.indexOf('@media (max-width: 720px)'),
   css.indexOf('@media (max-width: 520px)'),
 );
-assert.equal(
-  /\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{\s*display:\s*none/.test(mobilePdpCss),
-  false,
-  'mobile keeps inline Adicionar à sacola and Comprar agora in the scroll',
+assert.ok(
+  /\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
+  'mobile hides the in-page Adicionar and Comprar agora pair',
 );
-assert.equal(
-  mobilePdpCss.includes('.pdp-sticky-atc'),
-  false,
-  'mobile CSS does not pin a PDP purchase bar',
+assert.ok(
+  /\.pdp-sticky-atc\s*\{[^}]*position:\s*fixed/.test(mobilePdpCss),
+  'mobile pins Adicionar and Comprar agora in the sticky bar',
+);
+assert.ok(
+  /\.pdp-sticky-ctas\s*\{[^}]*grid-template-columns:\s*1fr/.test(mobilePdpCss),
+  'mobile sticky bar stacks Adicionar and Comprar agora',
 );
 assert.equal(
   /\.pdp-actions \.pdp-cta-wa\s*\{[^}]*display:\s*none/.test(mobilePdpCss),
@@ -180,6 +192,11 @@ assert.equal(
   /\.pdp-actions \.pdp-cta-primary[\s\S]{0,160}display:\s*none/.test(desktopPdpCss),
   false,
   'desktop buy box keeps Adicionar and Comprar agora',
+);
+assert.equal(
+  /\.pdp-sticky-atc\s*\{[^}]*display:\s*flex/.test(desktopPdpCss),
+  false,
+  'desktop does not show the mobile sticky purchase bar',
 );
 assert.ok(css.includes('.pdp-desc.is-collapsed'), 'long specs clamp on mobile');
 assert.ok(css.includes('.pdp-desc-toggle'), 'Ver mais control is styled');

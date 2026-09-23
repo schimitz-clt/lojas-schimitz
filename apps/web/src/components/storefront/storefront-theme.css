@@ -2210,7 +2210,7 @@
   }
 
   body:has(.pdp) .chatw {
-    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(236px + env(safe-area-inset-bottom, 0px));
   }
 
   body:has(.pdp) .compare-bar {

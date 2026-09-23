@@ -289,9 +289,9 @@ import {
   assert.ok(pdp.includes('PdpRelatedProducts'), 'PDP shows related catalog products');
   assert.ok(pdp.includes('pdpLowStockUrgency'), 'PDP urgency uses real stock ≤3');
   assert.ok(pdp.includes('ProductGallery'), 'gallery stays');
-  assert.equal(pdp.includes('pdp-sticky-atc'), false, 'purchase CTAs scroll with the page');
-  assert.ok(pdp.includes('pdp-cta-primary'), 'Adicionar à sacola stays in the buy box');
-  assert.ok(pdp.includes('pdp-cta-buy-now'), 'Comprar agora stays in the buy box');
+  assert.ok(pdp.includes('pdp-sticky-atc'), 'mobile purchase pair lives in the sticky bar');
+  assert.ok(pdp.includes('pdp-cta-primary'), 'Adicionar à sacola stays in the buy box for desktop');
+  assert.ok(pdp.includes('pdp-cta-buy-now'), 'Comprar agora stays in the buy box for desktop');
   assert.ok(pdp.includes('ProductShareButton'), 'share stays');
   assert.ok(pdp.includes('pixPrice('), 'PIX stack stays');
   assert.ok(!/pessoas vendo|visualizando agora/i.test(pdp), 'no fake viewer counts');
