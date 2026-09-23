@@ -86,8 +86,7 @@ button, input, select, textarea { font: inherit; }
   align-items: center;
   gap: 4px 0;
   position: relative;
-  /* Above the sticky header's safe-area fill so the yellow strip is never
-     covered by a black band while it is still on screen. */
+  /* Above the black header so the yellow strip is never covered by it. */
   z-index: 46;
 }
 .topbar-sep {
@@ -95,27 +94,24 @@ button, input, select, textarea { font: inherit; }
   opacity: .55;
   font-weight: 700;
 }
-/* Sticky no wrapper (não no .header interno): a topbar fica FORA deste
-   wrapper para rolar fora sozinha. Sticky num filho dentro de um pai curto
-   (só chrome) não tem “pista” para grudar e some com o scroll. */
-.site-chrome-head {
+/* Yellow promo + black header (logo, search, address row) stick as one
+   stack. Sticky is on this outer wrapper — it stays in normal flow, so
+   page content starts below the full chrome and scrolls underneath.
+   The promo padding already includes --safe-area-top, so the stack pins
+   at y=0 and the promo text stays below the status bar. Do not sticky
+   .site-chrome-head: a sticky child inside this short chrome has no
+   track and slips, and a safe-area top offset would open a gap under
+   the yellow. */
+.site-chrome {
   position: sticky;
-  /* Once the promo scrolls away, keep logo/search below the status bar. */
-  top: var(--safe-area-top);
-  z-index: 40;
-  background: var(--header-bg);
+  top: 0;
+  z-index: 45;
 }
-/* Black fill in the inset while this bar is stuck. Height is 0 when there
-   is no cutout, so desktop sticky behavior is unchanged. */
-.site-chrome-head::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: var(--safe-area-top);
+.site-chrome-head {
+  position: relative;
+  top: auto;
+  z-index: 1;
   background: var(--header-bg);
-  pointer-events: none;
 }
 .header {
   background: var(--header-bg);
@@ -2156,8 +2152,8 @@ textarea { resize: vertical; min-height: 72px; }
     pointer-events: auto;
     touch-action: manipulation;
   }
-  /* Promo strip scrolls away (it sits outside .site-chrome-head). One line,
-     so it does not stack into a second row above the search. */
+  /* Promo stays one line so it does not wrap into a second row above
+     the search. It pins with .site-chrome; it does not scroll away. */
   .topbar {
     display: block;
     font-size: clamp(8.5px, 2.65vw, 11px);
@@ -2173,15 +2169,17 @@ textarea { resize: vertical; min-height: 72px; }
   }
   .topbar-sep { margin: 0 6px; }
 
-  /* Sticky height stays constant: no is-compact collapse. Topbar is outside
-     this wrapper so it can leave without changing the stuck block. */
-  .site-chrome-head {
-    position: sticky;
-    top: var(--safe-area-top);
-    z-index: 45;
-    background: var(--header-bg);
+  /* Sticky height stays constant: no is-compact collapse. The whole
+     stack (yellow + black + address) pins on .site-chrome. */
+  .site-chrome {
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+  }
+  .site-chrome-head {
+    position: relative;
+    top: auto;
+    z-index: auto;
+    background: var(--header-bg);
   }
   .site-chrome-head .header {
     position: relative;

@@ -169,13 +169,21 @@ assert.ok(css.includes('.bottom-nav-ico svg'), 'bottom nav SVGs are optically si
 assert.ok(shortcuts.includes('HomeShortcutGlyph'), 'home shortcuts share the storefront icon set');
 assert.equal(css.includes('.site-chrome-head.is-compact'), false, 'compact collapse CSS removed');
 assert.ok(
-  /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
-  'sticky lives on site-chrome-head (tall enough track vs viewport siblings)',
+  /\.site-chrome\s*\{[^}]*position:\s*sticky/s.test(css),
+  'sticky lives on site-chrome so yellow, search, and address share one track',
 );
+assert.equal(
+  /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
+  false,
+  'black header is not sticky on its own (that let the yellow scroll away)',
+);
+assert.ok(header.includes('className="site-chrome"'), 'sticky stack wrapper');
 assert.ok(header.includes('topbar') && header.includes('site-chrome-head'), 'topbar and chrome stay');
 assert.ok(
-  header.indexOf('topbar') < header.indexOf('site-chrome-head'),
-  'topbar is outside the sticky wrapper so it can scroll away without height thrash',
+  header.indexOf('className="site-chrome"') < header.indexOf('topbar') &&
+    header.indexOf('topbar') < header.indexOf('site-chrome-head') &&
+    header.indexOf('site-chrome-head') < header.indexOf('<HomeDeliveryBar'),
+  'yellow, black header, and address row share the sticky stack',
 );
 assert.ok(!/magalu/i.test(bar + shortcuts), 'new home UI has no Magalu trademark');
 

@@ -36,29 +36,39 @@ assert.ok(
 );
 assert.ok(
   /\.topbar\s*\{[^}]*z-index:\s*46/.test(css),
-  'promo paints above the sticky header safe-area fill',
+  'promo paints above the black header inside the stack',
 );
 
+const stack = css.match(/\.site-chrome\s*\{([^}]*)\}/);
+assert.ok(stack, 'sticky chrome stack exists');
+assert.match(stack[1], /position:\s*sticky/, 'yellow + black + address pin together');
+assert.match(stack[1], /top:\s*0/, 'stack pins at y=0; the promo padding owns the status-bar inset');
+
 const heads = [...css.matchAll(/\.site-chrome-head\s*\{([^}]*)\}/g)];
-assert.equal(heads.length, 2, 'base and mobile sticky chrome rules');
+assert.equal(heads.length, 2, 'base and mobile black-header rules');
 for (const head of heads) {
-  assert.match(head[1], /position:\s*sticky/, 'header stays sticky');
-  assert.match(head[1], /top:\s*var\(--safe-area-top\)/, 'stuck header clears the status bar');
-  assert.equal(/top:\s*0/.test(head[1]), false, 'stuck header must not pin to y=0');
+  assert.equal(/position:\s*sticky/.test(head[1]), false, 'black header is not a second sticky layer');
+  assert.equal(
+    /top:\s*var\(--safe-area-top\)/.test(head[1]),
+    false,
+    'black header does not offset by the inset (that gaps it under the yellow)',
+  );
 }
-assert.match(
-  css,
-  /\.site-chrome-head::before\s*\{[^}]*height:\s*var\(--safe-area-top\)[^}]*background:\s*var\(--header-bg\)/,
-  'header background fills the inset when the promo has scrolled away',
+assert.equal(
+  /\.site-chrome-head::before\s*\{/.test(css),
+  false,
+  'no black inset fill — the pinned yellow already covers the status bar',
 );
 
 assert.match(css, /\.nav-progress\s*\{[^}]*top:\s*var\(--safe-area-top\)/, 'route progress sits below the status bar');
 
 assert.ok(header.includes('className="topbar"'), 'yellow promo strip stays');
-assert.ok(
-  header.indexOf('topbar') < header.indexOf('site-chrome-head'),
-  'promo stays outside the sticky wrapper',
-);
+assert.ok(header.includes('className="site-chrome"'), 'sticky stack wrapper');
+const chromeAt = header.indexOf('className="site-chrome"');
+const topbarAt = header.indexOf('className="topbar"');
+const headAt = header.indexOf('site-chrome-head');
+const addressAt = header.indexOf('<HomeDeliveryBar');
+assert.ok(chromeAt >= 0 && chromeAt < topbarAt && topbarAt < headAt && headAt < addressAt, 'yellow, black header, then address share one sticky stack');
 assert.equal(/className="topbar"[\s\S]{0,400}site-chrome-head/.test(header), true, 'strip still precedes the black header');
 
 console.log('safe-area-chrome tests ok');
