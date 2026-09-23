@@ -29,6 +29,13 @@
   --radius-lg: 22px;
   --wrap: 1280px;
   --ease: cubic-bezier(.22,.61,.36,1);
+  /* Status-bar / notch inset. 0 on desktop and in browsers that do not
+     extend under the system UI. constant() covers iOS 11.0–11.2; env() wins
+     after that. viewport-fit=cover (layout viewport) is what makes this
+     non-zero on notched phones, standalone PWA, and edge-to-edge WebView. */
+  --safe-area-top: 0px;
+  --safe-area-top: constant(safe-area-inset-top);
+  --safe-area-top: env(safe-area-inset-top, 0px);
 }
 * { box-sizing: border-box; }
 html, body {
@@ -65,6 +72,10 @@ button, input, select, textarea { font: inherit; }
   color: var(--ink);
   font-size: 11.5px;
   padding: 7px 12px;
+  /* Yellow fill stays at the screen edge; the promo line starts below the
+     status bar. Same 7px rhythm when --safe-area-top is 0. */
+  padding-top: calc(7px + constant(safe-area-inset-top));
+  padding-top: calc(7px + var(--safe-area-top));
   text-align: center;
   font-weight: 800;
   letter-spacing: .04em;
@@ -74,6 +85,10 @@ button, input, select, textarea { font: inherit; }
   justify-content: center;
   align-items: center;
   gap: 4px 0;
+  position: relative;
+  /* Above the sticky header's safe-area fill so the yellow strip is never
+     covered by a black band while it is still on screen. */
+  z-index: 46;
 }
 .topbar-sep {
   margin: 0 8px;
@@ -85,9 +100,22 @@ button, input, select, textarea { font: inherit; }
    (só chrome) não tem “pista” para grudar e some com o scroll. */
 .site-chrome-head {
   position: sticky;
-  top: 0;
+  /* Once the promo scrolls away, keep logo/search below the status bar. */
+  top: var(--safe-area-top);
   z-index: 40;
   background: var(--header-bg);
+}
+/* Black fill in the inset while this bar is stuck. Height is 0 when there
+   is no cutout, so desktop sticky behavior is unchanged. */
+.site-chrome-head::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--safe-area-top);
+  background: var(--header-bg);
+  pointer-events: none;
 }
 .header {
   background: var(--header-bg);
@@ -2137,6 +2165,8 @@ textarea { resize: vertical; min-height: 72px; }
     font-weight: 800;
     letter-spacing: 0.035em;
     padding: 5px 10px;
+    padding-top: calc(5px + constant(safe-area-inset-top));
+    padding-top: calc(5px + var(--safe-area-top));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2147,7 +2177,7 @@ textarea { resize: vertical; min-height: 72px; }
      this wrapper so it can leave without changing the stuck block. */
   .site-chrome-head {
     position: sticky;
-    top: 0;
+    top: var(--safe-area-top);
     z-index: 45;
     background: var(--header-bg);
     -webkit-backface-visibility: hidden;
@@ -2777,7 +2807,7 @@ textarea { resize: vertical; min-height: 72px; }
 /* Route-change feedback. Compositor-only so it does not fight the header paint. */
 .nav-progress {
   position: fixed;
-  top: 0;
+  top: var(--safe-area-top);
   left: 0;
   right: 0;
   height: 2px;
