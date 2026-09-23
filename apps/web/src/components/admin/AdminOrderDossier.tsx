@@ -11,6 +11,12 @@ import {
 } from '@/lib/admin-enterprise-ui';
 import { whatsAppOpsButtonLabel } from '@/lib/admin-ops-ui';
 import { customerVerClienteLabel } from '@/lib/admin-customers-ui';
+import {
+  paymentRefundAttentionCopy,
+  paymentRefundConfirmCopy,
+  paymentRefundOffer,
+  paymentRefundRowLine,
+} from '@/lib/admin-payment-refund-ui';
 import { advanceButtonLabel, type AdminOrder } from '@/components/admin/admin-console-model';
 
 type WaLink = { url: string; toCustomer: boolean };
@@ -33,6 +39,10 @@ type Props = {
   onAskAdvance: () => void;
   onConfirmAdvance: () => void;
   onCancelAdvance: () => void;
+  refundingPaymentId: string | null;
+  onAskRefund: (paymentId: string) => void;
+  onConfirmRefund: (paymentId: string) => void;
+  onCancelRefund: () => void;
   onResend: () => void;
   onCopyPublicId: () => void;
   onCopyTracking: () => void;
@@ -66,6 +76,10 @@ export function AdminOrderDossier({
   onAskAdvance,
   onConfirmAdvance,
   onCancelAdvance,
+  refundingPaymentId,
+  onAskRefund,
+  onConfirmRefund,
+  onCancelRefund,
   onResend,
   onCopyPublicId,
   onCopyTracking,
@@ -80,6 +94,10 @@ export function AdminOrderDossier({
           toStatus: model.nextStatus,
         })
       : null;
+  const refundOffers = paymentRefundOffer(order);
+  const refundAttention = refundOffers.length
+    ? paymentRefundAttentionCopy({ publicId: order.publicId, count: refundOffers.length })
+    : null;
   const canResend = isPostPaidStatus(order.status);
   const showPaidWa =
     order.status === 'paid' || order.status === 'organizing' || order.status === 'separating';
@@ -150,6 +168,58 @@ export function AdminOrderDossier({
             </button>
           ) : null}
         </div>
+
+        {refundAttention ? (
+          <section className="admin-ent-refund" aria-label="Estorno de pagamento">
+            <p className="admin-ent-refund__kicker">Atenção</p>
+            <p className="admin-ent-refund__title">{refundAttention.title}</p>
+            <p className="admin-ent-refund__detail">{refundAttention.detail}</p>
+            {refundOffers.map((payment) => {
+              const id = String(payment.id || '').trim();
+              const open = refundingPaymentId === id;
+              const refundCopy = paymentRefundConfirmCopy({
+                publicId: order.publicId,
+                orderId: order.id,
+                orderStatus: order.status,
+                paymentId: id,
+                amount: payment.amount,
+              });
+              return (
+                <div key={id} className="admin-ent-refund__item">
+                  <p className="admin-ent-refund__row">{paymentRefundRowLine(payment)}</p>
+                  {open ? (
+                    <div className="admin-ent-confirm admin-ent-confirm--danger" role="region" aria-label="Confirmar estorno">
+                      <p className="admin-ent-confirm__title">{refundCopy.title}</p>
+                      <p className="admin-ent-confirm__detail">{refundCopy.detail}</p>
+                      <div className="admin-ent-actions">
+                        <button
+                          type="button"
+                          className="btn admin-btn-danger"
+                          disabled={busy || bulkBusy}
+                          onClick={() => onConfirmRefund(id)}
+                        >
+                          {busy ? 'Estornando…' : 'Confirmar estorno'}
+                        </button>
+                        <button type="button" className="btn ghost" disabled={busy || bulkBusy} onClick={onCancelRefund}>
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn admin-btn-danger"
+                      disabled={busy || bulkBusy || Boolean(refundingPaymentId)}
+                      onClick={() => onAskRefund(id)}
+                    >
+                      Estornar pagamento
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        ) : null}
 
         {confirm ? (
           <div className="admin-ent-confirm" role="region" aria-label="Confirmar avanço de status">

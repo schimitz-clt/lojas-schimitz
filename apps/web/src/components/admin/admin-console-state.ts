@@ -11,6 +11,14 @@ import {
   isPostPaidStatus,
 } from '@/lib/order-status';
 import { orderMutationErrorText } from '@/lib/admin-enterprise-ui';
+import {
+  isRefundPaymentId,
+  paymentRefundErrorText,
+  paymentRefundOffer,
+  paymentRefundRefreshFailureText,
+  paymentRefundSuccessMessage,
+  readApiErrorCode,
+} from '@/lib/admin-payment-refund-ui';
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
@@ -306,6 +314,7 @@ export function useAdminConsoleState() {
         setCommissions(commissionsList || []);
         setStorePayload('ready');
         setErr('');
+        return true;
       })
       .catch((e) => {
         if (isUnauthorizedError(e)) {
@@ -314,6 +323,7 @@ export function useAdminConsoleState() {
         }
         setStorePayload((prev) => (prev === 'ready' ? prev : 'error'));
         setErr(e.message);
+        return false;
       });
   }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
 
@@ -1370,6 +1380,45 @@ export function useAdminConsoleState() {
     }
   }
 
+  async function refundPayment(order: AdminOrder, paymentId: string): Promise<boolean> {
+    const id = paymentId.trim();
+    if (!isRefundPaymentId(id) || !paymentRefundOffer(order).some((payment) => String(payment.id || '').trim() === id)) {
+      setErr('Este pedido não tem pagamento approved elegível a estorno. Nada foi enviado ao Mercado Pago.');
+      setMsg('');
+      return false;
+    }
+    setBusyId(order.id);
+    setErr('');
+    setMsg('');
+    try {
+      const data = await api<{ idempotent?: boolean }>(`/admin/payments/${id}/refund`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      const text = paymentRefundSuccessMessage({
+        publicId: order.publicId,
+        idempotent: data?.idempotent === true,
+      });
+      const refreshed = await load();
+      void loadOps();
+      if (refreshed === false) {
+        setMsg('');
+        setErr(paymentRefundRefreshFailureText(text));
+      } else {
+        setErr('');
+        setMsg(text);
+      }
+      return true;
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '';
+      setErr(paymentRefundErrorText(readApiErrorCode(e), message));
+      setMsg('');
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function advance(
     order: AdminOrder,
     opts?: { trackingCode?: string; carrier?: string },
@@ -2238,6 +2287,7 @@ export function useAdminConsoleState() {
     setReviewStatus,
     deleteReview,
     advance,
+    refundPayment,
     runBulkFulfillment,
     pickListPhoto,
     uploadListCoverPhoto,

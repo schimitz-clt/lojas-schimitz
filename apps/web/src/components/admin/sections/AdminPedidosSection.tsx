@@ -126,6 +126,7 @@ export function AdminPedidosSection() {
     bulkSepararEligibleCount,
     bulkAdvanceEligibleCount,
     advance,
+    refundPayment,
     runBulkFulfillment,
     resendStorePaidNotify,
     copyOrderField,
@@ -137,6 +138,7 @@ export function AdminPedidosSection() {
   } = useAdminConsole();
   const ready = ops != null;
   const [confirmAdvance, setConfirmAdvance] = useState(false);
+  const [refundPaymentId, setRefundPaymentId] = useState<string | null>(null);
   const [trackingDraft, setTrackingDraft] = useState('');
   const [carrierDraft, setCarrierDraft] = useState('');
   const openOrder = orders.find((order) => order.id === openOrderId) || null;
@@ -144,11 +146,13 @@ export function AdminPedidosSection() {
   function closeDossier() {
     setOpenOrderId(null);
     setConfirmAdvance(false);
+    setRefundPaymentId(null);
   }
 
   function openDossier(orderId: string, order: (typeof orders)[number]) {
     setOpenOrderId(orderId);
     setConfirmAdvance(false);
+    setRefundPaymentId(null);
     setTrackingDraft(order.trackingCode || '');
     setCarrierDraft(order.carrier || '');
   }
@@ -157,14 +161,26 @@ export function AdminPedidosSection() {
     if (!nextFulfillmentStatus(order.status)) return;
     setOpenOrderId(order.id);
     setConfirmAdvance(true);
+    setRefundPaymentId(null);
     setTrackingDraft(order.trackingCode || '');
     setCarrierDraft(order.carrier || 'propria');
+  }
+
+  function askRefund(paymentId: string) {
+    setConfirmAdvance(false);
+    setRefundPaymentId(paymentId);
   }
 
   async function confirmAdvanceNow() {
     if (!openOrder) return;
     const ok = await advance(openOrder, { trackingCode: trackingDraft, carrier: carrierDraft });
     if (ok) setConfirmAdvance(false);
+  }
+
+  async function confirmRefundNow(paymentId: string) {
+    if (!openOrder) return;
+    const ok = await refundPayment(openOrder, paymentId);
+    if (ok) setRefundPaymentId(null);
   }
   const counts = pedidosCommandCounts(ops, ready);
   const sectionAlerts = partitionSectionAlerts(ops?.alerts, 'pedidos');
@@ -778,6 +794,10 @@ export function AdminPedidosSection() {
           onAskAdvance={() => askAdvance(openOrder)}
           onConfirmAdvance={() => void confirmAdvanceNow()}
           onCancelAdvance={() => setConfirmAdvance(false)}
+          refundingPaymentId={refundPaymentId}
+          onAskRefund={(paymentId) => askRefund(paymentId)}
+          onConfirmRefund={(paymentId) => void confirmRefundNow(paymentId)}
+          onCancelRefund={() => setRefundPaymentId(null)}
           onResend={() => void resendStorePaidNotify(openOrder)}
           onCopyPublicId={() => void copyOrderField('publicId', openOrder.publicId)}
           onCopyTracking={() => void copyOrderField('tracking', openOrder.trackingCode || '')}
