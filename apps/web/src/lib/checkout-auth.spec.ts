@@ -47,7 +47,9 @@ const entrar = readFileSync(join(root, 'app/entrar/page.tsx'), 'utf8');
 assert.ok(entrar.includes('/auth/register'), 'entrar can create account at buy time');
 assert.ok(entrar.includes('/auth/login'), 'register then login issues session cookies');
 assert.ok(entrar.includes('saveSession'), 'login/register-at-checkout updates sch_user');
-assert.ok(entrar.includes('Cadastrar e continuar'), 'Portuguese register CTA');
+const signupUi = readFileSync(join(root, 'components/account/CreateAccountFlow.tsx'), 'utf8');
+assert.ok(entrar.includes('CreateAccountFlow'), 'entrar register mode is the multi-step flow');
+assert.ok(signupUi.includes('Cadastrar e continuar'), 'Portuguese register CTA');
 assert.ok(!entrar.includes("localStorage.setItem('sch_access'"), 'no access JWT in storage');
 assert.ok(!entrar.includes("localStorage.setItem('sch_refresh'"), 'no refresh JWT in storage');
 
