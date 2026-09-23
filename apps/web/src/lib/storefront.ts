@@ -73,6 +73,26 @@ export function siteOrigin() {
   }
 }
 
+export type StoreDataResult = { ok: true; data: unknown } | { ok: false };
+
+/**
+ * Public store JSON with a short shared cache. Home calls this for
+ * /products, /store/banners, and /store/shelves in parallel.
+ * Failures are not thrown — the page shows the catalog error or a client retry.
+ */
+export async function fetchStoreData(path: string): Promise<StoreDataResult> {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  try {
+    const res = await fetch(`${API}${suffix}`, { next: { revalidate: 60 } });
+    if (!res.ok) return { ok: false };
+    const json = (await res.json()) as { ok?: boolean; data?: unknown };
+    if (!json.ok) return { ok: false };
+    return { ok: true, data: json.data ?? null };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function fetchStoreSettings(): Promise<StoreSettings> {
   try {
     const res = await fetch(`${API}/store/settings`, { next: { revalidate: 60 } });
