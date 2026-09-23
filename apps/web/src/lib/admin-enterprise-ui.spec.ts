@@ -353,7 +353,8 @@ assert.ok(pedidos.includes('pedidosCommandCounts'), 'snapshot counts stay on the
 assert.ok(pedidos.includes('askAdvance'), 'single advance asks before PATCH');
 assert.ok(dossier.includes('ORDER_ACTOR_SCOPE'));
 assert.ok(dossier.includes('fulfillmentConfirmCopy'));
-assert.equal(dossier.includes('/refund'), false);
+assert.ok(dossier.includes('paymentRefundConfirmCopy'), 'refund asks in the dossier before POST');
+assert.ok(dossier.includes('onCancelRefund'), 'Voltar does not post the refund');
 assert.equal(dossier.includes('charge'), false);
 
 assert.ok(catalog.includes("'/admin/products/batch'"), 'list batch uses the existing endpoint');
