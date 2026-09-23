@@ -1,9 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { ENTERPRISE_MISSING } from '@/lib/admin-enterprise-ui';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
 import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
+import { useAdminConsole } from '@/components/admin/admin-console-context';
 import {
   NOTIFICACOES_DO_LEDE,
   NOTIFICACOES_EVIDENCE_LEDE,
@@ -12,13 +15,24 @@ import {
   type PrimeLoad,
 } from '@/lib/admin-prime-sections-ui';
 import {
+  opsMailFailureCountLabel,
+  opsStoreNotifyConfiguredLabel,
+} from '@/lib/admin-ops-ui';
+import { buildAdminSectionHref } from '@/lib/admin-sections';
+import {
   abandonedViewAdminNote,
   abandonedViewPreviewLine,
   campaignResultLine,
+  canSendPushCampaign,
   emptyPushCampaignForm,
+  firebaseProjectLine,
   firebaseStatusHint,
   isNaoExecutado,
   pushAudienceLabel,
+  pushDispatchEvidenceLine,
+  pushDispatchListSummary,
+  pushSendConfirmCopy,
+  pushSendResultMessage,
   pushStatusLabel,
   pushStatusTone,
   scheduledAtIso,
@@ -31,6 +45,7 @@ type FirebaseStatus = {
   firebaseConfigured?: boolean;
   firebaseSource?: string | null;
   firebaseProjectId?: string | null;
+  firebaseReason?: string | null;
   note?: string;
 };
 
@@ -50,6 +65,15 @@ type CampaignRow = {
   errorSummary?: string | null;
   firebaseReady?: boolean;
   createdAt: string;
+};
+
+type DispatchRow = {
+  id: string;
+  status?: string | null;
+  error?: string | null;
+  tokenFingerprint?: string | null;
+  fcmMessageId?: string | null;
+  createdAt?: string | null;
 };
 
 type TokenRow = {
@@ -80,19 +104,27 @@ const ANCHOR: Record<string, string> = {
   push_firebase_off: 'admin-notificacoes-form',
   push_campaigns_failed: 'admin-notificacoes-history',
   push_scheduled: 'admin-notificacoes-history',
+  push_sending: 'admin-notificacoes-history',
   push_abandoned_due: 'admin-notificacoes-abandoned',
+  store_notify_mail_failed: 'admin-notificacoes-mail',
+  mail_off_with_store_notify: 'admin-notificacoes-mail',
+  mail_not_configured: 'admin-notificacoes-mail',
   create: 'admin-notificacoes-form',
+  send: 'admin-notificacoes-history',
   history: 'admin-notificacoes-history',
   tokens: 'admin-notificacoes-tokens',
   devices: 'admin-notificacoes-tokens',
   firebase: 'admin-notificacoes-form',
   campaigns: 'admin-notificacoes-history',
   abandoned: 'admin-notificacoes-abandoned',
+  mail: 'admin-notificacoes-mail',
 };
 
 export function AdminNotificacoesSection() {
+  const { ops, opsSnapshot, loadOps } = useAdminConsole();
   const [form, setForm] = useState<PushCampaignForm>(emptyPushCampaignForm);
   const [campaigns, setCampaigns] = useState<CampaignRow[] | null>(null);
+  const [campaignTotal, setCampaignTotal] = useState<number | null>(null);
   const [tokens, setTokens] = useState<TokenRow[] | null>(null);
   const [firebase, setFirebase] = useState<FirebaseStatus | null>(null);
   const [enabledDevices, setEnabledDevices] = useState<number | null>(null);
@@ -101,6 +133,10 @@ export function AdminNotificacoesSection() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmSendId, setConfirmSendId] = useState<string | null>(null);
+  const [dispatchFor, setDispatchFor] = useState<string | null>(null);
+  const [dispatches, setDispatches] = useState<DispatchRow[] | null>(null);
+  const [dispatchState, setDispatchState] = useState<'idle' | PrimeLoad>('idle');
 
   const load = useCallback(async () => {
     setLoadState((prev) => (prev === 'ready' ? prev : 'pending'));
@@ -110,6 +146,7 @@ export function AdminNotificacoesSection() {
       api<AbandonedPreview>('/admin/push/abandoned-views').catch(() => null),
     ]);
     setCampaigns(list.items || []);
+    setCampaignTotal(typeof list.total === 'number' && Number.isFinite(list.total) ? Math.trunc(list.total) : null);
     setFirebase(list.firebase || {});
     setEnabledDevices(typeof list.enabledDevices === 'number' && Number.isFinite(list.enabledDevices) ? list.enabledDevices : null);
     setTokens(tokenList.items || []);
@@ -163,11 +200,50 @@ export function AdminNotificacoesSection() {
     try {
       await api(`/admin/push/campaigns/${id}/cancel`, { method: 'POST' });
       setMsg('Campanha cancelada.');
+      if (confirmSendId === id) setConfirmSendId(null);
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Falha ao cancelar');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function sendCampaign(id: string) {
+    setBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const result = await api<{
+        dispatched?: boolean;
+        reason?: string | null;
+        campaign?: { sentCount?: number | null; errorSummary?: string | null } | null;
+      }>(`/admin/push/campaigns/${id}/send`, { method: 'POST' });
+      setMsg(pushSendResultMessage(result));
+      setConfirmSendId(null);
+      await load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Falha ao disparar campanha');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openDispatches(id: string) {
+    if (dispatchFor === id) {
+      setDispatchFor(null);
+      return;
+    }
+    setDispatchFor(id);
+    setDispatchState('pending');
+    setDispatches(null);
+    try {
+      const data = await api<{ dispatches?: DispatchRow[] | null }>(`/admin/push/campaigns/${id}`);
+      setDispatches(Array.isArray(data?.dispatches) ? data.dispatches : null);
+      setDispatchState('ready');
+    } catch (e: unknown) {
+      setDispatchState('error');
+      setErr(e instanceof Error ? e.message : 'Falha ao ler os envios');
     }
   }
 
@@ -197,13 +273,33 @@ export function AdminNotificacoesSection() {
 
   const hint = firebaseStatusHint(firebase || {});
   const ready = loadState === 'ready';
+  const opsReady = opsSnapshot === 'ready';
+  const mailAlerts = (ops?.alerts || []).filter((alert) =>
+    alert.code === 'store_notify_mail_failed' ||
+    alert.code === 'mail_off_with_store_notify' ||
+    alert.code === 'mail_not_configured',
+  );
   const model = notificacoesPrimeModel({
     load: loadState,
     enabledDevices: ready ? enabledDevices : null,
     firebaseConfigured: ready && firebase && typeof firebase.firebaseConfigured === 'boolean' ? firebase.firebaseConfigured : null,
+    firebaseProjectId: ready ? firebase?.firebaseProjectId ?? null : null,
     campaigns: ready ? campaigns : null,
+    campaignTotal: ready ? campaignTotal : null,
     tokenCount: ready && tokens ? tokens.length : null,
     abandoned: ready ? abandoned : null,
+    opsReady,
+    mail: opsReady
+      ? ops?.mail
+        ? {
+            configured: ops.mail.configured,
+            providerOffWithStoreNotify: ops.mail.providerOffWithStoreNotify,
+            storeNotifyFailureCount: ops.mail.storeNotifyFailureCount,
+            lastPublicId: ops.mail.lastStoreNotifyFailure?.publicId ?? null,
+          }
+        : null
+      : null,
+    mailAlerts: opsReady ? mailAlerts : null,
   });
   const campaignRows = ready ? campaigns || [] : [];
   const tokenRows = ready ? tokens || [] : [];
@@ -217,10 +313,11 @@ export function AdminNotificacoesSection() {
     <>
       <AdminPrimeCommand
         eyebrow="Notificações"
-        title="Push do app, sem misturar com o e-mail da loja."
-        endpoint="GET /admin/push/campaigns · GET /admin/push/tokens · GET /admin/push/abandoned-views"
+        title="Push do app. O e-mail da loja entra só como leitura."
+        endpoint="GET /admin/push/campaigns · GET /admin/push/tokens · GET /admin/push/abandoned-views · mail em GET /admin/ops"
         busy={busy}
         onRefresh={() => {
+          void loadOps();
           load().catch((e: Error) => {
             setLoadState((prev) => (prev === 'ready' ? prev : 'error'));
             setErr(e.message || 'Falha ao carregar notificações push');
@@ -248,7 +345,8 @@ export function AdminNotificacoesSection() {
           in-app de pedido). Público v1: aparelhos com token ativo, ou clientes com pedidos.
         </p>
         <p className="muted" style={{ marginTop: 8 }}>
-          {ready ? hint.text : '—'}
+          {ready ? hint.text : ENTERPRISE_MISSING}
+          {ready && firebaseProjectLine(firebase?.firebaseProjectId) ? ` ${firebaseProjectLine(firebase?.firebaseProjectId)}` : ''}
         </p>
         <p className="muted" id="admin-notificacoes-abandoned" style={{ marginTop: 8 }}>
           {abandoned?.note || abandonedViewAdminNote()}
@@ -340,9 +438,15 @@ export function AdminNotificacoesSection() {
           </div>
         </section>
 
+        {err ? <div className="alert">{err}</div> : null}
+        {msg ? <div className="ok">{msg}</div> : null}
+
         <h3 className="admin-section-heading" id="admin-notificacoes-history">
-          Histórico ({ready ? campaignRows.length : '—'})
+          Histórico ({!ready ? ENTERPRISE_MISSING : campaignTotal != null ? campaignTotal : campaignRows.length})
         </h3>
+        {ready && campaignTotal != null && campaignTotal !== campaignRows.length ? (
+          <p className="muted">{campaignRows.length} nesta página · total {campaignTotal}</p>
+        ) : null}
         <div className="admin-dense-list">
           {!ready ? (
             <p className="muted">{loadState === 'error' ? 'Histórico indisponível.' : 'Lendo campanhas…'}</p>
@@ -359,18 +463,76 @@ export function AdminNotificacoesSection() {
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                     {pushAudienceLabel(c.audience)} · {c.linkPath} · {formatAdminDateTime(c.createdAt)}
                     {c.scheduledAt ? ` · agendada ${formatAdminDateTime(c.scheduledAt)}` : ''}
+                    {c.sentAt ? ` · enviada ${formatAdminDateTime(c.sentAt)}` : ''}
+                    {c.imageUrl ? ' · com imagem' : ''}
+                    {c.firebaseReady === false ? ' · Firebase ausente neste registro' : ''}
                   </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                     {campaignResultLine(c)}
                   </div>
+                  {confirmSendId === c.id ? (
+                    <div className="admin-ent-confirm" role="region" aria-label="Confirmar disparo da campanha">
+                      <p className="admin-ent-confirm__title">{pushSendConfirmCopy(c).title}</p>
+                      <p className="admin-ent-confirm__detail">{pushSendConfirmCopy(c).detail}</p>
+                      <div className="admin-ent-actions">
+                        <button
+                          type="button"
+                          className="btn admin-btn-primary-accent"
+                          disabled={busy}
+                          onClick={() => void sendCampaign(c.id)}
+                        >
+                          {busy ? 'Disparando…' : 'Confirmar disparo'}
+                        </button>
+                        <button type="button" className="btn ghost" disabled={busy} onClick={() => setConfirmSendId(null)}>
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {dispatchFor === c.id ? (
+                    <div className="admin-ent-note" style={{ marginTop: 8 }}>
+                      {dispatchState === 'pending' ? (
+                        'Lendo GET /admin/push/campaigns/:id…'
+                      ) : dispatchState === 'error' ? (
+                        'Detalhe indisponível. Nenhum envio foi estimado.'
+                      ) : (
+                        <>
+                          <div>{pushDispatchListSummary(dispatches ? dispatches.length : null)}</div>
+                          {dispatches && dispatches.length > 0
+                            ? dispatches.map((row) => (
+                                <div key={row.id} style={{ marginTop: 4 }}>
+                                  {pushDispatchEvidenceLine(row)}
+                                  {row.fcmMessageId ? ` · id ${row.fcmMessageId}` : ''}
+                                  {' · '}
+                                  {row.createdAt ? formatAdminDateTime(row.createdAt) : ENTERPRISE_MISSING}
+                                </div>
+                              ))
+                            : null}
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="row" style={{ gap: 8, alignItems: 'center' }}>
                   <AdminStatusChip label={pushStatusLabel(c.status)} tone={pushStatusTone(c.status)} />
+                  {canSendPushCampaign(c.status) ? (
+                    <button
+                      type="button"
+                      className="btn admin-btn-primary-accent"
+                      disabled={busy}
+                      onClick={() => setConfirmSendId(c.id)}
+                    >
+                      Disparar agora
+                    </button>
+                  ) : null}
                   {c.status === 'scheduled' ? (
                     <button type="button" className="btn ghost" disabled={busy} onClick={() => void cancelCampaign(c.id)}>
                       Cancelar
                     </button>
                   ) : null}
+                  <button type="button" className="btn ghost" disabled={busy} onClick={() => void openDispatches(c.id)}>
+                    {dispatchFor === c.id ? 'Fechar envios' : 'Ver envios'}
+                  </button>
                 </div>
               </div>
             ))
@@ -410,6 +572,41 @@ export function AdminNotificacoesSection() {
             ))
           )}
         </div>
+        <section className="admin-card-pro" id="admin-notificacoes-mail" style={{ marginTop: 16 }}>
+          <div className="body">
+            <h2>E-mail da loja</h2>
+            <p className="admin-section-intro" style={{ marginTop: 8 }}>
+              Somente leitura de GET /admin/ops. Esta tela não envia e-mail e não dispara a recuperação de produto.
+            </p>
+            <dl className="admin-cc-facts">
+              <div>
+                <dt>Situação</dt>
+                <dd>{model.kpis.find((kpi) => kpi.id === 'mail')?.value ?? ENTERPRISE_MISSING}</dd>
+              </div>
+              <div>
+                <dt>Aviso de venda</dt>
+                <dd>{opsStoreNotifyConfiguredLabel(ops?.mail?.storeNotifyConfigured, opsReady)}</dd>
+              </div>
+              <div>
+                <dt>Falhas neste processo</dt>
+                <dd>{opsMailFailureCountLabel(ops?.mail?.storeNotifyFailureCount, opsReady)}</dd>
+              </div>
+              <div>
+                <dt>Último pedido</dt>
+                <dd>
+                  {opsReady && ops?.mail?.lastStoreNotifyFailure?.publicId
+                    ? ops.mail.lastStoreNotifyFailure.publicId
+                    : ENTERPRISE_MISSING}
+                </dd>
+              </div>
+            </dl>
+            <div className="admin-ent-actions">
+              <Link className="btn ghost admin-btn-ghost-pro" href={buildAdminSectionHref('pedidos')}>
+                Abrir Pedidos
+              </Link>
+            </div>
+          </div>
+        </section>
         {ready && (isNaoExecutado(firebase?.note) || !firebase?.firebaseConfigured) ? (
           <p className="muted" style={{ marginTop: 16 }}>
             Checklist do dono: <code>docs/PUSH-FCM.md</code>

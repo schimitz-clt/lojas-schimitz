@@ -5,11 +5,14 @@ import {
   adminUserStatusTone,
   bannerActiveLabel,
   catalogNeedsPhotoSummary,
+  commissionLedgerConfirmCopy,
   commissionStatusLabel,
   commissionStatusTone,
   couponIsExhausted,
   couponIsExpired,
   couponListStats,
+  couponNotStarted,
+  couponStartsAtLine,
   customerAccountLabel,
   customerAccountTone,
   orderStatusChipClass,
@@ -28,8 +31,10 @@ import {
   salesPresetActive,
   sellerMpOAuthLabel,
   sellerMpOAuthTone,
+  sellerStatusConfirmCopy,
   sellerStatusLabel,
   sellerStatusTone,
+  shippingSortOrderLine,
   shippingZoneActiveLabel,
   shouldStickyOrderActions,
 } from './admin-pro-ui';
@@ -120,6 +125,29 @@ assert.equal(couponIsExpired('2020-01-01T00:00:00.000Z', Date.parse('2026-01-01T
 assert.equal(couponIsExhausted(null, 10), false);
 assert.equal(couponIsExhausted(10, 9), false);
 assert.equal(couponIsExhausted(10, 10), true);
+assert.equal(couponNotStarted(null), false);
+assert.equal(couponNotStarted(undefined), false);
+assert.equal(couponNotStarted('2099-01-01T00:00:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')), true);
+assert.equal(couponNotStarted('2020-01-01T00:00:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')), false);
+assert.equal(couponStartsAtLine(undefined).includes('—'), true);
+assert.equal(couponStartsAtLine(null), 'sem início');
+assert.equal(couponStartsAtLine(''), 'sem início');
+assert.equal(shippingSortOrderLine(0), 'ordem 0');
+assert.equal(shippingSortOrderLine(undefined).includes('—'), true);
+const approve = commissionLedgerConfirmCopy({ kind: 'approve', sellerName: 'Ana', amountLabel: 'R$ 0,00' });
+assert.ok(approve.title.includes('Ana'));
+assert.ok(approve.title.includes('R$ 0,00'));
+assert.ok(approve.detail.includes('PATCH /admin/commissions/:id/approve'));
+assert.ok(approve.detail.includes('Não cobra'));
+assert.ok(approve.detail.includes('não grava no Mercado Pago'));
+const paid = commissionLedgerConfirmCopy({ kind: 'paid', sellerName: '', amountLabel: '' });
+assert.ok(paid.title.includes('—'));
+assert.ok(paid.detail.includes('PATCH /admin/commissions/:id/paid'));
+assert.ok(paid.detail.includes('Não cobra'));
+const suspend = sellerStatusConfirmCopy({ name: 'Loja', toStatus: 'suspended' });
+assert.ok(suspend.title.includes('Suspender'));
+assert.ok(suspend.detail.includes('PATCH /admin/sellers/:id/status'));
+assert.ok(suspend.detail.includes('Não abre OAuth'));
 
 const stats = couponListStats([
   { active: true, usedCount: 2, reservedCount: 1 },

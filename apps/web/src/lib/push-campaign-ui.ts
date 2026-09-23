@@ -2,6 +2,8 @@
  * Admin push campaign labels + form helpers (Portuguese). Pure.
  */
 
+import { ENTERPRISE_MISSING } from './admin-enterprise-ui';
+
 export const PUSH_AUDIENCE_OPTIONS = [
   { id: 'all_enabled', label: 'Todos os aparelhos com push ativo' },
   { id: 'with_orders', label: 'Clientes com pedidos (e token ativo)' },
@@ -27,8 +29,10 @@ export function pushStatusLabel(status: string): string {
       return 'Falhou';
     case 'cancelled':
       return 'Cancelada';
+    case 'skipped':
+      return 'Ignorado';
     default:
-      return status;
+      return status || ENTERPRISE_MISSING;
   }
 }
 
@@ -42,10 +46,88 @@ export function pushStatusTone(status: string): 'ok' | 'warn' | 'danger' | 'info
     case 'failed':
       return 'danger';
     case 'cancelled':
+    case 'skipped':
       return 'neutral';
     default:
       return 'warn';
   }
+}
+
+/** POST /admin/push/campaigns/:id/send claims scheduled or still-sending rows only. */
+export function canSendPushCampaign(status: string | null | undefined): boolean {
+  const value = String(status || '').trim().toLowerCase();
+  return value === 'scheduled' || value === 'sending';
+}
+
+export function pushSendConfirmCopy(input: {
+  title?: string | null;
+  status?: string | null;
+}): { title: string; detail: string } {
+  const title = String(input.title || '').trim() || ENTERPRISE_MISSING;
+  const status = pushStatusLabel(String(input.status || '').trim());
+  return {
+    title: `Disparar agora: ${title} (${status})?`,
+    detail:
+      'POST /admin/push/campaigns/:id/send. Só campanha agendada ou ainda em envio. Não cobra, não estorna e não dispara a recuperação de produto. Se o Firebase estiver ausente, o resultado fica NÃO EXECUTADO.',
+  };
+}
+
+export function pushSendResultMessage(
+  result: {
+    dispatched?: boolean | null;
+    reason?: string | null;
+    campaign?: { sentCount?: number | null; errorSummary?: string | null } | null;
+  } | null | undefined,
+): string {
+  if (!result) return 'A API não confirmou o disparo.';
+  const reason = String(result.reason || '').trim();
+  const summary = result.campaign?.errorSummary;
+  if (reason === 'nao_executado' || isNaoExecutado(summary)) {
+    return 'NÃO EXECUTADO: Firebase ausente. A campanha foi atualizada e o push não saiu.';
+  }
+  if (reason === 'empty_audience') {
+    const sent = result.campaign?.sentCount;
+    if (typeof sent !== 'number' || !Number.isFinite(sent)) {
+      return 'Disparo concluído: público vazio. A API não devolveu a contagem.';
+    }
+    return `Disparo concluído: ${Math.trunc(sent)} aparelho no público. Nenhum push saiu.`;
+  }
+  if (reason === 'already_final' || reason === 'already_dispatched') {
+    return 'A API não disparou de novo: a campanha já estava encerrada ou já tinha envios.';
+  }
+  if (reason === 'ok' && result.dispatched === true) {
+    const sent = result.campaign?.sentCount;
+    if (typeof sent !== 'number' || !Number.isFinite(sent)) {
+      return 'Campanha disparada. A API não devolveu a contagem.';
+    }
+    return `Campanha disparada: ${Math.trunc(sent)} enviado(s).`;
+  }
+  if (!reason) return 'A API não detalhou o resultado do disparo.';
+  return `A API respondeu: ${reason}.`;
+}
+
+export function pushDispatchListSummary(count: number | null): string {
+  if (count == null) return ENTERPRISE_MISSING;
+  return `${Math.max(0, Math.trunc(count))} envio(s) neste detalhe.`;
+}
+
+export function pushDispatchEvidenceLine(row: {
+  status?: string | null;
+  error?: string | null;
+  tokenFingerprint?: string | null;
+}): string {
+  const status = String(row.status || '').trim();
+  const fingerprint = String(row.tokenFingerprint || '').trim() || ENTERPRISE_MISSING;
+  const parts = [status ? pushStatusLabel(status) : ENTERPRISE_MISSING, `token ${fingerprint}`];
+  const error = String(row.error || '').trim();
+  if (error) parts.push(error);
+  return parts.join(' · ');
+}
+
+export function firebaseProjectLine(projectId: string | null | undefined): string | null {
+  const id = String(projectId || '').trim();
+  if (!id) return null;
+  return `Projeto ${id}`;
 }
 
 /** Static Admin copy when the preview endpoint has not loaded yet (default delay 2h). */

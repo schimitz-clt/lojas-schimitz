@@ -3,15 +3,22 @@ import {
   abandonedViewAdminNote,
   abandonedViewPreviewLine,
   campaignResultLine,
+  canSendPushCampaign,
   emptyPushCampaignForm,
+  firebaseProjectLine,
   firebaseStatusHint,
   isNaoExecutado,
   pushAudienceLabel,
+  pushDispatchEvidenceLine,
+  pushDispatchListSummary,
+  pushSendConfirmCopy,
+  pushSendResultMessage,
   pushStatusLabel,
   pushStatusTone,
   scheduledAtIso,
   validatePushCampaignForm,
 } from './push-campaign-ui';
+import { ENTERPRISE_MISSING } from './admin-enterprise-ui';
 
 assert.equal(pushAudienceLabel('all_enabled'), 'Todos os aparelhos com push ativo');
 assert.ok(pushAudienceLabel('with_orders').includes('pedidos'));
@@ -67,5 +74,45 @@ assert.equal(off.tone, 'warn');
 assert.ok(off.text.includes('NÃO EXECUTADO'));
 const on = firebaseStatusHint({ firebaseConfigured: true });
 assert.equal(on.tone, 'ok');
+
+assert.equal(canSendPushCampaign('scheduled'), true);
+assert.equal(canSendPushCampaign('sending'), true);
+assert.equal(canSendPushCampaign('sent'), false);
+assert.equal(canSendPushCampaign('failed'), false);
+assert.equal(canSendPushCampaign('cancelled'), false);
+assert.equal(canSendPushCampaign(''), false);
+
+const sendCopy = pushSendConfirmCopy({ title: 'Frete grátis', status: 'scheduled' });
+assert.ok(sendCopy.title.includes('Frete grátis'));
+assert.ok(sendCopy.title.includes('Agendada'));
+assert.ok(sendCopy.detail.includes('POST /admin/push/campaigns/:id/send'));
+assert.ok(sendCopy.detail.includes('Não cobra'));
+assert.ok(sendCopy.detail.includes('não estorna'));
+assert.ok(sendCopy.detail.includes('NÃO EXECUTADO'));
+assert.equal(pushSendConfirmCopy({ title: '', status: '' }).title.includes(ENTERPRISE_MISSING), true);
+
+assert.ok(pushSendResultMessage(null).includes('não confirmou'));
+assert.ok(pushSendResultMessage({ reason: 'nao_executado', dispatched: false }).includes('NÃO EXECUTADO'));
+assert.equal(
+  pushSendResultMessage({ reason: 'empty_audience', dispatched: true, campaign: { sentCount: 0 } }).includes('0 aparelho'),
+  true,
+);
+assert.ok(
+  pushSendResultMessage({ reason: 'empty_audience', dispatched: true, campaign: {} }).includes('não devolveu a contagem'),
+);
+assert.ok(pushSendResultMessage({ reason: 'already_final', dispatched: false }).includes('não disparou de novo'));
+assert.equal(
+  pushSendResultMessage({ reason: 'ok', dispatched: true, campaign: { sentCount: 0 } }),
+  'Campanha disparada: 0 enviado(s).',
+);
+assert.ok(pushSendResultMessage({ dispatched: true }).includes('não detalhou'));
+
+assert.equal(pushDispatchListSummary(null), ENTERPRISE_MISSING);
+assert.equal(pushDispatchListSummary(0), '0 envio(s) neste detalhe.');
+assert.ok(pushDispatchEvidenceLine({ status: 'skipped', tokenFingerprint: '' }).includes(ENTERPRISE_MISSING));
+assert.equal(pushDispatchEvidenceLine({ status: 'sent', tokenFingerprint: 'abc', error: '' }).includes('abc'), true);
+assert.equal(firebaseProjectLine(''), null);
+assert.equal(firebaseProjectLine('loja-1'), 'Projeto loja-1');
+assert.equal(pushStatusLabel('skipped'), 'Ignorado');
 
 console.log('push-campaign-ui tests ok');

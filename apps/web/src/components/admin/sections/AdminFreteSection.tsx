@@ -10,7 +10,7 @@ import {
 } from '@/lib/admin-prime-sections-ui';
 import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPrimeCommand';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
-import { shippingZoneActiveLabel } from '@/lib/admin-pro-ui';
+import { shippingSortOrderLine, shippingZoneActiveLabel } from '@/lib/admin-pro-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 
 const ANCHOR: Record<string, string> = {
@@ -214,6 +214,7 @@ export function AdminFreteSection() {
                         <div className="admin-dense-row__meta">
                           {brl(r.fee)} · {r.estimatedDays} dia{r.estimatedDays === 1 ? '' : 's'}
                           {r.label ? ` · ${r.label}` : ''}
+                          {` · ${shippingSortOrderLine(r.sortOrder)}`}
                         </div>
                       </div>
                       <div className="admin-dense-row__actions">

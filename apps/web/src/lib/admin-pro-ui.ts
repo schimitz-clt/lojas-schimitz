@@ -3,6 +3,8 @@
  * No network, no DOM. Reuses Phase 1 tokens via CSS class names only.
  */
 
+import { ENTERPRISE_MISSING } from './admin-enterprise-ui';
+
 export type AdminChipTone = 'neutral' | 'warn' | 'ok' | 'danger' | 'info' | 'accent';
 
 /** Visual tone for order status chips (PT labels stay in orderStatusLabel). */
@@ -184,6 +186,21 @@ export function couponIsExpired(endsAt: string | null | undefined, now = Date.no
   return Number.isFinite(t) && t < now;
 }
 
+/** Active window has not opened. Null/absent start is not a future date. */
+export function couponNotStarted(startsAt: string | null | undefined, now = Date.now()): boolean {
+  if (!startsAt) return false;
+  const t = new Date(startsAt).getTime();
+  return Number.isFinite(t) && t > now;
+}
+
+export function couponStartsAtLine(startsAt: string | null | undefined): string {
+  if (startsAt === undefined) return `início ${ENTERPRISE_MISSING}`;
+  if (startsAt == null || String(startsAt).trim() === '') return 'sem início';
+  const t = new Date(startsAt).getTime();
+  if (!Number.isFinite(t)) return `início ${ENTERPRISE_MISSING}`;
+  return `início ${new Date(startsAt).toLocaleDateString('pt-BR')}`;
+}
+
 export function couponIsExhausted(
   maxUses: number | null | undefined,
   usedCount: number | null | undefined,
@@ -242,6 +259,45 @@ export function bannerActiveLabel(active: boolean): string {
 
 export function shippingZoneActiveLabel(active: boolean): string {
   return active ? 'Ativa' : 'Inativa';
+}
+
+/** GET /admin/shipping rules.sortOrder. Zero stays zero. Missing stays —. */
+export function shippingSortOrderLine(sortOrder: number | null | undefined): string {
+  if (typeof sortOrder !== 'number' || !Number.isFinite(sortOrder)) return `ordem ${ENTERPRISE_MISSING}`;
+  return `ordem ${Math.trunc(sortOrder)}`;
+}
+
+export function commissionLedgerConfirmCopy(input: {
+  kind: 'approve' | 'paid';
+  sellerName?: string | null;
+  amountLabel?: string | null;
+}): { title: string; detail: string } {
+  const seller = String(input.sellerName || '').trim() || ENTERPRISE_MISSING;
+  const amount = String(input.amountLabel || '').trim() || ENTERPRISE_MISSING;
+  if (input.kind === 'approve') {
+    return {
+      title: `Aprovar comissão de ${seller} (${amount})?`,
+      detail:
+        'PATCH /admin/commissions/:id/approve. Ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
+    };
+  }
+  return {
+    title: `Marcar pago no ledger: ${seller} (${amount})?`,
+    detail:
+      'PATCH /admin/commissions/:id/paid. Só o ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
+  };
+}
+
+export function sellerStatusConfirmCopy(input: {
+  name?: string | null;
+  toStatus: 'active' | 'suspended' | 'pending';
+}): { title: string; detail: string } {
+  const name = String(input.name || '').trim() || ENTERPRISE_MISSING;
+  const verb = input.toStatus === 'active' ? 'Ativar' : input.toStatus === 'suspended' ? 'Suspender' : 'Deixar pendente';
+  return {
+    title: `${verb} o vendedor ${name}?`,
+    detail: 'PATCH /admin/sellers/:id/status. Não abre OAuth e não grava no Mercado Pago.',
+  };
 }
 
 export function salesPresetActive(

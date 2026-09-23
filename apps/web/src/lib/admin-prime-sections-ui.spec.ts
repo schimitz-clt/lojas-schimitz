@@ -221,6 +221,108 @@ assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'firebase')?.value, ENTERPRIS
 assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'abandoned')?.value, ENTERPRISE_MISSING);
 assert.equal(pushGap.attention.some((item) => item.code === 'push_firebase_off'), false);
 assert.equal(pushGap.attention[0]?.code, 'push_campaigns_failed');
+assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'mail')?.value, ENTERPRISE_MISSING, 'mail waits for the ops snapshot');
+assert.equal(pushOff.actions.find((action) => action.id === 'send')?.figure, '0 pronta(s)', 'zero sendable stays zero');
+
+const pushMailWaiting = notificacoesPrimeModel({
+  load: 'ready',
+  enabledDevices: 1,
+  firebaseConfigured: true,
+  campaigns: [{ status: 'scheduled' }],
+  campaignTotal: 4,
+  tokenCount: 1,
+  abandoned: { openViews: 0, dueViews: 0, sentLast7Days: 0 },
+  opsReady: false,
+  mail: { configured: false, storeNotifyFailureCount: 3 },
+  mailAlerts: [
+    {
+      code: 'mail_not_configured',
+      severity: 'info',
+      message: 'E-mail transacional não configurado',
+      count: 0,
+      recommendedAction: 'Configure o provedor.',
+    },
+  ],
+});
+assert.equal(pushMailWaiting.kpis.find((kpi) => kpi.id === 'mail')?.value, ENTERPRISE_MISSING);
+assert.equal(pushMailWaiting.kpis.find((kpi) => kpi.id === 'campaigns')?.value, '4');
+assert.ok(pushMailWaiting.kpis.find((kpi) => kpi.id === 'campaigns')?.hint.includes('1 nesta página'));
+assert.equal(pushMailWaiting.actions.find((action) => action.id === 'send')?.figure, '1 pronta(s)');
+assert.equal(pushMailWaiting.attention.some((item) => item.code === 'mail_not_configured'), false);
+assert.equal(pushMailWaiting.signals.some((item) => item.code === 'mail_not_configured'), false, 'ops not ready does not invent mail');
+
+const pushMailOk = notificacoesPrimeModel({
+  load: 'ready',
+  enabledDevices: 0,
+  firebaseConfigured: true,
+  campaigns: [],
+  tokenCount: 0,
+  abandoned: { openViews: 0, dueViews: 0, sentLast7Days: 0 },
+  opsReady: true,
+  mail: { configured: true, providerOffWithStoreNotify: false, storeNotifyFailureCount: 0 },
+  mailAlerts: [],
+});
+assert.equal(pushMailOk.kpis.find((kpi) => kpi.id === 'mail')?.value, 'Configurado');
+assert.equal(pushMailOk.kpis.find((kpi) => kpi.id === 'devices')?.value, '0');
+assert.equal(pushMailOk.attention.some((item) => item.code.startsWith('mail') || item.code.startsWith('store_notify')), false);
+
+const pushMailCountOnly = notificacoesPrimeModel({
+  load: 'ready',
+  enabledDevices: 0,
+  firebaseConfigured: true,
+  campaigns: [],
+  tokenCount: 0,
+  abandoned: null,
+  opsReady: true,
+  mail: { configured: true, storeNotifyFailureCount: 2 },
+  mailAlerts: [],
+});
+assert.equal(pushMailCountOnly.kpis.find((kpi) => kpi.id === 'mail')?.value, '2 falha(s)');
+assert.equal(pushMailCountOnly.attention.some((item) => item.code === 'store_notify_mail_failed'), false, 'count alone does not invent an alert');
+
+const pushMailAlert = notificacoesPrimeModel({
+  load: 'ready',
+  enabledDevices: 0,
+  firebaseConfigured: true,
+  campaigns: [{ status: 'sending' }],
+  tokenCount: 0,
+  abandoned: { openViews: 0, dueViews: 0, sentLast7Days: 0 },
+  opsReady: true,
+  mail: { configured: true, storeNotifyFailureCount: 2, lastPublicId: 'SCH-1' },
+  mailAlerts: [
+    {
+      code: 'store_notify_mail_failed',
+      severity: 'high',
+      message: 'Aviso da loja falhou',
+      count: 2,
+      recommendedAction: 'Reenviar em Pedidos.',
+    },
+    {
+      code: 'mail_not_configured',
+      severity: 'info',
+      message: 'E-mail transacional não configurado',
+      count: 0,
+      recommendedAction: 'Configure o provedor.',
+    },
+    { code: 'store_notify_mail_failed', severity: '', message: 'sem severidade', count: 1, recommendedAction: 'x' },
+  ],
+});
+assert.equal(pushMailAlert.attention.find((item) => item.code === 'store_notify_mail_failed')?.count, 2);
+assert.equal(pushMailAlert.attention.find((item) => item.code === 'store_notify_mail_failed')?.evidenceLine, 'último SCH-1');
+assert.equal(pushMailAlert.signals.find((item) => item.code === 'mail_not_configured')?.count, 0, 'zero mail info stays zero');
+assert.equal(pushMailAlert.attention.filter((item) => item.code === 'store_notify_mail_failed').length, 1, 'missing severity is dropped');
+assert.equal(pushMailAlert.signals.some((item) => item.code === 'push_sending'), true);
+assert.ok(pushMailAlert.actions.find((action) => action.id === 'send')?.hint.includes('POST /admin/push/campaigns/:id/send'));
+
+const couponsFuture = cuponsPrimeModel({
+  load: 'ready',
+  now: Date.parse('2026-09-22T12:00:00.000Z'),
+  coupons: [{ active: true, startsAt: '2099-01-01T00:00:00.000Z', endsAt: null, usedCount: 0, reservedCount: 0 }],
+});
+assert.equal(couponsFuture.signals[0]?.code, 'coupons_not_started');
+assert.equal(couponsFuture.signals[0]?.count, 1);
+assert.equal(couponsFuture.kpis.find((kpi) => kpi.id === 'uses')?.value, '0');
+assert.equal(coupons.signals.some((item) => item.code === 'coupons_not_started'), false);
 
 const marketPending = marketplacePrimeModel({
   load: 'pending',
