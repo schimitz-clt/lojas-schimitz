@@ -635,14 +635,9 @@ textarea { resize: vertical; min-height: 72px; }
   display: grid;
   place-items: center;
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
-  transition: transform .16s var(--ease), box-shadow .16s var(--ease);
 }
 .home-shortcut-ico svg {
   display: block;
-}
-.home-shortcut:hover .home-shortcut-ico {
-  box-shadow: 0 0 0 3px var(--yellow), 0 10px 22px rgba(0,0,0,.12);
-  transform: scale(1.04);
 }
 .home-shortcut:active .home-shortcut-ico { transform: scale(.97); }
 .home-shortcut-label {
@@ -656,10 +651,16 @@ textarea { resize: vertical; min-height: 72px; }
 .home-cats { margin: 4px 0 8px; }
 .cat-strip {
   display: flex; gap: 14px; margin: 0;
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity; scrollbar-width: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
   padding: 6px 2px 14px; margin-left: -2px; margin-right: -2px;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 .cat-strip::-webkit-scrollbar { display: none; }
 .cat-chip {
@@ -668,12 +669,6 @@ textarea { resize: vertical; min-height: 72px; }
   background: transparent; border: 0; border-radius: var(--radius);
   text-align: center; font-size: 12px; font-weight: 700; color: var(--text);
   scroll-snap-align: start;
-  transition: transform .16s var(--ease);
-}
-.cat-chip:hover { transform: translateY(-3px); }
-.cat-chip:hover .cat-chip-ico {
-  box-shadow: 0 0 0 3px var(--yellow), 0 10px 22px rgba(0,0,0,.12);
-  transform: scale(1.04);
 }
 .cat-chip:active .cat-chip-ico { transform: scale(.98); }
 .cat-chip-ico {
@@ -684,7 +679,6 @@ textarea { resize: vertical; min-height: 72px; }
   border: 2.5px solid #0a0a0a;
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
   overflow: hidden;
-  transition: box-shadow .16s var(--ease), transform .16s var(--ease);
 }
 .cat-chip-ico-fallback {
   background: var(--yellow);
@@ -768,8 +762,11 @@ textarea { resize: vertical; min-height: 72px; }
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   scrollbar-width: none;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   padding: 4px 2px 12px;
   margin: 0;
 }
@@ -781,7 +778,7 @@ textarea { resize: vertical; min-height: 72px; }
   min-width: 0;
   height: auto;
   scroll-snap-align: start;
-  scroll-snap-stop: always;
+  scroll-snap-stop: normal;
 }
 .home-shelf-nav {
   display: none;
@@ -810,7 +807,7 @@ textarea { resize: vertical; min-height: 72px; }
   max-width: 220px;
   min-width: 0;
   scroll-snap-align: start;
-  scroll-snap-stop: always;
+  scroll-snap-stop: normal;
 }
 .soon-card {
   background: #fff;
@@ -924,8 +921,8 @@ textarea { resize: vertical; min-height: 72px; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain;
-  touch-action: pan-x;
+  overscroll-behavior-y: auto;
+  touch-action: pan-x pan-y;
   overflow-anchor: none;
   user-select: none;
   -webkit-user-drag: none;
@@ -947,6 +944,7 @@ textarea { resize: vertical; min-height: 72px; }
   scroll-snap-stop: normal;
   user-select: none;
   -webkit-user-drag: none;
+  contain: paint;
 }
 .home-banner-img {
   position: absolute;
@@ -960,8 +958,6 @@ textarea { resize: vertical; min-height: 72px; }
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 200px;
 }
 .home-banner-link {
   position: absolute;
@@ -971,7 +967,7 @@ textarea { resize: vertical; min-height: 72px; }
   height: 100%;
   min-width: 0;
   min-height: 0;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 .home-banner-overlay {
   position: absolute; left: 0; right: 0; bottom: 0;
@@ -1026,10 +1022,24 @@ textarea { resize: vertical; min-height: 72px; }
   box-shadow: var(--shadow-card);
   transition: box-shadow .18s var(--ease), transform .14s var(--ease), border-color .14s;
 }
-.pcard:hover {
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-4px);
-  border-color: #d8d8d2;
+@media (hover: hover) and (pointer: fine) {
+  .home-shortcut-ico,
+  .cat-chip,
+  .cat-chip-ico {
+    transition: transform .16s var(--ease);
+  }
+  .home-shortcut:hover .home-shortcut-ico,
+  .cat-chip:hover .cat-chip-ico {
+    box-shadow: 0 0 0 3px var(--yellow), 0 10px 22px rgba(0,0,0,.12);
+    transform: scale(1.04);
+  }
+  .cat-chip:hover { transform: translateY(-3px); }
+  .pcard:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-4px);
+    border-color: #d8d8d2;
+  }
+  .pcard:hover .pcard-media img { transform: scale(1.04); }
 }
 .pcard-link { display: block; color: inherit; flex: 1; min-width: 0; }
 .pcard-media {
@@ -1039,7 +1049,6 @@ textarea { resize: vertical; min-height: 72px; }
   position: relative; overflow: hidden;
 }
 .pcard-media img { width: 100%; height: 100%; object-fit: contain; padding: 12px; transition: transform .25s var(--ease); }
-.pcard:hover .pcard-media img { transform: scale(1.04); }
 .pcard-ph {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -1558,8 +1567,13 @@ textarea { resize: vertical; min-height: 72px; }
 .recent-strip-clear:hover { color: var(--ink); }
 .recent-strip-rail {
   list-style: none; margin: 0 -12px; padding: 4px 12px 10px;
-  display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity; scrollbar-width: none;
+  scroll-behavior: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 .recent-strip-rail::-webkit-scrollbar { display: none; }
 .recent-card {
@@ -2443,12 +2457,17 @@ textarea { resize: vertical; min-height: 72px; }
   .trust-row {
     display: flex;
     overflow-x: auto;
+    overflow-y: hidden;
     gap: 8px;
     grid-template-columns: none;
     margin: 0 -12px;
     padding: 0 12px 4px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
   }
   .trust-row::-webkit-scrollbar { display: none; }
   .trust-row li {

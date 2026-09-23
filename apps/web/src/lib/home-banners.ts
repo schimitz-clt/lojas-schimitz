@@ -192,6 +192,19 @@ export function bannerImageIsPriority(clone: boolean, logicalIndex: number): boo
   return !clone && logicalIndex === 0;
 }
 
+/**
+ * Decode the first screen plus one swipe either way.
+ * The rest stay lazy so a 5-slide track does not decode every bitmap during scroll.
+ */
+export function bannerImagePreload(clone: boolean, logicalIndex: number, total: number): boolean {
+  if (bannerImageIsPriority(clone, logicalIndex)) return true;
+  const n = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
+  if (n <= 1) return !clone;
+  if (!clone && logicalIndex === 1) return true;
+  if (clone && logicalIndex === n - 1) return true;
+  return false;
+}
+
 export function bannerScrollBehavior(smooth: boolean): ScrollBehavior {
   if (!smooth) return 'auto';
   if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

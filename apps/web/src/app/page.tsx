@@ -47,7 +47,7 @@ function SectionHead({
 function CategoryStrip({ products }: { products: Product[] }) {
   return (
     <nav className="cat-strip" aria-label="Categorias">
-      {HOME_CATEGORIES.map((c) => {
+      {HOME_CATEGORIES.map((c, i) => {
         const src = categoryCircleSrc(products, c);
         const isFallback = src.startsWith('/cats/');
         return (
@@ -59,7 +59,8 @@ function CategoryStrip({ products }: { products: Product[] }) {
                 alt=""
                 width={72}
                 height={72}
-                loading="lazy"
+                loading={i < 4 ? 'eager' : 'lazy'}
+                fetchPriority="low"
                 decoding="async"
                 className="cat-chip-img"
               />
