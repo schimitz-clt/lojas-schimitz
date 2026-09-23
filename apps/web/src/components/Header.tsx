@@ -166,6 +166,7 @@ export function Header() {
                 href={catalogSearchBackHref()}
                 className="hdr-search-back"
                 aria-label="Voltar ao início"
+                prefetch={true}
               >
                 <span aria-hidden>←</span>
               </Link>
@@ -174,6 +175,7 @@ export function Header() {
               href="/"
               className={`logo${searchResults ? ' logo-search-hide' : ''}`}
               aria-label="Lojas Schimitz — início"
+              prefetch={true}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -226,13 +228,13 @@ export function Header() {
             )}
 
             <div className="actions">
-              <Link className="hdr-link hdr-hide-sm" href={user ? '/conta' : '/entrar'}>
+              <Link className="hdr-link hdr-hide-sm" href={user ? '/conta' : '/entrar'} prefetch={true}>
                 <span className="hdr-link-ico" aria-hidden>
                   <IconUser size={17} />
                 </span>
                 {user ? userAccountLabel(user) : 'Entrar'}
               </Link>
-              <Link className="hdr-link hdr-hide-sm" href="/conta/salvos">
+              <Link className="hdr-link hdr-hide-sm" href="/conta/salvos" prefetch={true}>
                 <span className="hdr-link-ico" aria-hidden>
                   <IconHeart size={17} />
                 </span>
@@ -240,7 +242,7 @@ export function Header() {
                 {favBadge ? <span className="hdr-badge">{favBadge}</span> : null}
               </Link>
               <CompareHeaderLink />
-              <Link className="hdr-link" href="/carrinho">
+              <Link className="hdr-link" href="/carrinho" prefetch={true}>
                 <span className="hdr-link-ico" aria-hidden>
                   <IconCart size={17} />
                 </span>
@@ -250,7 +252,7 @@ export function Header() {
                 ) : null}
               </Link>
               {user ? (
-                <Link className="hdr-link hdr-hide-sm" href="/notificacoes" title="Notificações">
+                <Link className="hdr-link hdr-hide-sm" href="/notificacoes" title="Notificações" prefetch={true}>
                   <span className="hdr-link-ico" aria-hidden>
                     <IconBell size={17} />
                   </span>
@@ -285,17 +287,33 @@ export function Header() {
         <div className="nav-depts">
           <div className="wrap">
             <nav className="nav" aria-label="Departamentos">
-              <Link href="/produtos" className="nav-hot">
+              <Link href="/produtos" className="nav-hot" prefetch={true}>
                 Todas as categorias
               </Link>
-              <Link href="/departamento/ofertas">Ofertas</Link>
-              <Link href="/departamento/celulares">Celulares</Link>
-              <Link href="/departamento/eletrodomesticos">Eletrodomésticos</Link>
-              <Link href="/departamento/informatica">Informática</Link>
-              <Link href="/departamento/eletro">TVs e Áudio</Link>
-              <Link href="/departamento/casa">Casa</Link>
-              <Link href="/departamento/esporte">Esporte</Link>
-              <Link href="/marketplace">Marketplace</Link>
+              <Link href="/departamento/ofertas" prefetch={true}>
+                Ofertas
+              </Link>
+              <Link href="/departamento/celulares" prefetch={true}>
+                Celulares
+              </Link>
+              <Link href="/departamento/eletrodomesticos" prefetch={true}>
+                Eletrodomésticos
+              </Link>
+              <Link href="/departamento/informatica" prefetch={true}>
+                Informática
+              </Link>
+              <Link href="/departamento/eletro" prefetch={true}>
+                TVs e Áudio
+              </Link>
+              <Link href="/departamento/casa" prefetch={true}>
+                Casa
+              </Link>
+              <Link href="/departamento/esporte" prefetch={true}>
+                Esporte
+              </Link>
+              <Link href="/marketplace" prefetch={true}>
+                Marketplace
+              </Link>
             </nav>
           </div>
         </div>

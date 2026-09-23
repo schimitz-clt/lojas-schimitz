@@ -1,8 +1,10 @@
 'use client';
 
 import { Suspense, type ReactNode } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
+import { NavigationProgress } from '@/components/NavigationProgress';
 import { BottomNav } from '@/components/BottomNav';
 import { ChatWidget } from '@/components/ChatWidget';
 import { CompareProvider } from '@/components/compare/CompareProvider';
@@ -27,6 +29,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
   return (
     <CompareProvider>
       <FavoritesProvider>
+        <NavigationProgress />
         <Suspense fallback={null}>
           <Header />
         </Suspense>
@@ -45,19 +48,29 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
               <h3>Loja</h3>
               <ul>
                 <li>
-                  <a href="/produtos">Produtos</a>
+                  <Link href="/produtos" prefetch={true}>
+                    Produtos
+                  </Link>
                 </li>
                 <li>
-                  <a href="/marketplace">Marketplace</a>
+                  <Link href="/marketplace" prefetch={true}>
+                    Marketplace
+                  </Link>
                 </li>
                 <li>
-                  <a href="/departamento/ofertas">Ofertas</a>
+                  <Link href="/departamento/ofertas" prefetch={true}>
+                    Ofertas
+                  </Link>
                 </li>
                 <li>
-                  <a href="/conta/salvos">Salvos</a>
+                  <Link href="/conta/salvos" prefetch={true}>
+                    Salvos
+                  </Link>
                 </li>
                 <li>
-                  <a href="/comparar">Comparar</a>
+                  <Link href="/comparar" prefetch={true}>
+                    Comparar
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -65,19 +78,29 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
               <h3>Ajuda</h3>
               <ul>
                 <li>
-                  <a href="/suporte">Suporte</a>
+                  <Link href="/suporte" prefetch={true}>
+                    Suporte
+                  </Link>
                 </li>
                 <li>
-                  <a href="/privacidade">Privacidade</a>
+                  <Link href="/privacidade" prefetch={true}>
+                    Privacidade
+                  </Link>
                 </li>
                 <li>
-                  <a href="/termos">Termos</a>
+                  <Link href="/termos" prefetch={true}>
+                    Termos
+                  </Link>
                 </li>
                 <li>
-                  <a href="/pedidos">Meus pedidos</a>
+                  <Link href="/pedidos" prefetch={true}>
+                    Meus pedidos
+                  </Link>
                 </li>
                 <li>
-                  <a href="/conta">Minha conta</a>
+                  <Link href="/conta" prefetch={true}>
+                    Minha conta
+                  </Link>
                 </li>
                 <li>
                   <a
@@ -102,9 +125,26 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
           </div>
           <p className="footer-copy muted">
             © {new Date().getFullYear()} Lojas Schimitz ·{' '}
-            <a href="/produtos">Produtos</a> · <a href="/marketplace">Marketplace</a> ·{' '}
-            <a href="/suporte">Suporte</a> · <a href="/privacidade">Privacidade</a> ·{' '}
-            <a href="/termos">Termos</a> ·{' '}
+            <Link href="/produtos" prefetch={true}>
+              Produtos
+            </Link>{' '}
+            ·{' '}
+            <Link href="/marketplace" prefetch={true}>
+              Marketplace
+            </Link>{' '}
+            ·{' '}
+            <Link href="/suporte" prefetch={true}>
+              Suporte
+            </Link>{' '}
+            ·{' '}
+            <Link href="/privacidade" prefetch={true}>
+              Privacidade
+            </Link>{' '}
+            ·{' '}
+            <Link href="/termos" prefetch={true}>
+              Termos
+            </Link>{' '}
+            ·{' '}
             <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">
               WhatsApp
             </a>

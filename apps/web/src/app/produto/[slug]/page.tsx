@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { notFound, permanentRedirect } from 'next/navigation';
 import ProductClient, { type ProductDetail } from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
+import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
 import { isMissingPdp, pdpBreadcrumbName } from '@/lib/pdp-missing';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
@@ -59,12 +61,8 @@ export default async function Page({ params }: Props) {
   if (isMissingPdp(product, initial) || !product || !initial || typeof initial.slug !== 'string') {
     notFound();
   }
-  const related = await fetchRelatedCatalogProducts({
-    id: publicProductId(initial),
-    slug: initial.slug,
-    categorySlug: publicProductCategorySlug(initial) || product.category?.slug || null,
-  });
   const origin = siteOrigin();
+  const categorySlug = publicProductCategorySlug(initial) || product.category?.slug || null;
 
   const jsonLd = [];
   if (product.price !== undefined && product.price !== null) {
@@ -107,9 +105,42 @@ export default async function Page({ params }: Props) {
       <JsonLd data={jsonLd} />
       <ProductClient
         initial={initial && typeof initial.slug === 'string' ? (initial as ProductDetail) : null}
-        related={related.items as Product[]}
-        relatedKind={related.kind}
+        relatedSlot={
+          <Suspense fallback={null}>
+            <PdpRelatedSlot
+              id={publicProductId(initial) || ''}
+              slug={initial.slug}
+              categorySlug={categorySlug}
+              categoryName={product.category?.name || null}
+            />
+          </Suspense>
+        }
       />
     </>
+  );
+}
+
+/** Related rail streams after the product shell. The client shelf already refetches this catalog. */
+async function PdpRelatedSlot({
+  id,
+  slug,
+  categorySlug,
+  categoryName,
+}: {
+  id: string;
+  slug: string;
+  categorySlug: string | null;
+  categoryName?: string | null;
+}) {
+  const related = await fetchRelatedCatalogProducts({ id, slug, categorySlug });
+  return (
+    <PdpRelatedProducts
+      productId={id}
+      productSlug={slug}
+      categorySlug={categorySlug}
+      categoryName={categoryName}
+      initial={related.items as Product[]}
+      initialKind={related.kind}
+    />
   );
 }

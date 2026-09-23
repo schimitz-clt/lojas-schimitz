@@ -91,6 +91,7 @@ export function BottomNav() {
             href={item.href}
             className={active ? 'bottom-nav-item active' : 'bottom-nav-item'}
             aria-current={active ? 'page' : undefined}
+            prefetch={true}
           >
             <span className="bottom-nav-ico" aria-hidden>
               {item.iconSrc ? (

@@ -33,22 +33,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
   const { slug } = await params;
-  const cat = await fetchCategoryMeta(slug);
-  const origin = siteOrigin();
-  const name = cat?.name || slug;
-
-  const breadcrumb = buildBreadcrumbList(origin, [
-    { name: 'Início', path: '/' },
-    { name: 'Produtos', path: '/produtos' },
-    { name, path: `/departamento/${encodeURIComponent(slug)}` },
-  ]);
 
   return (
     <>
-      <JsonLd data={breadcrumb} />
+      <Suspense fallback={null}>
+        <DepartmentJsonLd slug={slug} />
+      </Suspense>
       <Suspense fallback={<ProductGridSkeleton count={6} />}>
         <DepartamentoClient />
       </Suspense>
     </>
   );
+}
+
+/** Breadcrumb name follows the categories API without holding the product grid. */
+async function DepartmentJsonLd({ slug }: { slug: string }) {
+  const cat = await fetchCategoryMeta(slug);
+  const origin = siteOrigin();
+  const name = cat?.name || slug;
+  const breadcrumb = buildBreadcrumbList(origin, [
+    { name: 'Início', path: '/' },
+    { name: 'Produtos', path: '/produtos' },
+    { name, path: `/departamento/${encodeURIComponent(slug)}` },
+  ]);
+  return <JsonLd data={breadcrumb} />;
 }

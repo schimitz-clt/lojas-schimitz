@@ -17,7 +17,7 @@ export function HomeShortcuts() {
   return (
     <nav className="home-shortcuts" aria-label="Atalhos">
       {items.map((item) => (
-        <Link key={item.id} href={item.href} className="home-shortcut" title={item.description}>
+        <Link key={item.id} href={item.href} className="home-shortcut" title={item.description} prefetch={true}>
           <span className="home-shortcut-ico">
             <ShortcutIcon id={item.id} />
           </span>

@@ -52,7 +52,7 @@ function CategoryStrip({ products }: { products: Product[] }) {
         const isFallback = src.startsWith('/cats/');
         const lines = categoryChipLabelLines(c.label);
         return (
-          <Link key={c.href} href={c.href} className="cat-chip" aria-label={c.label}>
+          <Link key={c.href} href={c.href} className="cat-chip" aria-label={c.label} prefetch={true}>
             <span className={`cat-chip-ico${isFallback ? ' cat-chip-ico-fallback' : ''}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

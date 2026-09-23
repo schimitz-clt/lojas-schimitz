@@ -16,7 +16,7 @@ assert.ok(header.includes('<SearchBox'), 'header search uses live suggestions bo
 assert.ok(!/Atendimento WhatsApp/.test(header), 'header file must not add Atendimento WhatsApp copy');
 
 const accountLink = header.match(
-  /<Link className="hdr-link[^"]*" href=\{user \? '\/conta' : '\/entrar'\}>/,
+  /<Link className="hdr-link[^"]*" href=\{user \? '\/conta' : '\/entrar'\}(?: prefetch=\{true\})?>/,
 );
 assert.ok(accountLink, 'header account link (Claiton / Entrar) exists');
 assert.ok(
@@ -24,7 +24,7 @@ assert.ok(
   'header account is hidden on mobile; bottom Conta is the single entry',
 );
 
-const cartLink = header.match(/<Link className="hdr-link[^"]*" href="\/carrinho">/);
+const cartLink = header.match(/<Link className="hdr-link[^"]*" href="\/carrinho"(?: prefetch=\{true\})?>/);
 assert.ok(cartLink, 'header cart link exists');
 assert.ok(
   !cartLink[0].includes('hdr-hide-sm'),
