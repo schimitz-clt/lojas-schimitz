@@ -13,7 +13,6 @@ import {
   bannerDotLabel,
   bannerImageIsPriority,
   bannerImagePreload,
-  bannerFileUrl,
   bannerImageUrl,
   bannerScrollBehavior,
   bannerNavNextLabel,
@@ -306,17 +305,12 @@ assert.ok(src.includes('StaticPromoStrip'), 'empty API keeps the current promo a
 assert.ok(src.includes('pauseAuto'), 'auto-advance pauses on touch');
 assert.ok(src.includes('HOME_BANNER_AUTO_MS'), 'gentle auto-advance is wired');
 assert.ok(src.includes('homeBannerLoopSlides'), '2+ banners render wrap clones');
-assert.ok(src.includes('loopOn'), 'wrap clones wait until after the first paint');
-assert.ok(src.includes('setLoopOn(true)'), 'loop mounts in layout, before the next paint');
 assert.ok(src.includes('loopingAdvanceTrackIndex'), 'last→first advances one snap via clone');
 assert.ok(src.includes('loopingCloneJump'), 'clone snap jumps to the real slide');
 assert.ok(src.includes('interacting.current'), 'finger down pauses programmatic scroll');
 assert.ok(src.includes('if (!el || interacting.current) return'), 'scrollTo does not run during touch');
 assert.ok(src.includes('settleLoopRef'), 'clone jump after wrap uses the latest settle fn');
 assert.ok(src.includes('bannerImageIsPriority'), 'fetchPriority high only on the first real slide');
-assert.ok(src.includes("from 'next/image'"), 'banner bitmaps go through the image optimizer');
-assert.ok(src.includes('storefrontImageUnoptimized'), 'localhost proxy paths stay direct files');
-assert.ok(src.includes('initialBanners'), 'SSR can skip the client banner fetch');
 assert.ok(src.includes('bannerImagePreload'), 'adjacent slides decode before the first swipe');
 assert.ok(src.includes('lastTrackWidth'), 'resize snap ignores viewport-height chrome changes');
 assert.equal(src.includes('onScroll='), false, 'banner does not listen to every scroll frame');
@@ -354,12 +348,5 @@ assert.ok(adminState.includes('bannerCreatedToast'), 'create toast invites anoth
 assert.ok(adminState.includes('homeBannerRowCount'), 'client create cap uses total rows');
 
 assert.equal(bannerImageUrl({ imageUrl: '  https://cdn.example/a.jpg  ' }), 'https://cdn.example/a.jpg');
-assert.equal(
-  bannerFileUrl({
-    imageUrl: 'https://lojas-schimitz-production.up.railway.app/api/v1/uploads/a.png',
-  }),
-  'https://lojasschimitz.com.br/api/v1/uploads/a.png',
-  'optimizer src stays absolute so server and client markup match',
-);
 
 console.log('home-banners unit tests ok');

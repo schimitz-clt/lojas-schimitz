@@ -1,26 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BottomNav } from '@/components/BottomNav';
-import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
-
-const ChatWidget = dynamic(
-  () => import('@/components/ChatWidget').then((m) => m.ChatWidget),
-  { ssr: false },
-);
-
-/** Chat JS waits until after first paint so it does not compete with the hero image. */
-function DeferredChat() {
-  const [ready, setReady] = useState(false);
-  useEffect(() => scheduleAfterFirstPaint(() => setReady(true)), []);
-  if (!ready) return null;
-  return <ChatWidget />;
-}
+import { ChatWidget } from '@/components/ChatWidget';
 import { CompareProvider } from '@/components/compare/CompareProvider';
 import { CompareBar } from '@/components/compare/CompareBar';
 import { FavoritesProvider } from '@/components/favorites/FavoritesProvider';
@@ -169,7 +155,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
       {/* Shared docked bar for every non-admin route: home, busca, PDP, sacola, checkout, conta, and the order payment step. Card Brick renders inline on /pedidos — it is not a fullscreen WebView — so the bar stays. */}
       <BottomNav />
       <StorefrontToast />
-      <DeferredChat />
+      <ChatWidget />
       </FavoritesProvider>
     </CompareProvider>
   );

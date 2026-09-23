@@ -2,17 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { api, brl } from '@/lib/api';
 import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
 import { productCardAddLabel, productCardCues, productCardKicker } from '@/lib/product-card-cues';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
-import {
-  PRODUCT_CARD_IMAGE_QUALITY,
-  PRODUCT_CARD_IMAGE_SIZES,
-  storefrontImageUnoptimized,
-} from '@/lib/storefront-image';
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
@@ -58,15 +52,15 @@ function ProductImage({
     );
   }
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
-      fill
-      sizes={PRODUCT_CARD_IMAGE_SIZES}
-      quality={PRODUCT_CARD_IMAGE_QUALITY}
-      priority={priority}
-      unoptimized={storefrontImageUnoptimized(src)}
-      style={{ objectFit: 'contain' }}
+      width={480}
+      height={480}
+      sizes="(max-width: 640px) 48vw, (max-width: 1024px) 33vw, 240px"
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
       onError={(e) => {
         const el = e.currentTarget;
         el.style.display = 'none';

@@ -25,14 +25,10 @@ export type HomeBannerLoopSlot<T> = {
   logicalIndex: number;
 };
 
-/** Absolute file URL (Railway host rewritten to the apex). Stable on server and client. */
-export function bannerFileUrl(b: Pick<HomeBanner, 'imageUrl'>): string {
-  const raw = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
-  return rewritePublicUploadUrl(raw) || raw;
-}
-
 export function bannerImageUrl(b: Pick<HomeBanner, 'imageUrl'>): string {
-  return localizeStorefrontUploadUrl(bannerFileUrl(b));
+  const raw = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
+  const rewritten = rewritePublicUploadUrl(raw) || raw;
+  return localizeStorefrontUploadUrl(rewritten);
 }
 
 export function isUsableHomeBanner(b: HomeBanner | null | undefined): b is HomeBanner {

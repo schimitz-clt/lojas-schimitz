@@ -15,20 +15,7 @@ if (strippedPublicDevFlags.length > 0) {
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
-  images: {
-    // Hero files on the live store are ~0.6–1.2MB PNGs. Serve a viewport WebP
-    // and do not generate widths above the storefront column.
-    formats: ['image/webp'],
-    qualities: [60, 75],
-    deviceSizes: [640, 828, 1080, 1280, 1920],
-    imageSizes: [72, 96, 128, 256, 384],
-    minimumCacheTTL: 60 * 60 * 24,
-    remotePatterns: [
-      { protocol: 'https', hostname: 'lojasschimitz.com.br' },
-      { protocol: 'https', hostname: 'www.lojasschimitz.com.br' },
-      { protocol: 'https', hostname: 'lojas-schimitz-production.up.railway.app' },
-    ],
-  },
+  images: { remotePatterns: [{ protocol: 'https', hostname: '**' }] },
   async headers() {
     return [
       {
