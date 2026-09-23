@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
+import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
+import type { RegisterBody } from '@/lib/signup-flow';
 
 function safeNextPath(): string {
   if (typeof window === 'undefined') return '/conta';
@@ -20,10 +22,8 @@ const REGISTER_LOGIN_FAIL =
 
 export default function EntrarPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [nextPath, setNextPath] = useState('/conta');
@@ -45,7 +45,7 @@ export default function EntrarPage() {
     window.location.href = safeNextPath();
   }
 
-  async function submitLogin(e: React.FormEvent) {
+  async function submitLogin(e: FormEvent) {
     e.preventDefault();
     setErr('');
     setBusy(true);
@@ -62,22 +62,22 @@ export default function EntrarPage() {
     }
   }
 
-  async function submitRegister(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitRegister(body: RegisterBody) {
     setErr('');
     setBusy(true);
     try {
       await api('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password, phone: phone.trim() || undefined }),
+        body: JSON.stringify(body),
       });
       try {
         const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
           '/auth/login',
-          { method: 'POST', body: JSON.stringify({ email, password }) },
+          { method: 'POST', body: JSON.stringify({ email: body.email, password: body.password }) },
         );
         await finishLogin(data);
       } catch {
+        setEmail(body.email);
         setMode('login');
         setErr(REGISTER_LOGIN_FAIL);
       }
@@ -89,17 +89,19 @@ export default function EntrarPage() {
   }
 
   return (
-    <div style={{ padding: '28px 0' }}>
-      <h1>{mode === 'register' ? 'Criar conta' : 'Entrar'}</h1>
+    <div className="acct-sheet">
       {atCheckout ? (
-        <p className="muted" style={{ maxWidth: 420 }}>
+        <p className="acct-lead">
           Entre ou crie a conta agora para finalizar. Depois a sessão fica salva neste aparelho.
         </p>
       ) : null}
-      <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="acct-tabs" role="tablist" aria-label="Conta">
         <button
           type="button"
-          className={mode === 'login' ? 'btn' : 'btn ghost'}
+          role="tab"
+          aria-selected={mode === 'login'}
+          className={mode === 'login' ? 'acct-tab is-on' : 'acct-tab'}
+          disabled={busy}
           onClick={() => {
             setMode('login');
             setErr('');
@@ -109,7 +111,10 @@ export default function EntrarPage() {
         </button>
         <button
           type="button"
-          className={mode === 'register' ? 'btn' : 'btn ghost'}
+          role="tab"
+          aria-selected={mode === 'register'}
+          className={mode === 'register' ? 'acct-tab is-on' : 'acct-tab'}
+          disabled={busy}
           onClick={() => {
             setMode('register');
             setErr('');
@@ -118,66 +123,66 @@ export default function EntrarPage() {
           Criar conta
         </button>
       </div>
-      <form className="form" onSubmit={mode === 'register' ? submitRegister : submitLogin}>
-        {err ? <div className="alert">{err}</div> : null}
-        {mode === 'register' ? (
-          <>
+      {mode === 'login' ? (
+        <form className="acct-form" onSubmit={submitLogin}>
+          <h1 className="acct-title">Entrar</h1>
+          <span className="acct-kicker" aria-hidden />
+          {err ? (
+            <div className="alert" role="alert">
+              {err}
+            </div>
+          ) : null}
+          <div className="acct-field">
+            <label className="acct-label" htmlFor="login-email">
+              E-mail
+            </label>
             <input
-              placeholder="Nome"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              id="login-email"
+              name="email"
+              className="acct-line"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="name"
             />
+          </div>
+          <div className="acct-field">
+            <label className="acct-label" htmlFor="login-password">
+              Senha
+            </label>
             <input
-              type="tel"
-              placeholder="WhatsApp (opcional, com DDD)"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              autoComplete="tel"
+              id="login-password"
+              name="password"
+              className="acct-line"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
-          </>
-        ) : null}
-        <input
-          type="email"
-          placeholder="E-mail"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-        />
-        <input
-          type="password"
-          placeholder={mode === 'register' ? 'Senha (mín. 8)' : 'Senha'}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={mode === 'register' ? 8 : undefined}
-          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-        />
-        <button className="btn" type="submit" disabled={busy}>
-          {busy
-            ? mode === 'register'
-              ? 'Criando conta…'
-              : 'Entrando…'
-            : mode === 'register'
-              ? 'Cadastrar e continuar'
-              : 'Entrar'}
-        </button>
-        {mode === 'login' ? <Link href="/esqueci-senha">Esqueci minha senha</Link> : null}
-        {mode === 'register' ? (
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => {
-              setMode('login');
-              setErr('');
-            }}
-          >
-            Já tenho conta
+          </div>
+          <button className="acct-cta" type="submit" disabled={busy}>
+            {busy ? 'Entrando…' : 'Entrar'}
           </button>
-        ) : null}
-      </form>
+          <Link className="acct-textlink" href="/esqueci-senha">
+            Esqueci minha senha
+          </Link>
+        </form>
+      ) : (
+        <CreateAccountFlow
+          busy={busy}
+          error={err}
+          onEdit={() => setErr('')}
+          onHaveAccount={() => {
+            setMode('login');
+            setErr('');
+          }}
+          onRegister={submitRegister}
+        />
+      )}
     </div>
   );
 }
