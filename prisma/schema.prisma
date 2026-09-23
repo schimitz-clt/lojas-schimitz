@@ -77,6 +77,16 @@ model User {
   passwordHash    String
   name            String
   phone           String?
+  /**
+   * CPF somente dígitos. Nulo nas contas anteriores a este cadastro;
+   * obrigatório em registros novos. Único quando preenchido (vários NULL seguem válidos).
+   */
+  cpf             String?    @unique
+  /**
+   * Data de nascimento (calendário, sem hora). Nula nas contas antigas;
+   * obrigatória em registros novos. Idade mínima: 18 anos.
+   */
+  birthDate       DateTime?  @db.Date
   role            UserRole   @default(customer)
   status          UserStatus @default(active)
   /** SCHIMITZ+ saldo em BRL (cashback). */

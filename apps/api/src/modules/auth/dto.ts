@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsAdultBirthDate, IsBrazilianCpf } from './is-register-profile';
 
 export class RegisterDto {
   @ApiProperty({ example: 'cliente@exemplo.com' })
@@ -22,6 +23,20 @@ export class RegisterDto {
   @IsString()
   @MaxLength(32)
   phone?: string;
+
+  @ApiProperty({
+    example: '529.982.247-25',
+    description: 'CPF (com ou sem máscara). Gravamos somente os 11 dígitos. Obrigatório em cadastros novos.',
+  })
+  @IsBrazilianCpf()
+  cpf!: string;
+
+  @ApiProperty({
+    example: '1990-05-15',
+    description: 'Data de nascimento (AAAA-MM-DD). Idade mínima: 18 anos. Obrigatória em cadastros novos.',
+  })
+  @IsAdultBirthDate()
+  birthDate!: string;
 }
 
 export class LoginDto {

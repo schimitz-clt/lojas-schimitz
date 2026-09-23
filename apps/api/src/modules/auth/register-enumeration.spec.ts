@@ -25,9 +25,11 @@ const svc = readFileSync(join(__dirname, 'auth.service.ts'), 'utf8');
 assert.ok(!svc.includes('E-mail já cadastrado'), 'register must not say the e-mail exists');
 assert.ok(svc.includes('registerAcceptedResult'), 'register returns the generic payload');
 assert.ok(svc.includes('argon2.hash(dto.password)'), 'register always hashes (timing)');
+assert.ok(svc.includes('where: { cpf }'), 'duplicate CPF uses the same lookup-then-generic path');
+assert.ok(!svc.includes('CPF já'), 'register must not say the CPF exists');
 assert.ok(
   !/async register\([\s\S]*throw new ConflictException/.test(svc),
-  'register must not 409 on existing e-mail',
+  'register must not 409 on existing e-mail or CPF',
 );
 
 const ctrl = readFileSync(join(__dirname, 'auth.controller.ts'), 'utf8');

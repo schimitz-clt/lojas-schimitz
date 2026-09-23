@@ -14,6 +14,8 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { birthDateError, birthDateToUtcDate } from './birth-date';
+import { cpfError, normalizeCpf } from './cpf';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
 import { registerAcceptedResult } from './register-public';
@@ -98,16 +100,27 @@ export class AuthService {
   ) {}
 
   /**
-   * Always the same generic success (no e-mail enumeration).
+   * Always the same generic success (no e-mail or CPF enumeration).
    * Hash first so existing vs new takes similar time; never 409 "já cadastrado".
+   * Invalid CPF or birth date is a 400 (validation), not a collision.
    * New accounts still get welcome mail; the client must login afterwards.
    */
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
     const email = dto.email.toLowerCase();
+    const invalidCpf = cpfError(dto.cpf);
+    if (invalidCpf) throw new BadRequestException(invalidCpf);
+    const invalidBirth = birthDateError(dto.birthDate);
+    if (invalidBirth) throw new BadRequestException(invalidBirth);
+    const cpf = normalizeCpf(dto.cpf);
+    const birthDate = birthDateToUtcDate(dto.birthDate);
+
     const passwordHash = await argon2.hash(dto.password);
-    const exists = await this.prisma.user.findUnique({ where: { email } });
-    if (exists) {
+    const [emailOwner, cpfOwner] = await Promise.all([
+      this.prisma.user.findUnique({ where: { email } }),
+      this.prisma.user.findUnique({ where: { cpf } }),
+    ]);
+    if (emailOwner || cpfOwner) {
       return registerAcceptedResult();
     }
     let user: { id: string; email: string; role: string; name: string | null };
@@ -118,6 +131,8 @@ export class AuthService {
           passwordHash,
           name: dto.name,
           phone: dto.phone?.trim() || null,
+          cpf,
+          birthDate,
           role: 'customer',
         },
       });
