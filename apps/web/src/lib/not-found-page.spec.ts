@@ -11,7 +11,7 @@ assert.ok(page.includes('href="/"'), '404 offers the home page');
 assert.ok(page.includes('href="/produtos"'), '404 offers the catalog');
 assert.ok(page.includes('Ir para o início'), 'home CTA copy');
 assert.ok(page.includes('Ver produtos'), 'catalog CTA copy');
-assert.ok(page.includes('<title>Página não encontrada</title>'), 'document title is Portuguese');
+assert.ok(page.includes("title: 'Página não encontrada'"), 'document title is Portuguese');
 assert.ok(!/could not be found/i.test(page), 'default English Next.js 404 copy is gone');
 assert.ok(!/100vh/.test(page), '404 does not force a full viewport blank');
 assert.ok(css.includes('.not-found'), '404 is styled in the storefront sheet');

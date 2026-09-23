@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 /**
@@ -5,10 +6,14 @@ import Link from 'next/link';
  * Replaces the English Next.js default, which also forced a full-viewport
  * blank and pushed the storefront footer below the fold.
  */
+export const metadata: Metadata = {
+  title: 'Página não encontrada',
+  robots: { index: false, follow: true },
+};
+
 export default function NotFound() {
   return (
     <section className="not-found" aria-labelledby="not-found-title">
-      <title>Página não encontrada</title>
       <p className="not-found-kicker">404</p>
       <h1 id="not-found-title">Página não encontrada</h1>
       <p>
