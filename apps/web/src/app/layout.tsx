@@ -21,6 +21,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  /* Lets env(safe-area-inset-*) report the status bar / notch. Without this,
+     notched phones and edge-to-edge WebViews draw the promo under the clock. */
+  viewportFit: 'cover',
   themeColor: '#0a0a0a',
 };
 
