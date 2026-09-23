@@ -21,6 +21,7 @@ import {
   bannerCtaLabel,
   bannerDotLabel,
   bannerImageIsPriority,
+  bannerImagePreload,
   bannerImageUrl,
   bannerNavNextLabel,
   bannerNavPrevLabel,
@@ -217,10 +218,12 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const jumpToTrack = useCallback((trackIdx: number) => {
     const el = trackRef.current;
     if (!el || interacting.current) return;
+    const width = el.clientWidth;
+    if (width > 0 && Math.abs(el.scrollLeft - trackIdx * width) < 1) return;
     jumping.current = true;
     const snap = el.style.scrollSnapType;
     el.style.scrollSnapType = 'none';
-    el.scrollLeft = trackIdx * (el.clientWidth || 1);
+    el.scrollLeft = trackIdx * (width || 1);
     el.style.scrollSnapType = snap;
     window.requestAnimationFrame(() => {
       jumping.current = false;
@@ -282,8 +285,14 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   useEffect(() => {
     const el = trackRef.current;
     if (!el || total <= 1) return;
+    let lastTrackWidth = el.clientWidth;
     const onResize = () => {
       if (interacting.current || programmatic.current || jumping.current) return;
+      const w = el.clientWidth;
+      // Address-bar show/hide changes height, not width. Rewriting scrollLeft
+      // on those observations hitches the page scroll that passes over the banner.
+      if (Math.abs(w - lastTrackWidth) < 1) return;
+      lastTrackWidth = w;
       jumpToTrack(loopingTrackIndex(idxRef.current, total));
     };
     const ro = new ResizeObserver(onResize);
@@ -309,29 +318,29 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   }, [total]);
 
   const scheduleSettle = useCallback(() => {
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(settleLoop, HOME_BANNER_SETTLE_MS);
-  }, [settleLoop]);
-
-  const onTrackScroll = useCallback(() => {
-    const el = trackRef.current;
-    if (!el || jumping.current) return;
-    if (!programmatic.current) {
-      const tIdx = trackIndexFromScroll(
-        el.scrollLeft,
-        el.clientWidth || 1,
-        homeBannerTrackLength(total),
-      );
-      const next = logicalFromTrackIndex(tIdx, total);
-      setIdx((cur) => (cur === next ? cur : next));
-    }
-    if (!interacting.current && !programmatic.current) scheduleSettle();
-  }, [scheduleSettle, total]);
+    const tick = () => {
+      const node = trackRef.current;
+      const left = node ? node.scrollLeft : 0;
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(() => {
+        const now = trackRef.current;
+        if (interacting.current || programmatic.current || jumping.current) return;
+        if (now && Math.abs(now.scrollLeft - left) > 1) {
+          tick();
+          return;
+        }
+        settleLoopRef.current();
+      }, HOME_BANNER_SETTLE_MS);
+    };
+    tick();
+  }, []);
 
   useEffect(() => {
     const el = trackRef.current;
     if (!el || total <= 1) return;
     const onEnd = () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = null;
       if (!interacting.current && !programmatic.current) settleLoop();
     };
     el.addEventListener('scrollend', onEnd);
@@ -401,12 +410,12 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
         <div
           className="home-banner-track"
           ref={trackRef}
-          onScroll={onTrackScroll}
           onPointerDown={onTrackPointerDown}
         >
           {loopSlides.map((slot) => {
             const b = slot.item;
             const priority = bannerImageIsPriority(slot.clone, slot.logicalIndex);
+            const eager = bannerImagePreload(slot.clone, slot.logicalIndex, total);
             const href = bannerCtaHref(b);
             const img = (
               // eslint-disable-next-line @next/next/no-img-element
@@ -417,8 +426,8 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
                 width={1400}
                 height={520}
                 sizes="100vw"
-                loading={priority ? 'eager' : 'lazy'}
-                fetchPriority={priority ? 'high' : undefined}
+                loading={eager ? 'eager' : 'lazy'}
+                fetchPriority={priority ? 'high' : 'low'}
                 decoding="async"
                 draggable={false}
                 onError={() => {

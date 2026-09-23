@@ -122,6 +122,48 @@ const css = readFileSync(join(srcRoot, 'app/globals.css'), 'utf8');
 assert.ok(css.includes('overflow-x: clip'), 'sticky search is not broken by overflow-x hidden');
 assert.ok(css.includes('.delivery-bar'), 'location row styled');
 assert.ok(css.includes('.home-shortcuts'), 'shortcut circles styled');
+assert.ok(/\.cat-strip\s*\{[^}]*overflow-y:\s*hidden/.test(css), 'category row is not a vertical scrollport');
+assert.equal(
+  /\.cat-strip\s*\{[^}]*scroll-behavior:\s*smooth/.test(css),
+  false,
+  'category row keeps native momentum',
+);
+assert.ok(/\.cat-strip\s*\{[^}]*touch-action:\s*pan-x pan-y/.test(css), 'category row allows vertical page scroll');
+assert.ok(/\.cat-strip\s*\{[^}]*scroll-snap-type:\s*none/.test(css), 'category row does not snap against the finger');
+assert.ok(/\.main-shell\s*\{[^}]*overflow-x:\s*clip/.test(css), 'home scroll stays on the document');
+assert.ok(/\.cat-strip\s*\{[^}]*align-items:\s*flex-start/.test(css), 'category circles share one top edge');
+assert.equal(
+  /\.cat-chip-label\s*\{[^}]*hyphens:\s*auto/.test(css),
+  false,
+  'category labels are not hyphenated mid-word',
+);
+assert.ok(/\.cat-chip-label\s*\{[^}]*hyphens:\s*none/.test(css), 'category labels opt out of hyphenation');
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.cat-chip-label\s*\{[^}]*min-height:\s*2\.6em/.test(css),
+  'mobile labels reserve two lines so wrapped text stays on the same band',
+);
+assert.ok(page.includes('categoryChipLabelLines'), 'long category names break on a word boundary');
+assert.ok(page.includes('cat-chip-label-break'), 'the mobile line break can be hidden on desktop');
+assert.equal(
+  /\.home-shelf-rail\s*\{[^}]*scroll-behavior:\s*smooth/.test(css),
+  false,
+  'home shelves keep native momentum',
+);
+assert.ok(/\.home-shelf-rail\s*\{[^}]*touch-action:\s*pan-x pan-y/.test(css), 'shelf rails do not trap vertical scroll');
+assert.ok(/\.home-shelf-rail > \.pcard\s*\{[^}]*scroll-snap-stop:\s*normal/.test(css), 'shelf fling is not stopped on every card');
+assert.equal(
+  /\.cat-chip-ico\s*\{[^}]*transition:\s*box-shadow/.test(css),
+  false,
+  'category circles do not animate box-shadow during touch scroll',
+);
+assert.ok(page.includes('fetchPriority="low"'), 'category photos do not compete with the banner');
+assert.ok(page.includes("loading={i < 4 ? 'eager' : 'lazy'}"), 'only on-screen circles decode up front');
+const theme = readFileSync(join(srcRoot, 'components/storefront/storefront-theme.css'), 'utf8');
+assert.equal(
+  /\.cat-chip-ico\s*\{[^}]*transition:\s*box-shadow/.test(theme),
+  false,
+  'theme does not reintroduce box-shadow animation on category circles',
+);
 assert.ok(css.includes('.pcard-shelf'), 'tighter shelf cards');
 assert.ok(css.includes('.bottom-nav-ico svg'), 'bottom nav SVGs are optically sized');
 assert.ok(shortcuts.includes('HomeShortcutGlyph'), 'home shortcuts share the storefront icon set');

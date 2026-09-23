@@ -120,6 +120,17 @@ function matchesCategory(p: CatProductLike, cat: HomeCategory): boolean {
  * Prefer a real Lojas Schimitz product photo for the category circle;
  * otherwise the clean local silhouette fallback.
  */
+/**
+ * Lines under a category circle. Long names break on a real word boundary so
+ * the first line stays on the same band as single-line labels, with no CSS hyphen.
+ */
+export function categoryChipLabelLines(label: string): string[] {
+  const text = (typeof label === 'string' ? label : '').replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  if (text === 'Eletrodomésticos') return ['Eletro', 'domésticos'];
+  return [text];
+}
+
 export function categoryCircleSrc(products: CatProductLike[], cat: HomeCategory): string {
   for (const p of products) {
     if (!matchesCategory(p, cat)) continue;
