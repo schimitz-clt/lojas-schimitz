@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, brl, currentUser, getGuestToken, waLink } from '@/lib/api';
@@ -28,6 +28,7 @@ import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import type { Product } from '@/components/ProductCard';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
+import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
 import {
   pdpBenefitTrustItems,
   pdpCompactTrustChips,
@@ -135,13 +136,17 @@ export default function ProductPage({
   initial = null,
   related = null,
   relatedKind = null,
+  relatedSlot = null,
 }: {
   initial?: ProductDetail | null;
   related?: Product[] | null;
   relatedKind?: RelatedKind | null;
+  /** Streamed related shelf. When set, it replaces the inline rail so the product is not blocked on that fetch. */
+  relatedSlot?: ReactNode;
 }) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const appliedSlug = useRef<string | null>(null);
   const [p, setP] = useState<ProductDetail | null>(() =>
     initial && (!slug || initial.slug === slug) ? initial : null,
   );
@@ -187,20 +192,43 @@ export default function ProductPage({
   }, [showBagToast]);
 
   useEffect(() => {
+    if (!initial || !slug || initial.slug !== slug) return;
+    if (appliedSlug.current === slug) return;
+    appliedSlug.current = slug;
+    setP(initial);
+  }, [initial, slug]);
+
+  useEffect(() => {
     getGuestToken();
     setAddedToBag(false);
     setShowBagToast(false);
     setDescOpen(false);
     setMsg('');
     setErr('');
-    api<ProductDetail>(`/products/${slug}`)
-      .then(async (product) => {
-        setP(product);
-        rememberProductView(product);
-        recordAbandonedProductView(product);
-        await Promise.all([loadReviews(product.id), loadEligibility(product.id)]);
-      })
-      .catch((e) => setErr(e.message));
+    let cancelled = false;
+    const primed = Boolean(initial && (!slug || initial.slug === slug));
+    const run = () => {
+      if (cancelled) return;
+      api<ProductDetail>(`/products/${slug}`)
+        .then(async (product) => {
+          if (cancelled) return;
+          setP(product);
+          rememberProductView(product);
+          recordAbandonedProductView(product);
+          await Promise.all([loadReviews(product.id), loadEligibility(product.id)]);
+        })
+        .catch((e) => {
+          if (!cancelled) setErr(e.message);
+        });
+    };
+    const cancelSchedule = primed ? scheduleAfterFirstPaint(run) : null;
+    if (!primed) run();
+    return () => {
+      cancelled = true;
+      cancelSchedule?.();
+    };
+    // initial is read once per slug; a new object for the same product must not reset the buy box.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, loadReviews, loadEligibility]);
 
   async function postToCart(): Promise<boolean> {
@@ -572,14 +600,16 @@ export default function ProductPage({
         </div>
       </section>
 
-      <PdpRelatedProducts
-        productId={p.id}
-        productSlug={p.slug}
-        categorySlug={p.category?.slug}
-        categoryName={p.category?.name}
-        initial={related}
-        initialKind={relatedKind}
-      />
+      {relatedSlot ?? (
+        <PdpRelatedProducts
+          productId={p.id}
+          productSlug={p.slug}
+          categorySlug={p.category?.slug}
+          categoryName={p.category?.name}
+          initial={related}
+          initialKind={relatedKind}
+        />
+      )}
 
       <RecentlyViewedStrip excludeId={p.id} excludeSlug={p.slug} />
 

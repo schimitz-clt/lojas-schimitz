@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { productCardAddLabel } from '@/lib/product-card-cues';
 import {
@@ -41,6 +42,7 @@ import {
   searchEmptyCopy,
 } from '@/lib/storefront-pro';
 import { IconSearch } from '@/components/icons/StorefrontIcons';
+import { internalAppPath, requestNavigationProgress } from '@/lib/navigation-progress';
 
 type Props = {
   initialQuery?: string;
@@ -72,6 +74,7 @@ function kindLabel(kind: PanelKind): string | null {
 }
 
 export function SearchBox({ initialQuery = '' }: Props) {
+  const router = useRouter();
   const [q, setQ] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -259,7 +262,15 @@ export function SearchBox({ initialQuery = '' }: Props) {
       window.open(href, '_blank', 'noopener,noreferrer');
       return;
     }
-    window.location.href = href;
+    const next = internalAppPath(href, window.location.origin);
+    if (!next) {
+      window.location.assign(href);
+      return;
+    }
+    const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next === here) return;
+    requestNavigationProgress();
+    router.push(next);
   }
 
   function submitTerm() {
@@ -304,7 +315,13 @@ export function SearchBox({ initialQuery = '' }: Props) {
       }
       window.setTimeout(() => setBagOk((cur) => (cur === id ? null : cur)), 1800);
     } catch {
-      window.location.href = row.href;
+      const next = internalAppPath(row.href, window.location.origin);
+      if (next) {
+        requestNavigationProgress();
+        router.push(next);
+      } else {
+        window.location.assign(row.href);
+      }
     } finally {
       setBagId(null);
     }

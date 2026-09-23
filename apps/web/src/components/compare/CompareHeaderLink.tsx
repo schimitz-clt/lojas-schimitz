@@ -7,7 +7,7 @@ import { IconCompare } from '@/components/icons/StorefrontIcons';
 export function CompareHeaderLink() {
   const { count } = useCompare();
   return (
-    <Link className="hdr-link hdr-hide-sm" href="/comparar">
+    <Link className="hdr-link hdr-hide-sm" href="/comparar" prefetch={true}>
       <span className="hdr-link-ico" aria-hidden>
         <IconCompare size={17} />
       </span>
