@@ -12,6 +12,9 @@ import {
  * Permissions-Policy: deny powerful device APIs the storefront does not use.
  * `payment` and `fullscreen` are left unset (MP wallets / future lightbox).
  * Clipboard is left unset — PIX copia-e-cola uses `navigator.clipboard`.
+ * `bluetooth` and `document-domain` are omitted: Chrome logs them as
+ * unrecognized Permissions-Policy features (document-domain belongs on
+ * Document-Policy). They were no-ops and showed up on every storefront page.
  * COOP `same-origin-allow-popups` isolates the browsing context without blocking
  * 3DS/wallet popups. CORP `same-origin` on HTML/assets; MP Brick loads from MP CDNs
  * (not our origin). COEP is **not** set — it would break Card Brick without CORP on MP.
@@ -23,13 +26,11 @@ export const STOREFRONT_PERMISSIONS_POLICY = [
   'interest-cohort=()',
   'browsing-topics=()',
   'usb=()',
-  'bluetooth=()',
   'midi=()',
   'magnetometer=()',
   'accelerometer=()',
   'gyroscope=()',
   'display-capture=()',
-  'document-domain=()',
   'serial=()',
   'hid=()',
   'xr-spatial-tracking=()',

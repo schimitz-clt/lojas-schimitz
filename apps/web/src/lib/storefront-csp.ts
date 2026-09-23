@@ -167,9 +167,11 @@ export function buildStorefrontCsp(opts: CspBuildOptions = {}): string {
  * Report-Only probe (Phase C candidate). Never blocks.
  * Drops `'unsafe-eval'` to measure Next/Brick need before any enforce cut.
  * img-src stays `https:` here too — tightening images is a later probe.
+ * Does not emit `upgrade-insecure-requests`: browsers ignore that directive
+ * in a report-only policy and log a console error on every page. The
+ * enforcing policy still upgrades insecure requests in production.
  */
-export function buildStorefrontCspReportOnly(opts: CspBuildOptions = {}): string {
-  const production = opts.production ?? true;
+export function buildStorefrontCspReportOnly(_opts: CspBuildOptions = {}): string {
   const scriptSrc = join([
     "'self'",
     "'unsafe-inline'",
@@ -209,7 +211,6 @@ export function buildStorefrontCspReportOnly(opts: CspBuildOptions = {}): string
     `form-action ${formAction}`,
     "manifest-src 'self'",
   ];
-  if (production) parts.push('upgrade-insecure-requests');
   parts.push(...reportDirectives());
   return parts.join('; ');
 }
