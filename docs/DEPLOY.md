@@ -2,8 +2,12 @@
 
 ## Visao geral
 
-Build explicito da API via railway.toml na raiz do monorepo.
-Evita deteccao incorreta como multi-app Nx/Next.
+A API sobe só por Dockerfile.
+
+- `railway.toml` na raiz fixa `builder = DOCKERFILE` e `dockerfilePath = apps/api/Dockerfile`.
+- `/Dockerfile` é cópia idêntica de `apps/api/Dockerfile`. O auto-detect do Railway só reconhece um arquivo chamado `Dockerfile` na raiz do serviço. Sem ele, um redeploy que ignore `dockerfilePath` cai no Railpack.
+- Start de produção é `apps/api/docker-entrypoint.sh` (migrate + `node dist/main.js`).
+- O serviço web continua em `apps/web/railway.toml` (`RAILPACK`, root directory `apps/web`).
 
 ## Variaveis
 
