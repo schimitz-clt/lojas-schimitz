@@ -187,8 +187,14 @@ export async function api<T>(path: string, init: RequestInit = {}, _retried = fa
     return handleUnauthorizedAndMaybeRetry(path, () => api<T>(path, init, true), _retried, failMsg);
   }
 
-  if (!json.ok) throw new Error(failMsg);
+  if (!json.ok) throwApiError(failMsg, json.error.code);
   return json.data;
+}
+
+function throwApiError(message: string, code: string): never {
+  const err = new Error(message) as Error & { code: string };
+  err.code = code;
+  throw err;
 }
 
 /** Multipart upload (não define Content-Type — o browser define o boundary). */
@@ -218,7 +224,7 @@ export async function apiUpload<T>(path: string, formData: FormData, _retried = 
     );
   }
 
-  if (!json.ok) throw new Error(failMsg);
+  if (!json.ok) throwApiError(failMsg, json.error.code);
   return json.data;
 }
 
