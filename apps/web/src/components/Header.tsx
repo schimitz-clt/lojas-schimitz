@@ -24,7 +24,6 @@ import {
   catalogSearchBackHref,
   isCatalogSearchResults,
 } from '@/lib/storefront-pro';
-import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
 
 export function Header() {
   const pathname = usePathname() || '/';
@@ -61,17 +60,9 @@ export function Header() {
     } catch {
       /* ignore */
     }
-    let cancelled = false;
-    const cancelIdle = scheduleAfterFirstPaint(() => {
-      if (cancelled) return;
-      api<{ itemCount?: number }>('/cart')
-        .then((d) => {
-          if (!cancelled) setCartCount(d.itemCount || 0);
-        })
-        .catch(() => {
-          if (!cancelled) setCartCount(0);
-        });
-    });
+    api<{ itemCount?: number }>('/cart')
+      .then((d) => setCartCount(d.itemCount || 0))
+      .catch(() => setCartCount(0));
     const onCart = () => {
       api<{ itemCount?: number }>('/cart')
         .then((d) => setCartCount(d.itemCount || 0))
@@ -79,8 +70,6 @@ export function Header() {
     };
     window.addEventListener('sch-cart-updated', onCart);
     return () => {
-      cancelled = true;
-      cancelIdle();
       window.removeEventListener('sch-cart-updated', onCart);
     };
   }, []);
