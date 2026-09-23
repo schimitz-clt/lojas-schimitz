@@ -14,6 +14,7 @@ import {
   bannerImageIsPriority,
   bannerImagePreload,
   bannerImageUrl,
+  bannerScrollBehavior,
   bannerNavNextLabel,
   bannerNavPrevLabel,
   bannerTapOpensLink,
@@ -181,6 +182,8 @@ assert.equal(bannerImagePreload(true, 4, 5), true, 'leading clone (previous slid
 assert.equal(bannerImagePreload(true, 0, 5), false, 'trailing clone duplicates the LCP image');
 assert.equal(bannerImagePreload(false, 3, 5), false, 'far slides stay lazy');
 assert.equal(bannerImagePreload(false, 0, 1), true);
+assert.equal(bannerScrollBehavior(false), 'auto');
+assert.equal(bannerScrollBehavior(true), 'smooth');
 
 assert.equal(bannerCtaLabel(), 'Conferir agora');
 assert.equal(bannerCtaHref({ linkUrl: '/departamento/ofertas' }), '/departamento/ofertas');

@@ -130,6 +130,19 @@ assert.equal(
 );
 assert.ok(/\.cat-strip\s*\{[^}]*touch-action:\s*pan-x pan-y/.test(css), 'category row allows vertical page scroll');
 assert.ok(/\.cat-strip\s*\{[^}]*scroll-snap-type:\s*x proximity/.test(css), 'category icons still snap');
+assert.ok(/\.cat-strip\s*\{[^}]*align-items:\s*flex-start/.test(css), 'category circles share one top edge');
+assert.equal(
+  /\.cat-chip-label\s*\{[^}]*hyphens:\s*auto/.test(css),
+  false,
+  'category labels are not hyphenated mid-word',
+);
+assert.ok(/\.cat-chip-label\s*\{[^}]*hyphens:\s*none/.test(css), 'category labels opt out of hyphenation');
+assert.ok(
+  /@media \(max-width: 720px\)[\s\S]*\.cat-chip-label\s*\{[^}]*min-height:\s*2\.6em/.test(css),
+  'mobile labels reserve two lines so wrapped text stays on the same band',
+);
+assert.ok(page.includes('categoryChipLabelLines'), 'long category names break on a word boundary');
+assert.ok(page.includes('cat-chip-label-break'), 'the mobile line break can be hidden on desktop');
 assert.equal(
   /\.home-shelf-rail\s*\{[^}]*scroll-behavior:\s*smooth/.test(css),
   false,

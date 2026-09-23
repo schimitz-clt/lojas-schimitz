@@ -207,9 +207,11 @@ export function bannerImagePreload(clone: boolean, logicalIndex: number, total: 
 
 export function bannerScrollBehavior(smooth: boolean): ScrollBehavior {
   if (!smooth) return 'auto';
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return 'auto';
-  }
+  if (typeof window === 'undefined') return 'smooth';
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 'auto';
+  // A smooth scrollTo on touch runs while the finger may be moving the page.
+  // Native snap already animates the swipe; auto-advance just cuts.
+  if (window.matchMedia('(pointer: coarse)').matches) return 'auto';
   return 'smooth';
 }
 

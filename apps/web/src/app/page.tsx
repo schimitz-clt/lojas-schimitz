@@ -10,7 +10,7 @@ import { HomeShelves } from '@/components/HomeShelves';
 import { ComingSoonShelf } from '@/components/ComingSoonShelf';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
-import { HOME_CATEGORIES, categoryCircleSrc } from '@/lib/category-visual';
+import { HOME_CATEGORIES, categoryChipLabelLines, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
 import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
@@ -50,8 +50,9 @@ function CategoryStrip({ products }: { products: Product[] }) {
       {HOME_CATEGORIES.map((c, i) => {
         const src = categoryCircleSrc(products, c);
         const isFallback = src.startsWith('/cats/');
+        const lines = categoryChipLabelLines(c.label);
         return (
-          <Link key={c.href} href={c.href} className="cat-chip">
+          <Link key={c.href} href={c.href} className="cat-chip" aria-label={c.label}>
             <span className={`cat-chip-ico${isFallback ? ' cat-chip-ico-fallback' : ''}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -65,7 +66,14 @@ function CategoryStrip({ products }: { products: Product[] }) {
                 className="cat-chip-img"
               />
             </span>
-            <span className="cat-chip-label">{c.label}</span>
+            <span className="cat-chip-label" aria-hidden="true">
+              {lines.map((line, lineIndex) => (
+                <span key={`${lineIndex}-${line}`}>
+                  {lineIndex > 0 ? <br className="cat-chip-label-break" /> : null}
+                  {line}
+                </span>
+              ))}
+            </span>
           </Link>
         );
       })}
