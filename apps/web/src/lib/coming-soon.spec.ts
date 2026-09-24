@@ -7,7 +7,6 @@ import {
   activeProductCountFromCatalog,
   comingSoonBadgeLabel,
   comingSoonCardNote,
-  comingSoonDisclaimer,
   comingSoonSubtitle,
   comingSoonTitle,
   comingSoonWhatsAppText,
@@ -40,8 +39,6 @@ assert.equal(comingSoonTitle(), 'Em breve');
 assert.ok(/whatsapp/i.test(comingSoonSubtitle()));
 assert.equal(comingSoonBadgeLabel(), 'Em breve');
 assert.ok(/sem preço/i.test(comingSoonCardNote()));
-assert.ok(/não estão à venda/i.test(comingSoonDisclaimer()));
-assert.ok(!/r\$\s*\d/i.test(comingSoonDisclaimer()));
 assert.ok(!/r\$\s*\d/i.test(comingSoonCardNote()));
 assert.ok(comingSoonWhatsAppText().length > 20);
 
@@ -76,9 +73,25 @@ assert.ok(page.includes('shouldShowComingSoonShelf'), 'home hides the teaser fro
 assert.ok(page.includes('HomeShortcuts'), 'shortcuts stay');
 assert.ok(page.includes('HomeShelves'), 'product shelves stay');
 assert.ok(page.includes('HomeBanners'), 'hero stays');
-assert.ok(page.includes('homeCatalogEmptyCopy'), 'empty home uses the catalog empty helper');
-assert.ok(page.includes('StorefrontEmpty'), 'empty home uses the shared panel');
-assert.ok(!page.includes('Nenhuma oferta no momento'), 'empty home no longer points at an empty ofertas shelf');
+assert.ok(page.includes('Nenhuma oferta no momento'), 'empty catalog copy stays');
+// #123 wired StorefrontEmpty / catalogEmpty into the home client and mobile
+// showed Next's "Application error" after hydration (SSR still 200 + skeletons).
+// That crash did not reproduce here; client empty UX stays on the #122 path.
+assert.ok(!page.includes('StorefrontEmpty'), 'home does not mount the #123 empty panel');
+assert.ok(!page.includes('catalogEmpty'), 'home does not pass catalogEmpty into the hero');
+assert.ok(!page.includes('homeCatalogEmptyCopy'), 'home does not use the #123 empty-catalog helper');
+const banners = readFileSync(join(srcRoot, 'components/HomeBanners.tsx'), 'utf8');
+assert.ok(!banners.includes('homeHeroEmptyCopy'), 'hero fallback stays the #122 promo strip');
+assert.ok(!banners.includes('catalogEmpty'), 'hero does not branch on an empty catalog flag');
+for (const rel of [
+  'app/produtos/page.tsx',
+  'app/departamento/[slug]/DepartamentoClient.tsx',
+  'app/marketplace/page.tsx',
+  'components/ComingSoonShelf.tsx',
+]) {
+  const client = readFileSync(join(srcRoot, rel), 'utf8');
+  assert.ok(!client.includes('StorefrontEmpty'), `${rel} does not mount StorefrontEmpty`);
+}
 
 const shelf = readFileSync(join(srcRoot, 'components/ComingSoonShelf.tsx'), 'utf8');
 assert.ok(shelf.includes('waLink'), 'WhatsApp reuses the storefront helper');
@@ -90,6 +103,5 @@ assert.ok(!shelf.includes('/produto/'), 'no fake PDP');
 assert.ok(!/placehold\.co/i.test(shelf));
 assert.ok(!/href=\{`\/produto/.test(shelf));
 assert.ok(!shelf.includes('brl('), 'no invented price');
-assert.ok(shelf.includes('comingSoonDisclaimer'), 'shelf states the preview is not for sale');
 
 console.log('coming-soon unit tests ok');

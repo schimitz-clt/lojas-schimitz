@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { api, waLink } from '@/lib/api';
+import { api } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { HomeShortcuts } from '@/components/HomeShortcuts';
@@ -13,8 +13,7 @@ import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryChipLabelLines, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
-import { HOME_CATALOG_LOAD_ERROR, homeCatalogEmptyCopy } from '@/lib/home-ux';
-import { StorefrontEmpty } from '@/components/storefront/StorefrontEmpty';
+import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
 import {
   parseHomeShelvesPayload,
   shelvesFromCatalog,
@@ -134,8 +133,6 @@ function HomeInner() {
   const visibleShelves = useMemo(() => visibleHomeShelves(shelves), [shelves]);
   const showComingSoon =
     !loading && !err && activeCount != null && shouldShowComingSoonShelf(activeCount);
-  const emptyHome = homeCatalogEmptyCopy(showComingSoon);
-  const catalogEmpty = !loading && !err && products.length === 0;
 
   if (q) {
     return (
@@ -152,15 +149,15 @@ function HomeInner() {
         ) : null}
         {loading ? <ProductGridSkeleton count={8} /> : null}
         {!loading && !err && products.length === 0 ? (
-          <StorefrontEmpty
-            kicker="Busca"
-            title={`Não encontramos resultados para “${q}”.`}
-            body="Tente outra palavra ou abra o catálogo. A busca não inventa produtos."
-            actions={[
-              { href: `/produtos?q=${encodeURIComponent(q)}`, label: 'Ver no catálogo' },
-              { href: '/', label: 'Limpar busca', variant: 'ghost' },
-            ]}
-          />
+          <div className="catalog-empty">
+            <p style={{ margin: 0, fontWeight: 700 }}>Não encontramos resultados para “{q}”.</p>
+            <p className="muted" style={{ margin: '8px 0 12px' }}>
+              Tente outra busca ou confira o <Link href="/produtos">catálogo completo</Link>.
+            </p>
+            <Link className="btn ghost" href="/">
+              Limpar busca
+            </Link>
+          </div>
         ) : null}
         {!loading ? (
           <div className="grid">
@@ -177,7 +174,7 @@ function HomeInner() {
   return (
     <div className="home sf-pro-home">
       {/* 1. Banner / hero */}
-      <HomeBanners products={loading ? [] : products} catalogEmpty={catalogEmpty} />
+      <HomeBanners products={loading ? [] : products} />
 
       {/* Shortcuts sit above Categorias — the photo strip stays. */}
       <HomeShortcuts />
@@ -194,24 +191,14 @@ function HomeInner() {
 
       {loading ? <ProductGridSkeleton count={8} /> : null}
 
-      {catalogEmpty ? (
-        <StorefrontEmpty
-          kicker={emptyHome.kicker}
-          title={emptyHome.title}
-          body={emptyHome.body}
-          actions={[
-            {
-              href: waLink(emptyHome.whatsappText),
-              label: emptyHome.whatsappLabel,
-              external: true,
-            },
-            {
-              href: emptyHome.supportHref,
-              label: emptyHome.supportLabel,
-              variant: 'ghost',
-            },
-          ]}
-        />
+      {!loading && !err && products.length === 0 ? (
+        <div className="catalog-empty">
+          <p style={{ margin: 0, fontWeight: 700 }}>Nenhuma oferta no momento.</p>
+          <p className="muted" style={{ margin: '8px 0 12px' }}>
+            Confira o <Link href="/produtos">catálogo completo</Link> e os{' '}
+            <Link href="/departamento/ofertas">departamentos</Link>.
+          </p>
+        </div>
       ) : null}
 
       {/* Teaser only while GET /products has zero active items. */}
@@ -241,20 +228,9 @@ function HomeInner() {
             </p>
           </div>
           <div className="home-strip-actions">
-            {catalogEmpty ? (
-              <a
-                className="btn home-hero-cta"
-                href={waLink(emptyHome.whatsappText)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {emptyHome.whatsappLabel}
-              </a>
-            ) : (
-              <Link className="btn home-hero-cta" href="/produtos">
-                Ver produtos
-              </Link>
-            )}
+            <Link className="btn home-hero-cta" href="/produtos">
+              Ver produtos
+            </Link>
             <Link className="btn ghost home-hero-ghost-light" href="/suporte">
               Falar com a loja
             </Link>

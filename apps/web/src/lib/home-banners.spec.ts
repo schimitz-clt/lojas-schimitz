@@ -302,8 +302,6 @@ assert.ok(src.includes('home-banner-track'), 'carousel renders a swipe track');
 assert.ok(src.includes('takeUsableHomeBanners'), 'storefront caps usable banners at 5');
 assert.ok(src.includes('shouldShowBannerChrome'), 'single banner hides arrows/dots');
 assert.ok(src.includes('StaticPromoStrip'), 'empty API keeps the current promo as slide 1');
-assert.ok(src.includes('homeHeroEmptyCopy'), 'empty catalog hero does not promise a deal shelf');
-assert.ok(src.includes('catalogEmpty'), 'hero knows when the catalog has no products');
 assert.ok(src.includes('pauseAuto'), 'auto-advance pauses on touch');
 assert.ok(src.includes('HOME_BANNER_AUTO_MS'), 'gentle auto-advance is wired');
 assert.ok(src.includes('homeBannerLoopSlides'), '2+ banners render wrap clones');
