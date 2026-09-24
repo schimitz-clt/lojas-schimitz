@@ -132,7 +132,7 @@ Sem `FIREBASE_SERVICE_ACCOUNT_JSON` o envio é **NÃO EXECUTADO** (status failed
 ## Sessão / cookies (SCH-006)
 
 - Login/refresh: `Set-Cookie: sch_refresh=...` e `Set-Cookie: sch_access=...` (ambos HttpOnly).
-- `POST /auth/register` — resposta genérica `{ accepted, message }` (não enumerar e-mail; sem sessão).
+- `POST /auth/register` — sucesso abre sessão como o login (`Set-Cookie` `sch_refresh` + `sch_access`, JSON com `user` e `accessToken`). E-mail já usado: **409** `Este e-mail já possui conta. Faça login.` CPF já usado: **409** `Este CPF já possui conta. Entre ou use outro CPF.` CPF inválido ou menor de 18: **400**. Carrinho guest (`x-guest-token`) é mesclado no sucesso.
 - Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
 - Access token: cookie HttpOnly `sch_access` **ou** header `Authorization: Bearer` (Bearer tem precedência).
 - JSON inclui `refreshToken` **por default** (`REFRESH_JSON_TOKEN_ENABLED` unset/true).

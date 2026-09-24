@@ -18,7 +18,7 @@ import { birthDateError, birthDateToUtcDate } from './birth-date';
 import { cpfError, normalizeCpf } from './cpf';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
-import { registerAcceptedResult } from './register-public';
+import { assertRegisterAvailable, conflictFromUniqueTarget } from './register-public';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -100,10 +100,10 @@ export class AuthService {
   ) {}
 
   /**
-   * Always the same generic success (no e-mail or CPF enumeration).
-   * Hash first so existing vs new takes similar time; never 409 "já cadastrado".
-   * Invalid CPF or birth date is a 400 (validation), not a collision.
-   * New accounts still get welcome mail; the client must login afterwards.
+   * Conta nova devolve a mesma sessão do login (`issue`).
+   * E-mail ou CPF já usado: 409 com mensagem distinta (o dono pediu clareza, não anti-enumeração).
+   * Hash antes da consulta para o custo de senha valer nos dois caminhos.
+   * CPF inválido ou menor de 18 anos continua 400, antes do hash.
    */
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
@@ -120,10 +120,8 @@ export class AuthService {
       this.prisma.user.findUnique({ where: { email } }),
       this.prisma.user.findUnique({ where: { cpf } }),
     ]);
-    if (emailOwner || cpfOwner) {
-      return registerAcceptedResult();
-    }
-    let user: { id: string; email: string; role: string; name: string | null };
+    assertRegisterAvailable(Boolean(emailOwner), Boolean(cpfOwner));
+    let user: { id: string; email: string; role: string; name: string };
     try {
       user = await this.prisma.user.create({
         data: {
@@ -138,13 +136,13 @@ export class AuthService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        return registerAcceptedResult();
+        conflictFromUniqueTarget(e.meta?.target);
       }
       throw e;
     }
     this.attempts.clear(ip, dto.email);
     await this.notifyWelcome(user.id, user.email, user.name);
-    return registerAcceptedResult();
+    return this.issue(user.id, user.email, user.role, user.name);
   }
 
   /** Best-effort welcome after register — no recipient e-mail in logs. */

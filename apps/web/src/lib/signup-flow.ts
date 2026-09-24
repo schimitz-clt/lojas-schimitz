@@ -280,3 +280,39 @@ export function buildRegisterBody(input: {
   if (phone) body.phone = phone;
   return body;
 }
+
+/** Mesmas frases do 409 da API (`register-public.ts`). */
+export const EMAIL_ALREADY_REGISTERED_MESSAGE = 'Este e-mail já possui conta. Faça login.';
+export const CPF_ALREADY_REGISTERED_MESSAGE =
+  'Este CPF já possui conta. Entre ou use outro CPF.';
+
+/**
+ * Depois do cadastro (e do login): `next` interno, senão a conta.
+ * Recusa URL absoluta e protocol-relative.
+ */
+export function postRegisterPath(search: string): string {
+  try {
+    const raw = search.startsWith('?') ? search.slice(1) : search;
+    const next = new URLSearchParams(raw).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  } catch {
+    /* ignore */
+  }
+  return '/conta';
+}
+
+/** Erro do POST /auth/register → campo do passo certo. null = alerta no passo atual. */
+export function signupIssueFromRegisterError(message: string): SignupIssue | null {
+  const text = message.trim();
+  if (!text) return null;
+  if (text.includes('Este CPF já possui conta') || text === 'CPF inválido' || text === 'Informe seu CPF.') {
+    return { field: 'cpf', message: text };
+  }
+  if (text.includes('Este e-mail já possui conta')) {
+    return { field: 'email', message: text };
+  }
+  if (text.includes('18 anos') || text.toLowerCase().includes('data de nascimento')) {
+    return { field: 'birthDate', message: text };
+  }
+  return null;
+}

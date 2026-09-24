@@ -47,7 +47,7 @@ Em hosts **não-locais** (ex.: `lojasschimitz.com.br`, WebView Android):
 - Refresh e access ficam nos cookies HttpOnly `sch_refresh` / `sch_access` (proxy same-origin); **não** grava JWTs em `localStorage`/`sessionStorage`.
 - Body de `/auth/refresh` e `/auth/logout` é `{}` nestes hosts.
 - JSON sem `refreshToken` (`REFRESH_JSON_TOKEN_ENABLED=false` na API) é válido: a sessão segue no cookie.
-- Cadastro (`POST /auth/register`) devolve mensagem genérica (anti-enumeração) e **não** abre sessão — o cliente faz login em seguida.
+- Cadastro (`POST /auth/register`) abre a mesma sessão do login (`sch_refresh` / `sch_access`). E-mail ou CPF já usado responde 409 com mensagem distinta. CPF inválido ou menor de 18 anos continua 400.
 
 Em **localhost** / `127.0.0.1` a API costuma ser cross-origin (`:3001`): access/refresh ficam só na memória da aba e o refresh pode ir no body. Recarregar a página no localhost pede login de novo se o cookie não colar.
 
