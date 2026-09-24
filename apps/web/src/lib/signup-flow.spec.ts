@@ -22,12 +22,17 @@ import {
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
+  passwordResetHref,
+  readSignupEmailExists,
   signupEmailForApi,
   signupEmailIssue,
+  signupLookupErrorMessage,
   signupNameIssue,
+  signupPathAfterEmail,
   signupPhoneIssue,
   signupProfileIssue,
   signupRegisterConflict,
+  signupSignInIssue,
 } from './signup-flow';
 
 assert.equal(signupEmailIssue('')?.message, 'Informe seu e-mail para continuar.');
@@ -436,5 +441,62 @@ assert.ok(cadastro.includes('window.location.href'), 'cadastro goes to next or /
 assert.ok(cadastro.includes('readRegisterFailure'), 'cadastro maps duplicate CPF and e-mail');
 assert.equal(cadastro.includes('Entrar para continuar'), false, 'no login wall after signup');
 assert.equal(cadastro.includes('Faça login para continuar'), false);
+
+assert.equal(signupPathAfterEmail(true), 'signin');
+assert.equal(signupPathAfterEmail(false), 'register');
+assert.equal(readSignupEmailExists({ exists: true }), true);
+assert.equal(readSignupEmailExists({ exists: false }), false);
+assert.equal(readSignupEmailExists({ exists: true, name: 'Ana', cpf: '52998224725' }), true);
+assert.throws(() => readSignupEmailExists(null), /verificar o e-mail/);
+assert.throws(() => readSignupEmailExists({}), /verificar o e-mail/);
+assert.throws(() => readSignupEmailExists({ exists: 'sim' }), /verificar o e-mail/);
+assert.equal(
+  signupLookupErrorMessage(new Error('Failed to fetch')),
+  'Não foi possível verificar o e-mail. Tente de novo.',
+);
+assert.equal(signupLookupErrorMessage(new Error('Muitas tentativas de login. Aguarde 15 minutos e tente novamente.')), 'Muitas tentativas de login. Aguarde 15 minutos e tente novamente.');
+assert.equal(signupSignInIssue('')?.message, 'Informe sua senha para entrar.');
+assert.equal(signupSignInIssue('x'), null);
+assert.equal(passwordResetHref('  Ana@Loja.com '), '/esqueci-senha?email=ana%40loja.com');
+assert.equal(passwordResetHref('nao-e-email'), '/esqueci-senha');
+
+const submitEmail = flow.slice(flow.indexOf('async function submitEmail'), flow.indexOf('async function submitSignIn'));
+assert.ok(submitEmail.includes('await onLookupEmail'), 'passo 1 asks the server before leaving');
+assert.ok(submitEmail.indexOf('await onLookupEmail') < submitEmail.indexOf('signupPathAfterEmail'));
+assert.ok(submitEmail.includes("path === 'signin' ? 'signin' : 'profile'"), 'exists chooses senha, not passo 2');
+assert.equal(submitEmail.includes("setStep('profile')"), false, 'passo 1 does not jump to dados on format alone');
+assert.ok(submitEmail.includes('signupLookupErrorMessage'), 'lookup failure stays on the e-mail step');
+
+const signin = flow.slice(flow.indexOf('data-signup-step="signin"'));
+assert.ok(signin.includes('data-account-gate="existing"'), 'existing account is its own screen');
+assert.ok(signin.includes('Você já tem cadastro'), 'the screen says the account exists');
+assert.ok(signin.includes('Este e-mail já tem conta'), 'password path explains why dados are skipped');
+assert.ok(signin.includes('onSubmit={submitSignIn}'), 'password form is the sign-in path');
+const submitSignIn = flow.slice(flow.indexOf('async function submitSignIn'), flow.indexOf('function submitProfile'));
+assert.ok(submitSignIn.includes('onSignIn'), 'password submits the existing login callback');
+assert.ok(submitSignIn.includes('signupSignInIssue'), 'empty password stays on this screen');
+assert.ok(signin.includes('autoComplete="current-password"'), 'existing account uses the login password');
+assert.ok(signin.includes('Esqueci minha senha'), 'forgot-password link is on the password screen');
+assert.ok(signin.includes('Alterar senha'), 'alterar senha link is on the password screen');
+assert.ok(signin.includes('passwordResetHref'), 'both links use the existing reset page');
+assert.equal(signin.includes('signup-cpf'), false, 'existing account does not ask for CPF');
+assert.equal(signin.includes('Nome completo'), false, 'existing account does not ask for name');
+assert.equal(signin.includes('signup-birth'), false, 'existing account does not ask for birth date');
+assert.equal(signin.includes('buildRegisterBody'), false, 'existing account does not post register');
+assert.equal(signin.includes('Cadastrar e continuar'), false, 'existing account does not create a conta');
+
+assert.ok(cadastro.includes('/auth/signup-email'), 'cadastro checks existence on the server');
+assert.ok(cadastro.includes('readSignupEmailExists'), 'cadastro refuses a missing exists flag');
+assert.ok(cadastro.includes('/auth/login'), 'existing e-mail signs in with the login endpoint');
+assert.ok(cadastro.includes('onSignIn={signIn}'), 'cadastro wires the password screen to login');
+assert.ok(entrar.includes('/auth/signup-email'), 'criar conta on Entrar uses the same gate');
+assert.ok(entrar.includes('onSignIn={signInExisting}'), 'Entrar register mode can sign in');
+assert.equal(registerFn.includes('/auth/signup-email'), false, 'the register POST is still only /auth/register');
+assert.equal(registerFn.includes('/auth/login'), false, 'criar conta does not ask for a second login');
+
+const resetPage = readFileSync(join(__dirname, '../app/esqueci-senha/page.tsx'), 'utf8');
+assert.ok(resetPage.includes('/auth/forgot-password'), 'alterar senha still posts the reset endpoint');
+assert.ok(resetPage.includes("get('email')"), 'the password screen can prefill the reset form');
+assert.ok(resetPage.includes('signupEmailIssue'), 'only a valid e-mail is prefilled');
 
 console.log('signup-flow tests ok');

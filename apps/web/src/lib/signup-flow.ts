@@ -1,12 +1,14 @@
 /**
  * Multi-step customer signup (client only).
- * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
+ * Passo 1: e-mail. The server (POST /auth/signup-email) says if that e-mail already has a conta.
+ * Conta existente: só a senha, via POST /auth/login (mesmo cookie do Entrar). Sem nome, CPF ou nascimento.
+ * E-mail novo: Passo 2 nome, CPF, nascimento, WhatsApp. Passo 3 senha e privacidade.
  * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
  * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
  * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
- * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
+ * One POST /auth/register at the end of the new-account path: email, password, name, optional phone, CPF, birthDate.
  * Success is the same session as login. Duplicate CPF or e-mail is a 409 on that field.
- * Retrigger the web Railpack build after the stuck production deploy of #130.
+ * Esqueci / alterar senha uses the existing /esqueci-senha page (POST /auth/forgot-password).
  * CPF goes as digits or máscara; the API stores digits only.
  * birthDate na API é AAAA-MM-DD. Na tela a pessoa digita DD/MM/AAAA.
  * Idade mínima: 18 anos (maioridade civil).
@@ -17,7 +19,10 @@ export const SIGNUP_STORE_NAME = 'Lojas Schimitz';
 /** Same rule as RegisterDto (`apps/api/src/modules/auth/dto.ts`). */
 export const SIGNUP_PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
-export type SignupStep = 'email' | 'profile' | 'access';
+export type SignupStep = 'email' | 'profile' | 'access' | 'signin';
+
+/** Depois do passo 1: conta nova segue o cadastro; conta existente pede só a senha. */
+export type SignupEmailGate = 'register' | 'signin';
 
 export type SignupField = 'email' | 'name' | 'cpf' | 'birthDate' | 'phone' | 'password' | 'confirm' | 'privacy';
 
@@ -346,6 +351,51 @@ export function continueFromEmail(
   const issue = signupEmailIssue(email);
   if (issue) return { ok: false, issue };
   return { ok: true, displayEmail: email.trim() };
+}
+
+/** Maps POST /auth/signup-email `{ exists }` onto the next screen. Format checks stay local. */
+export function signupPathAfterEmail(exists: boolean): SignupEmailGate {
+  return exists ? 'signin' : 'register';
+}
+
+/**
+ * Reads the signup-email payload. Anything other than a boolean is a failure:
+ * a missing flag must not be treated as a free e-mail (that would open passo 2).
+ * Extra fields are ignored so a name or CPF never reaches the screen.
+ */
+export function readSignupEmailExists(data: unknown): boolean {
+  if (!data || typeof data !== 'object' || !('exists' in data)) {
+    throw new Error('Não foi possível verificar o e-mail. Tente de novo.');
+  }
+  const exists = (data as { exists: unknown }).exists;
+  if (typeof exists !== 'boolean') {
+    throw new Error('Não foi possível verificar o e-mail. Tente de novo.');
+  }
+  return exists;
+}
+
+const SIGNUP_LOOKUP_FALLBACK = 'Não foi possível verificar o e-mail. Tente de novo.';
+
+/** Network failures stay in Portuguese. API messages (already PT) pass through. */
+export function signupLookupErrorMessage(error: unknown): string {
+  const raw = error instanceof Error && error.message ? error.message.trim() : '';
+  if (!raw || /failed to fetch|networkerror|load failed|network request failed/i.test(raw)) {
+    return SIGNUP_LOOKUP_FALLBACK;
+  }
+  return raw;
+}
+
+/** Senha do login. Não aplica a regra de cadastro novo (letras e números). */
+export function signupSignInIssue(password: string): SignupIssue | null {
+  if (!password) return { field: 'password', message: 'Informe sua senha para entrar.' };
+  return null;
+}
+
+/** Esqueci / alterar senha: a página que já chama POST /auth/forgot-password, com o e-mail preenchido. */
+export function passwordResetHref(email: string): string {
+  const value = signupEmailForApi(email);
+  if (!value || signupEmailIssue(value)) return '/esqueci-senha';
+  return `/esqueci-senha?email=${encodeURIComponent(value)}`;
 }
 
 /** Passo 2 — dados pessoais. O e-mail já foi aceito e não entra aqui. */

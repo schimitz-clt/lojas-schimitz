@@ -3056,7 +3056,7 @@ textarea { resize: vertical; min-height: 72px; }
   gap: 2px;
   margin: 0 0 12px;
 }
-.acct-head .acct-title { font-size: 22px; }
+.acct-head .acct-title { font-size: 22px; min-width: 0; }
 .acct-identity {
   display: flex;
   align-items: center;

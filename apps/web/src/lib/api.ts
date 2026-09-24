@@ -63,7 +63,8 @@ function isAuthEndpoint(path: string) {
     path.startsWith('/auth/register') ||
     path.startsWith('/auth/refresh') ||
     path.startsWith('/auth/forgot-password') ||
-    path.startsWith('/auth/reset-password')
+    path.startsWith('/auth/reset-password') ||
+    path.startsWith('/auth/signup-email')
   );
 }
 
