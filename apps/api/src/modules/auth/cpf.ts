@@ -24,12 +24,14 @@ export function isValidCpf(digits: string): boolean {
   return check(9) === Number(digits[9]) && check(10) === Number(digits[10]);
 }
 
+export const CPF_INVALID_MESSAGE = 'CPF inválido. Confira os números.';
+
 /** Mensagem em português, ou null quando o CPF pode ser gravado. */
 export function cpfError(value: unknown): string | null {
-  if (typeof value !== 'string') return 'CPF inválido';
+  if (typeof value !== 'string') return CPF_INVALID_MESSAGE;
   const trimmed = value.trim();
   if (!trimmed) return 'Informe seu CPF.';
-  if (trimmed.length > 18) return 'CPF inválido';
-  if (!isValidCpf(normalizeCpf(trimmed))) return 'CPF inválido';
+  if (trimmed.length > 18) return CPF_INVALID_MESSAGE;
+  if (!isValidCpf(normalizeCpf(trimmed))) return CPF_INVALID_MESSAGE;
   return null;
 }

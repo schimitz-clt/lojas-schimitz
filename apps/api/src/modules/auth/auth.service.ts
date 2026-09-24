@@ -17,6 +17,8 @@ import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { birthDateError, birthDateToUtcDate } from './birth-date';
 import { cpfError, normalizeCpf } from './cpf';
+import { fullNameError } from './full-name';
+import { phoneError } from './phone';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
 import { registerDuplicateConflict } from './register-public';
@@ -110,15 +112,19 @@ export class AuthService {
    * New customer: same session payload as login (`issue`).
    * Existing CPF → 409 CPF_ALREADY_REGISTERED.
    * Existing e-mail (CPF free) → 409 EMAIL_ALREADY_REGISTERED.
-   * Invalid CPF or birth date stays 400. Guest cart merge is the controller's job.
+   * Invalid name, CPF, birth date, or WhatsApp stays 400. Guest cart merge is the controller's job.
    */
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
     const email = dto.email.toLowerCase();
+    const invalidName = fullNameError(dto.name);
+    if (invalidName) throw new BadRequestException(invalidName);
     const invalidCpf = cpfError(dto.cpf);
     if (invalidCpf) throw new BadRequestException(invalidCpf);
     const invalidBirth = birthDateError(dto.birthDate);
     if (invalidBirth) throw new BadRequestException(invalidBirth);
+    const invalidPhone = phoneError(dto.phone);
+    if (invalidPhone) throw new BadRequestException(invalidPhone);
     const cpf = normalizeCpf(dto.cpf);
     const birthDate = birthDateToUtcDate(dto.birthDate);
 

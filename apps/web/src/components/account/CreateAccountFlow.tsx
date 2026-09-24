@@ -7,10 +7,15 @@ import {
   birthDateToIso,
   buildRegisterBody,
   continueFromEmail,
+  cpfDigits,
   maskBirthDate,
   maskCpf,
   signupAccessIssue,
+  signupBirthDateDisplayIssue,
+  signupCpfIssue,
   signupEmailIssue,
+  signupNameIssue,
+  signupPhoneIssue,
   signupProfileIssue,
   type RegisterBody,
   type SignupField,
@@ -202,11 +207,22 @@ export function CreateAccountFlow({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [issue, setIssue] = useState<SignupIssue | null>(null);
+  const [profileTried, setProfileTried] = useState(false);
+  const [touched, setTouched] = useState<Partial<Record<'name' | 'cpf' | 'birthDate' | 'phone', boolean>>>({});
   const emailRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const activeIssue = serverIssue ?? issue;
+  const nameIssue = signupNameIssue(name);
+  const cpfIssue = signupCpfIssue(cpf);
+  const birthIssue = signupBirthDateDisplayIssue(birthDate);
+  const phoneIssue = signupPhoneIssue(phone);
+  const profileReady = !nameIssue && !cpfIssue && !birthIssue && !phoneIssue;
+  const showNameError = profileTried || Boolean(touched.name) || /\s/.test(name.trim()) || name.trim().length >= 8;
+  const showCpfError = profileTried || Boolean(touched.cpf) || cpfDigits(cpf).length >= 11;
+  const showBirthError = profileTried || Boolean(touched.birthDate) || birthDate.trim().length >= 10;
+  const showPhoneError = profileTried || Boolean(touched.phone) || phone.replace(/\D/g, '').length >= 10;
   const viewStep: SignupStep =
     serverIssue?.field === 'email' ? 'email' : serverIssue?.field === 'cpf' ? 'profile' : step;
 
@@ -232,8 +248,23 @@ export function CreateAccountFlow({
     onEdit?.();
   }
 
+  function markTouched(field: 'name' | 'cpf' | 'birthDate' | 'phone') {
+    setTouched((current) => (current[field] ? current : { ...current, [field]: true }));
+  }
+
   function fieldInvalid(field: SignupField) {
     return activeIssue?.field === field;
+  }
+
+  function profileMessage(
+    field: 'name' | 'cpf' | 'birthDate' | 'phone',
+    local: SignupIssue | null,
+    show: boolean,
+  ): string {
+    if (viewStep !== 'profile') return '';
+    if (activeIssue?.field === field) return activeIssue.message;
+    if (show && local) return local.message;
+    return '';
   }
 
   function editEmail() {
@@ -263,6 +294,7 @@ export function CreateAccountFlow({
 
   function submitProfile(e: FormEvent) {
     e.preventDefault();
+    setProfileTried(true);
     const nextIssue = signupProfileIssue({ name, cpf, birthDate, phone });
     if (nextIssue) {
       setIssue(nextIssue);
@@ -279,6 +311,13 @@ export function CreateAccountFlow({
     if (emailIssue) {
       setIssue(emailIssue);
       setStep('email');
+      return;
+    }
+    const profileIssue = signupProfileIssue({ name, cpf, birthDate, phone });
+    if (profileIssue) {
+      setProfileTried(true);
+      setIssue(profileIssue);
+      setStep('profile');
       return;
     }
     const nextIssue = signupAccessIssue({ password, confirmPassword, acceptedPrivacy });
@@ -305,9 +344,14 @@ export function CreateAccountFlow({
     );
   }
 
-  const cpfFieldError = viewStep === 'profile' && activeIssue?.field === 'cpf' ? activeIssue.message : '';
+  const nameFieldError = profileMessage('name', nameIssue, showNameError);
+  const cpfFieldError = profileMessage('cpf', cpfIssue, showCpfError);
+  const birthFieldError = profileMessage('birthDate', birthIssue, showBirthError);
+  const phoneFieldError = profileMessage('phone', phoneIssue, showPhoneError);
   const emailFieldError = viewStep === 'email' && activeIssue?.field === 'email' ? activeIssue.message : '';
-  const message = error || (cpfFieldError || emailFieldError ? '' : activeIssue?.message || '');
+  const message =
+    error ||
+    (viewStep === 'profile' || emailFieldError ? '' : activeIssue?.message || '');
   const accountAction = (
     <HaveAccount
       href={haveAccountHref}
@@ -385,7 +429,7 @@ export function CreateAccountFlow({
               {message}
             </div>
           ) : null}
-          <div className={fieldInvalid('name') ? 'acct-field is-invalid' : 'acct-field'}>
+          <div className={nameFieldError ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-name">
               Nome completo
             </label>
@@ -397,14 +441,21 @@ export function CreateAccountFlow({
               autoComplete="name"
               enterKeyHint="next"
               value={name}
-              aria-invalid={fieldInvalid('name') || undefined}
+              aria-invalid={Boolean(nameFieldError) || undefined}
+              aria-describedby={nameFieldError ? 'signup-name-error' : undefined}
+              onBlur={() => markTouched('name')}
               onChange={(e) => {
                 setName(e.target.value);
                 touch();
               }}
             />
+            {nameFieldError ? (
+              <p className="acct-field-error" id="signup-name-error" role="alert">
+                {nameFieldError}
+              </p>
+            ) : null}
           </div>
-          <div className={fieldInvalid('cpf') ? 'acct-field is-invalid' : 'acct-field'}>
+          <div className={cpfFieldError ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-cpf">
               CPF
             </label>
@@ -419,8 +470,9 @@ export function CreateAccountFlow({
               maxLength={14}
               enterKeyHint="next"
               value={cpf}
-              aria-invalid={fieldInvalid('cpf') || undefined}
+              aria-invalid={Boolean(cpfFieldError) || undefined}
               aria-describedby={cpfFieldError ? 'signup-cpf-error' : undefined}
+              onBlur={() => markTouched('cpf')}
               onChange={(e) => {
                 setCpf(maskCpf(e.target.value));
                 touch();
@@ -432,7 +484,7 @@ export function CreateAccountFlow({
               </p>
             ) : null}
           </div>
-          <div className={fieldInvalid('birthDate') ? 'acct-field is-invalid' : 'acct-field'}>
+          <div className={birthFieldError ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-birth">
               Data de nascimento
             </label>
@@ -448,8 +500,9 @@ export function CreateAccountFlow({
               placeholder="DD/MM/AAAA"
               maxLength={10}
               value={birthDate}
-              aria-invalid={fieldInvalid('birthDate') || undefined}
-              aria-describedby="signup-birth-hint"
+              aria-invalid={Boolean(birthFieldError) || undefined}
+              aria-describedby={birthFieldError ? 'signup-birth-hint signup-birth-error' : 'signup-birth-hint'}
+              onBlur={() => markTouched('birthDate')}
               onKeyDown={(e) => {
                 if (e.key !== 'Enter') return;
                 e.preventDefault();
@@ -461,8 +514,13 @@ export function CreateAccountFlow({
               }}
             />
             <p id="signup-birth-hint" className="acct-hint">É preciso ter 18 anos ou mais.</p>
+            {birthFieldError ? (
+              <p className="acct-field-error" id="signup-birth-error" role="alert">
+                {birthFieldError}
+              </p>
+            ) : null}
           </div>
-          <div className={fieldInvalid('phone') ? 'acct-field is-invalid' : 'acct-field'}>
+          <div className={phoneFieldError ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-phone">
               WhatsApp (opcional, com DDD)
             </label>
@@ -477,14 +535,21 @@ export function CreateAccountFlow({
               maxLength={32}
               enterKeyHint="next"
               value={phone}
-              aria-invalid={fieldInvalid('phone') || undefined}
+              aria-invalid={Boolean(phoneFieldError) || undefined}
+              aria-describedby={phoneFieldError ? 'signup-phone-error' : undefined}
+              onBlur={() => markTouched('phone')}
               onChange={(e) => {
                 setPhone(e.target.value);
                 touch();
               }}
             />
+            {phoneFieldError ? (
+              <p className="acct-field-error" id="signup-phone-error" role="alert">
+                {phoneFieldError}
+              </p>
+            ) : null}
           </div>
-          <button className="acct-cta" type="submit">
+          <button className="acct-cta" type="submit" disabled={!profileReady || busy}>
             Continuar
           </button>
           {accountAction}

@@ -44,7 +44,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Registrar cliente',
     description:
-      'Conta nova abre a mesma sessão do login (Set-Cookie sch_refresh e sch_access, e o mesmo JSON de /auth/login). CPF já cadastrado: 409 “Este CPF já possui conta. Entre ou use outro CPF.” E-mail já cadastrado: 409 “Este e-mail já possui conta. Faça login.” CPF inválido ou menor de 18 anos continua 400. Carrinho guest é mesclado como no login.',
+      'Conta nova abre a mesma sessão do login (Set-Cookie sch_refresh e sch_access, e o mesmo JSON de /auth/login). CPF já cadastrado: 409 “Este CPF já possui conta. Entre ou use outro CPF.” E-mail já cadastrado: 409 “Este e-mail já possui conta. Faça login.” Nome incompleto, CPF inválido, WhatsApp inválido ou menor de 18 anos continua 400. Carrinho guest é mesclado como no login.',
   })
   @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
