@@ -45,8 +45,11 @@ assert.equal((cart.match(/cart-checkout-btn/g) || []).length, 2, 'only the stick
 
 const entrar = readFileSync(join(root, 'app/entrar/page.tsx'), 'utf8');
 assert.ok(entrar.includes('/auth/register'), 'entrar can create account at buy time');
-assert.ok(entrar.includes('/auth/login'), 'register then login issues session cookies');
-assert.ok(entrar.includes('saveSession'), 'login/register-at-checkout updates sch_user');
+assert.ok(entrar.includes('/auth/login'), 'Entrar still posts /auth/login');
+assert.ok(entrar.includes('saveSession'), 'login/register updates sch_user');
+const registerFn = entrar.slice(entrar.indexOf('async function submitRegister'), entrar.indexOf('\n  return ('));
+assert.ok(registerFn.includes('finishLogin'), 'register at checkout uses the login session path');
+assert.equal(registerFn.includes('/auth/login'), false, 'register itself issues the session');
 const signupUi = readFileSync(join(root, 'components/account/CreateAccountFlow.tsx'), 'utf8');
 assert.ok(entrar.includes('CreateAccountFlow'), 'entrar register mode is the multi-step flow');
 assert.ok(signupUi.includes('Cadastrar e continuar'), 'Portuguese register CTA');
@@ -54,7 +57,9 @@ assert.ok(!entrar.includes("localStorage.setItem('sch_access'"), 'no access JWT 
 assert.ok(!entrar.includes("localStorage.setItem('sch_refresh'"), 'no refresh JWT in storage');
 
 const cadastro = readFileSync(join(root, 'app/cadastro/page.tsx'), 'utf8');
-assert.ok(!cadastro.includes('saveSession'), 'standalone cadastro stays anti-enum (no auto-login)');
+assert.ok(cadastro.includes('saveSession'), 'standalone cadastro stays logged in');
+assert.ok(cadastro.includes('window.location.href'), 'cadastro redirects to next or /conta');
+assert.equal(cadastro.includes('Entrar para continuar'), false);
 
 const conta = readFileSync(join(root, 'app/conta/page.tsx'), 'utf8');
 assert.ok(conta.includes('useSessionUser'), 'Conta hydrates cookie session for Olá');

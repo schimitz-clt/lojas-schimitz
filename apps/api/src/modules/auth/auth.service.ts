@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   Inject,
@@ -18,7 +19,7 @@ import { birthDateError, birthDateToUtcDate } from './birth-date';
 import { cpfError, normalizeCpf } from './cpf';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
-import { registerAcceptedResult } from './register-public';
+import { registerDuplicateConflict } from './register-public';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -65,6 +66,12 @@ function sanitizeSiteCandidate(raw: string | undefined | null): string | null {
   return s;
 }
 
+function registerUniqueTarget(error: Prisma.PrismaClientKnownRequestError): string {
+  const target = error.meta?.target;
+  if (Array.isArray(target)) return target.map((part) => String(part)).join(' ').toLowerCase();
+  return String(target || '').toLowerCase();
+}
+
 function isLocalOrInvalidHost(site: string): boolean {
   const lower = site.toLowerCase();
   if (lower.includes('localhost') || lower.includes('127.0.0.1') || lower.includes('[::1]')) {
@@ -100,10 +107,10 @@ export class AuthService {
   ) {}
 
   /**
-   * Always the same generic success (no e-mail or CPF enumeration).
-   * Hash first so existing vs new takes similar time; never 409 "já cadastrado".
-   * Invalid CPF or birth date is a 400 (validation), not a collision.
-   * New accounts still get welcome mail; the client must login afterwards.
+   * New customer: same session payload as login (`issue`).
+   * Existing CPF → 409 CPF_ALREADY_REGISTERED.
+   * Existing e-mail (CPF free) → 409 EMAIL_ALREADY_REGISTERED.
+   * Invalid CPF or birth date stays 400. Guest cart merge is the controller's job.
    */
   async register(dto: RegisterDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
@@ -115,15 +122,20 @@ export class AuthService {
     const cpf = normalizeCpf(dto.cpf);
     const birthDate = birthDateToUtcDate(dto.birthDate);
 
-    const passwordHash = await argon2.hash(dto.password);
     const [emailOwner, cpfOwner] = await Promise.all([
       this.prisma.user.findUnique({ where: { email } }),
       this.prisma.user.findUnique({ where: { cpf } }),
     ]);
-    if (emailOwner || cpfOwner) {
-      return registerAcceptedResult();
+    const conflict = registerDuplicateConflict({
+      email: Boolean(emailOwner),
+      cpf: Boolean(cpfOwner),
+    });
+    if (conflict) {
+      throw new ConflictException({ message: conflict.message, code: conflict.code });
     }
-    let user: { id: string; email: string; role: string; name: string | null };
+
+    const passwordHash = await argon2.hash(dto.password);
+    let user: { id: string; email: string; role: string; name: string };
     try {
       user = await this.prisma.user.create({
         data: {
@@ -138,13 +150,20 @@ export class AuthService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        return registerAcceptedResult();
+        const target = registerUniqueTarget(e);
+        const raced = registerDuplicateConflict({
+          cpf: target.includes('cpf'),
+          email: !target.includes('cpf'),
+        });
+        if (raced) {
+          throw new ConflictException({ message: raced.message, code: raced.code });
+        }
       }
       throw e;
     }
     this.attempts.clear(ip, dto.email);
     await this.notifyWelcome(user.id, user.email, user.name);
-    return registerAcceptedResult();
+    return this.issue(user.id, user.email, user.role, user.name);
   }
 
   /** Best-effort welcome after register — no recipient e-mail in logs. */

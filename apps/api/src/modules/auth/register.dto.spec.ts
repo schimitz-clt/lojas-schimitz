@@ -68,9 +68,10 @@ async function main() {
   assert.ok(svc.includes('cpf,'), 'register persiste o CPF normalizado');
   assert.ok(svc.includes('birthDate,'), 'register persiste a data de nascimento');
   assert.ok(svc.includes('where: { cpf }'), 'CPF duplicado é consultado');
-  assert.ok(svc.includes('registerAcceptedResult'), 'colisão segue a resposta genérica');
-  assert.ok(!svc.includes('CPF já'), 'não revela CPF já cadastrado');
-  assert.ok(!/async register\([\s\S]*throw new ConflictException/.test(svc));
+  assert.ok(svc.includes('registerDuplicateConflict'), 'CPF ou e-mail duplicado vira conflito');
+  assert.ok(svc.includes('Este CPF já possui conta') || svc.includes('registerDuplicateConflict'));
+  assert.ok(/async register\([\s\S]*throw new ConflictException/.test(svc), 'duplicata responde 409');
+  assert.ok(svc.includes('return this.issue('), 'conta nova emite sessão');
 
   console.log('register dto tests ok');
 }
