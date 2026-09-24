@@ -5,7 +5,7 @@ import type { Request, Response } from 'express';
 import { ok } from '../../common/http';
 import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
-import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
+import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto, SignupEmailDto } from './dto';
 import {
   clearAuthCookies,
   issueAuthSession,
@@ -38,6 +38,17 @@ export class AuthController {
     } catch (e: any) {
       this.log.warn(`guest cart merge falhou userId=${userId}: ${e?.message || e}`);
     }
+  }
+
+  @Post('signup-email')
+  @ApiOperation({
+    summary: 'E-mail já tem conta?',
+    description:
+      'Passo 1 do cadastro. Resposta só com { exists: boolean } — sem nome, CPF ou outros dados. exists true segue para a senha em POST /auth/login (mesmo cookie sch_refresh). exists false segue o cadastro em 3 passos. Esqueci/alterar senha continua em POST /auth/forgot-password.',
+  })
+  @Throttle({ default: { limit: 8, ttl: 60000 } })
+  async signupEmail(@Body() dto: SignupEmailDto) {
+    return ok(await this.auth.signupEmailExists(dto.email));
   }
 
   @Post('register')

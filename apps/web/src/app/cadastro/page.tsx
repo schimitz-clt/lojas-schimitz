@@ -3,7 +3,13 @@ import { useEffect, useState } from 'react';
 import { api, saveSession } from '@/lib/api';
 import { loginNextPath } from '@/lib/order-recovery';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
-import { readRegisterFailure, type RegisterBody, type SignupIssue } from '@/lib/signup-flow';
+import {
+  readRegisterFailure,
+  readSignupEmailExists,
+  signupEmailForApi,
+  type RegisterBody,
+  type SignupIssue,
+} from '@/lib/signup-flow';
 
 function safeNextPath(): string {
   if (typeof window === 'undefined') return '/conta';
@@ -25,6 +31,44 @@ export default function CadastroPage() {
   useEffect(() => {
     setLoginHref(loginNextPath(safeNextPath()));
   }, []);
+
+  async function lookupEmail(email: string) {
+    const data = await api<{ exists: boolean }>('/auth/signup-email', {
+      method: 'POST',
+      body: JSON.stringify({ email: signupEmailForApi(email) }),
+    });
+    return readSignupEmailExists(data);
+  }
+
+  async function signIn(input: { email: string; password: string }) {
+    setErr('');
+    setServerIssue(null);
+    setBusy(true);
+    try {
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email: signupEmailForApi(input.email), password: input.password }),
+        },
+      );
+      if (!data?.accessToken || !data.user) {
+        setErr('Não foi possível abrir a sessão. Tente entrar.');
+        return;
+      }
+      saveSession(data);
+      try {
+        localStorage.removeItem('sch_guest');
+      } catch {
+        /* ignore */
+      }
+      window.location.href = safeNextPath();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(body: RegisterBody) {
     setErr('');
@@ -66,6 +110,8 @@ export default function CadastroPage() {
           setServerIssue(null);
         }}
         haveAccountHref={loginHref}
+        onLookupEmail={lookupEmail}
+        onSignIn={signIn}
         onRegister={submit}
       />
     </div>

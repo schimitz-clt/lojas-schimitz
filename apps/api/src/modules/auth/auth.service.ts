@@ -22,6 +22,7 @@ import { phoneError } from './phone';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
 import { registerDuplicateConflict } from './register-public';
+import { signupEmailCheck } from './signup-email';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -107,6 +108,21 @@ export class AuthService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Signup passo 1. Boolean only — callers must not receive name, CPF, phone, or birth date.
+   * Any user row counts, including inactive, so the form does not collect a second profile
+   * for an e-mail the unique index already owns. Login still rejects a bad password.
+   */
+  async signupEmailExists(emailRaw: string) {
+    const email = (emailRaw || '').trim().toLowerCase();
+    if (!email) return signupEmailCheck(false);
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return signupEmailCheck(Boolean(user));
+  }
 
   /**
    * New customer: same session payload as login (`issue`).

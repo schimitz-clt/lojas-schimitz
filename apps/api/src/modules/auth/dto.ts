@@ -43,6 +43,13 @@ export class RegisterDto {
   birthDate!: string;
 }
 
+/** Passo 1 do cadastro. A resposta da API é só `{ exists: boolean }`. */
+export class SignupEmailDto {
+  @ApiProperty({ example: 'cliente@exemplo.com' })
+  @IsEmail()
+  email!: string;
+}
+
 export class LoginDto {
   @ApiProperty({ example: 'cliente@exemplo.com' })
   @IsEmail()

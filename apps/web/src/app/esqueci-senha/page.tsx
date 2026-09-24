@@ -1,10 +1,20 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { signupEmailForApi, signupEmailIssue } from '@/lib/signup-flow';
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('email') || '';
+      if (raw && !signupEmailIssue(raw)) setEmail(signupEmailForApi(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [sent, setSent] = useState(false);

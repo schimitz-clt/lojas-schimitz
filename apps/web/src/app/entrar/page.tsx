@@ -4,7 +4,13 @@ import Link from 'next/link';
 import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
-import { readRegisterFailure, type RegisterBody, type SignupIssue } from '@/lib/signup-flow';
+import {
+  readRegisterFailure,
+  readSignupEmailExists,
+  signupEmailForApi,
+  type RegisterBody,
+  type SignupIssue,
+} from '@/lib/signup-flow';
 
 function safeNextPath(): string {
   if (typeof window === 'undefined') return '/conta';
@@ -51,6 +57,34 @@ export default function EntrarPage() {
       const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
         '/auth/login',
         { method: 'POST', body: JSON.stringify({ email, password }) },
+      );
+      await finishLogin(data);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function lookupSignupEmail(email: string) {
+    const data = await api<{ exists: boolean }>('/auth/signup-email', {
+      method: 'POST',
+      body: JSON.stringify({ email: signupEmailForApi(email) }),
+    });
+    return readSignupEmailExists(data);
+  }
+
+  async function signInExisting(input: { email: string; password: string }) {
+    setErr('');
+    setServerIssue(null);
+    setBusy(true);
+    try {
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email: signupEmailForApi(input.email), password: input.password }),
+        },
       );
       await finishLogin(data);
     } catch (e: unknown) {
@@ -182,6 +216,8 @@ export default function EntrarPage() {
             setErr('');
             setServerIssue(null);
           }}
+          onLookupEmail={lookupSignupEmail}
+          onSignIn={signInExisting}
           onRegister={submitRegister}
         />
       )}

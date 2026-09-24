@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
 import Link from 'next/link';
 import {
+  REGISTER_EMAIL_EXISTS_MESSAGE,
   SIGNUP_STORE_NAME,
   birthDateToIso,
   buildRegisterBody,
@@ -10,13 +11,18 @@ import {
   cpfDigits,
   maskBirthDate,
   maskCpf,
+  passwordResetHref,
   signupAccessIssue,
   signupBirthDateDisplayIssue,
   signupCpfIssue,
+  signupEmailForApi,
   signupEmailIssue,
+  signupLookupErrorMessage,
   signupNameIssue,
+  signupPathAfterEmail,
   signupPhoneIssue,
   signupProfileIssue,
+  signupSignInIssue,
   type RegisterBody,
   type SignupField,
   type SignupIssue,
@@ -29,6 +35,10 @@ type Props = {
   /** 409 from POST /auth/register, already pointed at CPF or e-mail. */
   serverIssue?: SignupIssue | null;
   onRegister: (body: RegisterBody) => Promise<void> | void;
+  /** POST /auth/signup-email. The server decides exists; format-only checks are not enough. */
+  onLookupEmail: (email: string) => Promise<boolean>;
+  /** Existing account: POST /auth/login, same cookie session as Entrar. */
+  onSignIn: (input: { email: string; password: string }) => Promise<void> | void;
   onEdit?: () => void;
   /** Switch the Entrar/Criar conta sheet back to login without leaving the page. */
   onHaveAccount?: () => void;
@@ -36,13 +46,15 @@ type Props = {
   haveAccountHref?: string;
 };
 
-const STEP_CAPTION: Record<SignupStep, string> = {
+type CreateStep = Exclude<SignupStep, 'signin'>;
+
+const STEP_CAPTION: Record<CreateStep, string> = {
   email: 'E-mail',
   profile: 'Seus dados',
   access: 'Senha',
 };
 
-function stepNumber(step: SignupStep): 1 | 2 | 3 {
+function stepNumber(step: CreateStep): 1 | 2 | 3 {
   if (step === 'email') return 1;
   if (step === 'profile') return 2;
   return 3;
@@ -84,7 +96,7 @@ function HaveAccount({
   return null;
 }
 
-function SignupProgress({ step }: { step: SignupStep }) {
+function SignupProgress({ step }: { step: CreateStep }) {
   const current = stepNumber(step);
   return (
     <div className="acct-progress-wrap">
@@ -192,6 +204,8 @@ export function CreateAccountFlow({
   error,
   serverIssue,
   onRegister,
+  onLookupEmail,
+  onSignIn,
   onEdit,
   onHaveAccount,
   haveAccountHref,
@@ -205,14 +219,17 @@ export function CreateAccountFlow({
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [issue, setIssue] = useState<SignupIssue | null>(null);
   const [profileTried, setProfileTried] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<'name' | 'cpf' | 'birthDate' | 'phone', boolean>>>({});
+  const [checking, setChecking] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const lookupSeq = useRef(0);
   const activeIssue = serverIssue ?? issue;
   const nameIssue = signupNameIssue(name);
   const cpfIssue = signupCpfIssue(cpf);
@@ -223,15 +240,21 @@ export function CreateAccountFlow({
   const showCpfError = profileTried || Boolean(touched.cpf) || cpfDigits(cpf).length >= 11;
   const showBirthError = profileTried || Boolean(touched.birthDate) || birthDate.trim().length >= 10;
   const showPhoneError = profileTried || Boolean(touched.phone) || phone.replace(/\D/g, '').length >= 10;
-  const viewStep: SignupStep =
-    serverIssue?.field === 'email' ? 'email' : serverIssue?.field === 'cpf' ? 'profile' : step;
+  const emailAlreadyRegistered = serverIssue?.field === 'email' && Boolean(displayEmail);
+  const viewStep: SignupStep = emailAlreadyRegistered
+    ? 'signin'
+    : serverIssue?.field === 'email'
+      ? 'email'
+      : serverIssue?.field === 'cpf'
+        ? 'profile'
+        : step;
 
   useEffect(() => {
     if (!serverIssue) return;
     setIssue(serverIssue);
-    if (serverIssue.field === 'email') setStep('email');
+    if (serverIssue.field === 'email') setStep(displayEmail ? 'signin' : 'email');
     else if (serverIssue.field === 'cpf') setStep('profile');
-  }, [serverIssue]);
+  }, [serverIssue, displayEmail]);
 
   useEffect(() => {
     // Focus only when the step changes. Refocusing when the CPF error clears
@@ -268,7 +291,10 @@ export function CreateAccountFlow({
   }
 
   function editEmail() {
+    lookupSeq.current += 1;
+    setChecking(false);
     setIssue(null);
+    setSignInPassword('');
     onEdit?.();
     setStep('email');
   }
@@ -279,17 +305,49 @@ export function CreateAccountFlow({
     setStep((current) => (current === 'access' ? 'profile' : 'email'));
   }
 
-  function submitEmail(e: FormEvent) {
+  async function submitEmail(e: FormEvent) {
     e.preventDefault();
     const next = continueFromEmail(email);
     if (!next.ok) {
       setIssue(next.issue);
       return;
     }
+    const seq = ++lookupSeq.current;
     setIssue(null);
     onEdit?.();
-    setDisplayEmail(next.displayEmail);
-    setStep('profile');
+    setChecking(true);
+    try {
+      const exists = await onLookupEmail(next.displayEmail);
+      if (seq !== lookupSeq.current) return;
+      const typed = signupEmailForApi(emailRef.current?.value || '');
+      if (typed !== signupEmailForApi(next.displayEmail)) return;
+      setDisplayEmail(next.displayEmail);
+      setSignInPassword('');
+      const path = signupPathAfterEmail(exists);
+      setStep(path === 'signin' ? 'signin' : 'profile');
+    } catch (err: unknown) {
+      if (seq !== lookupSeq.current) return;
+      setIssue({ field: 'email', message: signupLookupErrorMessage(err) });
+    } finally {
+      if (seq === lookupSeq.current) setChecking(false);
+    }
+  }
+
+  async function submitSignIn(e: FormEvent) {
+    e.preventDefault();
+    const emailIssue = signupEmailIssue(displayEmail);
+    if (emailIssue) {
+      setIssue(emailIssue);
+      setStep('email');
+      return;
+    }
+    const nextIssue = signupSignInIssue(signInPassword);
+    if (nextIssue) {
+      setIssue(nextIssue);
+      return;
+    }
+    setIssue(null);
+    await onSignIn({ email: displayEmail, password: signInPassword });
   }
 
   function submitProfile(e: FormEvent) {
@@ -349,9 +407,13 @@ export function CreateAccountFlow({
   const birthFieldError = profileMessage('birthDate', birthIssue, showBirthError);
   const phoneFieldError = profileMessage('phone', phoneIssue, showPhoneError);
   const emailFieldError = viewStep === 'email' && activeIssue?.field === 'email' ? activeIssue.message : '';
+  const hideEmailExistsOnSignIn =
+    viewStep === 'signin' &&
+    activeIssue?.field === 'email' &&
+    activeIssue.message === REGISTER_EMAIL_EXISTS_MESSAGE;
   const message =
     error ||
-    (viewStep === 'profile' || emailFieldError ? '' : activeIssue?.message || '');
+    (viewStep === 'profile' || emailFieldError || hideEmailExistsOnSignIn ? '' : activeIssue?.message || '');
   const accountAction = (
     <HaveAccount
       href={haveAccountHref}
@@ -363,7 +425,7 @@ export function CreateAccountFlow({
   let body: ReactNode;
   if (viewStep === 'email') {
     body = (
-      <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail}>
+      <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail} aria-busy={checking || undefined}>
         <SignupProgress step="email" />
         <h1 className="acct-title">Criar meu cadastro</h1>
         <span className="acct-kicker" aria-hidden />
@@ -403,8 +465,8 @@ export function CreateAccountFlow({
             </p>
           ) : null}
         </div>
-        <button className="acct-cta" type="submit">
-          Continuar
+        <button className="acct-cta" type="submit" disabled={checking || busy}>
+          {checking ? 'Verificando…' : 'Continuar'}
         </button>
         {accountAction}
       </form>
@@ -556,7 +618,7 @@ export function CreateAccountFlow({
         </form>
       </div>
     );
-  } else {
+  } else if (viewStep === 'access') {
     body = (
       <div data-signup-step="access" data-fixed-email={displayEmail}>
         <div className="acct-head">
@@ -624,6 +686,50 @@ export function CreateAccountFlow({
             {busy ? 'Criando conta…' : 'Cadastrar e continuar'}
           </button>
           {accountAction}
+        </form>
+      </div>
+    );
+  } else {
+    body = (
+      <div data-signup-step="signin" data-fixed-email={displayEmail} data-account-gate="existing">
+        <div className="acct-head">
+          <button type="button" className="acct-back" aria-label="Voltar" onClick={editEmail} disabled={busy}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 className="acct-title">Você já tem cadastro</h1>
+        </div>
+        <FixedEmail email={displayEmail} busy={busy} onAlter={editEmail} />
+        <form className="acct-form" noValidate onSubmit={submitSignIn} aria-busy={busy}>
+          <p className="acct-lead">Este e-mail já tem conta. Informe a senha para entrar.</p>
+          <p className="sr-only">Não pedimos nome, CPF nem data de nascimento de novo.</p>
+          {message ? (
+            <div className="alert" role="alert">
+              {message}
+            </div>
+          ) : null}
+          <PasswordLine
+            id="signup-signin-password"
+            label="Senha"
+            value={signInPassword}
+            autoComplete="current-password"
+            invalid={fieldInvalid('password')}
+            inputRef={passwordRef}
+            onChange={(value) => {
+              setSignInPassword(value);
+              touch();
+            }}
+          />
+          <button className="acct-cta" type="submit" disabled={busy}>
+            {busy ? 'Entrando…' : 'Entrar'}
+          </button>
+          <Link className="acct-textlink" href={passwordResetHref(displayEmail)}>
+            Esqueci minha senha
+          </Link>
+          <Link className="acct-textlink" href={passwordResetHref(displayEmail)}>
+            Alterar senha
+          </Link>
         </form>
       </div>
     );
