@@ -7,10 +7,8 @@ import {
   MARKETPLACE_PHASE3_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
   isHouseBrandOnly,
-  marketplaceEmptySellersCopy,
   marketplaceIntro,
   marketplaceSellersHeading,
-  sellerProductCountLabel,
   normalizePublicSellers,
   uniqueSellersFromProducts,
 } from './marketplace-copy';
@@ -24,13 +22,6 @@ assert.equal(
 );
 assert.equal(marketplaceSellersHeading([house]), 'Vendedor atual');
 assert.equal(marketplaceSellersHeading([house, { id: '2', name: 'Parceiro', slug: 'parceiro' }]), 'Vendedores ativos');
-assert.equal(sellerProductCountLabel(0), 'Sem anúncios no momento');
-assert.equal(sellerProductCountLabel(1), '1 produto');
-assert.equal(sellerProductCountLabel(100), '100 produtos');
-assert.equal(sellerProductCountLabel(undefined), null);
-const emptySellers = marketplaceEmptySellersCopy();
-assert.ok(/nenhum vendedor/i.test(emptySellers.title));
-assert.ok(/fictíc/i.test(emptySellers.body));
 assert.ok(marketplaceIntro([house]).includes('loja própria'));
 assert.ok(!marketplaceIntro([house]).includes('vendedores parceiros'));
 
@@ -73,9 +64,6 @@ assert.ok(MARKETPLACE_PHASE3_NOTE.includes('Rollback'));
 assert.ok(MARKETPLACE_V1_NOT_BUILT.every((item) => !/oauth/i.test(item)));
 assert.ok(page.includes('portal do vendedor'), 'hub links /vendedor');
 assert.ok(page.includes('Vendido por'), 'hub mentions PDP seller label');
-assert.ok(page.includes('marketplaceEmptySellersCopy'), 'empty seller directory uses the helper');
-assert.ok(page.includes('sellerProductCountLabel'), 'zero listings are not shown as 0 produto(s)');
-assert.ok(!page.includes('produto(s)'), 'marketplace count is not the raw 0 produto(s) string');
 
 const admin = readFileSync(
   join(__dirname, '..', 'components/admin/sections/AdminMarketplaceSection.tsx'),

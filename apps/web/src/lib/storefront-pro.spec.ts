@@ -17,8 +17,6 @@ import {
   parseCatalogSort,
   pdpBuyNowHref,
   pixHighlight,
-  catalogListEmptyCopy,
-  departmentEmptyCopy,
   searchEmptyCopy,
   searchEmptyWhatsAppHref,
   SEARCH_EMPTY_WHATSAPP_TEXT,
@@ -93,42 +91,6 @@ assert.ok(/whatsapp|catálogo|departamento/i.test(emptyQ.body), 'empty copy poin
 
 const emptyFilters = searchEmptyCopy('', true);
 assert.ok(/filtros/i.test(emptyFilters.title) || /filtros/i.test(emptyFilters.body));
-
-const bareCatalog = catalogListEmptyCopy({ q: '', hasFilters: false });
-assert.equal(bareCatalog.kicker, 'Catálogo');
-assert.ok(/ainda não tem produtos/i.test(bareCatalog.title));
-assert.ok(bareCatalog.whatsappText && bareCatalog.whatsappText.length > 20);
-assert.ok(!/r\$\s*\d/i.test(bareCatalog.body));
-
-const sellerEmpty = catalogListEmptyCopy({
-  q: '',
-  hasFilters: true,
-  sellerOnly: true,
-  sellerName: 'Rafaela S.M',
-});
-assert.ok(sellerEmpty.title.includes('Rafaela S.M'));
-assert.equal(sellerEmpty.clearFiltersLabel, 'Ver todo o catálogo');
-
-const filteredEmpty = catalogListEmptyCopy({ q: '', hasFilters: true });
-assert.equal(filteredEmpty.kicker, 'Filtros');
-assert.ok(/filtros/i.test(filteredEmpty.title));
-
-const ofertasEmpty = departmentEmptyCopy({ slug: 'ofertas', title: 'Ofertas', hasFilters: false });
-assert.equal(ofertasEmpty.primaryHref, '/#ofertas');
-assert.ok(/categoria Ofertas/i.test(ofertasEmpty.body));
-assert.ok(/página inicial/i.test(ofertasEmpty.body));
-assert.ok(!/r\$\s*\d/.test(ofertasEmpty.body));
-
-const esporteEmpty = departmentEmptyCopy({ slug: 'esporte', title: 'Esporte', hasFilters: false });
-assert.equal(esporteEmpty.primaryHref, '/produtos');
-assert.ok(esporteEmpty.title.includes('Esporte'));
-
-const filteredDept = departmentEmptyCopy({ slug: 'celulares', title: 'Celulares', hasFilters: true });
-assert.equal(filteredDept.primaryHref, '/departamento/celulares');
-assert.ok(/filtros/i.test(filteredDept.title));
-
-const zeroHead = searchResultsHeading('', 0);
-assert.equal(zeroHead.subtitle, 'Nenhum produto publicado ainda');
 
 assert.equal(formatPriceRangeChip('', ''), null);
 assert.ok(formatPriceRangeChip('100', '500')!.includes('100'));

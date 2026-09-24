@@ -6,12 +6,9 @@ import {
   MARKETPLACE_PHASE2_NOTE,
   MARKETPLACE_PHASE3_NOTE,
   MARKETPLACE_V1_NOT_BUILT,
-  marketplaceEmptySellersCopy,
   marketplaceIntro,
   marketplaceSellersHeading,
-  sellerProductCountLabel,
 } from '@/lib/marketplace-copy';
-import { StorefrontEmpty } from '@/components/storefront/StorefrontEmpty';
 import { fetchPublicSellers } from '@/lib/storefront';
 import { MARKETPLACE_SEO, storefrontPageMetadata } from '@/lib/seo-metadata';
 
@@ -54,28 +51,21 @@ export default async function MarketplacePage() {
           <h2 style={{ marginTop: 0, fontSize: 18 }}>{heading}</h2>
           {sellers.length ? (
             <ul style={{ margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
-              {sellers.map((s) => {
-                const countLabel = sellerProductCountLabel(s.productCount);
-                return (
-                  <li key={s.id}>
-                    <Link href={`/produtos?seller=${encodeURIComponent(s.slug)}`} style={{ color: 'var(--primary-dark)' }}>
-                      {s.name}
-                    </Link>
-                    {countLabel ? <span className="muted"> · {countLabel}</span> : null}
-                  </li>
-                );
-              })}
+              {sellers.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/produtos?seller=${encodeURIComponent(s.slug)}`} style={{ color: 'var(--primary-dark)' }}>
+                    {s.name}
+                  </Link>
+                  {s.productCount != null ? (
+                    <span className="muted"> · {s.productCount} produto(s)</span>
+                  ) : null}
+                </li>
+              ))}
             </ul>
           ) : (
-            <StorefrontEmpty
-              kicker="Marketplace"
-              title={marketplaceEmptySellersCopy().title}
-              body={marketplaceEmptySellersCopy().body}
-              actions={[
-                { href: '/produtos', label: 'Ver produtos' },
-                { href: '/suporte', label: 'Falar com a loja', variant: 'ghost' },
-              ]}
-            />
+            <p className="muted" style={{ marginTop: 0 }}>
+              Nenhum vendedor ativo listado no momento.
+            </p>
           )}
           <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0 }}>
             É vendedor e já tem acesso? Entre no{' '}

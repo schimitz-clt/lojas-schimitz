@@ -12,13 +12,12 @@ import {
   activeFilterCount,
   buildFilterChips,
   departmentTitle,
-  departmentEmptyCopy,
   emptySearchSuggestions,
   isExternalSearchShortcut,
   parseCatalogSort,
+  searchEmptyCopy,
   type FilterChip,
 } from '@/lib/storefront-pro';
-import { StorefrontEmpty } from '@/components/storefront/StorefrontEmpty';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { CatalogPager } from '@/components/storefront/CatalogPager';
 import { CATALOG_PAGE_SIZE, catalogPageSearch, parseCatalogPage } from '@/lib/catalog-pagination';
@@ -161,7 +160,7 @@ export default function DepartamentoClient() {
     sort: sort === 'newest' ? undefined : sort,
   });
   const hasExtra = Boolean(minPrice || maxPrice || (sort && sort !== 'newest'));
-  const empty = departmentEmptyCopy({ slug, title, hasFilters: hasExtra });
+  const empty = searchEmptyCopy('', hasExtra);
   const siblingNav = HOME_CATEGORIES.filter((c) => c.slug !== 'marketplace');
 
   useEffect(() => {
@@ -186,9 +185,7 @@ export default function DepartamentoClient() {
         <p className="sf-catalog-sub muted">
           {loading
             ? 'Carregando produtos…'
-            : total <= 0
-              ? 'Nenhum produto nesta prateleira · Lojas Schimitz'
-              : `${total === 1 ? '1 produto' : `${total.toLocaleString('pt-BR')} produtos`} · Lojas Schimitz`}
+            : `${total === 1 ? '1 produto' : `${total.toLocaleString('pt-BR')} produtos`} · Lojas Schimitz`}
         </p>
         <p className="sf-dept-crumbs muted">
           <Link href="/">Início</Link>
@@ -273,22 +270,26 @@ export default function DepartamentoClient() {
       {err ? <div className="alert">{err}</div> : null}
       {loading ? <ProductGridSkeleton count={6} /> : null}
       {!loading && !err && products.length === 0 ? (
-        <StorefrontEmpty kicker={empty.kicker} title={empty.title} body={empty.body}>
+        <div className="catalog-empty sf-catalog-empty">
+          <p className="sf-catalog-empty-title">
+            {hasExtra ? empty.title : 'Nenhum produto neste departamento.'}
+          </p>
+          <p className="muted sf-catalog-empty-body">
+            {hasExtra
+              ? empty.body
+              : 'Veja todos os produtos ou explore outro departamento.'}
+          </p>
           <div className="sf-catalog-empty-actions">
             {hasExtra ? (
               <button className="btn" type="button" onClick={clearExtra}>
-                {empty.primaryLabel}
+                Limpar filtros
               </button>
-            ) : (
-              <Link className="btn" href={empty.primaryHref}>
-                {empty.primaryLabel}
-              </Link>
-            )}
-            <Link className="btn ghost" href={slug === 'ofertas' ? '/produtos' : '/marketplace'}>
-              {slug === 'ofertas' ? 'Ver catálogo' : 'Marketplace'}
+            ) : null}
+            <Link className="btn ghost" href="/produtos">
+              Ver catálogo
             </Link>
-            <Link className="btn ghost" href="/suporte">
-              Falar com a loja
+            <Link className="btn ghost" href="/marketplace">
+              Marketplace
             </Link>
           </div>
           <ul className="sf-empty-suggestions" aria-label="Sugestões">
@@ -306,7 +307,7 @@ export default function DepartamentoClient() {
                 </li>
               ))}
           </ul>
-        </StorefrontEmpty>
+        </div>
       ) : null}
       {!loading ? (
         <div className="grid">

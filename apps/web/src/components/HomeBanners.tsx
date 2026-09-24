@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { api, brl, waLink } from '@/lib/api';
-import { homeHeroEmptyCopy } from '@/lib/home-ux';
+import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 import { INTEREST_FREE_INSTALLMENTS, interestFreeInstallmentClaim, pixPrice } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
@@ -50,62 +49,7 @@ type HeroProduct = CatProductLike & {
 };
 
 /** Hero promocional branco + produto real quando a API não tem banners. */
-function StaticPromoStrip({
-  featured,
-  catalogEmpty = false,
-}: {
-  featured?: HeroProduct | null;
-  catalogEmpty?: boolean;
-}) {
-  if (catalogEmpty) {
-    const copy = homeHeroEmptyCopy();
-    return (
-      <section className="home-hero home-hero-light home-hero-empty" aria-label="Vitrine em preparação">
-        <div className="home-hero-grid">
-          <div className="home-hero-copy">
-            <p className="home-hero-kicker">{copy.kicker}</p>
-            <h2 className="home-hero-title">
-              {copy.title}
-              <span className="home-hero-product-name">{copy.accent}</span>
-            </h2>
-            <p className="home-hero-sub">{copy.sub}</p>
-            <div className="home-hero-actions">
-              <Link className="btn home-hero-cta" href={copy.supportHref}>
-                {copy.supportLabel}
-              </Link>
-              <a
-                className="btn ghost home-hero-ghost"
-                href={waLink(copy.whatsappText)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {copy.whatsappLabel}
-              </a>
-            </div>
-            <ul className="home-hero-chips" aria-label="Benefícios">
-              <li>
-                <strong>PIX</strong> 5% off
-              </li>
-              <li>
-                <strong>{INTEREST_FREE_INSTALLMENTS}x</strong> sem juros
-              </li>
-              <li>
-                <strong>Frete</strong> grátis POA
-              </li>
-            </ul>
-          </div>
-          <div className="home-hero-visual" aria-hidden>
-            <div className="home-hero-visual-ph">
-              <span>
-                LOJAS <em>SCHIMITZ</em>
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
+function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
   const img = featured ? resolveRealProductImageUrl(featured) : '';
   const price = featured?.price != null ? Number(featured.price) : NaN;
   const hasPrice = Number.isFinite(price) && price > 0;
@@ -208,13 +152,7 @@ function BannerSkeleton() {
   );
 }
 
-export function HomeBanners({
-  products,
-  catalogEmpty = false,
-}: {
-  products?: HeroProduct[];
-  catalogEmpty?: boolean;
-}) {
+export function HomeBanners({ products }: { products?: HeroProduct[] }) {
   const [banners, setBanners] = useState<HomeBanner[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
@@ -447,7 +385,7 @@ export function HomeBanners({
   }, []);
 
   if (banners === null) return <BannerSkeleton />;
-  if (total === 0) return <StaticPromoStrip featured={featured} catalogEmpty={catalogEmpty} />;
+  if (total === 0) return <StaticPromoStrip featured={featured} />;
 
   return (
     <section
