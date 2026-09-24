@@ -5,8 +5,10 @@ import ProductClient, { type ProductDetail } from './ProductClient';
 import { JsonLd } from '@/components/JsonLd';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
+import { resolveProductShareImage } from '@/lib/og-image';
 import { isMissingPdp, pdpBreadcrumbName } from '@/lib/pdp-missing';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
+import { missingPageMetadata, storefrontPageMetadata } from '@/lib/seo-metadata';
 import type { Product } from '@/components/ProductCard';
 import {
   fetchProductMeta,
@@ -28,27 +30,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const base = siteOrigin();
   const path = `/produto/${encodeURIComponent(slug)}`;
   if (!product) {
-    notFound();
+    return missingPageMetadata();
   }
-  return {
+  return storefrontPageMetadata({
     title: product.name,
     description: product.description,
-    alternates: { canonical: path },
-    openGraph: {
-      title: product.name,
-      description: product.description,
-      type: 'website',
-      url: `${base}${path}`,
-      siteName: store.siteTitle,
-      ...(product.image ? { images: [{ url: product.image }] } : {}),
-    },
-    twitter: {
-      card: product.image ? 'summary_large_image' : 'summary',
-      title: product.name,
-      description: product.description,
-      ...(product.image ? { images: [product.image] } : {}),
-    },
-  };
+    path,
+    siteName: store.siteTitle,
+    origin: base,
+    image: resolveProductShareImage(product.image, base, product.name),
+  });
 }
 
 export default async function Page({ params }: Props) {

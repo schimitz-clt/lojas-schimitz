@@ -1,13 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { INTEREST_FREE_INSTALLMENTS, MAX_INSTALLMENTS } from '@/lib/pricing';
+import { storefrontPageMetadata, TERMOS_SEO } from '@/lib/seo-metadata';
 
-export const metadata: Metadata = {
-  title: 'Termos de Uso',
-  description:
-    'Condições de compra na Lojas Schimitz: preços, frete, pagamentos PIX/cartão e trocas.',
-  alternates: { canonical: '/termos' },
-};
+export const metadata: Metadata = storefrontPageMetadata(TERMOS_SEO);
 
 const UPDATED = '12 de setembro de 2026';
 

@@ -67,7 +67,7 @@ assert.ok(href.includes('text='));
 assert.ok(decodeURIComponent(href).includes('Lojas Schimitz'));
 
 const srcRoot = join(__dirname, '..');
-const page = readFileSync(join(srcRoot, 'app/page.tsx'), 'utf8');
+const page = readFileSync(join(srcRoot, 'app/home-client.tsx'), 'utf8');
 assert.ok(page.includes('<ComingSoonShelf'), 'home renders the teaser');
 assert.ok(page.includes('shouldShowComingSoonShelf'), 'home hides the teaser from the live count');
 assert.ok(page.includes('HomeShortcuts'), 'shortcuts stay');

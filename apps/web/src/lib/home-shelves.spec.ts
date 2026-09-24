@@ -120,7 +120,7 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
 }
 
 {
-  const page = readFileSync(join(__dirname, '../app/page.tsx'), 'utf8');
+  const page = readFileSync(join(__dirname, '../app/home-client.tsx'), 'utf8');
   assert.ok(page.includes('HomeShelves'), 'home renders dedicated shelves');
   assert.ok(page.includes('/store/shelves'), 'home fetches GET /store/shelves');
   assert.ok(!page.includes('Recomendados para você'), 'removed fake recommendations rail');

@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import {
   buildBreadcrumbList,
   buildProductJsonLd,
+  buildStoreJsonLd,
   formatOfferPrice,
   itemCondition,
   offerAvailability,
+  schemaImageUrl,
+  schemaTelephone,
   stringifyJsonLd,
 } from './json-ld';
 
@@ -91,5 +94,54 @@ const wwwGuard = buildBreadcrumbList('https://lojasschimitz.com.br', [
 const first = (wwwGuard.itemListElement as { item: string }[])[0].item;
 assert.ok(!first.includes('www.'));
 assert.ok(first.startsWith('https://lojasschimitz.com.br'));
+
+assert.equal(
+  schemaImageUrl(origin, '/api/v1/uploads/x.png'),
+  'https://lojasschimitz.com.br/api/v1/uploads/x.png',
+);
+assert.equal(schemaImageUrl(origin, 'https://placehold.co/600x400.png'), null);
+assert.equal(schemaImageUrl(origin, `${origin}/`), null);
+assert.equal(schemaTelephone('5551996253766'), '+5551996253766');
+assert.equal(schemaTelephone('123'), null);
+
+const relativePhoto = buildProductJsonLd(origin, {
+  name: 'Smart TV',
+  description: 'TV',
+  slug: 'smart-tv',
+  price: '1999.9',
+  image: '/api/v1/uploads/tv.jpg',
+  stock: 2,
+});
+assert.equal(relativePhoto.image, 'https://lojasschimitz.com.br/api/v1/uploads/tv.jpg');
+
+const noPhoto = buildProductJsonLd(origin, {
+  name: 'Alarme',
+  description: 'Sem foto',
+  slug: 'alarme',
+  price: '10',
+  image: 'https://placehold.co/600x400.png',
+  stock: 1,
+});
+assert.ok(!('image' in noPhoto));
+
+const store = buildStoreJsonLd(origin, {
+  name: 'Lojas Schimitz',
+  description: 'Eletro, celulares e casa em Porto Alegre.',
+  logoUrl: '/android-chrome-512x512.png',
+  telephone: '5551996253766',
+});
+assert.equal(store.length, 2);
+assert.equal(store[0]['@type'], 'Organization');
+assert.equal(store[1]['@type'], 'WebSite');
+assert.equal(store[1].inLanguage, 'pt-BR');
+assert.equal(store[0].logo, 'https://lojasschimitz.com.br/android-chrome-512x512.png');
+const action = store[1].potentialAction as { target: { urlTemplate: string } };
+assert.equal(
+  action.target.urlTemplate,
+  'https://lojasschimitz.com.br/produtos?q={search_term_string}',
+);
+assert.ok(!String(store[0].url).includes('www.'));
+const contact = store[0].contactPoint as { telephone: string };
+assert.equal(contact.telephone, '+5551996253766');
 
 console.log('json-ld unit tests ok');

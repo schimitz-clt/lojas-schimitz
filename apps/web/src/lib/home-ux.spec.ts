@@ -74,7 +74,7 @@ assert.equal(deliveryAddressHref(true), '/conta/dados#enderecos');
 assert.equal(deliveryAddressHref(false), '/entrar?next=%2Fconta%2Fdados%23enderecos');
 
 const srcRoot = join(__dirname, '..');
-const page = readFileSync(join(srcRoot, 'app/page.tsx'), 'utf8');
+const page = readFileSync(join(srcRoot, 'app/home-client.tsx'), 'utf8');
 assert.ok(page.includes('HomeShortcuts'), 'home adds shortcut row');
 assert.ok(page.includes('HomeShelves'), 'shelves stay');
 assert.ok(page.includes('HomeBanners'), 'hero stays');

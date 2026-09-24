@@ -1,7 +1,9 @@
 /**
- * schema.org JSON-LD builders for technical SEO (Product + BreadcrumbList).
+ * schema.org JSON-LD builders for technical SEO (Organization, WebSite, Product, BreadcrumbList).
  * Pure helpers — no network. Apex URLs via siteOrigin() at call sites.
  */
+
+import { isMissingOrPlaceholderImage } from './placeholder-image';
 
 export type JsonLdObject = Record<string, unknown>;
 
@@ -59,6 +61,27 @@ function absUrl(origin: string, path: string): string {
   return `${base}${p}`;
 }
 
+/** Catalog photo for schema.org, or null when it is empty, a placeholder, or the site root. */
+export function schemaImageUrl(origin: string, raw: string | null | undefined): string | null {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value || isMissingOrPlaceholderImage(value)) return null;
+  const abs = absUrl(origin, value);
+  try {
+    const url = new URL(abs);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (url.pathname === '/' || url.pathname === '') return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function schemaTelephone(digits: string | null | undefined): string | null {
+  const d = String(digits || '').replace(/\D/g, '');
+  if (d.length < 12 || d.length > 15) return null;
+  return `+${d}`;
+}
+
 export function buildBreadcrumbList(origin: string, items: BreadcrumbItem[]): JsonLdObject {
   return {
     '@context': 'https://schema.org',
@@ -76,12 +99,10 @@ export function buildProductJsonLd(origin: string, p: ProductJsonLdInput): JsonL
   const path = `/produto/${encodeURIComponent(p.slug)}`;
   const url = absUrl(origin, path);
   const images: string[] = [];
-  if (p.images?.length) {
-    for (const u of p.images) {
-      if (u?.trim()) images.push(u.trim());
-    }
-  } else if (p.image?.trim()) {
-    images.push(p.image.trim());
+  const rawImages = p.images?.length ? p.images : p.image ? [p.image] : [];
+  for (const u of rawImages) {
+    const abs = schemaImageUrl(origin, u);
+    if (abs && !images.includes(abs)) images.push(abs);
   }
 
   const brandName = (p.brandName || p.sellerName || 'Lojas Schimitz').trim();
@@ -128,6 +149,73 @@ export function buildProductJsonLd(origin: string, p: ProductJsonLdInput): JsonL
   }
 
   return out;
+}
+
+export type StoreJsonLdInput = {
+  name: string;
+  description: string;
+  /** Absolute or site-relative logo (square icon, not a product photo). */
+  logoUrl: string;
+  /** Digits with country code, e.g. 5551996253766. Omitted when it does not look like a phone. */
+  telephone?: string | null;
+};
+
+/** Organization + WebSite (with catalog search) for the storefront root. */
+export function buildStoreJsonLd(origin: string, input: StoreJsonLdInput): JsonLdObject[] {
+  const base = origin.replace(/\/$/, '');
+  const name = (input.name || 'Lojas Schimitz').trim() || 'Lojas Schimitz';
+  const description = (input.description || '').trim();
+  const logo = schemaImageUrl(origin, input.logoUrl);
+  const telephone = schemaTelephone(input.telephone);
+
+  const organization: JsonLdObject = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name,
+    url: base,
+    ...(description ? { description } : {}),
+    ...(logo ? { logo } : {}),
+    ...(telephone
+      ? {
+          contactPoint: {
+            '@type': 'ContactPoint',
+            telephone,
+            contactType: 'customer service',
+            areaServed: 'BR',
+            availableLanguage: ['Portuguese'],
+          },
+        }
+      : {}),
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Porto Alegre',
+      addressCountry: 'BR',
+    },
+  };
+
+  const website: JsonLdObject = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name,
+    url: base,
+    inLanguage: 'pt-BR',
+    ...(description ? { description } : {}),
+    publisher: {
+      '@type': 'Organization',
+      name,
+      url: base,
+    },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${base}/produtos?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
+  return [organization, website];
 }
 
 /** Serialize for <script type="application/ld+json"> (safe vs </script>). */

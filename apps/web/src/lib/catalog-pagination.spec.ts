@@ -8,7 +8,17 @@ import {
   catalogPageSearch,
   parseCatalogPage,
 } from './catalog-pagination';
-import { SITEMAP_MAX_PAGES, SITEMAP_PAGE_SIZE, sitemapProductPath, sitemapShouldFetchNext } from './catalog-sitemap';
+import {
+  SITEMAP_MAX_PAGES,
+  SITEMAP_PAGE_SIZE,
+  SITEMAP_STATIC_PAGES,
+  sitemapAcceptsProduct,
+  sitemapCategoryPath,
+  sitemapLastModified,
+  sitemapProductPath,
+  sitemapShouldFetchNext,
+  sitemapStaticEntries,
+} from './catalog-sitemap';
 import { batchSelectionError, catalogImportFileError, toggleSkuSelection } from './catalog-import-ui';
 
 {
@@ -50,6 +60,22 @@ import { batchSelectionError, catalogImportFileError, toggleSkuSelection } from 
   assert.equal(sitemapProductPath('lampada-led'), '/produto/lampada-led');
   assert.equal(sitemapProductPath(''), null);
   assert.equal(sitemapProductPath('a b'), null);
+  assert.equal(sitemapCategoryPath('eletro'), '/departamento/eletro');
+  assert.equal(sitemapCategoryPath('a b'), null);
+  assert.equal(sitemapAcceptsProduct({ slug: 'tv', isDemo: false, active: true }), true);
+  assert.equal(sitemapAcceptsProduct({ slug: 'tv' }), true);
+  assert.equal(sitemapAcceptsProduct({ slug: 'demo-sku', isDemo: true }), false);
+  assert.equal(sitemapAcceptsProduct({ slug: 'tv', active: false }), false);
+  assert.equal(sitemapAcceptsProduct({ slug: '' }), false);
+  assert.equal(sitemapLastModified('2026-09-22T03:48:45.837Z')?.toISOString(), '2026-09-22T03:48:45.837Z');
+  assert.equal(sitemapLastModified('nao-e-data'), undefined);
+  assert.equal(sitemapLastModified(''), undefined);
+  const staticUrls = sitemapStaticEntries('https://lojasschimitz.com.br').map((entry) => entry.url);
+  assert.ok(staticUrls.includes('https://lojasschimitz.com.br/'));
+  assert.ok(staticUrls.includes('https://lojasschimitz.com.br/produtos'));
+  assert.ok(staticUrls.includes('https://lojasschimitz.com.br/suporte'));
+  assert.equal(staticUrls.some((url) => url.endsWith('/entrar') || url.endsWith('/cadastro')), false);
+  assert.ok(SITEMAP_STATIC_PAGES.every((page) => page.path !== '/entrar' && page.path !== '/cadastro'));
   assert.equal(SITEMAP_PAGE_SIZE, 60);
   console.log('catalog-sitemap — PASSOU');
 }
