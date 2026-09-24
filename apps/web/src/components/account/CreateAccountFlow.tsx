@@ -12,9 +12,11 @@ import {
   maskBirthDate,
   maskCpf,
   passwordResetHref,
+  rememberPasswordResetCpf,
   signupAccessIssue,
   signupBirthDateDisplayIssue,
   signupCpfIssue,
+  signupCpfLookupErrorMessage,
   signupEmailForApi,
   signupEmailIssue,
   signupLookupErrorMessage,
@@ -24,6 +26,7 @@ import {
   signupProfileIssue,
   signupSignInIssue,
   type RegisterBody,
+  type SignupCpfMatch,
   type SignupField,
   type SignupIssue,
   type SignupStep,
@@ -37,8 +40,12 @@ type Props = {
   onRegister: (body: RegisterBody) => Promise<void> | void;
   /** POST /auth/signup-email. The server decides exists; format-only checks are not enough. */
   onLookupEmail: (email: string) => Promise<boolean>;
-  /** Existing account: POST /auth/login, same cookie session as Entrar. */
+  /** POST /auth/signup-cpf after a full valid CPF. Masked e-mail only — never the raw address. */
+  onLookupCpf: (cpf: string) => Promise<SignupCpfMatch>;
+  /** Existing e-mail: POST /auth/login, same cookie session as Entrar. */
   onSignIn: (input: { email: string; password: string }) => Promise<void> | void;
+  /** Existing CPF: POST /auth/login-cpf against that account's password. */
+  onSignInCpf: (input: { cpf: string; password: string }) => Promise<void> | void;
   onEdit?: () => void;
   /** Switch the Entrar/Criar conta sheet back to login without leaving the page. */
   onHaveAccount?: () => void;
@@ -205,7 +212,9 @@ export function CreateAccountFlow({
   serverIssue,
   onRegister,
   onLookupEmail,
+  onLookupCpf,
   onSignIn,
+  onSignInCpf,
   onEdit,
   onHaveAccount,
   haveAccountHref,
@@ -220,6 +229,8 @@ export function CreateAccountFlow({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
+  const [cpfAccount, setCpfAccount] = useState<{ maskedEmail: string } | null>(null);
+  const [cpfChecking, setCpfChecking] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [issue, setIssue] = useState<SignupIssue | null>(null);
   const [profileTried, setProfileTried] = useState(false);
@@ -230,6 +241,13 @@ export function CreateAccountFlow({
   const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const lookupSeq = useRef(0);
+  const onLookupCpfRef = useRef(onLookupCpf);
+  onLookupCpfRef.current = onLookupCpf;
+  const cpfCache = useRef<{ digits: string; exists: boolean; maskedEmail?: string } | null>(null);
+  const cpfFlight = useRef<{ digits: string; promise: Promise<SignupCpfMatch> } | null>(null);
+  /** Alterar volta ao CPF sem disparar de novo o mesmo número até ele mudar. */
+  const holdCpfDigits = useRef<string | null>(null);
+  const cpfConflictHandled = useRef(false);
   const activeIssue = serverIssue ?? issue;
   const nameIssue = signupNameIssue(name);
   const cpfIssue = signupCpfIssue(cpf);
@@ -241,13 +259,47 @@ export function CreateAccountFlow({
   const showBirthError = profileTried || Boolean(touched.birthDate) || birthDate.trim().length >= 10;
   const showPhoneError = profileTried || Boolean(touched.phone) || phone.replace(/\D/g, '').length >= 10;
   const emailAlreadyRegistered = serverIssue?.field === 'email' && Boolean(displayEmail);
-  const viewStep: SignupStep = emailAlreadyRegistered
+  const viewStep: SignupStep = emailAlreadyRegistered || cpfAccount
     ? 'signin'
     : serverIssue?.field === 'email'
       ? 'email'
       : serverIssue?.field === 'cpf'
         ? 'profile'
         : step;
+
+  function lookupCpfCached(raw: string, fresh = false): Promise<SignupCpfMatch> {
+    const digits = cpfDigits(raw);
+    if (fresh) cpfCache.current = null;
+    const cached = cpfCache.current;
+    if (cached?.digits === digits) {
+      if (!cached.exists) return Promise.resolve({ exists: false });
+      if (cached.maskedEmail) return Promise.resolve({ exists: true, maskedEmail: cached.maskedEmail });
+    }
+    if (cpfFlight.current?.digits === digits) return cpfFlight.current.promise;
+    const promise = Promise.resolve()
+      .then(() => onLookupCpfRef.current(raw))
+      .then((match) => {
+        cpfCache.current = {
+          digits,
+          exists: match.exists,
+          maskedEmail: match.exists ? match.maskedEmail : undefined,
+        };
+        return match;
+      })
+      .finally(() => {
+        if (cpfFlight.current?.promise === promise) cpfFlight.current = null;
+      });
+    cpfFlight.current = { digits, promise };
+    return promise;
+  }
+
+  function openCpfAccount(maskedEmail: string) {
+    holdCpfDigits.current = null;
+    setSignInPassword('');
+    setIssue(null);
+    setCpfAccount({ maskedEmail });
+    setStep('signin');
+  }
 
   useEffect(() => {
     if (!serverIssue) return;
@@ -265,6 +317,47 @@ export function CreateAccountFlow({
       else nameRef.current?.focus();
     } else passwordRef.current?.focus();
   }, [viewStep]);
+
+  useEffect(() => {
+    if (cpfAccount) {
+      setCpfChecking(false);
+      return;
+    }
+    if (serverIssue?.field === 'cpf') {
+      if (!cpfConflictHandled.current) {
+        cpfConflictHandled.current = true;
+        cpfCache.current = null;
+      }
+    } else {
+      cpfConflictHandled.current = false;
+    }
+    const onProfile = step === 'profile' || serverIssue?.field === 'cpf';
+    if (!onProfile || signupCpfIssue(cpf)) {
+      setCpfChecking(false);
+      return;
+    }
+    const digits = cpfDigits(cpf);
+    if (holdCpfDigits.current === digits && serverIssue?.field !== 'cpf') return;
+    let cancelled = false;
+    setCpfChecking(true);
+    lookupCpfCached(cpf)
+      .then((match) => {
+        if (cancelled) return;
+        if (match.exists) openCpfAccount(match.maskedEmail);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setIssue({ field: 'cpf', message: signupCpfLookupErrorMessage(err) });
+      })
+      .finally(() => {
+        if (!cancelled) setCpfChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // lookupCpfCached reads refs; listing it would re-fire on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cpf, step, serverIssue, cpfAccount]);
 
   function touch() {
     if (issue) setIssue(null);
@@ -293,10 +386,23 @@ export function CreateAccountFlow({
   function editEmail() {
     lookupSeq.current += 1;
     setChecking(false);
+    setCpfChecking(false);
+    setCpfAccount(null);
+    holdCpfDigits.current = null;
     setIssue(null);
     setSignInPassword('');
     onEdit?.();
     setStep('email');
+  }
+
+  function editCpfAccount() {
+    holdCpfDigits.current = cpfDigits(cpf);
+    setCpfAccount(null);
+    setCpfChecking(false);
+    setSignInPassword('');
+    setIssue(null);
+    onEdit?.();
+    setStep('profile');
   }
 
   function goBack() {
@@ -335,24 +441,51 @@ export function CreateAccountFlow({
 
   async function submitSignIn(e: FormEvent) {
     e.preventDefault();
+    const nextIssue = signupSignInIssue(signInPassword);
+    if (nextIssue) {
+      setIssue(nextIssue);
+      return;
+    }
+    if (cpfAccount) {
+      if (signupCpfIssue(cpf)) {
+        setIssue(signupCpfIssue(cpf));
+        setCpfAccount(null);
+        setStep('profile');
+        return;
+      }
+      setIssue(null);
+      await onSignInCpf({ cpf, password: signInPassword });
+      return;
+    }
     const emailIssue = signupEmailIssue(displayEmail);
     if (emailIssue) {
       setIssue(emailIssue);
       setStep('email');
       return;
     }
-    const nextIssue = signupSignInIssue(signInPassword);
-    if (nextIssue) {
-      setIssue(nextIssue);
-      return;
-    }
     setIssue(null);
     await onSignIn({ email: displayEmail, password: signInPassword });
   }
 
-  function submitProfile(e: FormEvent) {
+  async function submitProfile(e: FormEvent) {
     e.preventDefault();
     setProfileTried(true);
+    if (!signupCpfIssue(cpf)) {
+      setCpfChecking(true);
+      try {
+        const match = await lookupCpfCached(cpf);
+        if (match.exists) {
+          onEdit?.();
+          openCpfAccount(match.maskedEmail);
+          return;
+        }
+      } catch (err: unknown) {
+        setIssue({ field: 'cpf', message: signupCpfLookupErrorMessage(err) });
+        return;
+      } finally {
+        setCpfChecking(false);
+      }
+    }
     const nextIssue = signupProfileIssue({ name, cpf, birthDate, phone });
     if (nextIssue) {
       setIssue(nextIssue);
@@ -389,6 +522,22 @@ export function CreateAccountFlow({
       setStep('profile');
       return;
     }
+    if (!signupCpfIssue(cpf)) {
+      setCpfChecking(true);
+      try {
+        const match = await lookupCpfCached(cpf, true);
+        if (match.exists) {
+          openCpfAccount(match.maskedEmail);
+          return;
+        }
+      } catch (err: unknown) {
+        setIssue({ field: 'cpf', message: signupCpfLookupErrorMessage(err) });
+        setStep('profile');
+        return;
+      } finally {
+        setCpfChecking(false);
+      }
+    }
     setIssue(null);
     await onRegister(
       buildRegisterBody({
@@ -411,9 +560,12 @@ export function CreateAccountFlow({
     viewStep === 'signin' &&
     activeIssue?.field === 'email' &&
     activeIssue.message === REGISTER_EMAIL_EXISTS_MESSAGE;
+  const hideCpfExistsOnSignIn = viewStep === 'signin' && Boolean(cpfAccount);
   const message =
     error ||
-    (viewStep === 'profile' || emailFieldError || hideEmailExistsOnSignIn ? '' : activeIssue?.message || '');
+    (viewStep === 'profile' || emailFieldError || hideEmailExistsOnSignIn || hideCpfExistsOnSignIn
+      ? ''
+      : activeIssue?.message || '');
   const accountAction = (
     <HaveAccount
       href={haveAccountHref}
@@ -465,7 +617,7 @@ export function CreateAccountFlow({
             </p>
           ) : null}
         </div>
-        <button className="acct-cta" type="submit" disabled={checking || busy}>
+        <button className="acct-cta" type="submit" disabled={checking || busy || Boolean(signupEmailIssue(email))}>
           {checking ? 'Verificando…' : 'Continuar'}
         </button>
         {accountAction}
@@ -536,10 +688,13 @@ export function CreateAccountFlow({
               aria-describedby={cpfFieldError ? 'signup-cpf-error' : undefined}
               onBlur={() => markTouched('cpf')}
               onChange={(e) => {
-                setCpf(maskCpf(e.target.value));
+                const next = maskCpf(e.target.value);
+                if (cpfDigits(next) !== cpfDigits(cpf)) holdCpfDigits.current = null;
+                setCpf(next);
                 touch();
               }}
             />
+            {cpfChecking && !cpfFieldError ? <p className="acct-hint">Conferindo CPF…</p> : null}
             {cpfFieldError ? (
               <p className="acct-field-error" id="signup-cpf-error" role="alert">
                 {cpfFieldError}
@@ -611,8 +766,8 @@ export function CreateAccountFlow({
               </p>
             ) : null}
           </div>
-          <button className="acct-cta" type="submit" disabled={!profileReady || busy}>
-            Continuar
+          <button className="acct-cta" type="submit" disabled={!profileReady || busy || cpfChecking}>
+            {cpfChecking ? 'Conferindo…' : 'Continuar'}
           </button>
           {accountAction}
         </form>
@@ -682,7 +837,11 @@ export function CreateAccountFlow({
               }}
             />
           </div>
-          <button className="acct-cta" type="submit" disabled={busy}>
+          <button
+            className="acct-cta"
+            type="submit"
+            disabled={busy || cpfChecking || Boolean(signupAccessIssue({ password, confirmPassword, acceptedPrivacy }))}
+          >
             {busy ? 'Criando conta…' : 'Cadastrar e continuar'}
           </button>
           {accountAction}
@@ -691,19 +850,42 @@ export function CreateAccountFlow({
     );
   } else {
     body = (
-      <div data-signup-step="signin" data-fixed-email={displayEmail} data-account-gate="existing">
+      <div
+        data-signup-step="signin"
+        data-fixed-email={cpfAccount ? cpfAccount.maskedEmail : displayEmail}
+        data-account-gate="existing"
+        data-account-match={cpfAccount ? 'cpf' : 'email'}
+      >
         <div className="acct-head">
-          <button type="button" className="acct-back" aria-label="Voltar" onClick={editEmail} disabled={busy}>
+          <button
+            type="button"
+            className="acct-back"
+            aria-label="Voltar"
+            onClick={cpfAccount ? editCpfAccount : editEmail}
+            disabled={busy}
+          >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
           <h1 className="acct-title">Você já tem cadastro</h1>
         </div>
-        <FixedEmail email={displayEmail} busy={busy} onAlter={editEmail} />
+        <FixedEmail
+          email={cpfAccount ? cpfAccount.maskedEmail : displayEmail}
+          busy={busy}
+          onAlter={cpfAccount ? editCpfAccount : editEmail}
+        />
         <form className="acct-form" noValidate onSubmit={submitSignIn} aria-busy={busy}>
-          <p className="acct-lead">Este e-mail já tem conta. Informe a senha para entrar.</p>
-          <p className="sr-only">Não pedimos nome, CPF nem data de nascimento de novo.</p>
+          <p className="acct-lead">
+            {cpfAccount
+              ? 'Este CPF já tem conta. Informe a senha do e-mail abaixo.'
+              : 'Este e-mail já tem conta. Informe a senha para entrar.'}
+          </p>
+          <p className="sr-only">
+            {cpfAccount
+              ? 'A senha é a do e-mail mascarado. Não criamos outra conta.'
+              : 'Não pedimos nome, CPF nem data de nascimento de novo.'}
+          </p>
           {message ? (
             <div className="alert" role="alert">
               {message}
@@ -721,13 +903,27 @@ export function CreateAccountFlow({
               touch();
             }}
           />
-          <button className="acct-cta" type="submit" disabled={busy}>
+          <button className="acct-cta" type="submit" disabled={busy || Boolean(signupSignInIssue(signInPassword))}>
             {busy ? 'Entrando…' : 'Entrar'}
           </button>
-          <Link className="acct-textlink" href={passwordResetHref(displayEmail)}>
+          <Link
+            className="acct-textlink"
+            href={cpfAccount ? '/esqueci-senha' : passwordResetHref(displayEmail)}
+            onClick={() => {
+              if (!cpfAccount || typeof window === 'undefined') return;
+              rememberPasswordResetCpf(window.sessionStorage, cpf, cpfAccount.maskedEmail);
+            }}
+          >
             Esqueci minha senha
           </Link>
-          <Link className="acct-textlink" href={passwordResetHref(displayEmail)}>
+          <Link
+            className="acct-textlink"
+            href={cpfAccount ? '/esqueci-senha' : passwordResetHref(displayEmail)}
+            onClick={() => {
+              if (!cpfAccount || typeof window === 'undefined') return;
+              rememberPasswordResetCpf(window.sessionStorage, cpf, cpfAccount.maskedEmail);
+            }}
+          >
             Alterar senha
           </Link>
         </form>

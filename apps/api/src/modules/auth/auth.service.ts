@@ -23,11 +23,17 @@ import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
 import { registerDuplicateConflict } from './register-public';
 import { signupEmailCheck } from './signup-email';
+import { signupCpfCheck } from './signup-cpf';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
 const RESET_MAX_PER_IP = 8;
 const RESET_WINDOW_MS = 15 * 60 * 1000;
+const RESET_GENERIC = {
+  accepted: true,
+  message:
+    'Se o e-mail estiver cadastrado, enviaremos instruções para redefinir a senha em alguns minutos.',
+};
 
 
 const PRODUCTION_SITE_FALLBACK = 'https://lojasschimitz.com.br';
@@ -207,6 +213,22 @@ export class AuthService {
     }
   }
 
+  /**
+   * Signup passo 2, only after a full valid CPF. Masked e-mail when that CPF already
+   * has a user row (including inactive — the unique index already owns it).
+   * Never returns the raw address. Does not open a session.
+   */
+  async signupCpfAccount(cpfRaw: string) {
+    const invalid = cpfError(cpfRaw);
+    if (invalid) throw new BadRequestException(invalid);
+    const cpf = normalizeCpf(cpfRaw);
+    const user = await this.prisma.user.findUnique({
+      where: { cpf },
+      select: { email: true },
+    });
+    return signupCpfCheck(user?.email);
+  }
+
   async login(dto: LoginDto, ip = 'unknown', _guestToken?: string) {
     this.attempts.assertAllowed(ip, dto.email);
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
@@ -224,30 +246,74 @@ export class AuthService {
   }
 
   /**
+   * Password for the account that already owns this CPF. Same session as login.
+   * Unknown CPF, inactive user, and wrong password share one error (no extra oracle).
+   * The full e-mail is only inside the authenticated session payload, after the password matches.
+   */
+  async loginWithCpf(cpfRaw: string, password: string, ip = 'unknown', _guestToken?: string) {
+    const invalid = cpfError(cpfRaw);
+    if (invalid) throw new BadRequestException(invalid);
+    const cpf = normalizeCpf(cpfRaw);
+    const probeKey = `cpf:${cpf}`;
+    this.attempts.assertAllowed(ip, probeKey);
+    const user = await this.prisma.user.findUnique({ where: { cpf } });
+    if (user?.email) this.attempts.assertAllowed(ip, user.email);
+    const lockId = user?.status === 'active' ? user.email : probeKey;
+    if (!user || user.status !== 'active') {
+      this.attempts.recordFailure(ip, lockId);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+    const valid = await argon2.verify(user.passwordHash, password);
+    if (!valid) {
+      this.attempts.recordFailure(ip, user.email);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+    this.attempts.clear(ip, probeKey);
+    this.attempts.clear(ip, user.email);
+    return this.issue(user.id, user.email, user.role, user.name);
+  }
+
+  /**
    * Always returns the same generic message (no e-mail enumeration).
-   * Persists hashed token; e-mails via SMTP or logs link when SMTP is off (local).
+   * Persists hashed token; e-mails via SMTP/Resend or logs the link when mail is off (local only).
    */
   async forgotPassword(emailRaw: string, ip = 'unknown') {
     const email = (emailRaw || '').trim().toLowerCase();
     this.assertResetAllowed(ip, email);
 
-    const generic = {
-      accepted: true,
-      message:
-        'Se o e-mail estiver cadastrado, enviaremos instruções para redefinir a senha em alguns minutos.',
-    };
-
-    if (!email) return generic;
+    if (!email) return RESET_GENERIC;
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     // Count request even when user missing (anti-enumeration + flood control)
     this.recordResetRequest(ip, email);
 
     if (!user || user.status !== 'active') {
-      return generic;
+      return RESET_GENERIC;
     }
 
-    // Invalidate previous unused tokens for this user
+    await this.deliverPasswordReset(user, ip);
+    return RESET_GENERIC;
+  }
+
+  /**
+   * Esqueci/alterar a partir de um CPF já informado no cadastro.
+   * Sends the link to that account's e-mail. The response stays generic and never includes the address.
+   * Invalid CPF is 400 (format), before any lookup.
+   */
+  async forgotPasswordByCpf(cpfRaw: string, ip = 'unknown') {
+    const invalid = cpfError(cpfRaw);
+    if (invalid) throw new BadRequestException(invalid);
+    const cpf = normalizeCpf(cpfRaw);
+    this.assertResetAllowed(ip);
+    const user = await this.prisma.user.findUnique({ where: { cpf } });
+    this.recordResetRequest(ip, user?.email || undefined);
+    if (!user || user.status !== 'active') return RESET_GENERIC;
+    await this.deliverPasswordReset(user, ip);
+    return RESET_GENERIC;
+  }
+
+  /** Hashed one-hour token + mail. Recipient is never written to the response. */
+  private async deliverPasswordReset(user: { id: string; email: string; name: string | null }, ip: string) {
     await this.prisma.passwordResetToken.updateMany({
       where: { userId: user.id, usedAt: null },
       data: { usedAt: new Date() },
@@ -273,8 +339,6 @@ export class AuthService {
       resetUrl,
       expiresMinutes: Math.floor(RESET_TTL_MS / 60000),
     });
-
-    return generic;
   }
 
   async resetPassword(rawToken: string, newPassword: string, ip = 'unknown') {

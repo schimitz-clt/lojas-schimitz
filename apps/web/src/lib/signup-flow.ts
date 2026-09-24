@@ -2,7 +2,9 @@
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. The server (POST /auth/signup-email) says if that e-mail already has a conta.
  * Conta existente: só a senha, via POST /auth/login (mesmo cookie do Entrar). Sem nome, CPF ou nascimento.
- * E-mail novo: Passo 2 nome, CPF, nascimento, WhatsApp. Passo 3 senha e privacidade.
+ * E-mail novo: Passo 2 nome, CPF, nascimento, WhatsApp. CPF válido consulta POST /auth/signup-cpf.
+ * CPF já cadastrado: só a senha daquela conta (e-mail mascarado) via POST /auth/login-cpf. Sem cadastro novo.
+ * E-mail e CPF livres: Passo 3 senha e privacidade.
  * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
  * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
  * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
@@ -396,6 +398,77 @@ export function passwordResetHref(email: string): string {
   const value = signupEmailForApi(email);
   if (!value || signupEmailIssue(value)) return '/esqueci-senha';
   return `/esqueci-senha?email=${encodeURIComponent(value)}`;
+}
+
+/**
+ * Máscara aceita na tela. O servidor é quem gera (`sch***@gmail.com`).
+ * `***@***` é o fallback quando o e-mail gravado não dá para mascarar — ainda sem o endereço inteiro.
+ */
+export const SIGNUP_CPF_EMAIL_HIDDEN = '***@***';
+
+const MASKED_ACCOUNT_EMAIL = /^[a-z0-9][a-z0-9._%+-]{0,2}\*\*\*@[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+export function isMaskedAccountEmail(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === SIGNUP_CPF_EMAIL_HIDDEN) return true;
+  return MASKED_ACCOUNT_EMAIL.test(trimmed);
+}
+
+export type SignupCpfMatch = { exists: false } | { exists: true; maskedEmail: string };
+
+const CPF_LOOKUP_FALLBACK = 'Não foi possível verificar o CPF. Tente de novo.';
+
+/**
+ * Reads POST /auth/signup-cpf. A missing flag is a failure (must not continue the create flow).
+ * A raw e-mail in the payload is refused — the screen only shows the mask.
+ */
+export function readSignupCpfMatch(data: unknown): SignupCpfMatch {
+  if (!data || typeof data !== 'object') throw new Error(CPF_LOOKUP_FALLBACK);
+  const record = data as Record<string, unknown>;
+  if (typeof record.exists !== 'boolean') throw new Error(CPF_LOOKUP_FALLBACK);
+  const rawEmail = record.email;
+  if (typeof rawEmail === 'string' && rawEmail.includes('@') && !rawEmail.includes('***')) {
+    throw new Error(CPF_LOOKUP_FALLBACK);
+  }
+  if (!record.exists) return { exists: false };
+  if (typeof record.maskedEmail !== 'string' || !isMaskedAccountEmail(record.maskedEmail)) {
+    throw new Error(CPF_LOOKUP_FALLBACK);
+  }
+  return { exists: true, maskedEmail: record.maskedEmail.trim() };
+}
+
+/** Network failures stay in Portuguese. API messages (already PT) pass through. */
+export function signupCpfLookupErrorMessage(error: unknown): string {
+  const raw = error instanceof Error && error.message ? error.message.trim() : '';
+  if (!raw || /failed to fetch|networkerror|load failed|network request failed/i.test(raw)) {
+    return CPF_LOOKUP_FALLBACK;
+  }
+  return raw;
+}
+
+/** sessionStorage only — the CPF the customer already typed. Not a JWT, not the account e-mail. */
+export const PASSWORD_RESET_CPF_KEY = 'sch_reset_cpf';
+
+export function parsePasswordResetCpf(raw: string | null | undefined): { cpf: string; maskedEmail: string } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { cpf?: unknown; maskedEmail?: unknown };
+    if (typeof parsed.cpf !== 'string' || typeof parsed.maskedEmail !== 'string') return null;
+    if (signupCpfIssue(parsed.cpf) || !isMaskedAccountEmail(parsed.maskedEmail)) return null;
+    return { cpf: cpfDigits(parsed.cpf), maskedEmail: parsed.maskedEmail.trim() };
+  } catch {
+    return null;
+  }
+}
+
+export function rememberPasswordResetCpf(
+  storage: { setItem(key: string, value: string): void },
+  cpf: string,
+  maskedEmail: string,
+) {
+  const payload = parsePasswordResetCpf(JSON.stringify({ cpf: cpfDigits(cpf), maskedEmail }));
+  if (!payload) return;
+  storage.setItem(PASSWORD_RESET_CPF_KEY, JSON.stringify(payload));
 }
 
 /** Passo 2 — dados pessoais. O e-mail já foi aceito e não entra aqui. */
