@@ -21,6 +21,8 @@ import {
 type Props = {
   busy: boolean;
   error: string;
+  /** 409 from POST /auth/register, already pointed at CPF or e-mail. */
+  serverIssue?: SignupIssue | null;
   onRegister: (body: RegisterBody) => Promise<void> | void;
   onEdit?: () => void;
   /** Switch the Entrar/Criar conta sheet back to login without leaving the page. */
@@ -183,6 +185,7 @@ function FixedEmail({
 export function CreateAccountFlow({
   busy,
   error,
+  serverIssue,
   onRegister,
   onEdit,
   onHaveAccount,
@@ -201,13 +204,28 @@ export function CreateAccountFlow({
   const [issue, setIssue] = useState<SignupIssue | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const activeIssue = serverIssue ?? issue;
+  const viewStep: SignupStep =
+    serverIssue?.field === 'email' ? 'email' : serverIssue?.field === 'cpf' ? 'profile' : step;
 
   useEffect(() => {
-    if (step === 'email') emailRef.current?.focus();
-    else if (step === 'profile') nameRef.current?.focus();
-    else passwordRef.current?.focus();
-  }, [step]);
+    if (!serverIssue) return;
+    setIssue(serverIssue);
+    if (serverIssue.field === 'email') setStep('email');
+    else if (serverIssue.field === 'cpf') setStep('profile');
+  }, [serverIssue]);
+
+  useEffect(() => {
+    // Focus only when the step changes. Refocusing when the CPF error clears
+    // would jump the caret off the field on the first keystroke.
+    if (viewStep === 'email') emailRef.current?.focus();
+    else if (viewStep === 'profile') {
+      if (activeIssue?.field === 'cpf') cpfRef.current?.focus();
+      else nameRef.current?.focus();
+    } else passwordRef.current?.focus();
+  }, [viewStep]);
 
   function touch() {
     if (issue) setIssue(null);
@@ -215,7 +233,7 @@ export function CreateAccountFlow({
   }
 
   function fieldInvalid(field: SignupField) {
-    return issue?.field === field;
+    return activeIssue?.field === field;
   }
 
   function editEmail() {
@@ -287,17 +305,19 @@ export function CreateAccountFlow({
     );
   }
 
-  const message = error || issue?.message || '';
+  const cpfFieldError = viewStep === 'profile' && activeIssue?.field === 'cpf' ? activeIssue.message : '';
+  const emailFieldError = viewStep === 'email' && activeIssue?.field === 'email' ? activeIssue.message : '';
+  const message = error || (cpfFieldError || emailFieldError ? '' : activeIssue?.message || '');
   const accountAction = (
     <HaveAccount
       href={haveAccountHref}
       onClick={onHaveAccount}
-      className={step === 'email' ? 'acct-secondary' : 'acct-textlink'}
+      className={viewStep === 'email' ? 'acct-secondary' : 'acct-textlink'}
     />
   );
 
   let body: ReactNode;
-  if (step === 'email') {
+  if (viewStep === 'email') {
     body = (
       <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail}>
         <SignupProgress step="email" />
@@ -327,11 +347,17 @@ export function CreateAccountFlow({
             enterKeyHint="next"
             value={email}
             aria-invalid={fieldInvalid('email') || undefined}
+            aria-describedby={emailFieldError ? 'signup-email-error' : undefined}
             onChange={(e) => {
               setEmail(e.target.value);
               touch();
             }}
           />
+          {emailFieldError ? (
+            <p className="acct-field-error" id="signup-email-error" role="alert">
+              {emailFieldError}
+            </p>
+          ) : null}
         </div>
         <button className="acct-cta" type="submit">
           Continuar
@@ -339,7 +365,7 @@ export function CreateAccountFlow({
         {accountAction}
       </form>
     );
-  } else if (step === 'profile') {
+  } else if (viewStep === 'profile') {
     body = (
       <div data-signup-step="profile" data-fixed-email={displayEmail}>
         <div className="acct-head">
@@ -352,7 +378,7 @@ export function CreateAccountFlow({
         </div>
         <FixedEmail email={displayEmail} busy={busy} onAlter={editEmail} />
         <form className="acct-form" noValidate onSubmit={submitProfile}>
-          <SignupProgress step="profile" />
+          <SignupProgress step={viewStep} />
           <p className="sr-only">Passo 2 de 3. O e-mail {displayEmail} já foi escolhido.</p>
           {message ? (
             <div className="alert" role="alert">
@@ -383,6 +409,7 @@ export function CreateAccountFlow({
               CPF
             </label>
             <input
+              ref={cpfRef}
               id="signup-cpf"
               name="cpf"
               className="acct-line"
@@ -393,11 +420,17 @@ export function CreateAccountFlow({
               enterKeyHint="next"
               value={cpf}
               aria-invalid={fieldInvalid('cpf') || undefined}
+              aria-describedby={cpfFieldError ? 'signup-cpf-error' : undefined}
               onChange={(e) => {
                 setCpf(maskCpf(e.target.value));
                 touch();
               }}
             />
+            {cpfFieldError ? (
+              <p className="acct-field-error" id="signup-cpf-error" role="alert">
+                {cpfFieldError}
+              </p>
+            ) : null}
           </div>
           <div className={fieldInvalid('birthDate') ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-birth">

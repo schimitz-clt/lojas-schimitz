@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
-import type { RegisterBody } from '@/lib/signup-flow';
+import { readRegisterFailure, type RegisterBody, type SignupIssue } from '@/lib/signup-flow';
 
 function safeNextPath(): string {
   if (typeof window === 'undefined') return '/conta';
@@ -17,14 +17,12 @@ function safeNextPath(): string {
   return '/conta';
 }
 
-const REGISTER_LOGIN_FAIL =
-  'Não foi possível entrar. Se você já tem conta, use a senha cadastrada.';
-
 export default function EntrarPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
+  const [serverIssue, setServerIssue] = useState<SignupIssue | null>(null);
   const [busy, setBusy] = useState(false);
   const [nextPath, setNextPath] = useState('/conta');
 
@@ -64,25 +62,22 @@ export default function EntrarPage() {
 
   async function submitRegister(body: RegisterBody) {
     setErr('');
+    setServerIssue(null);
     setBusy(true);
     try {
-      await api('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      try {
-        const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
-          '/auth/login',
-          { method: 'POST', body: JSON.stringify({ email: body.email, password: body.password }) },
-        );
-        await finishLogin(data);
-      } catch {
-        setEmail(body.email);
-        setMode('login');
-        setErr(REGISTER_LOGIN_FAIL);
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/register',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      if (!data?.accessToken || !data.user) {
+        setErr('Não foi possível abrir a sessão. Tente entrar.');
+        return;
       }
+      await finishLogin(data);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Não foi possível cadastrar');
+      const failure = readRegisterFailure(e);
+      if (failure.conflict) setServerIssue(failure.conflict);
+      else setErr(failure.message);
     } finally {
       setBusy(false);
     }
@@ -105,6 +100,7 @@ export default function EntrarPage() {
           onClick={() => {
             setMode('login');
             setErr('');
+            setServerIssue(null);
           }}
         >
           Entrar
@@ -118,6 +114,7 @@ export default function EntrarPage() {
           onClick={() => {
             setMode('register');
             setErr('');
+            setServerIssue(null);
           }}
         >
           Criar conta
@@ -175,10 +172,15 @@ export default function EntrarPage() {
         <CreateAccountFlow
           busy={busy}
           error={err}
-          onEdit={() => setErr('')}
+          serverIssue={serverIssue}
+          onEdit={() => {
+            setErr('');
+            setServerIssue(null);
+          }}
           onHaveAccount={() => {
             setMode('login');
             setErr('');
+            setServerIssue(null);
           }}
           onRegister={submitRegister}
         />

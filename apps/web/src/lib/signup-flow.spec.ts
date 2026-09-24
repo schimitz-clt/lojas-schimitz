@@ -3,11 +3,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   SIGNUP_PASSWORD_PATTERN,
+  REGISTER_CPF_EXISTS_MESSAGE,
+  REGISTER_EMAIL_EXISTS_MESSAGE,
   birthDateToIso,
   buildRegisterBody,
   continueFromEmail,
   maskBirthDate,
   maskCpf,
+  readRegisterFailure,
   signupAccessIssue,
   signupBirthDateBounds,
   signupBirthDateDisplayIssue,
@@ -17,6 +20,7 @@ import {
   signupEmailForApi,
   signupEmailIssue,
   signupProfileIssue,
+  signupRegisterConflict,
 } from './signup-flow';
 
 assert.equal(signupEmailIssue('')?.message, 'Informe seu e-mail para continuar.');
@@ -26,6 +30,27 @@ assert.equal(signupEmailIssue('ana@loja')?.message, 'Informe um e-mail válido.'
 assert.equal(signupEmailIssue('ana@@loja.com')?.message, 'Informe um e-mail válido.');
 assert.equal(signupEmailIssue('ana..silva@loja.com')?.message, 'Informe um e-mail válido.');
 assert.equal(signupEmailIssue('ana@loja.com'), null);
+
+assert.equal(signupRegisterConflict({ code: 'CPF_ALREADY_REGISTERED' })?.field, 'cpf');
+assert.equal(
+  signupRegisterConflict({ message: REGISTER_CPF_EXISTS_MESSAGE })?.message,
+  'Este CPF já possui conta. Entre ou use outro CPF.',
+);
+assert.equal(signupRegisterConflict({ code: 'EMAIL_ALREADY_REGISTERED' })?.field, 'email');
+assert.equal(
+  signupRegisterConflict({ message: REGISTER_EMAIL_EXISTS_MESSAGE })?.message,
+  'Este e-mail já possui conta. Faça login.',
+);
+assert.equal(signupRegisterConflict({ message: 'CPF inválido' }), null);
+const cpfFailure = readRegisterFailure(
+  Object.assign(new Error(REGISTER_CPF_EXISTS_MESSAGE), { code: 'CPF_ALREADY_REGISTERED' }),
+);
+assert.equal(cpfFailure.conflict?.field, 'cpf');
+const emailFailure = readRegisterFailure(
+  Object.assign(new Error(REGISTER_EMAIL_EXISTS_MESSAGE), { code: 'EMAIL_ALREADY_REGISTERED' }),
+);
+assert.equal(emailFailure.conflict?.field, 'email');
+assert.equal(readRegisterFailure(new Error('Senha deve ter letras e números')).conflict, null);
 
 const blocked = continueFromEmail('  ');
 assert.equal(blocked.ok, false);
@@ -239,6 +264,7 @@ assert.ok(submit.indexOf('birthDateToIso') < submit.indexOf('buildRegisterBody')
 assert.ok(submit.includes('birthDate: birthIso'), 'register payload keeps AAAA-MM-DD');
 const emailStep = flow.slice(flow.indexOf('data-signup-step="email"'), flow.indexOf('data-signup-step="profile"'));
 assert.ok(emailStep.includes('type="email"'), 'step 1 has the e-mail field');
+assert.ok(emailStep.includes('signup-email-error'), 'e-mail conflict is shown on the e-mail field');
 assert.equal(emailStep.includes('signup-cpf'), false, 'step 1 does not ask for CPF');
 const later = flow.slice(flow.indexOf('data-signup-step="profile"'));
 assert.ok(later.includes('data-fixed-email'), 'chosen e-mail is fixed after step 1');
@@ -247,6 +273,7 @@ assert.ok(later.includes('signup-cpf'), 'step 2 asks for CPF');
 assert.ok(later.includes('CPF'), 'CPF label is Portuguese');
 assert.ok(later.includes('Data de nascimento'), 'step 2 asks for birth date');
 assert.ok(later.includes('maskCpf'), 'CPF input is masked');
+assert.ok(later.includes('signup-cpf-error'), 'CPF conflict is shown on the CPF field');
 assert.ok(later.includes('signup-birth'), 'birth date field is present');
 const profile = later.slice(0, later.indexOf('data-signup-step="access"'));
 assert.equal(profile.includes('type="date"'), false, 'birth date does not open the native calendar');
@@ -269,17 +296,27 @@ assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(flow), fa
 
 const entrar = readFileSync(join(__dirname, '../app/entrar/page.tsx'), 'utf8');
 assert.ok(entrar.includes('/auth/register'), 'entrar still registers on the real endpoint');
-assert.ok(entrar.includes('/auth/login'), 'register then login still issues the session');
+assert.ok(entrar.includes('/auth/login'), 'Entrar still posts /auth/login');
 assert.ok(entrar.includes('saveSession'), 'login still uses the cookie-first session helper');
+assert.ok(entrar.includes('finishLogin'), 'register keeps the same session helper as login');
 assert.ok(entrar.includes('CreateAccountFlow'), 'entrar register mode is the multi-step flow');
+assert.ok(entrar.includes('readRegisterFailure'), 'entrar maps CPF and e-mail conflicts');
 assert.ok(entrar.includes('Esqueci minha senha'), 'login recovery stays available');
 assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(entrar), false, 'entrar does not store JWTs');
 const loginTab = entrar.slice(entrar.indexOf("mode === 'login'"), entrar.indexOf('<CreateAccountFlow'));
 assert.equal(/cpf|nascimento|birthDate/i.test(loginTab), false, 'Entrar tab stays email and password only');
+const registerFn = entrar.slice(entrar.indexOf('async function submitRegister'), entrar.indexOf('\n  return ('));
+assert.ok(registerFn.includes('/auth/register'), 'criar conta posts register');
+assert.ok(registerFn.includes('finishLogin'), 'criar conta saves the register session');
+assert.equal(registerFn.includes('/auth/login'), false, 'criar conta does not ask for a second login');
 
 const cadastro = readFileSync(join(__dirname, '../app/cadastro/page.tsx'), 'utf8');
 assert.ok(cadastro.includes('/auth/register'), 'standalone cadastro still posts register');
 assert.ok(cadastro.includes('CreateAccountFlow'), 'standalone cadastro uses the same steps');
-assert.equal(cadastro.includes('saveSession'), false, 'standalone cadastro stays anti-enum (no auto-login)');
+assert.ok(cadastro.includes('saveSession'), 'cadastro stays logged in after signup');
+assert.ok(cadastro.includes('window.location.href'), 'cadastro goes to next or /conta');
+assert.ok(cadastro.includes('readRegisterFailure'), 'cadastro maps duplicate CPF and e-mail');
+assert.equal(cadastro.includes('Entrar para continuar'), false, 'no login wall after signup');
+assert.equal(cadastro.includes('Faça login para continuar'), false);
 
 console.log('signup-flow tests ok');

@@ -3044,6 +3044,12 @@ textarea { resize: vertical; min-height: 72px; }
   line-height: 1.35;
   color: var(--muted);
 }
+.acct-field-error {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--danger);
+}
 .acct-head {
   display: flex;
   align-items: center;

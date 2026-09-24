@@ -2,6 +2,7 @@
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
  * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
+ * Success is the same session as login. Duplicate CPF or e-mail is a 409 on that field.
  * Retrigger the web Railpack build after the stuck production deploy of #130.
  * CPF goes as digits or máscara; the API stores digits only.
  * birthDate na API é AAAA-MM-DD. Na tela a pessoa digita DD/MM/AAAA.
@@ -18,6 +19,40 @@ export type SignupStep = 'email' | 'profile' | 'access';
 export type SignupField = 'email' | 'name' | 'cpf' | 'birthDate' | 'phone' | 'password' | 'confirm' | 'privacy';
 
 export type SignupIssue = { field: SignupField; message: string };
+
+/** Same copy as the API (`register-public.ts`). */
+export const REGISTER_CPF_EXISTS_MESSAGE =
+  'Este CPF já possui conta. Entre ou use outro CPF.';
+
+export const REGISTER_EMAIL_EXISTS_MESSAGE = 'Este e-mail já possui conta. Faça login.';
+
+export function signupRegisterConflict(input: {
+  message?: string;
+  code?: string;
+}): SignupIssue | null {
+  const code = (input.code || '').trim().toUpperCase();
+  const message = (input.message || '').trim();
+  if (code === 'CPF_ALREADY_REGISTERED' || message === REGISTER_CPF_EXISTS_MESSAGE) {
+    return { field: 'cpf', message: REGISTER_CPF_EXISTS_MESSAGE };
+  }
+  if (code === 'EMAIL_ALREADY_REGISTERED' || message === REGISTER_EMAIL_EXISTS_MESSAGE) {
+    return { field: 'email', message: REGISTER_EMAIL_EXISTS_MESSAGE };
+  }
+  return null;
+}
+
+export function readRegisterFailure(error: unknown): {
+  conflict: SignupIssue | null;
+  message: string;
+} {
+  const message =
+    error instanceof Error && error.message ? error.message : 'Não foi possível cadastrar';
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : '';
+  return { conflict: signupRegisterConflict({ message, code }), message };
+}
 
 export type RegisterBody = {
   name: string;

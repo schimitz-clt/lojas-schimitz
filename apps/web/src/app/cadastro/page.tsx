@@ -1,74 +1,58 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, saveSession } from '@/lib/api';
 import { loginNextPath } from '@/lib/order-recovery';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
-import type { RegisterBody } from '@/lib/signup-flow';
+import { readRegisterFailure, type RegisterBody, type SignupIssue } from '@/lib/signup-flow';
 
-const REGISTER_ACCEPTED_FALLBACK =
-  'Se o e-mail ainda não estiver cadastrado, sua conta foi criada. Faça login para continuar.';
-
-function safeNextPath(): string | null {
-  if (typeof window === 'undefined') return null;
+function safeNextPath(): string {
+  if (typeof window === 'undefined') return '/conta';
   try {
     const next = new URLSearchParams(window.location.search).get('next');
     if (next && next.startsWith('/') && !next.startsWith('//')) return next;
   } catch {
     /* ignore */
   }
-  return null;
+  return '/conta';
 }
 
 export default function CadastroPage() {
   const [err, setErr] = useState('');
-  const [msg, setMsg] = useState('');
-  const [done, setDone] = useState(false);
+  const [serverIssue, setServerIssue] = useState<SignupIssue | null>(null);
   const [busy, setBusy] = useState(false);
   const [loginHref, setLoginHref] = useState('/entrar');
 
   useEffect(() => {
-    const next = safeNextPath();
-    setLoginHref(next ? loginNextPath(next) : '/entrar');
+    setLoginHref(loginNextPath(safeNextPath()));
   }, []);
 
   async function submit(body: RegisterBody) {
     setErr('');
-    setMsg('');
+    setServerIssue(null);
     setBusy(true);
     try {
-      const data = await api<{ accepted?: boolean; message?: string }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/register',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      if (!data?.accessToken || !data.user) {
+        setErr('Não foi possível abrir a sessão. Tente entrar.');
+        return;
+      }
+      saveSession(data);
       try {
         localStorage.removeItem('sch_guest');
       } catch {
         /* ignore */
       }
-      setDone(true);
-      setMsg(data.message || REGISTER_ACCEPTED_FALLBACK);
+      window.location.href = safeNextPath();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Não foi possível cadastrar');
+      const failure = readRegisterFailure(e);
+      if (failure.conflict) setServerIssue(failure.conflict);
+      else setErr(failure.message);
     } finally {
       setBusy(false);
     }
-  }
-
-  if (done) {
-    return (
-      <div className="acct-sheet">
-        <p className="acct-step">Cadastro</p>
-        <h1 className="acct-title">Criar meu cadastro</h1>
-        <span className="acct-kicker" aria-hidden />
-        <div className="ok" role="status">
-          {msg}
-        </div>
-        <Link className="acct-cta" href={loginHref}>
-          Entrar para continuar
-        </Link>
-      </div>
-    );
   }
 
   return (
@@ -76,7 +60,11 @@ export default function CadastroPage() {
       <CreateAccountFlow
         busy={busy}
         error={err}
-        onEdit={() => setErr('')}
+        serverIssue={serverIssue}
+        onEdit={() => {
+          setErr('');
+          setServerIssue(null);
+        }}
         haveAccountHref={loginHref}
         onRegister={submit}
       />

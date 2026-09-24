@@ -44,16 +44,19 @@ export class AuthController {
   @ApiOperation({
     summary: 'Registrar cliente',
     description:
-      'Resposta genérica (anti-enumeração): o mesmo sucesso se o e-mail ou o CPF já existe. CPF inválido ou idade menor que 18 anos responde 400. Sem sessão — faça login em seguida. Merge de carrinho guest ocorre no login.',
+      'Conta nova abre a mesma sessão do login (Set-Cookie sch_refresh e sch_access, e o mesmo JSON de /auth/login). CPF já cadastrado: 409 “Este CPF já possui conta. Entre ou use outro CPF.” E-mail já cadastrado: 409 “Este e-mail já possui conta. Faça login.” CPF inválido ou menor de 18 anos continua 400. Carrinho guest é mesclado como no login.',
   })
   @ApiSecurity('guest-token')
   @Throttle({ default: { limit: 8, ttl: 60000 } })
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Headers('x-guest-token') guestToken?: string,
   ) {
-    return ok(await this.auth.register(dto, clientIp(req), guestToken));
+    const tokens = await this.auth.register(dto, clientIp(req), guestToken);
+    await this.mergeGuest(tokens.user.id, guestToken);
+    return ok(issueAuthSession(res, tokens));
   }
 
   @Post('login')
