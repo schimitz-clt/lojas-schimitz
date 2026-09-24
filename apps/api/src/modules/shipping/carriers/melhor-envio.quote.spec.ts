@@ -6,18 +6,21 @@ import assert from 'node:assert/strict';
 import { CarrierLiveNotWiredError, CarrierNotConfiguredError } from './carrier.types';
 import { MelhorEnvioCarrierProvider } from './melhor-envio.carrier';
 import {
+  DEFAULT_MELHOR_ENVIO_USER_AGENT,
   DEFAULT_ORIGIN_CEP,
   DEFAULT_PARCEL_HEIGHT_CM,
   DEFAULT_PARCEL_LENGTH_CM,
   DEFAULT_PARCEL_WEIGHT_KG,
   DEFAULT_PARCEL_WIDTH_CM,
   MELHOR_ENVIO_CALCULATE_PATH,
+  MELHOR_ENVIO_CALCULATE_SERVICES,
   MELHOR_ENVIO_PRODUCTION_BASE,
   MELHOR_ENVIO_SANDBOX_BASE,
   MelhorEnvioQuoteError,
   buildMelhorEnvioProducts,
   calculateMelhorEnvioFreight,
   pickCheapestMelhorEnvioService,
+  resolveMelhorEnvioUserAgent,
 } from './melhor-envio.quote';
 import { quoteHybridFreight } from '../shipping.hybrid';
 
@@ -60,6 +63,117 @@ async function main() {
   assert.equal(picked?.days, 2);
   assert.equal(pickCheapestMelhorEnvioService([{ id: 1, name: 'PAC', error: 'x' }]), null);
   assert.equal(pickCheapestMelhorEnvioService({ message: 'nope' }), null);
+  assert.equal(pickCheapestMelhorEnvioService([]), null);
+
+  const singleService = {
+    id: 3,
+    name: '.Package',
+    price: '22.40',
+    custom_price: '20.15',
+    delivery_time: 4,
+    company: { name: 'Jadlog' },
+  };
+  const pickedSingle = pickCheapestMelhorEnvioService(singleService);
+  assert.equal(pickedSingle?.service, '.Package');
+  assert.equal(pickedSingle?.serviceId, '3');
+  assert.equal(pickedSingle?.price, 20.15);
+  assert.equal(pickedSingle?.days, 4);
+  assert.equal(pickedSingle?.company, 'Jadlog');
+
+  assert.equal(
+    pickCheapestMelhorEnvioService({
+      id: 3,
+      name: '.Package',
+      price: '20.00',
+      delivery_time: 4,
+      company: { name: 'Jadlog' },
+      error: 'Trecho não atendido',
+    }),
+    null,
+  );
+  assert.equal(
+    pickCheapestMelhorEnvioService({
+      id: 3,
+      name: '.Package',
+      price: '20.00',
+      delivery_time: 4,
+      company: { name: 'Jadlog' },
+      error: { message: 'Serviço indisponível para este trecho' },
+    }),
+    null,
+  );
+  assert.equal(
+    pickCheapestMelhorEnvioService({
+      message: 'The given data was invalid.',
+      errors: { 'to.postal_code': ['O CEP de destino é inválido.'] },
+    }),
+    null,
+  );
+
+  const ranged = pickCheapestMelhorEnvioService({
+    id: 3,
+    name: '.Package',
+    price: '19.90',
+    company: { name: 'Jadlog' },
+    delivery_range: { min: 4, max: 6 },
+  });
+  assert.equal(ranged?.days, 4);
+  assert.equal(ranged?.price, 19.9);
+
+  const customRange = pickCheapestMelhorEnvioService([
+    {
+      id: 1,
+      name: 'PAC',
+      price: '12.00',
+      company: { name: 'Correios' },
+      custom_delivery_range: { min: 3, max: 5 },
+      delivery_range: { min: 8, max: 10 },
+    },
+  ]);
+  assert.equal(customRange?.days, 3);
+
+  const timeWinsRange = pickCheapestMelhorEnvioService([
+    {
+      id: 1,
+      name: 'PAC',
+      price: '12.00',
+      delivery_time: 5,
+      delivery_range: { min: 2, max: 3 },
+      company: { name: 'Correios' },
+    },
+  ]);
+  assert.equal(timeWinsRange?.days, 5);
+
+  const objectErrorSkipped = pickCheapestMelhorEnvioService([
+    {
+      id: 2,
+      name: 'SEDEX',
+      price: '30.00',
+      delivery_time: 2,
+      company: { name: 'Correios' },
+      error: { code: 'unavailable' },
+    },
+    { id: 3, name: '.Package', price: '18.00', delivery_time: 4, company: { name: 'Jadlog' } },
+  ]);
+  assert.equal(objectErrorSkipped?.service, '.Package');
+  assert.equal(objectErrorSkipped?.price, 18);
+
+  assert.equal(
+    pickCheapestMelhorEnvioService({
+      id: 1,
+      name: 'PAC',
+      price: '0.00',
+      custom_price: 0,
+      delivery_time: 3,
+      company: { name: 'Correios' },
+    }),
+    null,
+  );
+
+  assert.equal(DEFAULT_MELHOR_ENVIO_USER_AGENT, 'Lojas Schimitz (schimitzclaiton@gmail.com)');
+  assert.equal(resolveMelhorEnvioUserAgent({}), DEFAULT_MELHOR_ENVIO_USER_AGENT);
+  assert.equal(resolveMelhorEnvioUserAgent({ MELHOR_ENVIO_USER_AGENT: 'Loja Custom' }), 'Loja Custom');
+  assert.equal(MELHOR_ENVIO_CALCULATE_SERVICES, '1,2,3,4,17');
 
   const tie = pickCheapestMelhorEnvioService([
     { id: 1, name: 'A', price: '10.00', delivery_time: 5, company: { name: 'Correios' } },
@@ -113,10 +227,11 @@ async function main() {
   assert.ok(!seen.url.includes(TOKEN));
   const headers = seen.init.headers as Record<string, string>;
   assert.equal(headers.Authorization, `Bearer ${TOKEN}`);
-  assert.ok(headers['User-Agent']);
+  assert.equal(headers['User-Agent'], DEFAULT_MELHOR_ENVIO_USER_AGENT);
   const body = JSON.parse(String(seen.init?.body));
   assert.equal(body.from.postal_code, '90010000');
   assert.equal(body.to.postal_code, '01310100');
+  assert.equal(body.services, MELHOR_ENVIO_CALCULATE_SERVICES);
   assert.equal(body.products[0].weight, 0.8);
   assert.ok(!JSON.stringify(body).includes(TOKEN));
   assert.equal(quote.price, 22.1);
@@ -183,6 +298,70 @@ async function main() {
       assert.ok(!err.message.includes(TOKEN));
       return true;
     },
+  );
+
+  const singleQuote = await calculateMelhorEnvioFreight({
+    token: TOKEN,
+    toCep: '01310100',
+    subtotal: 80,
+    env: { MELHOR_ENVIO_USER_AGENT: 'Override UA' },
+    fetchImpl: async (_url, init) => {
+      const sent = init?.headers as Record<string, string>;
+      assert.equal(sent['User-Agent'], 'Override UA');
+      return jsonResponse(singleService);
+    },
+  });
+  assert.equal(singleQuote.price, 20.15);
+  assert.equal(singleQuote.days, 4);
+  assert.equal(singleQuote.service, '.Package');
+  assert.equal(singleQuote.company, 'Jadlog');
+
+  await assert.rejects(
+    () =>
+      calculateMelhorEnvioFreight({
+        token: TOKEN,
+        toCep: '01310100',
+        subtotal: 10,
+        env: {},
+        fetchImpl: async () => jsonResponse([]),
+      }),
+    (err: unknown) => err instanceof MelhorEnvioQuoteError && err.code === 'NO_OPTION',
+  );
+
+  await assert.rejects(
+    () =>
+      calculateMelhorEnvioFreight({
+        token: TOKEN,
+        toCep: '01310100',
+        subtotal: 10,
+        env: {},
+        fetchImpl: async () =>
+          jsonResponse({
+            id: 1,
+            name: 'PAC',
+            price: '18.00',
+            delivery_time: 6,
+            company: { name: 'Correios' },
+            error: { message: 'indisponível' },
+          }),
+      }),
+    (err: unknown) => err instanceof MelhorEnvioQuoteError && err.code === 'NO_OPTION',
+  );
+
+  await assert.rejects(
+    () =>
+      calculateMelhorEnvioFreight({
+        token: TOKEN,
+        toCep: '01310100',
+        subtotal: 10,
+        env: {},
+        fetchImpl: async () =>
+          jsonResponse({
+            message: 'The given data was invalid.',
+            errors: { from: ['origem inválida'] },
+          }),
+      }),
+    (err: unknown) => err instanceof MelhorEnvioQuoteError && err.code === 'NO_OPTION',
   );
 
   const poa = await quoteHybridFreight({

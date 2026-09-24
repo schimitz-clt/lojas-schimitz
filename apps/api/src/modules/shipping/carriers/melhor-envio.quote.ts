@@ -6,9 +6,17 @@
  * Sandbox:  https://sandbox.melhorenvio.com.br
  *
  * Escolha da opção: menor preço viável (custom_price, senão price).
- * Empate: menor prazo. Linhas com `error` ou sem prazo ≥ 1 são ignoradas.
+ * Empate: menor prazo. Linhas com `error` (string ou objeto não vazio) ou sem prazo ≥ 1 são ignoradas.
  * `delivery_time` / `custom_delivery_time` são o prazo da transportadora (dias úteis na API).
+ * Se esses campos faltam, usa `custom_delivery_range.min` e depois `delivery_range.min`.
  * A vitrine mostra "em X dias" e não inventa data de calendário.
+ *
+ * A API às vezes devolve um único serviço como objeto (não array de um elemento).
+ * Esse objeto é normalizado para `[serviço]` antes da escolha. Objetos de validação
+ * (sem id/name/price/company) continuam sem opção.
+ * O body sempre manda `services` (PAC, SEDEX, Jadlog .Package, Jadlog .Com, Mini Envios)
+ * para a conta devolver várias linhas em array. Sem essa lista, um único serviço
+ * habilitado voltava como objeto e a cotação caía em NO_OPTION.
  *
  * Pacote quando o catálogo não traz peso ou medida (explícito, não é taxa de frete):
  * - peso 0,3 kg
@@ -30,7 +38,15 @@ export const DEFAULT_PARCEL_WIDTH_CM = 16;
 export const DEFAULT_PARCEL_HEIGHT_CM = 11;
 export const DEFAULT_PARCEL_LENGTH_CM = 11;
 
-export const DEFAULT_MELHOR_ENVIO_USER_AGENT = 'Lojas Schimitz (frete@lojasschimitz.com.br)';
+export const DEFAULT_MELHOR_ENVIO_USER_AGENT = 'Lojas Schimitz (schimitzclaiton@gmail.com)';
+
+/**
+ * Serviços pedidos em toda cotação (IDs oficiais Melhor Envio, sem transportadora extra):
+ * 1 PAC, 2 SEDEX, 3 Jadlog .Package, 4 Jadlog .Com, 17 Mini Envios.
+ * Mini Envios entra porque o pacote padrão da loja é pequeno (0,3 kg, 16×11×11 cm).
+ * Sem `services`, um único serviço da conta volta como objeto e a cotação falha com NO_OPTION.
+ */
+export const MELHOR_ENVIO_CALCULATE_SERVICES = '1,2,3,4,17';
 
 export type MelhorEnvioParcelItem = {
   id?: string;
@@ -167,26 +183,77 @@ export type PickedService = {
   company: string;
 };
 
-/** Menor preço entre serviços sem erro, com prazo ≥ 1. Empate: menos dias. */
+type MelhorEnvioServiceRow = {
+  id?: number | string;
+  name?: string;
+  price?: unknown;
+  custom_price?: unknown;
+  delivery_time?: unknown;
+  custom_delivery_time?: unknown;
+  delivery_range?: { min?: unknown; max?: unknown } | null;
+  custom_delivery_range?: { min?: unknown; max?: unknown } | null;
+  error?: unknown;
+  company?: { name?: string } | string | null;
+};
+
+/** Linha de serviço (id, name, price ou company). Erro de validação não entra. */
+export function isMelhorEnvioServiceRow(payload: unknown): payload is MelhorEnvioServiceRow {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const rec = payload as Record<string, unknown>;
+  const hasId = rec.id != null && String(rec.id).trim() !== '';
+  const hasName = typeof rec.name === 'string' && rec.name.trim() !== '';
+  const hasPrice = rec.price != null || rec.custom_price != null;
+  const company = rec.company;
+  const hasCompany =
+    (typeof company === 'string' && company.trim() !== '') || (!!company && typeof company === 'object');
+  return hasId || hasName || hasPrice || hasCompany;
+}
+
+/**
+ * Array segue array. Um único serviço (objeto) vira lista de um item.
+ * Objeto sem cara de serviço (validação) vira lista vazia — o picker devolve null.
+ */
+export function normalizeMelhorEnvioCalculatePayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (isMelhorEnvioServiceRow(payload)) return [payload];
+  return [];
+}
+
+function serviceRowHasError(error: unknown): boolean {
+  if (typeof error === 'string') return error.trim().length > 0;
+  if (Array.isArray(error)) return error.some((item) => item != null && String(item).trim() !== '');
+  if (error && typeof error === 'object') return Object.keys(error as object).length > 0;
+  return false;
+}
+
+function rangeMin(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  return (raw as { min?: unknown }).min;
+}
+
+function companyName(company: MelhorEnvioServiceRow['company']): string {
+  if (typeof company === 'string' && company.trim()) return company.trim();
+  if (company && typeof company === 'object' && typeof company.name === 'string' && company.name.trim()) {
+    return company.name.trim();
+  }
+  return 'Melhor Envio';
+}
+
+/** Menor preço entre serviços sem erro, com preço > 0 e prazo ≥ 1. Empate: menos dias. */
 export function pickCheapestMelhorEnvioService(payload: unknown): PickedService | null {
-  if (!Array.isArray(payload)) return null;
+  const rows = normalizeMelhorEnvioCalculatePayload(payload);
   const viable: PickedService[] = [];
-  for (const row of payload) {
-    if (!row || typeof row !== 'object') continue;
-    const rec = row as {
-      id?: number | string;
-      name?: string;
-      price?: unknown;
-      custom_price?: unknown;
-      delivery_time?: unknown;
-      custom_delivery_time?: unknown;
-      error?: unknown;
-      company?: { name?: string };
-    };
-    if (typeof rec.error === 'string' && rec.error.trim()) continue;
+  for (const row of rows) {
+    if (!isMelhorEnvioServiceRow(row)) continue;
+    const rec = row;
+    if (serviceRowHasError(rec.error)) continue;
     const price = parseMoney(rec.custom_price) ?? parseMoney(rec.price);
     if (price == null) continue;
-    const daysRaw = rec.custom_delivery_time ?? rec.delivery_time;
+    const daysRaw =
+      rec.custom_delivery_time ??
+      rec.delivery_time ??
+      rangeMin(rec.custom_delivery_range) ??
+      rangeMin(rec.delivery_range);
     const days = Math.floor(Number(daysRaw));
     if (!Number.isFinite(days) || days < 1) continue;
     viable.push({
@@ -194,7 +261,7 @@ export function pickCheapestMelhorEnvioService(payload: unknown): PickedService 
       days,
       serviceId: String(rec.id ?? ''),
       service: String(rec.name || rec.id || 'servico'),
-      company: String(rec.company?.name || 'Melhor Envio'),
+      company: companyName(rec.company),
     });
   }
   viable.sort((a, b) => a.price - b.price || a.days - b.days || a.service.localeCompare(b.service));
@@ -238,6 +305,7 @@ export async function calculateMelhorEnvioFreight(
         to: { postal_code: toCep },
         products,
         options: { receipt: false, own_hand: false },
+        services: MELHOR_ENVIO_CALCULATE_SERVICES,
       }),
     });
   } catch {

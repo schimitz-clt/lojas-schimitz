@@ -66,7 +66,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | **ORDER** | `Order` + `OrderStatus` | Máquina de estados Phase 12 |
 | **DELIVERY** | `in_transit` → `delivered` | Sem sync automático de transportadora |
 
-Cotação: `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`. Sandbox: `MELHOR_ENVIO_SANDBOX=true` (ou `MELHOR_ENVIO_BASE_URL`). Origem: `MELHOR_ENVIO_ORIGIN_CEP` (padrão `91250000`). User-Agent: `MELHOR_ENVIO_USER_AGENT`. Sem token ou se a API não devolver opção viável, a cotação falha com `SHIPPING_QUOTE_UNAVAILABLE` — não usa `defaultFee`. A escolha única é a opção viável mais barata (`custom_price`, senão `price`; empate pelo menor prazo). Compra de etiqueta não é feita. Nunca commitar o token.
+Cotação: `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`. Sandbox: `MELHOR_ENVIO_SANDBOX=true` (ou `MELHOR_ENVIO_BASE_URL`). Origem: `MELHOR_ENVIO_ORIGIN_CEP` (padrão `91250000`). User-Agent padrão `Lojas Schimitz (schimitzclaiton@gmail.com)`, override `MELHOR_ENVIO_USER_AGENT`. O calculate envia `services` `1,2,3,4,17` (PAC, SEDEX, Jadlog .Package, Jadlog .Com, Mini Envios) para a resposta vir em array; um único serviço em objeto também é aceito. Sem token ou se a API não devolver opção viável, a cotação falha com `SHIPPING_QUOTE_UNAVAILABLE` — não usa `defaultFee`. A escolha única é a opção viável mais barata (`custom_price`, senão `price`; empate pelo menor prazo). Compra de etiqueta não é feita. Nunca commitar o token.
 | GET/POST | `/admin/sellers` | admin |
 | PATCH | `/admin/sellers/:id/status` body `{ status: "pending"|"active"|"suspended" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
