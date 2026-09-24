@@ -3,7 +3,7 @@
  * Real catalog + existing entrega-própria quote. No fake viewers, no invented freight.
  */
 
-import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
+import { formatPrazoDays, formatReceiveInDays } from '@/lib/delivery-eta';
 import { catalogProductsFromResponse, parseHomeShelvesPayload } from '@/lib/home-shelves';
 import { LOW_STOCK_LABEL, LOW_STOCK_MAX, shouldShowLowStock } from '@/lib/low-stock';
 
@@ -259,6 +259,7 @@ export type PdpFreightQuote = {
   label?: string | null;
   modality?: string | null;
   carrier?: string | null;
+  service?: string | null;
   matchedPrefix?: string | null;
   freeAbove?: number | null;
 };
@@ -266,7 +267,7 @@ export type PdpFreightQuote = {
 export function pdpFreightIdleCopy(): { title: string; body: string } {
   return {
     title: 'Frete e prazo',
-    body: 'Informe o CEP para ver a estimativa da entrega própria. O valor final é confirmado no checkout.',
+    body: 'Informe o CEP para calcular o frete e o prazo. O valor final é confirmado no checkout.',
   };
 }
 
@@ -319,7 +320,7 @@ export function pdpFreightResultCopy(q: PdpFreightQuote): { title: string; detai
   const price = Number(q.price);
   const title =
     Number.isFinite(price) && price <= 0 ? 'Frete grátis' : `Frete: ${formatFreightBrl(price)}`;
-  const days = formatDaysAfterDispatch(Number(q.days) || 0);
+  const days = `Receba ${formatReceiveInDays(Number(q.days) || 0)}`;
   const bits = [q.label?.trim(), q.matchedPrefix ? `CEP ${q.matchedPrefix}…` : '']
     .filter(Boolean)
     .join(' · ');
@@ -344,17 +345,40 @@ export function pdpFreightDestinationLine(cep: string, label?: string | null): s
 }
 
 /**
- * Receive row. Prazo stays “N dias após o despacho” — no calendar date we do not have.
- * Cost is Grátis or the quoted BRL amount.
+ * Linha da PDP. "em N dias" junta com o prefixo "Receba " do componente → "Receba em N dias".
+ * Não usa "após o despacho" e não inventa data de calendário.
  */
 export function pdpFreightEstimateRow(q: PdpFreightQuote): { eta: string; price: string; note: string } {
   const amount = Number(q.price);
   const price =
     Number.isFinite(amount) && amount <= 0 ? 'Grátis' : formatFreightBrl(amount);
   return {
-    eta: formatDaysAfterDispatch(Number(q.days) || 0),
+    eta: formatReceiveInDays(Number(q.days) || 0),
     price,
-    note: 'Após o despacho. O valor final é confirmado no checkout.',
+    note: 'Prazo da cotação. O valor final é confirmado no checkout.',
+  };
+}
+
+/** Mesma frase no checkout: preço + "Receba em X dias". */
+export function freightCustomerLines(q: PdpFreightQuote): {
+  priceLabel: string;
+  eta: string;
+  prazo: string;
+  detail: string;
+} {
+  const amount = Number(q.price);
+  const priceLabel =
+    Number.isFinite(amount) && amount <= 0 ? 'Frete grátis' : `Frete: ${formatFreightBrl(amount)}`;
+  const carrier = String(q.carrier || '').trim();
+  const service = String(q.service || (q.modality && q.modality !== 'gratis' ? q.modality : '') || '').trim();
+  const quoteBit = [carrier, service].filter(Boolean).join(' · ');
+  const zone = String(q.label || '').trim();
+  const detail = [zone, quoteBit ? `Cotação: ${quoteBit}` : ''].filter(Boolean).join(' · ');
+  return {
+    priceLabel,
+    eta: `Receba ${formatReceiveInDays(Number(q.days) || 0)}`,
+    prazo: formatPrazoDays(Number(q.days) || 0),
+    detail: detail || 'Cotação por CEP',
   };
 }
 

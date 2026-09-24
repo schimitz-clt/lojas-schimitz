@@ -1,8 +1,16 @@
-/** Frete própria (entrega do lojista) — cotação por regras de CEP. */
+/** Frete: cálculo por CEP (Melhor Envio) + subsídio de zona grátis. */
 export type ShippingQuoteInput = {
   cep: string;
   subtotal: number;
-  items: { qty: number; weightKg?: number }[];
+  items: {
+    id?: string;
+    qty: number;
+    weightKg?: number;
+    widthCm?: number;
+    heightCm?: number;
+    lengthCm?: number;
+    insuranceValue?: number;
+  }[];
 };
 
 export type ShippingQuote = {
@@ -13,6 +21,10 @@ export type ShippingQuote = {
   matchedPrefix?: string | null;
   label?: string | null;
   freeAbove?: number;
+  carrierPrice?: number;
+  service?: string;
+  subsidized?: boolean;
+  assumedPackage?: boolean;
 };
 
 export interface ShippingProvider {

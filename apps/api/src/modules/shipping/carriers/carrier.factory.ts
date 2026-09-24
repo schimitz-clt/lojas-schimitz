@@ -15,9 +15,11 @@ export function resolveCarrierProviderMode(
 }
 
 /**
- * Selects active CarrierProvider from env.
- * Default: propria (manual). Melhor Envio only when CARRIER_PROVIDER=melhor_envio —
- * operations still throw NOT_CONFIGURED / CARRIER_LIVE_NOT_WIRED (never fake success).
+ * Selects the label/track CarrierProvider from env.
+ * Default: propria (manual). CARRIER_PROVIDER=melhor_envio still does not buy labels:
+ * createLabel/track throw CARRIER_LIVE_NOT_WIRED.
+ * A cotação de frete da vitrine não passa por aqui — ShippingService chama o calculate
+ * do Melhor Envio sempre que o token existe, sem mudar CARRIER_PROVIDER.
  */
 export function createCarrierProviderFromEnv(
   env: NodeJS.ProcessEnv = process.env,

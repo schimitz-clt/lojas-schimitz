@@ -1,4 +1,8 @@
-/** Prazo de entrega = N × 24h após o despacho (in_transit|shipped), não após o PIX. */
+/**
+ * Depois do despacho, a previsão é despacho + N × 24h.
+ * Na cotação (PDP e checkout) e no pedido ainda não despachado, o texto é
+ * "Receba em N dias" / "Prazo: N dias" — sem "após o despacho" e sem data inventada.
+ */
 
 export type StatusHistoryLike = {
   toStatus: string;
@@ -20,11 +24,25 @@ const PRE_DISPATCH_STATUSES = new Set([
   'separating',
 ]);
 
-/** Cópia pré-despacho: "1 dia após o despacho" / "N dias após o despacho". */
+/** Frase antiga relativa ao despacho. A vitrine e o checkout não usam isto. */
 export function formatDaysAfterDispatch(days: number): string {
   const n = Math.max(0, Math.floor(Number(days) || 0));
   if (n === 1) return '1 dia após o despacho';
   return `${n} dias após o despacho`;
+}
+
+/** Prazo da cotação: "em 1 dia" / "em N dias". Sem calendário inventado. */
+export function formatReceiveInDays(days: number): string {
+  const n = Math.max(0, Math.floor(Number(days) || 0));
+  if (n === 1) return 'em 1 dia';
+  return `em ${n} dias`;
+}
+
+/** "Prazo: 1 dia" / "Prazo: N dias". */
+export function formatPrazoDays(days: number): string {
+  const n = Math.max(0, Math.floor(Number(days) || 0));
+  if (n === 1) return 'Prazo: 1 dia';
+  return `Prazo: ${n} dias`;
 }
 
 /** Dias estimados a partir do snap de frete do pedido (estimatedDays ou days). */
@@ -78,7 +96,7 @@ export function isDispatchedStatus(status: string): boolean {
 /**
  * Texto de prazo para a página do pedido, sem inventar datas.
  * - despachado + dias: ETA exata
- * - pré-despacho + dias: "Prazo: N dia(s) após o despacho"
+ * - pré-despacho + dias: "Prazo: N dia(s)" (sem "após o despacho")
  * - entregue: entregue (+ se ETA conhecida, se cumpriu)
  */
 export function deliveryEtaCopy(input: {
@@ -112,7 +130,7 @@ export function deliveryEtaCopy(input: {
   }
 
   if (days != null && (isPreDispatchStatus(input.status) || input.status === 'awaiting_payment')) {
-    return `Prazo: ${formatDaysAfterDispatch(days)}`;
+    return formatPrazoDays(days);
   }
 
   return null;

@@ -1,6 +1,8 @@
 import assert from 'assert';
 import {
   formatDaysAfterDispatch,
+  formatPrazoDays,
+  formatReceiveInDays,
   findDispatchAt,
   etaAfterDispatch,
   formatEtaPt,
@@ -13,6 +15,14 @@ assert.equal(formatDaysAfterDispatch(1), '1 dia após o despacho');
 assert.equal(formatDaysAfterDispatch(2), '2 dias após o despacho');
 assert.equal(formatDaysAfterDispatch(5), '5 dias após o despacho');
 assert.equal(formatDaysAfterDispatch(1.9), '1 dia após o despacho');
+
+assert.equal(formatReceiveInDays(1), 'em 1 dia');
+assert.equal(formatReceiveInDays(1.9), 'em 1 dia');
+assert.equal(formatReceiveInDays(4), 'em 4 dias');
+assert.equal(formatPrazoDays(1), 'Prazo: 1 dia');
+assert.equal(formatPrazoDays(3), 'Prazo: 3 dias');
+assert.ok(!/após o despacho/.test(formatReceiveInDays(1)));
+assert.ok(!/após o despacho/.test(formatPrazoDays(1)));
 
 assert.equal(resolveEstimatedDays({ days: 3 }), 3);
 assert.equal(resolveEstimatedDays({ estimatedDays: 2 }), 2);
@@ -56,14 +66,15 @@ assert.ok(
   deliveryEtaCopy({
     status: 'paid',
     freightSnap: { days: 1 },
-  }) === 'Prazo: 1 dia após o despacho',
+  }) === 'Prazo: 1 dia',
 );
 assert.ok(
   deliveryEtaCopy({
     status: 'organizing',
     freightSnap: { estimatedDays: 3 },
-  }) === 'Prazo: 3 dias após o despacho',
+  }) === 'Prazo: 3 dias',
 );
+assert.ok(!/após o despacho/.test(deliveryEtaCopy({ status: 'paid', freightSnap: { days: 1 } }) || ''));
 
 const afterDispatch = deliveryEtaCopy({
   status: 'in_transit',

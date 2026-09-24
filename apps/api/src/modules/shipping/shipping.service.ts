@@ -1,18 +1,21 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma.service';
 import {
-  computeShippingQuote,
   DEFAULT_SHIPPING_SETTINGS,
   normalizeCep,
   type ShippingQuoteResult,
 } from './shipping.rules';
 import type { ShippingProvider, ShippingQuote, ShippingQuoteInput } from './shipping.provider';
+import { MelhorEnvioCarrierProvider } from './carriers/melhor-envio.carrier';
+import { ShippingQuoteUnavailableError, quoteHybridFreight } from './shipping.hybrid';
 
 export type UpdateShippingSettingsInput = {
   freeAbove: number;
@@ -84,6 +87,8 @@ function assertCepPrefix(raw: string): string {
 @Injectable()
 export class ShippingService implements ShippingProvider {
   name = 'self-delivery';
+  private readonly logger = new Logger(ShippingService.name);
+  private readonly melhorEnvio = new MelhorEnvioCarrierProvider();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -105,6 +110,7 @@ export class ShippingService implements ShippingProvider {
 
   /**
    * Porto Alegre usa CEPs 90xxx e 91xxx (ex.: 91160-390, warehouse origin-91250).
+   * Taxa 0 = subsídio: o cliente não paga. O prazo da vitrine vem da cotação, não de estimatedDays.
    * Idempotente: só cria prefixo ausente — não sobrescreve regras admin.
    */
   async ensureDefaultPoaRules() {
@@ -140,31 +146,52 @@ export class ShippingService implements ShippingProvider {
       matchedPrefix: full.matchedPrefix,
       label: full.label,
       freeAbove: full.freeAbove,
+      carrierPrice: full.carrierPrice,
+      service: full.service,
+      subsidized: full.subsidized,
+      assumedPackage: full.assumedPackage,
     };
   }
 
+  /**
+   * Sempre calcula (Melhor Envio). Zona com taxa 0 zera o preço do cliente e mantém o prazo calculado.
+   * Sem token ou se a cotação falha: erro — não devolve defaultFee/defaultDays como se fossem exatos.
+   */
   async quoteDetailed(input: ShippingQuoteInput): Promise<ShippingQuoteResult> {
     const settingsRow = await this.ensureSettings();
     const rules = await this.prisma.shippingCepRule.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: 'desc' }],
     });
-    return computeShippingQuote({
-      cep: input.cep,
-      subtotal: input.subtotal,
-      settings: {
-        freeAbove: Number(settingsRow.freeAbove),
-        defaultFee: Number(settingsRow.defaultFee),
-        defaultDays: settingsRow.defaultDays,
-      },
-      rules: rules.map((r) => ({
-        cepPrefix: r.cepPrefix,
-        fee: Number(r.fee),
-        estimatedDays: r.estimatedDays,
-        label: r.label,
-        sortOrder: r.sortOrder,
-      })),
-    });
+    try {
+      return await quoteHybridFreight({
+        cep: input.cep,
+        subtotal: input.subtotal,
+        items: input.items,
+        settings: {
+          freeAbove: Number(settingsRow.freeAbove),
+          defaultFee: Number(settingsRow.defaultFee),
+          defaultDays: settingsRow.defaultDays,
+        },
+        rules: rules.map((r) => ({
+          cepPrefix: r.cepPrefix,
+          fee: Number(r.fee),
+          estimatedDays: r.estimatedDays,
+          label: r.label,
+          sortOrder: r.sortOrder,
+        })),
+        quoteCarrier: (q) => this.melhorEnvio.quote(q),
+      });
+    } catch (err) {
+      if (err instanceof ShippingQuoteUnavailableError) {
+        this.logger.warn(`shipping quote unavailable reason=${err.reason}`);
+        throw new UnprocessableEntityException({
+          code: err.code,
+          message: err.message,
+        });
+      }
+      throw err;
+    }
   }
 
   async getAdminConfig() {

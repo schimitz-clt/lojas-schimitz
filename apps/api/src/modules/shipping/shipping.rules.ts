@@ -1,4 +1,8 @@
-/** Lógica pura de frete própria (sem I/O) — testável. */
+/**
+ * Regras de zona (sem I/O). A vitrine não usa defaultFee/defaultDays como cotação:
+ * o preço e o prazo do cliente vêm de `quoteHybridFreight` (cálculo Melhor Envio).
+ * Zona com taxa 0 é subsídio (cliente paga R$ 0); o prazo continua o calculado.
+ */
 
 export type ShippingRuleMatch = {
   cepPrefix: string;
@@ -15,13 +19,21 @@ export type ShippingSettingsSnap = {
 };
 
 export type ShippingQuoteResult = {
+  /** Preço cobrado do cliente. 0 quando a zona é grátis ou o pedido passa de freeAbove. */
   price: number;
+  /** Prazo da cotação (dias), não o estimatedDays da zona. */
   days: number;
   carrier: string;
   modality: string;
   matchedPrefix: string | null;
   label: string | null;
   freeAbove: number;
+  /** Preço calculado antes do subsídio (o que a cotação devolveu). */
+  carrierPrice?: number;
+  service?: string;
+  subsidized?: boolean;
+  /** true quando peso ou medida usou o pacote padrão documentado. */
+  assumedPackage?: boolean;
 };
 
 export const DEFAULT_SHIPPING_SETTINGS: ShippingSettingsSnap = {
