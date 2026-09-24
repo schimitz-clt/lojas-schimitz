@@ -50,6 +50,13 @@ export class SignupEmailDto {
   email!: string;
 }
 
+/** Passo 2 do cadastro. A resposta da API é só `{ exists: boolean }`. */
+export class SignupCpfDto {
+  @ApiProperty({ example: '529.982.247-25', description: 'CPF com ou sem máscara.' })
+  @IsBrazilianCpf()
+  cpf!: string;
+}
+
 export class LoginDto {
   @ApiProperty({ example: 'cliente@exemplo.com' })
   @IsEmail()

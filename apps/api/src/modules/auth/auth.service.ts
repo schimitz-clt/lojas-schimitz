@@ -125,6 +125,22 @@ export class AuthService {
   }
 
   /**
+   * Signup passo 2. Boolean only — do not return the login address, name, or birth date
+   * stored on this CPF. Passo 1 already proved the typed address is free, so this conta
+   * is a different one and the form must stop instead of collecting a new password.
+   */
+  async signupCpfExists(cpfRaw: string) {
+    const invalid = cpfError(cpfRaw);
+    if (invalid) throw new BadRequestException(invalid);
+    const cpf = normalizeCpf(cpfRaw);
+    const user = await this.prisma.user.findUnique({
+      where: { cpf },
+      select: { id: true },
+    });
+    return signupEmailCheck(Boolean(user));
+  }
+
+  /**
    * New customer: same session payload as login (`issue`).
    * Existing CPF → 409 CPF_ALREADY_REGISTERED.
    * Existing e-mail (CPF free) → 409 EMAIL_ALREADY_REGISTERED.

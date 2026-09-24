@@ -23,11 +23,14 @@ import {
   signupCpfIssue,
   signupDetailsIssue,
   passwordResetHref,
+  readSignupCpfExists,
   readSignupEmailExists,
   signupEmailForApi,
   signupEmailIssue,
   signupLookupErrorMessage,
   signupNameIssue,
+  SIGNUP_CPF_LOOKUP_FALLBACK,
+  signupPathAfterCpf,
   signupPathAfterEmail,
   signupPhoneIssue,
   signupProfileIssue,
@@ -407,7 +410,7 @@ assert.ok(profile.includes('aria-invalid={Boolean(birthFieldError)'), 'birth dat
 assert.ok(profile.includes('signup-name-error'), 'name error sits under the field');
 assert.ok(profile.includes('signup-birth-error'), 'birth date error sits under the field');
 assert.ok(profile.includes('signup-phone-error'), 'WhatsApp error sits under the field');
-assert.ok(profile.includes('disabled={!profileReady || busy}'), 'Continuar stays disabled while passo 2 is invalid');
+assert.ok(profile.includes('disabled={!profileReady || busy || checking}'), 'Continuar stays disabled while passo 2 is invalid');
 assert.ok(profile.includes("getElementById('signup-phone')"), 'Próximo moves to WhatsApp');
 assert.equal(profile.includes('signup-password'), false, 'password stays on step 3');
 const access = later.slice(later.indexOf('data-signup-step="access"'));
@@ -444,6 +447,16 @@ assert.equal(cadastro.includes('Faça login para continuar'), false);
 
 assert.equal(signupPathAfterEmail(true), 'signin');
 assert.equal(signupPathAfterEmail(false), 'register');
+assert.equal(signupPathAfterCpf(true), 'existing-cpf');
+assert.equal(signupPathAfterCpf(false), 'register');
+assert.equal(readSignupCpfExists({ exists: true }), true);
+assert.equal(readSignupCpfExists({ exists: false }), false);
+assert.throws(() => readSignupCpfExists({}), /verificar o CPF/);
+assert.throws(() => readSignupCpfExists({ exists: 'sim', email: 'ana@loja.com' }), /verificar o CPF/);
+assert.equal(
+  signupLookupErrorMessage(new Error('Failed to fetch'), SIGNUP_CPF_LOOKUP_FALLBACK),
+  SIGNUP_CPF_LOOKUP_FALLBACK,
+);
 assert.equal(readSignupEmailExists({ exists: true }), true);
 assert.equal(readSignupEmailExists({ exists: false }), false);
 assert.equal(readSignupEmailExists({ exists: true, name: 'Ana', cpf: '52998224725' }), true);
@@ -484,6 +497,32 @@ assert.equal(signin.includes('Nome completo'), false, 'existing account does not
 assert.equal(signin.includes('signup-birth'), false, 'existing account does not ask for birth date');
 assert.equal(signin.includes('buildRegisterBody'), false, 'existing account does not post register');
 assert.equal(signin.includes('Cadastrar e continuar'), false, 'existing account does not create a conta');
+
+const submitProfileFn = flow.slice(flow.indexOf('async function submitProfile'), flow.indexOf('async function submitAccess'));
+assert.ok(submitProfileFn.includes('await onLookupCpf'), 'passo 2 asks the server before leaving');
+assert.ok(submitProfileFn.indexOf('await onLookupCpf') < submitProfileFn.indexOf('signupPathAfterCpf'));
+assert.ok(submitProfileFn.includes("path === 'existing-cpf' ? 'existing-cpf' : 'access'"), 'taken CPF stops before the new password');
+assert.equal(submitProfileFn.includes("setStep('access')"), false, 'passo 2 does not open the new password on format alone');
+assert.ok(submitProfileFn.includes('SIGNUP_CPF_LOOKUP_FALLBACK'), 'CPF lookup failure stays on dados');
+
+const cpfGate = flow.slice(flow.indexOf('data-signup-step="existing-cpf"'));
+assert.ok(cpfGate.includes('Este CPF já tem conta'), 'the screen says the CPF already has an account');
+assert.ok(cpfGate.includes('Não vamos criar outra'), 'registration stops');
+assert.ok(cpfGate.includes('label="Entrar"'), 'Entrar reuses the login path');
+assert.ok(cpfGate.includes('Esqueci minha senha'), 'reset is offered');
+assert.ok(cpfGate.includes('Alterar senha'), 'alterar senha is offered');
+assert.ok(cpfGate.includes("passwordResetHref('')"), 'reset does not prefill the new e-mail');
+assert.equal(cpfGate.includes('passwordResetHref(displayEmail)'), false, 'the free e-mail is not treated as this conta');
+assert.ok(cpfGate.includes('Usar outro CPF'), 'another CPF can be tried');
+assert.equal(cpfGate.includes('buildRegisterBody'), false, 'taken CPF does not post register');
+assert.equal(cpfGate.includes('Cadastrar e continuar'), false, 'taken CPF does not create a conta');
+assert.equal(cpfGate.includes('signup-password'), false, 'taken CPF does not ask for a new password');
+
+assert.ok(cadastro.includes('/auth/signup-cpf'), 'cadastro checks the CPF on the server');
+assert.ok(cadastro.includes('readSignupCpfExists'), 'cadastro refuses a missing CPF flag');
+assert.ok(cadastro.includes('onLookupCpf={lookupCpf}'), 'passo 2 is wired to the lookup');
+assert.ok(entrar.includes('/auth/signup-cpf'), 'criar conta on Entrar checks the CPF');
+assert.equal(registerFn.includes('/auth/signup-cpf'), false, 'the register POST stays /auth/register');
 
 assert.ok(cadastro.includes('/auth/signup-email'), 'cadastro checks existence on the server');
 assert.ok(cadastro.includes('readSignupEmailExists'), 'cadastro refuses a missing exists flag');

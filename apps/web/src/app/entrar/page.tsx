@@ -5,7 +5,9 @@ import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
 import {
+  cpfDigits,
   readRegisterFailure,
+  readSignupCpfExists,
   readSignupEmailExists,
   signupEmailForApi,
   type RegisterBody,
@@ -72,6 +74,14 @@ export default function EntrarPage() {
       body: JSON.stringify({ email: signupEmailForApi(email) }),
     });
     return readSignupEmailExists(data);
+  }
+
+  async function lookupSignupCpf(cpf: string) {
+    const data = await api<{ exists: boolean }>('/auth/signup-cpf', {
+      method: 'POST',
+      body: JSON.stringify({ cpf: cpfDigits(cpf) }),
+    });
+    return readSignupCpfExists(data);
   }
 
   async function signInExisting(input: { email: string; password: string }) {
@@ -217,6 +227,7 @@ export default function EntrarPage() {
             setServerIssue(null);
           }}
           onLookupEmail={lookupSignupEmail}
+          onLookupCpf={lookupSignupCpf}
           onSignIn={signInExisting}
           onRegister={submitRegister}
         />
