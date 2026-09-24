@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
 import Link from 'next/link';
 import {
+  REGISTER_CPF_EXISTS_MESSAGE,
   REGISTER_EMAIL_EXISTS_MESSAGE,
   SIGNUP_STORE_NAME,
   birthDateToIso,
@@ -17,8 +18,10 @@ import {
   signupCpfIssue,
   signupEmailForApi,
   signupEmailIssue,
+  SIGNUP_CPF_LOOKUP_FALLBACK,
   signupLookupErrorMessage,
   signupNameIssue,
+  signupPathAfterCpf,
   signupPathAfterEmail,
   signupPhoneIssue,
   signupProfileIssue,
@@ -37,6 +40,8 @@ type Props = {
   onRegister: (body: RegisterBody) => Promise<void> | void;
   /** POST /auth/signup-email. The server decides exists; format-only checks are not enough. */
   onLookupEmail: (email: string) => Promise<boolean>;
+  /** POST /auth/signup-cpf. A taken CPF stops registration before a second password is created. */
+  onLookupCpf: (cpf: string) => Promise<boolean>;
   /** Existing account: POST /auth/login, same cookie session as Entrar. */
   onSignIn: (input: { email: string; password: string }) => Promise<void> | void;
   onEdit?: () => void;
@@ -46,7 +51,7 @@ type Props = {
   haveAccountHref?: string;
 };
 
-type CreateStep = Exclude<SignupStep, 'signin'>;
+type CreateStep = Exclude<SignupStep, 'signin' | 'existing-cpf'>;
 
 const STEP_CAPTION: Record<CreateStep, string> = {
   email: 'E-mail',
@@ -74,22 +79,24 @@ function HaveAccount({
   href,
   onClick,
   className,
+  label = 'Já tenho conta',
 }: {
   href?: string;
   onClick?: () => void;
   className: string;
+  label?: string;
 }) {
   if (onClick) {
     return (
       <button type="button" className={className} onClick={onClick}>
-        Já tenho conta
+        {label}
       </button>
     );
   }
   if (href) {
     return (
       <Link href={href} className={className}>
-        Já tenho conta
+        {label}
       </Link>
     );
   }
@@ -205,6 +212,7 @@ export function CreateAccountFlow({
   serverIssue,
   onRegister,
   onLookupEmail,
+  onLookupCpf,
   onSignIn,
   onEdit,
   onHaveAccount,
@@ -241,19 +249,20 @@ export function CreateAccountFlow({
   const showBirthError = profileTried || Boolean(touched.birthDate) || birthDate.trim().length >= 10;
   const showPhoneError = profileTried || Boolean(touched.phone) || phone.replace(/\D/g, '').length >= 10;
   const emailAlreadyRegistered = serverIssue?.field === 'email' && Boolean(displayEmail);
+  const cpfAlreadyRegistered = serverIssue?.field === 'cpf';
   const viewStep: SignupStep = emailAlreadyRegistered
     ? 'signin'
-    : serverIssue?.field === 'email'
-      ? 'email'
-      : serverIssue?.field === 'cpf'
-        ? 'profile'
+    : cpfAlreadyRegistered
+      ? 'existing-cpf'
+      : serverIssue?.field === 'email'
+        ? 'email'
         : step;
 
   useEffect(() => {
     if (!serverIssue) return;
     setIssue(serverIssue);
     if (serverIssue.field === 'email') setStep(displayEmail ? 'signin' : 'email');
-    else if (serverIssue.field === 'cpf') setStep('profile');
+    else if (serverIssue.field === 'cpf') setStep('existing-cpf');
   }, [serverIssue, displayEmail]);
 
   useEffect(() => {
@@ -263,7 +272,7 @@ export function CreateAccountFlow({
     else if (viewStep === 'profile') {
       if (activeIssue?.field === 'cpf') cpfRef.current?.focus();
       else nameRef.current?.focus();
-    } else passwordRef.current?.focus();
+    } else if (viewStep === 'access' || viewStep === 'signin') passwordRef.current?.focus();
   }, [viewStep]);
 
   function touch() {
@@ -297,6 +306,14 @@ export function CreateAccountFlow({
     setSignInPassword('');
     onEdit?.();
     setStep('email');
+  }
+
+  function editCpf() {
+    lookupSeq.current += 1;
+    setChecking(false);
+    setIssue(null);
+    onEdit?.();
+    setStep('profile');
   }
 
   function goBack() {
@@ -350,7 +367,7 @@ export function CreateAccountFlow({
     await onSignIn({ email: displayEmail, password: signInPassword });
   }
 
-  function submitProfile(e: FormEvent) {
+  async function submitProfile(e: FormEvent) {
     e.preventDefault();
     setProfileTried(true);
     const nextIssue = signupProfileIssue({ name, cpf, birthDate, phone });
@@ -358,9 +375,23 @@ export function CreateAccountFlow({
       setIssue(nextIssue);
       return;
     }
+    const submitted = cpfDigits(cpf);
+    const seq = ++lookupSeq.current;
     setIssue(null);
     onEdit?.();
-    setStep('access');
+    setChecking(true);
+    try {
+      const exists = await onLookupCpf(cpf);
+      if (seq !== lookupSeq.current) return;
+      if (cpfDigits(cpfRef.current?.value || '') !== submitted) return;
+      const path = signupPathAfterCpf(exists);
+      setStep(path === 'existing-cpf' ? 'existing-cpf' : 'access');
+    } catch (err: unknown) {
+      if (seq !== lookupSeq.current) return;
+      setIssue({ field: 'cpf', message: signupLookupErrorMessage(err, SIGNUP_CPF_LOOKUP_FALLBACK) });
+    } finally {
+      if (seq === lookupSeq.current) setChecking(false);
+    }
   }
 
   async function submitAccess(e: FormEvent) {
@@ -411,9 +442,13 @@ export function CreateAccountFlow({
     viewStep === 'signin' &&
     activeIssue?.field === 'email' &&
     activeIssue.message === REGISTER_EMAIL_EXISTS_MESSAGE;
+  const hideCpfExists =
+    viewStep === 'existing-cpf' && activeIssue?.message === REGISTER_CPF_EXISTS_MESSAGE;
   const message =
     error ||
-    (viewStep === 'profile' || emailFieldError || hideEmailExistsOnSignIn ? '' : activeIssue?.message || '');
+    (viewStep === 'profile' || emailFieldError || hideEmailExistsOnSignIn || hideCpfExists
+      ? ''
+      : activeIssue?.message || '');
   const accountAction = (
     <HaveAccount
       href={haveAccountHref}
@@ -611,8 +646,8 @@ export function CreateAccountFlow({
               </p>
             ) : null}
           </div>
-          <button className="acct-cta" type="submit" disabled={!profileReady || busy}>
-            Continuar
+          <button className="acct-cta" type="submit" disabled={!profileReady || busy || checking}>
+            {checking ? 'Verificando…' : 'Continuar'}
           </button>
           {accountAction}
         </form>
@@ -689,7 +724,7 @@ export function CreateAccountFlow({
         </form>
       </div>
     );
-  } else {
+  } else if (viewStep === 'signin') {
     body = (
       <div data-signup-step="signin" data-fixed-email={displayEmail} data-account-gate="existing">
         <div className="acct-head">
@@ -731,6 +766,38 @@ export function CreateAccountFlow({
             Alterar senha
           </Link>
         </form>
+      </div>
+    );
+  } else {
+    body = (
+      <div data-signup-step="existing-cpf" data-account-gate="existing-cpf">
+        <div className="acct-head">
+          <button type="button" className="acct-back" aria-label="Voltar" onClick={editCpf} disabled={busy}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 className="acct-title">Este CPF já tem conta</h1>
+        </div>
+        <p className="acct-lead">
+          Encontramos uma conta com este CPF. Entre com o e-mail dessa conta. Não vamos criar outra.
+        </p>
+        <p className="acct-hint">CPF informado: {cpf}</p>
+        {message ? (
+          <div className="alert" role="alert">
+            {message}
+          </div>
+        ) : null}
+        <HaveAccount href={haveAccountHref} onClick={onHaveAccount} className="acct-cta" label="Entrar" />
+        <Link className="acct-textlink" href={passwordResetHref('')}>
+          Esqueci minha senha
+        </Link>
+        <Link className="acct-textlink" href={passwordResetHref('')}>
+          Alterar senha
+        </Link>
+        <button type="button" className="acct-textlink" onClick={editCpf}>
+          Usar outro CPF
+        </button>
       </div>
     );
   }

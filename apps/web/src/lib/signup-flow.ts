@@ -1,8 +1,9 @@
 /**
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. The server (POST /auth/signup-email) says if that e-mail already has a conta.
- * Conta existente: só a senha, via POST /auth/login (mesmo cookie do Entrar). Sem nome, CPF ou nascimento.
- * E-mail novo: Passo 2 nome, CPF, nascimento, WhatsApp. Passo 3 senha e privacidade.
+ * E-mail existente: só a senha, via POST /auth/login (mesmo cookie do Entrar). Sem nome, CPF ou nascimento.
+ * Passo 2: POST /auth/signup-cpf. CPF existente para o cadastro e manda para Entrar / alterar senha.
+ * E-mail novo e CPF novo: Passo 2 nome, CPF, nascimento, WhatsApp. Passo 3 senha e privacidade.
  * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
  * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
  * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
@@ -19,7 +20,7 @@ export const SIGNUP_STORE_NAME = 'Lojas Schimitz';
 /** Same rule as RegisterDto (`apps/api/src/modules/auth/dto.ts`). */
 export const SIGNUP_PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
-export type SignupStep = 'email' | 'profile' | 'access' | 'signin';
+export type SignupStep = 'email' | 'profile' | 'access' | 'signin' | 'existing-cpf';
 
 /** Depois do passo 1: conta nova segue o cadastro; conta existente pede só a senha. */
 export type SignupEmailGate = 'register' | 'signin';
@@ -358,29 +359,44 @@ export function signupPathAfterEmail(exists: boolean): SignupEmailGate {
   return exists ? 'signin' : 'register';
 }
 
+/** Depois do passo 2: CPF livre segue para a senha nova; CPF com conta para o cadastro. */
+export type SignupCpfGate = 'register' | 'existing-cpf';
+
+export function signupPathAfterCpf(exists: boolean): SignupCpfGate {
+  return exists ? 'existing-cpf' : 'register';
+}
+
+const SIGNUP_EMAIL_LOOKUP_FALLBACK = 'Não foi possível verificar o e-mail. Tente de novo.';
+export const SIGNUP_CPF_LOOKUP_FALLBACK = 'Não foi possível verificar o CPF. Tente de novo.';
+
 /**
- * Reads the signup-email payload. Anything other than a boolean is a failure:
- * a missing flag must not be treated as a free e-mail (that would open passo 2).
- * Extra fields are ignored so a name or CPF never reaches the screen.
+ * Reads `{ exists }` from signup-email or signup-cpf.
+ * A missing flag must not continue registration. Extra fields are ignored.
  */
-export function readSignupEmailExists(data: unknown): boolean {
+function readSignupExists(data: unknown, fallback: string): boolean {
   if (!data || typeof data !== 'object' || !('exists' in data)) {
-    throw new Error('Não foi possível verificar o e-mail. Tente de novo.');
+    throw new Error(fallback);
   }
   const exists = (data as { exists: unknown }).exists;
   if (typeof exists !== 'boolean') {
-    throw new Error('Não foi possível verificar o e-mail. Tente de novo.');
+    throw new Error(fallback);
   }
   return exists;
 }
 
-const SIGNUP_LOOKUP_FALLBACK = 'Não foi possível verificar o e-mail. Tente de novo.';
+export function readSignupEmailExists(data: unknown): boolean {
+  return readSignupExists(data, SIGNUP_EMAIL_LOOKUP_FALLBACK);
+}
+
+export function readSignupCpfExists(data: unknown): boolean {
+  return readSignupExists(data, SIGNUP_CPF_LOOKUP_FALLBACK);
+}
 
 /** Network failures stay in Portuguese. API messages (already PT) pass through. */
-export function signupLookupErrorMessage(error: unknown): string {
+export function signupLookupErrorMessage(error: unknown, fallback = SIGNUP_EMAIL_LOOKUP_FALLBACK): string {
   const raw = error instanceof Error && error.message ? error.message.trim() : '';
   if (!raw || /failed to fetch|networkerror|load failed|network request failed/i.test(raw)) {
-    return SIGNUP_LOOKUP_FALLBACK;
+    return fallback;
   }
   return raw;
 }

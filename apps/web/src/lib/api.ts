@@ -64,7 +64,8 @@ function isAuthEndpoint(path: string) {
     path.startsWith('/auth/refresh') ||
     path.startsWith('/auth/forgot-password') ||
     path.startsWith('/auth/reset-password') ||
-    path.startsWith('/auth/signup-email')
+    path.startsWith('/auth/signup-email') ||
+    path.startsWith('/auth/signup-cpf')
   );
 }
 
