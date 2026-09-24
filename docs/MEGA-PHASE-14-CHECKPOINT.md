@@ -1,5 +1,7 @@
 # MEGA Phase 14 — logistics architecture (CarrierProvider)
 
+> Cotação (depois desta fase): `POST /shipping/quote` chama Melhor Envio `calculate` quando `MELHOR_ENVIO_TOKEN` existe. Zona 90/91 continua grátis para o cliente, com o prazo dessa cotação. Etiqueta e rastreio seguem NOT_WIRED. `CARRIER_PROVIDER` não liga a cotação. Ver `.env.example`.
+
 **Data:** 2026-09-12 ~20:10 America/Sao_Paulo (UTC-3)  
 **Base git:** `ff99599` (Phase 13 checkpoint SHA docs).  
 **Commit SHA:** `3cfe788928f183d091e24702cf57cc1eaf3796e3`  

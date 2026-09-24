@@ -9,49 +9,79 @@ import {
   type TrackInput,
   type TrackResult,
 } from './carrier.types';
+import {
+  calculateMelhorEnvioFreight,
+  readMelhorEnvioToken,
+  type MelhorEnvioFetch,
+} from './melhor-envio.quote';
 
 /**
- * Stub Melhor Envio — prepara o adapter real sem fingir sucesso.
- * Sem tokens → NOT_CONFIGURED.
- * Com tokens → CARRIER_LIVE_NOT_WIRED (sem HTTP, sem cobrança, sem tracking fake).
+ * Melhor Envio — cotação HTTP real quando há token.
+ * createLabel e track continuam NOT_WIRED (sem compra de etiqueta, sem rastreio inventado).
+ * Sem token, quote lança NOT_CONFIGURED — não devolve taxa padrão.
  */
 export class MelhorEnvioCarrierProvider implements CarrierProvider {
   readonly name = 'melhor_envio';
 
+  constructor(
+    private readonly fetchImpl?: MelhorEnvioFetch,
+    private readonly env: NodeJS.ProcessEnv = process.env,
+  ) {}
+
   /** Presence-only check — never log or return secret values. */
   static isConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-    const token = (env.MELHOR_ENVIO_TOKEN || env.MELHOR_ENVIO_ACCESS_TOKEN || '').trim();
-    return token.length > 0;
+    return readMelhorEnvioToken(env).length > 0;
   }
 
   isConfigured(): boolean {
-    return MelhorEnvioCarrierProvider.isConfigured();
+    return MelhorEnvioCarrierProvider.isConfigured(this.env);
   }
 
-  private assertReady(): void {
-    if (!this.isConfigured()) {
+  private tokenOrThrow(): string {
+    const token = readMelhorEnvioToken(this.env);
+    if (!token) {
       throw new CarrierNotConfiguredError(
         'melhor_envio',
         'Melhor Envio não configurado: defina MELHOR_ENVIO_TOKEN (ou MELHOR_ENVIO_ACCESS_TOKEN) no ambiente. Nunca commitar o token.',
       );
     }
-    // Credentials present — still no live HTTP in Phase 14.
-    throw new CarrierLiveNotWiredError('melhor_envio');
+    return token;
   }
 
-  async quote(_input: CarrierQuoteInput): Promise<CarrierQuoteResult> {
-    this.assertReady();
-    // unreachable — assertReady always throws
-    throw new CarrierLiveNotWiredError('melhor_envio');
+  async quote(input: CarrierQuoteInput): Promise<CarrierQuoteResult> {
+    const token = this.tokenOrThrow();
+    const picked = await calculateMelhorEnvioFreight({
+      token,
+      env: this.env,
+      toCep: input.cep,
+      subtotal: input.subtotal,
+      items: input.items,
+      fetchImpl: this.fetchImpl,
+    });
+    return {
+      price: picked.price,
+      days: picked.days,
+      carrier: picked.company,
+      service: picked.service,
+      modality: picked.service,
+      informational: false,
+      assumedPackage: picked.assumedPackage,
+    };
   }
 
   async createLabel(_input: CreateLabelInput): Promise<CreateLabelResult> {
-    this.assertReady();
-    throw new CarrierLiveNotWiredError('melhor_envio');
+    this.tokenOrThrow();
+    throw new CarrierLiveNotWiredError(
+      'melhor_envio',
+      'Compra de etiqueta Melhor Envio não está ligada — a cotação não compra frete. Etiqueta continua manual (envio próprio).',
+    );
   }
 
   async track(_input: TrackInput): Promise<TrackResult> {
-    this.assertReady();
-    throw new CarrierLiveNotWiredError('melhor_envio');
+    this.tokenOrThrow();
+    throw new CarrierLiveNotWiredError(
+      'melhor_envio',
+      'Rastreio Melhor Envio não está ligado. Não há sincronização automática de status.',
+    );
   }
 }

@@ -85,6 +85,10 @@ export class CartService {
           ? availableQty(item.product.inventory.qtyOnHand, item.product.inventory.qtyReserved)
           : 0,
         lineTotal: price * item.qty,
+        weightKg: item.product.weightKg == null ? null : Number(item.product.weightKg),
+        widthCm: item.product.widthCm == null ? null : Number(item.product.widthCm),
+        heightCm: item.product.heightCm == null ? null : Number(item.product.heightCm),
+        lengthCm: item.product.lengthCm == null ? null : Number(item.product.lengthCm),
         isDemo: item.product.isDemo,
         sellerId: item.product.sellerId,
         seller: item.product.seller ? publicSellerShape(item.product.seller) : null,

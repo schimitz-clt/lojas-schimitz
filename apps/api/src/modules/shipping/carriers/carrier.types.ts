@@ -1,20 +1,31 @@
 /**
  * MEGA Phase 14 — logistics concept separation (do not collapse these):
  *
- * - FREIGHT   — price / ETA quote (ShippingProvider + CEP rules today).
+ * - FREIGHT   — price / ETA quote (ShippingProvider: Melhor Envio calculate + zona grátis).
  * - CARRIER   — who moves the parcel (propria | melhor_envio | …); label + track adapter.
  * - TRACKING  — Order.trackingCode (+ optional externalShipmentId later); customer-visible code.
  * - ORDER     — commerce aggregate + OrderStatus state machine (paid → … → delivered).
  * - DELIVERY  — fulfillment outcome (in_transit → delivered); not a separate DB entity yet.
  *
  * ShippingProvider remains the FREIGHT authority for checkout.
- * CarrierProvider prepares label/track adapters without claiming live carrier integration.
+ * Melhor Envio `quote` calls the calculate API when a token is set.
+ * createLabel / track stay unwired (envio próprio manual). CARRIER_PROVIDER does not gate the quote.
  */
 
 export type CarrierQuoteInput = {
   cep: string;
   subtotal: number;
-  items?: { qty: number; weightKg?: number }[];
+  items?: {
+    id?: string;
+    qty: number;
+    /** Peso de uma unidade (kg). */
+    weightKg?: number;
+    widthCm?: number;
+    heightCm?: number;
+    lengthCm?: number;
+    /** Valor segurado de uma unidade. */
+    insuranceValue?: number;
+  }[];
 };
 
 export type CarrierQuoteResult = {
@@ -25,6 +36,8 @@ export type CarrierQuoteResult = {
   modality?: string;
   /** True when quote is informational / manual — FREIGHT still comes from ShippingProvider. */
   informational?: boolean;
+  /** Pacote usou peso ou medida padrão porque o item não trouxe o dado. */
+  assumedPackage?: boolean;
 };
 
 export type CreateLabelInput = {

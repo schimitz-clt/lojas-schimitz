@@ -15,6 +15,7 @@ import {
   pdpCompactTrustChips,
   pdpFreightCheckoutFallback,
   pdpFreightDestinationLine,
+  freightCustomerLines,
   pdpFreightEstimateRow,
   pdpFreightIdleCopy,
   pdpFreightPlaceName,
@@ -228,12 +229,14 @@ import {
     matchedPrefix: '90',
   });
   assert.equal(free.title, 'Frete grátis');
-  assert.ok(/1 dia após o despacho/.test(free.detail));
+  assert.ok(/Receba em 1 dia/.test(free.detail));
+  assert.ok(!/após o despacho/.test(free.detail));
   assert.ok(/90/.test(free.detail));
 
-  const paid = pdpFreightResultCopy({ price: 19.9, days: 5, label: 'Entrega própria — R$ 19,90' });
+  const paid = pdpFreightResultCopy({ price: 19.9, days: 5, label: 'Correios · PAC' });
   assert.equal(paid.title, 'Frete: R$ 19,90');
-  assert.ok(/5 dias/.test(paid.detail));
+  assert.ok(/Receba em 5 dias/.test(paid.detail));
+  assert.ok(!/após o despacho/.test(paid.detail));
 
   assert.equal(pdpFreightPlaceName('Porto Alegre — frete grátis'), 'Porto Alegre');
   assert.equal(pdpFreightPlaceName('Entrega própria — R$ 19,90'), '');
@@ -249,13 +252,54 @@ import {
     label: 'Porto Alegre — frete grátis',
     matchedPrefix: '90',
   });
-  assert.equal(freeRow.eta, '2 dias após o despacho');
+  assert.equal(freeRow.eta, 'em 2 dias');
   assert.equal(freeRow.price, 'Grátis');
+  assert.ok(!/após o despacho/.test(`${freeRow.eta} ${freeRow.note}`));
   assert.ok(!/segunda|setembro|retire na loja/i.test(`${freeRow.eta} ${freeRow.note}`));
+  const oneDay = pdpFreightEstimateRow({
+    price: 0,
+    days: 1,
+    label: 'Porto Alegre (91) — frete grátis',
+    matchedPrefix: '91',
+  });
+  assert.equal(oneDay.eta, 'em 1 dia');
+  assert.equal(oneDay.price, 'Grátis');
+  assert.equal(`Receba ${oneDay.eta}`, 'Receba em 1 dia');
+  assert.ok(!/após o despacho/.test(`${oneDay.eta} ${oneDay.note}`));
   assert.equal(
-    pdpFreightEstimateRow({ price: 19.9, days: 5, label: 'Entrega própria — R$ 19,90' }).price,
+    pdpFreightEstimateRow({ price: 19.9, days: 5, label: 'Correios · PAC' }).price,
     'R$ 19,90',
   );
+  assert.equal(
+    pdpFreightEstimateRow({ price: 22.1, days: 4, carrier: 'Correios', service: 'SEDEX' }).eta,
+    'em 4 dias',
+  );
+
+  const poaLines = freightCustomerLines({
+    price: 0,
+    days: 1,
+    label: 'Porto Alegre (91) — frete grátis',
+    carrier: 'Correios',
+    service: 'PAC',
+    modality: 'gratis',
+  });
+  assert.equal(poaLines.priceLabel, 'Frete grátis');
+  assert.equal(poaLines.eta, 'Receba em 1 dia');
+  assert.equal(poaLines.prazo, 'Prazo: 1 dia');
+  assert.ok(/Porto Alegre/.test(poaLines.detail));
+  assert.ok(!/após o despacho|taxa padrão/i.test(`${poaLines.eta} ${poaLines.prazo} ${poaLines.detail}`));
+  const paidLines = freightCustomerLines({
+    price: 22.1,
+    days: 4,
+    carrier: 'Correios',
+    service: 'SEDEX',
+    modality: 'SEDEX',
+  });
+  assert.equal(paidLines.priceLabel, 'Frete: R$ 22,10');
+  assert.equal(paidLines.eta, 'Receba em 4 dias');
+  assert.equal(paidLines.prazo, 'Prazo: 4 dias');
+  assert.ok(/Correios/.test(paidLines.detail));
+  assert.ok(/SEDEX/.test(paidLines.detail));
   console.log('pdp-trust: freight — PASSOU');
 }
 
@@ -307,6 +351,14 @@ import {
   assert.ok(freightCmp.includes('pdpFreightDestinationLine'), 'destination uses the saved CEP');
   assert.ok(freightCmp.includes('alterar'), 'CEP can be changed without a second address form');
   assert.ok(!/retire na loja/i.test(freightCmp), 'no store pickup row');
+  assert.ok(freightCmp.includes('Receba '), 'PDP prefixes Receba');
+  assert.ok(!/após o despacho/.test(freightCmp), 'PDP freight has no após o despacho');
+
+  const checkout = readFileSync(join(srcRoot, 'app/checkout/page.tsx'), 'utf8');
+  assert.ok(checkout.includes('freightCustomerLines'), 'checkout uses the same freight copy');
+  assert.ok(!checkout.includes('formatDaysAfterDispatch'), 'checkout does not use após o despacho helper');
+  assert.ok(!/após o despacho/.test(checkout), 'checkout freight has no após o despacho');
+  assert.ok(!/taxa padrão/.test(checkout), 'checkout does not present the flat default fee');
   assert.ok(freightCmp.includes('STOREFRONT_CEP_KEY') || freightCmp.includes('readStoredCep'), 'reuses sch_cep');
 
   const relatedCmp = readFileSync(join(srcRoot, 'components/PdpRelatedProducts.tsx'), 'utf8');

@@ -13,7 +13,7 @@ import {
   type CheckoutAddress,
 } from '@/components/CheckoutAddressSection';
 import { TrustBadges } from '@/components/TrustBadges';
-import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
+import { freightCustomerLines } from '@/lib/pdp-trust';
 import {
   mixedCartBlockMessagePt,
   isMixedSellerCart,
@@ -24,12 +24,17 @@ import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog
 
 type CartItem = {
   id: string;
+  productId?: string;
   name: string;
   slug?: string;
   qty: number;
   price: number;
   lineTotal: number;
   image?: string | null;
+  weightKg?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  lengthCm?: number | null;
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string } | null;
   isDemo?: boolean | null;
@@ -49,6 +54,7 @@ type FreightQuote = {
   days: number;
   carrier: string;
   modality: string;
+  service?: string | null;
   matchedPrefix: string | null;
   label: string | null;
   freeAbove: number;
@@ -125,7 +131,19 @@ export default function CheckoutPage() {
     setFreightErr('');
     api<FreightQuote>('/shipping/quote', {
       method: 'POST',
-      body: JSON.stringify({ cep: addr.cep, subtotal: cart.subtotal }),
+      body: JSON.stringify({
+        cep: addr.cep,
+        subtotal: cart.subtotal,
+        items: cart.items.map((item) => ({
+          id: item.productId,
+          qty: item.qty,
+          ...(item.weightKg ? { weightKg: item.weightKg } : {}),
+          ...(item.widthCm ? { widthCm: item.widthCm } : {}),
+          ...(item.heightCm ? { heightCm: item.heightCm } : {}),
+          ...(item.lengthCm ? { lengthCm: item.lengthCm } : {}),
+          insuranceValue: item.price,
+        })),
+      }),
     })
       .then((q) => {
         if (!cancelled) setFreight(q);
@@ -254,6 +272,7 @@ export default function CheckoutPage() {
   const cashbackNum = Math.max(0, Number(String(cashbackAmount).replace(',', '.')) || 0);
   const cashbackApplied = Math.min(cashbackNum, Math.max(0, cart.subtotal - couponDiscount));
   const freightPrice = freight?.price ?? 0;
+  const freightLines = freight ? freightCustomerLines(freight) : null;
   const displayTotal = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
   const freightReady = Boolean(freight) && !freightLoading;
   const totalsSettled = freightReady;
@@ -365,23 +384,16 @@ export default function CheckoutPage() {
               {freightErr}
             </div>
           ) : null}
-          {!freightLoading && freight ? (
+          {!freightLoading && freightLines ? (
             <>
               <p style={{ marginBottom: 4 }}>
-                <strong>
-                  {freight.price === 0 ? 'Frete grátis' : `Frete: ${brl(freight.price)}`}
-                </strong>
+                <strong>{freightLines.priceLabel}</strong>
                 {' · '}
-                {formatDaysAfterDispatch(freight.days)}
-                {freight.modality ? ` · ${freight.modality}` : ''}
+                {freightLines.eta}
               </p>
               <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-                {freight.carrier ? `${freight.carrier}` : 'Entrega própria'}
-                {freight.label
-                  ? ` · zona ${freight.label}${freight.matchedPrefix ? ` (CEP ${freight.matchedPrefix}…)` : ''}`
-                  : freight.matchedPrefix
-                    ? ` · regra CEP ${freight.matchedPrefix}…`
-                    : ' · taxa padrão da loja (sem zona específica para este CEP).'}
+                {freightLines.prazo}
+                {freightLines.detail ? ` · ${freightLines.detail}` : ''}
               </p>
             </>
           ) : null}

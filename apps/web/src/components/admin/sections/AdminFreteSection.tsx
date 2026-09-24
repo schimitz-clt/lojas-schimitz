@@ -138,7 +138,9 @@ export function AdminFreteSection() {
               {shippingSettings ? (
                 <p className="admin-dense-row__meta" style={{ margin: 0 }}>
                   Atual: grátis ≥ {brl(shippingSettings.freeAbove)} · padrão {brl(shippingSettings.defaultFee)} ·{' '}
-                  {shippingSettings.defaultDays} dias
+                  {shippingSettings.defaultDays} dias. Taxa e prazo padrão não são a cotação da vitrine. Com Melhor
+                  Envio configurado, preço e prazo vêm do cálculo; zona com taxa R$ 0 (CEP 90 e 91) deixa o frete
+                  grátis e usa o prazo calculado.
                 </p>
               ) : null}
             </form>
@@ -213,6 +215,7 @@ export function AdminFreteSection() {
                         </div>
                         <div className="admin-dense-row__meta">
                           {brl(r.fee)} · {r.estimatedDays} dia{r.estimatedDays === 1 ? '' : 's'}
+                          {Number(r.fee) === 0 ? ' · taxa 0 = cliente não paga; prazo da cotação' : ''}
                           {r.label ? ` · ${r.label}` : ''}
                           {` · ${shippingSortOrderLine(r.sortOrder)}`}
                         </div>
@@ -229,7 +232,10 @@ export function AdminFreteSection() {
                   ))
                 : null}
               {storePayload === 'ready' && !shippingRules.length ? (
-                <p className="admin-empty">Nenhuma zona ainda. Sem zonas, vale a taxa padrão para todos os CEPs.</p>
+                <p className="admin-empty">
+                  Nenhuma zona ainda. Sem zona de taxa zero, nenhum CEP fica grátis por regra — a cotação vale para o
+                  cliente.
+                </p>
               ) : null}
               {storePayload !== 'ready' ? (
                 <p className="admin-empty">

@@ -15,12 +15,23 @@ import {
   type PdpFreightQuote,
 } from '@/lib/pdp-trust';
 
+export type PdpFreightItem = {
+  qty?: number;
+  weightKg?: number;
+  widthCm?: number;
+  heightCm?: number;
+  lengthCm?: number;
+  insuranceValue?: number;
+};
+
 type Props = {
   /** Product list price — same subtotal the checkout quote uses for a 1-item bag. */
   subtotal: number;
+  /** Peso e medidas reais do produto, quando o catálogo tiver. */
+  item?: PdpFreightItem | null;
 };
 
-export function PdpFreightCep({ subtotal }: Props) {
+export function PdpFreightCep({ subtotal, item }: Props) {
   const idle = pdpFreightIdleCopy();
   const [cep, setCep] = useState('');
   const [quote, setQuote] = useState<PdpFreightQuote | null>(null);
@@ -49,7 +60,20 @@ export function PdpFreightCep({ subtotal }: Props) {
     try {
       const data = await api<PdpFreightQuote>('/shipping/quote', {
         method: 'POST',
-        body: JSON.stringify({ cep: next, subtotal: Math.max(0, Number(subtotal) || 0) }),
+        body: JSON.stringify({
+          cep: next,
+          subtotal: Math.max(0, Number(subtotal) || 0),
+          items: [
+            {
+              qty: Math.max(1, Math.floor(Number(item?.qty) || 1)),
+              ...(item?.weightKg ? { weightKg: item.weightKg } : {}),
+              ...(item?.widthCm ? { widthCm: item.widthCm } : {}),
+              ...(item?.heightCm ? { heightCm: item.heightCm } : {}),
+              ...(item?.lengthCm ? { lengthCm: item.lengthCm } : {}),
+              insuranceValue: Math.max(0, Number(item?.insuranceValue ?? subtotal) || 0),
+            },
+          ],
+        }),
       });
       setQuote(data);
       setEditing(false);
@@ -105,7 +129,7 @@ export function PdpFreightCep({ subtotal }: Props) {
         </div>
       )}
       {showForm ? <p className="muted pdp-freight-hint">{idle.body}</p> : null}
-      {loading ? <p className="muted pdp-freight-status">Consultando a entrega própria…</p> : null}
+      {loading ? <p className="muted pdp-freight-status">Calculando frete e prazo…</p> : null}
       {!loading && estimate && !showForm ? (
         <p className="pdp-freight-result pdp-freight-estimate" role="status">
           <span className="pdp-freight-eta">

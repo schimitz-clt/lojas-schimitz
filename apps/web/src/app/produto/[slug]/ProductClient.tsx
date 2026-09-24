@@ -57,6 +57,10 @@ export type ProductDetail = {
   category?: { slug: string; name: string } | null;
   sku?: string | null;
   isDemo?: boolean | null;
+  weightKg?: number | string | null;
+  widthCm?: number | string | null;
+  heightCm?: number | string | null;
+  lengthCm?: number | string | null;
 };
 
 type Review = {
@@ -73,6 +77,11 @@ type Eligibility = {
   canReview: boolean;
   myReview: Review | null;
 };
+
+function positiveMeasure(value: unknown): number | undefined {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(',', '.')) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
 function Stars({
   value,
@@ -385,7 +394,17 @@ export default function ProductPage({
               {' em '}
               {installmentLine(price)}
             </p>
-            <PdpFreightCep subtotal={price} />
+            <PdpFreightCep
+              subtotal={price}
+              item={{
+                qty: 1,
+                weightKg: positiveMeasure(p.weightKg),
+                widthCm: positiveMeasure(p.widthCm),
+                heightCm: positiveMeasure(p.heightCm),
+                lengthCm: positiveMeasure(p.lengthCm),
+                insuranceValue: price,
+              }}
+            />
             <ul className="pdp-price-trust" aria-label="Vendedor, troca e garantia">
               {trustChips.map((chip) => (
                 <li key={chip.id}>

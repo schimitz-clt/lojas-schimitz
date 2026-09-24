@@ -256,7 +256,15 @@ export class OrdersService {
     const quote = await this.shipping.quote({
       cep: address.cep,
       subtotal,
-      items: cart.items.map((i) => ({ qty: i.qty, weightKg: i.product.weightKg ? Number(i.product.weightKg) : undefined })),
+      items: cart.items.map((i) => ({
+        id: i.productId,
+        qty: i.qty,
+        weightKg: i.product.weightKg ? Number(i.product.weightKg) : undefined,
+        widthCm: i.product.widthCm ? Number(i.product.widthCm) : undefined,
+        heightCm: i.product.heightCm ? Number(i.product.heightCm) : undefined,
+        lengthCm: i.product.lengthCm ? Number(i.product.lengthCm) : undefined,
+        insuranceValue: Number(i.product.price) > 0 ? Number(i.product.price) : undefined,
+      })),
     });
     const totals = computeCheckoutTotals({
       subtotal,

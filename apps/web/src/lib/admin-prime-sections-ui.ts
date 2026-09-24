@@ -62,7 +62,7 @@ export const FRETE_DO_LEDE =
   'Os formulários que já existem: PATCH /admin/shipping/settings e POST/PATCH/DELETE /admin/shipping/rules. Nada grava sozinho.';
 
 export const FRETE_EVIDENCE_LEDE =
-  'Entrega própria. Sem Melhor Envio/Correios. O prefixo de CEP mais longo vence. Sem zonas, vale a taxa padrão.';
+  'Envio próprio na operação. Preço e prazo da vitrine vêm da cotação Melhor Envio. Zona com taxa 0 (Porto Alegre 90 e 91) zera o valor do cliente e mantém o prazo calculado. A taxa padrão não substitui essa cotação.';
 
 export const VITRINE_NOW_LEDE =
   'Banners e SEO já carregados (GET /admin/banners e GET /admin/store/settings). Disco de upload só entra se GET /admin/ops trouxer uploads.';
@@ -328,9 +328,9 @@ export function fretePrimeModel(input: {
       attention({
         code: 'shipping_no_zones',
         severity: 'info',
-        message: 'Nenhuma zona de CEP. Vale a taxa padrão para todos os CEPs.',
+        message: 'Nenhuma zona de CEP. Sem zona de taxa zero, nenhum CEP fica grátis por regra — o cliente vê a cotação.',
         count: 0,
-        recommendedAction: 'Adicionar zona se a região precisar de taxa ou prazo diferente.',
+        recommendedAction: 'Manter as zonas 90 e 91 se Porto Alegre continuar grátis.',
         ctaHint: '→ zonas por CEP',
       }),
     );
@@ -340,9 +340,9 @@ export function fretePrimeModel(input: {
       attention({
         code: 'shipping_no_active_zone',
         severity: 'warn',
-        message: 'Nenhuma zona ativa. Vale a taxa padrão.',
+        message: 'Nenhuma zona ativa. Sem zona de taxa zero, Porto Alegre deixa de ficar grátis por regra.',
         count: 0,
-        recommendedAction: 'Ativar uma zona existente ou adicionar outra.',
+        recommendedAction: 'Reativar as zonas 90 e 91 ou criar outra zona grátis.',
         ctaHint: '→ zonas por CEP',
       }),
     );

@@ -33,7 +33,7 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 | POST/GET | `/orders` body create `{ addressId, couponCode?, cashbackAmount? }` — **400 `MARKETPLACE_MIXED_CART`** se o carrinho tiver mais de um vendedor (v2.1, flags off também); **400 `DEMO_NOT_PURCHASABLE`** se houver item `isDemo` (não reserva estoque). O mesmo código bloqueia `POST /cart/items` e a intenção de pagamento | user |
 | GET | `/orders/:publicId` | user — inclui `marketplaceSplit: { active, bricksPublicKey }` (public key TEST- do seller só no sandbox; sem tokens) |
 | POST | `/coupons/validate` body `{ code, subtotal }` → `collidesWithPixPromo` se o código duplica o 5% PIX | user |
-| POST | `/shipping/quote` body `{ cep, subtotal }` | user |
+| POST | `/shipping/quote` body `{ cep, subtotal, items? }` | público (JWT opcional). Calcula via Melhor Envio. CEP 90/91: preço 0 e prazo calculado. Sem token: 422 `SHIPPING_QUOTE_UNAVAILABLE` (não devolve a taxa padrão). |
 | GET | `/admin/shipping` | admin |
 | PATCH | `/admin/shipping/settings` body `{ freeAbove, defaultFee, defaultDays }` | admin |
 | POST | `/admin/shipping/rules` body `{ cepPrefix, fee, estimatedDays, label?, active? }` | admin |
@@ -60,13 +60,13 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 
 | Conceito | Onde | Nota |
 |----------|------|------|
-| **FREIGHT** | `POST /shipping/quote`, `Order.freight` / `freightSnap` | Cotação CEP (`ShippingProvider`) |
-| **CARRIER** | `Order.carrier`, `CarrierProvider` (`CARRIER_PROVIDER`) | Default `propria`; Melhor Envio = stub |
-| **TRACKING** | `Order.trackingCode` | Manual no admin ao marcar Em trânsito |
+| **FREIGHT** | `POST /shipping/quote`, `Order.freight` / `freightSnap` | Cotação Melhor Envio (`calculate`). Zona taxa 0 = cliente paga R$ 0; `days` é o prazo calculado. `carrierPrice` é o valor antes do subsídio. |
+| **CARRIER** | `Order.carrier`, `CarrierProvider` (`CARRIER_PROVIDER`) | Default `propria` (etiqueta manual). `CARRIER_PROVIDER` não liga a cotação. |
+| **TRACKING** | `Order.trackingCode` | Manual no admin ao marcar Em trânsito. Melhor Envio track continua NOT_WIRED. |
 | **ORDER** | `Order` + `OrderStatus` | Máquina de estados Phase 12 |
 | **DELIVERY** | `in_transit` → `delivered` | Sem sync automático de transportadora |
 
-Credenciais Melhor Envio: ver `docs/MEGA-PHASE-14-CHECKPOINT.md` (BLOQUEIO EXTERNO). Sem token → `NOT_CONFIGURED`. Nunca fake tracking.
+Cotação: `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`. Sandbox: `MELHOR_ENVIO_SANDBOX=true` (ou `MELHOR_ENVIO_BASE_URL`). Origem: `MELHOR_ENVIO_ORIGIN_CEP` (padrão `91250000`). User-Agent: `MELHOR_ENVIO_USER_AGENT`. Sem token ou se a API não devolver opção viável, a cotação falha com `SHIPPING_QUOTE_UNAVAILABLE` — não usa `defaultFee`. A escolha única é a opção viável mais barata (`custom_price`, senão `price`; empate pelo menor prazo). Compra de etiqueta não é feita. Nunca commitar o token.
 | GET/POST | `/admin/sellers` | admin |
 | PATCH | `/admin/sellers/:id/status` body `{ status: "pending"|"active"|"suspended" }` | admin |
 | POST | `/payments/intents` body `{ orderId, method, installments?, cardToken? }` | user |
