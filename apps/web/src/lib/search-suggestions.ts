@@ -36,7 +36,7 @@ export type SearchCategoryLike = {
   slug?: string | null;
 };
 
-export type SuggestionKind = 'category' | 'product' | 'all';
+export type SuggestionKind = 'category' | 'product' | 'query' | 'all';
 
 export type SuggestionRow = {
   id: string;
@@ -155,6 +155,162 @@ export function searchFocusHeading(): string {
   return 'Em alta';
 }
 
+/** Empty-focus department block. Only rendered when live categories exist. */
+export function searchDepartmentsHeading(): string {
+  return 'Departamentos';
+}
+
+/** "Em alta" is a real shelf signal. Hide the heading when that shelf is empty. */
+export function shouldShowTrendingHeading(count: number): boolean {
+  return Number.isFinite(count) && count > 0;
+}
+
+const PHRASE_TOKEN_LIMIT = 6;
+const TRAILING_STOP = new Set([
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'e',
+  'em',
+  'para',
+  'com',
+  'a',
+  'o',
+  'as',
+  'os',
+  'um',
+  'uma',
+  'no',
+  'na',
+  'nos',
+  'nas',
+]);
+
+function titleTokens(name: string): string[] {
+  return name.trim().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * One lightweight completion taken from a real product title.
+ * Contiguous original tokens only — never synonyms, brands, or filler words.
+ */
+export function phraseFromProductName(name: string, q: string): string | null {
+  const nq = normalizeSearchQuery(q);
+  const parts = titleTokens(name);
+  if (!nq || parts.length === 0) return null;
+  const norms = parts.map((token) => normalizeSearchQuery(token));
+  const joined = norms.join(' ');
+  if (!joined.includes(nq)) return null;
+  let start = norms.findIndex((token) => token.includes(nq));
+  if (start < 0) {
+    start = 0;
+    for (let i = 0; i < norms.length; i++) {
+      if (norms.slice(i).join(' ').includes(nq)) {
+        start = i;
+        break;
+      }
+    }
+  }
+  let end = Math.min(parts.length, start + PHRASE_TOKEN_LIMIT);
+  while (end < parts.length && !normalizeSearchQuery(parts.slice(start, end).join(' ')).includes(nq)) {
+    end += 1;
+  }
+  if (!normalizeSearchQuery(parts.slice(start, end).join(' ')).includes(nq)) return null;
+  const slice = parts.slice(start, end);
+  while (slice.length > 1 && TRAILING_STOP.has(normalizeSearchQuery(slice[slice.length - 1]))) {
+    const shorter = slice.slice(0, -1).join(' ');
+    if (!normalizeSearchQuery(shorter).includes(nq)) break;
+    slice.pop();
+  }
+  const phrase = slice.join(' ');
+  return normalizeSearchQuery(phrase).includes(nq) ? phrase : null;
+}
+
+/**
+ * Query suggestions for the open search field.
+ * Each phrase is a contiguous slice of a non-demo product title that matches `q`.
+ */
+export function queryPhrasesFromProducts(
+  products: SearchProductLike[],
+  q: string,
+  limit = SEARCH_SUGGEST_PRODUCT_LIMIT,
+): string[] {
+  const nq = normalizeSearchQuery(q);
+  if (nq.length < SEARCH_SUGGEST_MIN) return [];
+  const cap = Math.max(1, limit);
+  const found: { phrase: string; score: number }[] = [];
+  const seen = new Set<string>();
+  for (const product of productsFromListResponse(products)) {
+    if (isDemoCatalogProduct(product)) continue;
+    const phrase = phraseFromProductName(asText(product.name), nq);
+    if (!phrase) continue;
+    const key = normalizeSearchQuery(phrase);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    found.push({ phrase, score: key.startsWith(nq) ? 2 : 1 });
+  }
+  const longer = found.filter((row) => normalizeSearchQuery(row.phrase) !== nq);
+  const pool = longer.length > 0 ? longer : found;
+  pool.sort(
+    (a, b) => b.score - a.score || a.phrase.localeCompare(b.phrase, 'pt-BR'),
+  );
+  return pool.slice(0, cap).map((row) => row.phrase);
+}
+
+/** Recent searches the shopper already stored that contain the current query. */
+export function historyQuerySuggestions(
+  history: string[] | null | undefined,
+  q: string,
+  limit = 4,
+): string[] {
+  const nq = normalizeSearchQuery(q);
+  if (!nq) return [];
+  const cap = Math.max(1, limit);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of history || []) {
+    const term = asText(raw);
+    const key = normalizeSearchQuery(term);
+    if (!key || !key.includes(nq) || seen.has(key)) continue;
+    seen.add(key);
+    out.push(term);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+export type SuggestionLabelParts = { before: string; match: string; after: string };
+
+/** Split a real label around the typed query so the completion can be emphasized. */
+export function suggestionLabelParts(label: string, q: string): SuggestionLabelParts {
+  const source = label || '';
+  const nq = normalizeSearchQuery(q);
+  if (!nq || !source) return { before: source, match: '', after: '' };
+  let norm = '';
+  const map: number[] = [];
+  for (let i = 0; i < source.length; i++) {
+    const folded = source[i]
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    for (const ch of folded) {
+      map.push(i);
+      norm += ch;
+    }
+  }
+  const at = norm.indexOf(nq);
+  if (at < 0) return { before: source, match: '', after: '' };
+  const start = map[at];
+  const end = map[at + nq.length - 1] + 1;
+  return {
+    before: source.slice(0, start),
+    match: source.slice(start, end),
+    after: source.slice(end),
+  };
+}
+
 function toProductSuggestionRow(p: SearchProductLike, id: string): SuggestionRow | null {
   const pid = asText(p.id);
   const slug = asText(p.slug);
@@ -190,8 +346,9 @@ export function highlightProductsFromShelves(
   for (const id of ['featured', 'offers', 'newest'] as const) {
     const shelf = shelves.find((s) => s.id === id);
     for (const p of shelf?.items || []) {
-      const key = asText(p.id) || asText(p.slug);
-      if (!key || !asText(p.name) || !asText(p.slug) || seen.has(key)) continue;
+    const key = asText(p.id) || asText(p.slug);
+    if (!key || !asText(p.name) || !asText(p.slug) || seen.has(key)) continue;
+    if (isDemoCatalogProduct(p)) continue;
       seen.add(key);
       out.push(p);
       if (out.length >= cap) return out;
@@ -325,44 +482,81 @@ export function filterCategorySuggestions(
   return out;
 }
 
+function suggestionRowId(prefix: string, key: string): string {
+  const safe = key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+  return `${prefix}-${safe || 'item'}`;
+}
+
+/**
+ * Lightweight rows while typing: matching departments, title phrases, stored history.
+ * No product cards, prices, or add-to-bag. Nothing is invented beyond those sources.
+ */
 export function buildSuggestionRows(input: {
   q: string;
   products?: SearchProductLike[];
   categories?: SearchCategoryLike[];
+  history?: string[];
 }): SuggestionRow[] {
   const q = (input.q || '').trim();
+  if (!shouldFetchSuggestions(q)) return [];
   const rows: SuggestionRow[] = [];
-  const cats = filterCategorySuggestions(input.categories || [], q);
+  const seen = new Set<string>();
+  const cats = filterCategorySuggestions(input.categories || [], q, 2);
   for (const c of cats) {
     const slug = asText(c.slug);
+    const label = asText(c.name) || slug;
+    const key = `cat:${normalizeSearchQuery(label)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     rows.push({
       id: `cat-${slug}`,
       kind: 'category',
       href: categorySuggestHref(slug),
-      label: asText(c.name) || slug,
+      label,
       sub: 'Departamento',
     });
   }
-  const products = rankProductSuggestions(input.products || [], q);
-  for (const p of products) {
-    const id = asText(p.id) || asText(p.slug);
-    const row = toProductSuggestionRow(p, `p-${id}`);
-    if (row) rows.push(row);
-  }
-  if (q) {
+  for (const phrase of queryPhrasesFromProducts(input.products || [], q)) {
+    const key = normalizeSearchQuery(phrase);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     rows.push({
-      id: 'all',
-      kind: 'all',
-      href: catalogSearchHref(q),
-      label: `Ver todos os resultados para “${q}”`,
+      id: suggestionRowId('q', key),
+      kind: 'query',
+      href: catalogSearchHref(phrase),
+      label: phrase,
+    });
+  }
+  for (const term of historyQuerySuggestions(input.history, q)) {
+    const key = normalizeSearchQuery(term);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      id: suggestionRowId('hist', key),
+      kind: 'query',
+      href: catalogSearchHref(term),
+      label: term,
     });
   }
   return rows;
 }
 
-/** True when the API/category filter produced a real hit (not only “ver todos”). */
+/** Real shelf products as text rows (name + PDP). No price and no sacola. */
+export function focusTrendingRows(
+  products: SearchProductLike[],
+  limit = SEARCH_FOCUS_PRODUCT_LIMIT,
+): SuggestionRow[] {
+  return focusHighlightRows(products, limit).map((row) => ({
+    id: row.id,
+    kind: 'product' as const,
+    href: row.href,
+    label: row.label,
+  }));
+}
+
+/** True when the API/category filter produced a real hit (not an empty panel). */
 export function hasCatalogSuggestionHits(rows: SuggestionRow[]): boolean {
-  return rows.some((r) => r.kind === 'product' || r.kind === 'category');
+  return rows.some((r) => r.kind === 'product' || r.kind === 'category' || r.kind === 'query');
 }
 
 /** -1 = input itself; wrap at ends. */

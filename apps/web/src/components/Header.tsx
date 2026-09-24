@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { api, userAccountLabel, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
@@ -24,6 +24,7 @@ import {
   catalogSearchBackHref,
   isCatalogSearchResults,
 } from '@/lib/storefront-pro';
+import { chromeStackHeight, chromeVisualTop, SEARCH_RESULTS_CLASS } from '@/lib/search-chrome';
 
 export function Header() {
   const pathname = usePathname() || '/';
@@ -39,6 +40,7 @@ export function Header() {
   const [addresses, setAddresses] = useState<AccountAddressRecord[]>([]);
   const { count: favCount } = useFavorites();
   const favBadge = formatWishlistBadge(favCount);
+  const chromeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fromUrl = (searchParams.get('q') || '').trim();
@@ -51,6 +53,40 @@ export function Header() {
       setSearchResults(false);
     }
   }, [pathname, searchParams]);
+
+  useLayoutEffect(() => {
+    const el = chromeRef.current;
+    const applyHeight = () => {
+      const h = chromeStackHeight(el?.getBoundingClientRect().height);
+      if (h > 0) document.documentElement.style.setProperty('--site-chrome-h', `${h}px`);
+    };
+    applyHeight();
+    document.documentElement.classList.toggle(SEARCH_RESULTS_CLASS, searchResults);
+    const ro = typeof ResizeObserver !== 'undefined' && el ? new ResizeObserver(applyHeight) : null;
+    if (el && ro) ro.observe(el);
+    return () => {
+      ro?.disconnect();
+      document.documentElement.classList.remove(SEARCH_RESULTS_CLASS);
+    };
+  }, [searchResults]);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      const top = chromeVisualTop(vv.offsetTop);
+      document.documentElement.style.setProperty('--vv-top', `${top}px`);
+      const height = chromeStackHeight(vv.height);
+      if (height > 0) document.documentElement.style.setProperty('--vv-height', `${height}px`);
+    };
+    apply();
+    vv.addEventListener('scroll', apply);
+    vv.addEventListener('resize', apply);
+    return () => {
+      vv.removeEventListener('scroll', apply);
+      vv.removeEventListener('resize', apply);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -145,7 +181,7 @@ export function Header() {
   const delivery = deliveryBarCopy({ addresses, storedCep: cep });
 
   return (
-    <div className="site-chrome">
+    <div className="site-chrome" ref={chromeRef}>
       <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
         <span>Frete grátis em POA</span>
         <span className="topbar-sep" aria-hidden>
