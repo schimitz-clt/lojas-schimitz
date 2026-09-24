@@ -1,7 +1,8 @@
 /**
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
- * Nome: pelo menos duas palavras com letras. CPF: dígitos verificadores (rejeita 111.111.111-11).
+ * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
+ * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
  * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
  * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
  * Success is the same session as login. Duplicate CPF or e-mail is a 409 on that field.
@@ -36,6 +37,7 @@ export const SIGNUP_NAME_SURNAME_MESSAGE = 'Informe nome e sobrenome.';
 export const SIGNUP_NAME_LETTERS_MESSAGE = 'Informe nome e sobrenome, só com letras.';
 export const SIGNUP_NAME_NUMBERS_MESSAGE = 'O nome não pode conter números.';
 export const SIGNUP_NAME_TOO_LONG_MESSAGE = 'Nome completo pode ter no máximo 120 caracteres.';
+export const SIGNUP_NAME_GIBBERISH_MESSAGE = 'O nome parece incompleto. Confira nome e sobrenome.';
 
 /** Same copy as the API (`phone.ts`). */
 export const SIGNUP_PHONE_INVALID_MESSAGE =
@@ -157,11 +159,34 @@ export function signupCpfIssue(cpf: string): SignupIssue | null {
 const NAME_LETTER = /[A-Za-zÀ-ÖØ-öø-ÿ]/g;
 const NAME_WORD = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’.-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
 const NAME_PARTICLE = /^(da|de|do|das|dos|e|di|du|del|van|von|y|la|le|mc)$/i;
+const NAME_VOWEL = /[aeiouyáàâãäéèêëíìîïóòôõöúùûüýÿ]/i;
+const NAME_PLACEHOLDER =
+  /^(asdf+|qwerty?|zxcv+|teste?|nome|sobrenome|fulano|beltrano|sicrano|abcd+|xxx+|aaa+)$/i;
+
+function foldNameLetters(word: string): string {
+  return word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 /**
- * Nome completo de cadastro: pelo menos duas palavras com letras.
- * Partículas como "da" contam, mas não substituem nome e sobrenome.
- * Não consulta identidade — só recusa vazio, uma palavra, dígitos e símbolos.
+ * Palavra cortada ou sem cara de nome: sem vogal, letra triplicada, teclado
+ * (`asdf`), ou 6+ letras com uma só vogal terminando em vogal (`schimi`).
+ * Schmidt, Schimitz e Silva continuam válidos — o primeiro grupo termina em
+ * consoante; Silva tem duas vogais e menos de 6 letras.
+ */
+function nameWordIsGibberish(word: string): boolean {
+  if (NAME_PARTICLE.test(word)) return false;
+  if (!NAME_VOWEL.test(word)) return true;
+  const folded = foldNameLetters(word);
+  if (/(.)\1\1/.test(folded)) return true;
+  if (NAME_PLACEHOLDER.test(folded)) return true;
+  const vowels = new Set(folded.match(/[aeiouy]/g) || []);
+  return folded.length >= 6 && vowels.size < 2 && /[aeiouy]$/.test(folded);
+}
+
+/**
+ * Nome completo: trim, 2+ palavras, só letras (acento, hífen, apóstrofo).
+ * Partículas como "da" não substituem nome e sobrenome.
+ * Não consulta documento — não dá para saber se o nome é de outra pessoa.
  */
 export function signupNameIssue(name: string): SignupIssue | null {
   const trimmed = name.trim().replace(/\s+/g, ' ');
@@ -184,6 +209,7 @@ export function signupNameIssue(name: string): SignupIssue | null {
     if (count < 2 && !NAME_PARTICLE.test(word)) {
       return { field: 'name', message: SIGNUP_NAME_LETTERS_MESSAGE };
     }
+    if (nameWordIsGibberish(word)) return { field: 'name', message: SIGNUP_NAME_GIBBERISH_MESSAGE };
     if (count >= 2 && !NAME_PARTICLE.test(word)) meaningful += 1;
   }
   if (meaningful < 2) return { field: 'name', message: SIGNUP_NAME_SURNAME_MESSAGE };

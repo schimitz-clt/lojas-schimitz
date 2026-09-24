@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CPF_INVALID_MESSAGE } from './cpf';
 import { RegisterDto } from './dto';
-import { FULL_NAME_NUMBERS_MESSAGE, FULL_NAME_SURNAME_MESSAGE } from './full-name';
+import { FULL_NAME_GIBBERISH_MESSAGE, FULL_NAME_NUMBERS_MESSAGE, FULL_NAME_SURNAME_MESSAGE } from './full-name';
 import { PHONE_INVALID_MESSAGE } from './phone';
 
 function messagesOf(errors: { constraints?: Record<string, string>; property: string }[]): string[] {
@@ -54,10 +54,12 @@ async function main() {
   assert.ok(oneName.includes(FULL_NAME_SURNAME_MESSAGE), oneName.join(' | '));
   const digitsName = messagesOf(await validate(validDto({ name: '123 456' })));
   assert.ok(digitsName.includes(FULL_NAME_NUMBERS_MESSAGE), digitsName.join(' | '));
+  const truncated = messagesOf(await validate(validDto({ name: 'Claiton da silva schimi' })));
+  assert.ok(truncated.includes(FULL_NAME_GIBBERISH_MESSAGE), truncated.join(' | '));
   assert.equal(
-    (await validate(validDto({ name: 'Claiton da silva schimi' }))).length,
+    (await validate(validDto({ name: 'Claiton da Silva Schimitz' }))).length,
     0,
-    'nome com partículas entra; a loja não confere identidade',
+    'sobrenome completo entra; a loja não confere identidade',
   );
 
   const badPhone = messagesOf(await validate(validDto({ phone: '1'.repeat(32) })));

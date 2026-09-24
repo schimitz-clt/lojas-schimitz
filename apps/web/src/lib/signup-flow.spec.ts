@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   SIGNUP_CPF_INVALID_MESSAGE,
+  SIGNUP_NAME_GIBBERISH_MESSAGE,
   SIGNUP_NAME_NUMBERS_MESSAGE,
   SIGNUP_NAME_SURNAME_MESSAGE,
   SIGNUP_PASSWORD_PATTERN,
@@ -85,8 +86,18 @@ assert.equal(signupNameIssue('123 456')?.message, SIGNUP_NAME_NUMBERS_MESSAGE);
 assert.equal(signupNameIssue('Ana 2')?.message, SIGNUP_NAME_NUMBERS_MESSAGE);
 assert.equal(signupNameIssue('da Silva')?.message, SIGNUP_NAME_SURNAME_MESSAGE);
 assert.equal(signupNameIssue('Ana Silva'), null);
-assert.equal(signupNameIssue('Claiton da silva schimi'), null);
+assert.equal(signupNameIssue('Claiton da silva schimi')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('Schimi Silva')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('Maria asdf')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('Fulano Silva')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('Ana aaa')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('CPF Ruim')?.message, SIGNUP_NAME_GIBBERISH_MESSAGE);
+assert.equal(signupNameIssue('Claiton da Silva Schimitz'), null);
+assert.equal(signupNameIssue('Claiton Schmidt'), null);
+assert.equal(signupNameIssue('Philip Souza'), null);
 assert.equal(signupNameIssue('José da Silva'), null);
+assert.equal(signupNameIssue('Maria-Clara Souza'), null);
+assert.equal(signupNameIssue('Conceição Alves'), null);
 assert.equal(signupPhoneIssue(''), null);
 assert.equal(signupPhoneIssue('   '), null);
 assert.equal(signupPhoneIssue('51980653799'), null);
@@ -146,6 +157,11 @@ assert.equal(signupBirthDateDisplayIssue('23/09/1905', fixedNow)?.message, 'Info
 assert.equal(signupBirthDateDisplayIssue('23/09/2008', fixedNow), null);
 assert.equal(signupBirthDateDisplayIssue('15/05/1990', fixedNow), null);
 assert.equal(signupBirthDateDisplayIssue('1990-05-15', fixedNow), null);
+assert.equal(signupBirthDateDisplayIssue('08/02/1991', fixedNow), null);
+assert.equal(signupBirthDateDisplayIssue('29/02/1991', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('31/04/1991', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('08/02/199', fixedNow)?.message, 'Informe a data de nascimento no formato DD/MM/AAAA.');
+assert.equal(signupBirthDateDisplayIssue('8/2/1991', fixedNow)?.message, 'Informe a data de nascimento no formato DD/MM/AAAA.');
 assert.equal(String(signupBirthDateDisplayIssue('08/03', fixedNow)?.message).includes('AAAA-MM-DD'), false);
 
 const base = {
@@ -222,9 +238,28 @@ assert.equal(signupDetailsIssue({ ...base, phone: '1'.repeat(33) }, fixedNow)?.f
 assert.equal(signupDetailsIssue({ ...base, phone: '1'.repeat(32) }, fixedNow)?.message, SIGNUP_PHONE_INVALID_MESSAGE);
 assert.equal(signupDetailsIssue({ ...base, phone: '51980653799' }, fixedNow), null);
 assert.equal(
+  signupNameIssue('Claiton da silva schimi')?.message,
+  SIGNUP_NAME_GIBBERISH_MESSAGE,
+);
+assert.equal(signupCpfIssue('034.268.570-80')?.message, SIGNUP_CPF_INVALID_MESSAGE);
+assert.equal(signupBirthDateDisplayIssue('08/02/1991', fixedNow), null);
+assert.equal(signupPhoneIssue('51980653799'), null);
+assert.equal(
   signupProfileIssue(
     {
       name: 'Claiton da silva schimi',
+      cpf: '034.268.570-80',
+      birthDate: '08/02/1991',
+      phone: '51980653799',
+    },
+    fixedNow,
+  )?.field,
+  'name',
+);
+assert.equal(
+  signupProfileIssue(
+    {
+      name: 'Claiton da Silva Schimitz',
       cpf: '034.268.570-80',
       birthDate: '08/02/1991',
       phone: '51980653799',
@@ -236,7 +271,31 @@ assert.equal(
 assert.equal(
   signupProfileIssue(
     {
-      name: 'Claiton da silva schimi',
+      name: 'Claiton da Silva Schimitz',
+      cpf: '034.268.570-81',
+      birthDate: '31/02/1991',
+      phone: '51980653799',
+    },
+    fixedNow,
+  )?.message,
+  'Informe uma data de nascimento válida.',
+);
+assert.equal(
+  signupProfileIssue(
+    {
+      name: 'Claiton da Silva Schimitz',
+      cpf: '034.268.570-81',
+      birthDate: '08/02',
+      phone: '51980653799',
+    },
+    fixedNow,
+  )?.message,
+  'Informe a data de nascimento no formato DD/MM/AAAA.',
+);
+assert.equal(
+  signupProfileIssue(
+    {
+      name: 'Claiton da Silva Schimitz',
       cpf: '034.268.570-81',
       birthDate: '08/02/1991',
       phone: '51980653799',

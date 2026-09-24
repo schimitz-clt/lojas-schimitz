@@ -1,5 +1,6 @@
 import assert from 'assert';
 import {
+  FULL_NAME_GIBBERISH_MESSAGE,
   FULL_NAME_INCOMPLETE_MESSAGE,
   FULL_NAME_LETTERS_MESSAGE,
   FULL_NAME_NUMBERS_MESSAGE,
@@ -9,9 +10,13 @@ import {
 } from './full-name';
 
 assert.equal(fullNameError('Maria Silva'), null);
-assert.equal(fullNameError('  Claiton da silva schimi  '), null);
+assert.equal(fullNameError('  Claiton da silva schimi  '), FULL_NAME_GIBBERISH_MESSAGE);
+assert.equal(fullNameError('Claiton da Silva Schimitz'), null);
+assert.equal(fullNameError('Claiton Schmidt'), null);
+assert.equal(fullNameError('Philip Souza'), null);
 assert.equal(fullNameError('José da Silva'), null);
 assert.equal(fullNameError("D'Avila Souza"), null);
+assert.equal(fullNameError('Maria asdf'), FULL_NAME_GIBBERISH_MESSAGE);
 assert.equal(fullNameError(''), FULL_NAME_INCOMPLETE_MESSAGE);
 assert.equal(fullNameError('   '), FULL_NAME_INCOMPLETE_MESSAGE);
 assert.equal(fullNameError('Ana'), FULL_NAME_INCOMPLETE_MESSAGE);

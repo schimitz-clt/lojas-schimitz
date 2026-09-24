@@ -154,7 +154,7 @@ async function main() {
           {
             email: `reg-${tag}-other@lojas-schimitz.test`,
             password,
-            name: 'Outro Nome',
+            name: 'Outra Pessoa',
             cpf: existingCpf,
             birthDate: '1990-05-15',
           },
@@ -179,7 +179,7 @@ async function main() {
           {
             email: takenEmail,
             password,
-            name: 'Outro Nome',
+            name: 'Outra Pessoa',
             cpf: '86288366757',
             birthDate: '1988-08-08',
           },
@@ -200,7 +200,7 @@ async function main() {
           {
             email: `reg-${tag}-badcpf@lojas-schimitz.test`,
             password,
-            name: 'CPF Ruim',
+            name: 'Cliente Ruim',
             cpf: '111.111.111-11',
             birthDate: '1990-05-15',
           },
