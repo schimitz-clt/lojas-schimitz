@@ -1,17 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
 import Link from 'next/link';
 import {
   SIGNUP_STORE_NAME,
   buildRegisterBody,
   continueFromEmail,
   maskCpf,
+  signupAccessIssue,
   signupBirthDateBounds,
-  signupDetailsIssue,
+  signupEmailIssue,
+  signupProfileIssue,
   type RegisterBody,
   type SignupField,
   type SignupIssue,
+  type SignupStep,
 } from '@/lib/signup-flow';
 
 type Props = {
@@ -24,6 +27,18 @@ type Props = {
   /** Standalone /cadastro keeps a real link to login. */
   haveAccountHref?: string;
 };
+
+const STEP_CAPTION: Record<SignupStep, string> = {
+  email: 'E-mail',
+  profile: 'Seus dados',
+  access: 'Senha',
+};
+
+function stepNumber(step: SignupStep): 1 | 2 | 3 {
+  if (step === 'email') return 1;
+  if (step === 'profile') return 2;
+  return 3;
+}
 
 function EyeIcon({ off }: { off: boolean }) {
   return (
@@ -61,6 +76,29 @@ function HaveAccount({
   return null;
 }
 
+function SignupProgress({ step }: { step: SignupStep }) {
+  const current = stepNumber(step);
+  return (
+    <div className="acct-progress-wrap">
+      <p className="acct-step">
+        Passo {current} de 3 · {STEP_CAPTION[step]}
+      </p>
+      <div
+        className="acct-progress"
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={3}
+        aria-valuenow={current}
+        aria-label={`Passo ${current} de 3, ${STEP_CAPTION[step]}`}
+      >
+        {[1, 2, 3].map((n) => (
+          <span key={n} className={n < current ? 'is-done' : n === current ? 'is-current' : undefined} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PasswordLine({
   id,
   label,
@@ -69,6 +107,7 @@ function PasswordLine({
   autoComplete,
   invalid,
   hint,
+  inputRef,
 }: {
   id: string;
   label: string;
@@ -77,6 +116,7 @@ function PasswordLine({
   autoComplete: string;
   invalid: boolean;
   hint?: string;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -86,6 +126,7 @@ function PasswordLine({
       </label>
       <div className="acct-pass">
         <input
+          ref={inputRef}
           id={id}
           name={id === 'signup-confirm' ? 'password-confirm' : 'password'}
           className="acct-line"
@@ -110,6 +151,34 @@ function PasswordLine({
   );
 }
 
+function FixedEmail({
+  email,
+  busy,
+  onAlter,
+}: {
+  email: string;
+  busy: boolean;
+  onAlter: () => void;
+}) {
+  return (
+    <div className="acct-identity">
+      {/* Same mark the store header uses. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="acct-mark" src="/android-chrome-192x192.png" alt="" width={48} height={48} />
+      <div>
+        <strong>{SIGNUP_STORE_NAME}</strong>
+        <p className="acct-identity-email" data-fixed-email={email}>
+          <span className="sr-only">E-mail da conta: </span>
+          {email}
+        </p>
+      </div>
+      <button type="button" className="acct-alter" onClick={onAlter} disabled={busy}>
+        Alterar
+      </button>
+    </div>
+  );
+}
+
 export function CreateAccountFlow({
   busy,
   error,
@@ -118,7 +187,7 @@ export function CreateAccountFlow({
   onHaveAccount,
   haveAccountHref,
 }: Props) {
-  const [step, setStep] = useState<'email' | 'details'>('email');
+  const [step, setStep] = useState<SignupStep>('email');
   const [email, setEmail] = useState('');
   const [displayEmail, setDisplayEmail] = useState('');
   const [name, setName] = useState('');
@@ -131,10 +200,12 @@ export function CreateAccountFlow({
   const [issue, setIssue] = useState<SignupIssue | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (step === 'email') emailRef.current?.focus();
-    else nameRef.current?.focus();
+    else if (step === 'profile') nameRef.current?.focus();
+    else passwordRef.current?.focus();
   }, [step]);
 
   function touch() {
@@ -144,6 +215,18 @@ export function CreateAccountFlow({
 
   function fieldInvalid(field: SignupField) {
     return issue?.field === field;
+  }
+
+  function editEmail() {
+    setIssue(null);
+    onEdit?.();
+    setStep('email');
+  }
+
+  function goBack() {
+    setIssue(null);
+    onEdit?.();
+    setStep((current) => (current === 'access' ? 'profile' : 'email'));
   }
 
   function submitEmail(e: FormEvent) {
@@ -156,21 +239,30 @@ export function CreateAccountFlow({
     setIssue(null);
     onEdit?.();
     setDisplayEmail(next.displayEmail);
-    setStep('details');
+    setStep('profile');
   }
 
-  async function submitDetails(e: FormEvent) {
+  function submitProfile(e: FormEvent) {
     e.preventDefault();
-    const nextIssue = signupDetailsIssue({
-      email: displayEmail,
-      name,
-      cpf,
-      birthDate,
-      phone,
-      password,
-      confirmPassword,
-      acceptedPrivacy,
-    });
+    const nextIssue = signupProfileIssue({ name, cpf, birthDate, phone });
+    if (nextIssue) {
+      setIssue(nextIssue);
+      return;
+    }
+    setIssue(null);
+    onEdit?.();
+    setStep('access');
+  }
+
+  async function submitAccess(e: FormEvent) {
+    e.preventDefault();
+    const emailIssue = signupEmailIssue(displayEmail);
+    if (emailIssue) {
+      setIssue(emailIssue);
+      setStep('email');
+      return;
+    }
+    const nextIssue = signupAccessIssue({ password, confirmPassword, acceptedPrivacy });
     if (nextIssue) {
       setIssue(nextIssue);
       return;
@@ -202,12 +294,10 @@ export function CreateAccountFlow({
   if (step === 'email') {
     body = (
       <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail}>
-        <p className="acct-step">Passo 1 de 2</p>
+        <SignupProgress step="email" />
         <h1 className="acct-title">Criar meu cadastro</h1>
         <span className="acct-kicker" aria-hidden />
-        <p className="acct-lead">
-          Comece com o e-mail. No próximo passo ele fica fixo e você completa nome, CPF, data de nascimento, WhatsApp e senha.
-        </p>
+        <p className="acct-lead">Informe seu e-mail para começar.</p>
         {message ? (
           <div className="alert" role="alert">
             {message}
@@ -228,6 +318,7 @@ export function CreateAccountFlow({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
+            enterKeyHint="next"
             value={email}
             aria-invalid={fieldInvalid('email') || undefined}
             onChange={(e) => {
@@ -242,37 +333,21 @@ export function CreateAccountFlow({
         {accountAction}
       </form>
     );
-  } else {
+  } else if (step === 'profile') {
     body = (
-      <div data-signup-step="details">
-        <button
-          type="button"
-          className="acct-back"
-          onClick={() => {
-            setIssue(null);
-            onEdit?.();
-            setStep('email');
-          }}
-          disabled={busy}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-          Criar meu cadastro
-        </button>
-        <div className="acct-identity">
-          {/* Same mark the store header uses on mobile. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="acct-mark" src="/android-chrome-192x192.png" alt="" width={48} height={48} />
-          <div>
-            <strong>{SIGNUP_STORE_NAME}</strong>
-            <p className="acct-identity-email" data-fixed-email={displayEmail}>
-              {displayEmail}
-            </p>
-          </div>
+      <div data-signup-step="profile" data-fixed-email={displayEmail}>
+        <div className="acct-head">
+          <button type="button" className="acct-back" aria-label="Voltar" onClick={goBack}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 className="acct-title">Criar meu cadastro</h1>
         </div>
-        <form className="acct-form" noValidate onSubmit={submitDetails} aria-busy={busy}>
-          <p className="sr-only">Passo 2 de 2. O e-mail {displayEmail} já foi escolhido.</p>
+        <FixedEmail email={displayEmail} busy={busy} onAlter={editEmail} />
+        <form className="acct-form" noValidate onSubmit={submitProfile}>
+          <SignupProgress step="profile" />
+          <p className="sr-only">Passo 2 de 3. O e-mail {displayEmail} já foi escolhido.</p>
           {message ? (
             <div className="alert" role="alert">
               {message}
@@ -288,6 +363,7 @@ export function CreateAccountFlow({
               name="name"
               className="acct-line"
               autoComplete="name"
+              enterKeyHint="next"
               value={name}
               aria-invalid={fieldInvalid('name') || undefined}
               onChange={(e) => {
@@ -308,6 +384,7 @@ export function CreateAccountFlow({
               autoComplete="off"
               placeholder="000.000.000-00"
               maxLength={14}
+              enterKeyHint="next"
               value={cpf}
               aria-invalid={fieldInvalid('cpf') || undefined}
               onChange={(e) => {
@@ -348,7 +425,9 @@ export function CreateAccountFlow({
               type="tel"
               inputMode="tel"
               autoComplete="tel"
+              placeholder="(51) 99999-0000"
               maxLength={32}
+              enterKeyHint="next"
               value={phone}
               aria-invalid={fieldInvalid('phone') || undefined}
               onChange={(e) => {
@@ -357,6 +436,33 @@ export function CreateAccountFlow({
               }}
             />
           </div>
+          <button className="acct-cta" type="submit">
+            Continuar
+          </button>
+          {accountAction}
+        </form>
+      </div>
+    );
+  } else {
+    body = (
+      <div data-signup-step="access" data-fixed-email={displayEmail}>
+        <div className="acct-head">
+          <button type="button" className="acct-back" aria-label="Voltar" onClick={goBack} disabled={busy}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 className="acct-title">Criar meu cadastro</h1>
+        </div>
+        <FixedEmail email={displayEmail} busy={busy} onAlter={editEmail} />
+        <form className="acct-form" noValidate onSubmit={submitAccess} aria-busy={busy}>
+          <SignupProgress step="access" />
+          <p className="sr-only">Passo 3 de 3. O e-mail {displayEmail} já foi escolhido.</p>
+          {message ? (
+            <div className="alert" role="alert">
+              {message}
+            </div>
+          ) : null}
           <PasswordLine
             id="signup-password"
             label="Senha (no mínimo 8 caracteres)"
@@ -364,6 +470,7 @@ export function CreateAccountFlow({
             autoComplete="new-password"
             invalid={fieldInvalid('password')}
             hint="Letras e números."
+            inputRef={passwordRef}
             onChange={(value) => {
               setPassword(value);
               touch();

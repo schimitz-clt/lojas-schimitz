@@ -1,6 +1,7 @@
 /**
- * Multi-step customer signup.
- * POST /auth/register: email, password, name, optional phone, CPF, birthDate.
+ * Multi-step customer signup (client only).
+ * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
+ * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
  * CPF goes as digits or máscara; the API stores digits only.
  * birthDate is AAAA-MM-DD. Idade mínima: 18 anos (maioridade civil).
  */
@@ -10,7 +11,7 @@ export const SIGNUP_STORE_NAME = 'Lojas Schimitz';
 /** Same rule as RegisterDto (`apps/api/src/modules/auth/dto.ts`). */
 export const SIGNUP_PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
-export type SignupStep = 'email' | 'details';
+export type SignupStep = 'email' | 'profile' | 'access';
 
 export type SignupField = 'email' | 'name' | 'cpf' | 'birthDate' | 'phone' | 'password' | 'confirm' | 'privacy';
 
@@ -145,18 +146,13 @@ export function continueFromEmail(
   return { ok: true, displayEmail: email.trim() };
 }
 
-export function signupDetailsIssue(input: {
-  email: string;
+/** Passo 2 — dados pessoais. O e-mail já foi aceito e não entra aqui. */
+export function signupProfileIssue(input: {
   name: string;
   cpf: string;
   birthDate: string;
   phone: string;
-  password: string;
-  confirmPassword: string;
-  acceptedPrivacy: boolean;
 }, now: Date = new Date()): SignupIssue | null {
-  const emailIssue = signupEmailIssue(input.email);
-  if (emailIssue) return emailIssue;
   if (input.name.trim().length < 2) {
     return { field: 'name', message: 'Informe seu nome completo.' };
   }
@@ -167,6 +163,15 @@ export function signupDetailsIssue(input: {
   if (input.phone.trim().length > 32) {
     return { field: 'phone', message: 'WhatsApp pode ter no máximo 32 caracteres.' };
   }
+  return null;
+}
+
+/** Passo 3 — senha e aceite. Confirmação e privacidade ficam só no navegador. */
+export function signupAccessIssue(input: {
+  password: string;
+  confirmPassword: string;
+  acceptedPrivacy: boolean;
+}): SignupIssue | null {
   if (input.password.length < 8) {
     return { field: 'password', message: 'A senha precisa ter no mínimo 8 caracteres.' };
   }
@@ -183,6 +188,23 @@ export function signupDetailsIssue(input: {
     return { field: 'privacy', message: 'Aceite a Política de Privacidade para continuar.' };
   }
   return null;
+}
+
+export function signupDetailsIssue(input: {
+  email: string;
+  name: string;
+  cpf: string;
+  birthDate: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  acceptedPrivacy: boolean;
+}, now: Date = new Date()): SignupIssue | null {
+  const emailIssue = signupEmailIssue(input.email);
+  if (emailIssue) return emailIssue;
+  const profileIssue = signupProfileIssue(input, now);
+  if (profileIssue) return profileIssue;
+  return signupAccessIssue(input);
 }
 
 /** Payload for POST /auth/register. Confirm-password and privacy stay on the client. */
