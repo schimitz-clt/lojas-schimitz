@@ -6,7 +6,10 @@ import assert from 'assert';
 import { validate } from 'class-validator';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { CPF_INVALID_MESSAGE } from './cpf';
 import { RegisterDto } from './dto';
+import { FULL_NAME_GIBBERISH_MESSAGE, FULL_NAME_NUMBERS_MESSAGE, FULL_NAME_SURNAME_MESSAGE } from './full-name';
+import { PHONE_INVALID_MESSAGE } from './phone';
 
 function messagesOf(errors: { constraints?: Record<string, string>; property: string }[]): string[] {
   return errors.flatMap((error) => Object.values(error.constraints || {}));
@@ -35,13 +38,36 @@ async function main() {
   assert.equal((await validate(noPhone)).length, 0, 'telefone segue opcional');
 
   const badCpf = messagesOf(await validate(validDto({ cpf: '529.982.247-26' })));
-  assert.ok(badCpf.includes('CPF inválido'), badCpf.join(' | '));
+  assert.ok(badCpf.includes(CPF_INVALID_MESSAGE), badCpf.join(' | '));
+
+  const ownerCpf = messagesOf(await validate(validDto({ cpf: '034.268.570-80' })));
+  assert.ok(ownerCpf.includes(CPF_INVALID_MESSAGE), ownerCpf.join(' | '));
+  assert.equal((await validate(validDto({ cpf: '034.268.570-81' }))).length, 0, 'CPF do repro com dígito certo entra');
 
   const missingCpf = messagesOf(await validate(validDto({ cpf: '' })));
   assert.ok(missingCpf.includes('Informe seu CPF.'), missingCpf.join(' | '));
 
   const repeated = messagesOf(await validate(validDto({ cpf: '111.111.111-11' })));
-  assert.ok(repeated.includes('CPF inválido'), repeated.join(' | '));
+  assert.ok(repeated.includes(CPF_INVALID_MESSAGE), repeated.join(' | '));
+
+  const oneName = messagesOf(await validate(validDto({ name: 'Claiton' })));
+  assert.ok(oneName.includes(FULL_NAME_SURNAME_MESSAGE), oneName.join(' | '));
+  const digitsName = messagesOf(await validate(validDto({ name: '123 456' })));
+  assert.ok(digitsName.includes(FULL_NAME_NUMBERS_MESSAGE), digitsName.join(' | '));
+  const truncated = messagesOf(await validate(validDto({ name: 'Claiton da silva schimi' })));
+  assert.ok(truncated.includes(FULL_NAME_GIBBERISH_MESSAGE), truncated.join(' | '));
+  assert.equal(
+    (await validate(validDto({ name: 'Claiton da Silva Schimitz' }))).length,
+    0,
+    'sobrenome completo entra; a loja não confere identidade',
+  );
+
+  const badPhone = messagesOf(await validate(validDto({ phone: '1'.repeat(32) })));
+  assert.ok(badPhone.includes(PHONE_INVALID_MESSAGE), badPhone.join(' | '));
+  const lettersPhone = messagesOf(await validate(validDto({ phone: 'abc' })));
+  assert.ok(lettersPhone.includes(PHONE_INVALID_MESSAGE), lettersPhone.join(' | '));
+  assert.equal((await validate(validDto({ phone: '51980653799' }))).length, 0, 'celular do repro entra');
+  assert.equal((await validate(validDto({ phone: '(51) 99999-0000' }))).length, 0);
 
   const underage = messagesOf(await validate(validDto({ birthDate: '2015-01-01' })));
   assert.ok(

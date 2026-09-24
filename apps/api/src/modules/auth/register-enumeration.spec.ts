@@ -43,8 +43,10 @@ const registerFn = svc.slice(svc.indexOf('async register('), svc.indexOf('privat
 assert.ok(registerFn.includes('async register('), 'register action present');
 assert.ok(registerFn.includes('registerDuplicateConflict'), 'duplicates use the conflict helper');
 assert.ok(registerFn.includes('throw new ConflictException'), 'duplicate CPF or e-mail is 409');
+assert.ok(registerFn.includes('throw new BadRequestException(invalidName)'), 'incomplete name stays 400');
 assert.ok(registerFn.includes('throw new BadRequestException(invalidCpf)'), 'invalid CPF stays 400');
 assert.ok(registerFn.includes('throw new BadRequestException(invalidBirth)'), 'under-18 stays 400');
+assert.ok(registerFn.includes('throw new BadRequestException(invalidPhone)'), 'invalid WhatsApp stays 400');
 assert.ok(registerFn.includes('return this.issue('), 'new user gets the same session payload as login');
 assert.ok(registerFn.includes('argon2.hash(dto.password)'), 'new password is hashed');
 assert.ok(registerFn.includes('where: { cpf }'), 'CPF lookup is real');

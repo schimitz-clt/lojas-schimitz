@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { IsAdultBirthDate, IsBrazilianCpf } from './is-register-profile';
+import { IsAdultBirthDate, IsBrazilianCpf, IsBrazilianMobile, IsFullName } from './is-register-profile';
 
 export class RegisterDto {
   @ApiProperty({ example: 'cliente@exemplo.com' })
@@ -13,15 +13,19 @@ export class RegisterDto {
   @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, { message: 'Senha deve ter letras e números' })
   password!: string;
 
-  @ApiProperty({ example: 'Maria Silva' })
+  @ApiProperty({ example: 'Maria Silva', description: 'Nome e sobrenome, só letras.' })
   @IsString()
-  @MinLength(2)
+  @IsFullName()
   name!: string;
 
-  @ApiPropertyOptional({ example: '51999990000' })
+  @ApiPropertyOptional({
+    example: '51999990000',
+    description: 'WhatsApp opcional. Celular com DDD (11 dígitos) ou com DDI 55.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(32)
+  @IsBrazilianMobile()
   phone?: string;
 
   @ApiProperty({

@@ -23,6 +23,9 @@ assert.equal(completedYears({ y: 2000, m: 2, d: 29 }, { y: 2026, m: 2, d: 28 }),
 assert.equal(birthDateError('2008-09-23', now), null, 'faz 18 hoje');
 assert.equal(birthDateError('2008-09-22', now), null);
 assert.equal(birthDateError('1990-05-15', now), null);
+assert.equal(birthDateError('1991-02-08', now), null, '08/02/1991 é data real e maior de 18');
+assert.equal(birthDateError('1991-02-29', now), 'Informe uma data de nascimento válida.');
+assert.equal(birthDateError('1991-04-31', now), 'Informe uma data de nascimento válida.');
 assert.equal(birthDateError('2000-02-29', now), null, '29 de fevereiro existe');
 assert.equal(birthDateError('1906-09-23', now), null, '120 anos entra');
 assert.equal(

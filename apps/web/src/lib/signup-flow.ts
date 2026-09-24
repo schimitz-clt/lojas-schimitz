@@ -1,6 +1,9 @@
 /**
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
+ * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
+ * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
+ * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
  * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
  * Success is the same session as login. Duplicate CPF or e-mail is a 409 on that field.
  * Retrigger the web Railpack build after the stuck production deploy of #130.
@@ -25,6 +28,21 @@ export const REGISTER_CPF_EXISTS_MESSAGE =
   'Este CPF já possui conta. Entre ou use outro CPF.';
 
 export const REGISTER_EMAIL_EXISTS_MESSAGE = 'Este e-mail já possui conta. Faça login.';
+
+/** Same copy as the API (`cpf.ts`). */
+export const SIGNUP_CPF_INVALID_MESSAGE = 'CPF inválido. Confira os números.';
+
+export const SIGNUP_NAME_INCOMPLETE_MESSAGE = 'Informe seu nome completo.';
+export const SIGNUP_NAME_SURNAME_MESSAGE = 'Informe nome e sobrenome.';
+export const SIGNUP_NAME_LETTERS_MESSAGE = 'Informe nome e sobrenome, só com letras.';
+export const SIGNUP_NAME_NUMBERS_MESSAGE = 'O nome não pode conter números.';
+export const SIGNUP_NAME_TOO_LONG_MESSAGE = 'Nome completo pode ter no máximo 120 caracteres.';
+export const SIGNUP_NAME_GIBBERISH_MESSAGE = 'O nome parece incompleto. Confira nome e sobrenome.';
+
+/** Same copy as the API (`phone.ts`). */
+export const SIGNUP_PHONE_INVALID_MESSAGE =
+  'Informe um WhatsApp válido com DDD, como (51) 99999-0000.';
+export const SIGNUP_PHONE_TOO_LONG_MESSAGE = 'WhatsApp pode ter no máximo 32 caracteres.';
 
 export function signupRegisterConflict(input: {
   message?: string;
@@ -133,7 +151,103 @@ export function signupCpfIssue(cpf: string): SignupIssue | null {
   const trimmed = cpf.trim();
   if (!trimmed) return { field: 'cpf', message: 'Informe seu CPF.' };
   if (trimmed.length > 18 || !isValidCpfDigits(cpfDigits(trimmed))) {
-    return { field: 'cpf', message: 'CPF inválido' };
+    return { field: 'cpf', message: SIGNUP_CPF_INVALID_MESSAGE };
+  }
+  return null;
+}
+
+const NAME_LETTER = /[A-Za-zÀ-ÖØ-öø-ÿ]/g;
+const NAME_WORD = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’.-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
+const NAME_PARTICLE = /^(da|de|do|das|dos|e|di|du|del|van|von|y|la|le|mc)$/i;
+const NAME_VOWEL = /[aeiouyáàâãäéèêëíìîïóòôõöúùûüýÿ]/i;
+const NAME_PLACEHOLDER =
+  /^(asdf+|qwerty?|zxcv+|teste?|nome|sobrenome|fulano|beltrano|sicrano|abcd+|xxx+|aaa+)$/i;
+
+function foldNameLetters(word: string): string {
+  return word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/**
+ * Palavra cortada ou sem cara de nome: sem vogal, letra triplicada, teclado
+ * (`asdf`), ou 6+ letras com uma só vogal terminando em vogal (`schimi`).
+ * Schmidt, Schimitz e Silva continuam válidos — o primeiro grupo termina em
+ * consoante; Silva tem duas vogais e menos de 6 letras.
+ */
+function nameWordIsGibberish(word: string): boolean {
+  if (NAME_PARTICLE.test(word)) return false;
+  if (!NAME_VOWEL.test(word)) return true;
+  const folded = foldNameLetters(word);
+  if (/(.)\1\1/.test(folded)) return true;
+  if (NAME_PLACEHOLDER.test(folded)) return true;
+  const vowels = new Set(folded.match(/[aeiouy]/g) || []);
+  return folded.length >= 6 && vowels.size < 2 && /[aeiouy]$/.test(folded);
+}
+
+/**
+ * Nome completo: trim, 2+ palavras, só letras (acento, hífen, apóstrofo).
+ * Partículas como "da" não substituem nome e sobrenome.
+ * Não consulta documento — não dá para saber se o nome é de outra pessoa.
+ */
+export function signupNameIssue(name: string): SignupIssue | null {
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  if (!trimmed || trimmed.length < 5) {
+    return { field: 'name', message: SIGNUP_NAME_INCOMPLETE_MESSAGE };
+  }
+  if (trimmed.length > 120) {
+    return { field: 'name', message: SIGNUP_NAME_TOO_LONG_MESSAGE };
+  }
+  const words = trimmed.split(' ');
+  if (words.length < 2) {
+    return { field: 'name', message: SIGNUP_NAME_SURNAME_MESSAGE };
+  }
+  let meaningful = 0;
+  for (const word of words) {
+    if (/\d/.test(word)) return { field: 'name', message: SIGNUP_NAME_NUMBERS_MESSAGE };
+    if (!NAME_WORD.test(word)) return { field: 'name', message: SIGNUP_NAME_LETTERS_MESSAGE };
+    const letters = word.match(NAME_LETTER);
+    const count = letters ? letters.length : 0;
+    if (count < 2 && !NAME_PARTICLE.test(word)) {
+      return { field: 'name', message: SIGNUP_NAME_LETTERS_MESSAGE };
+    }
+    if (nameWordIsGibberish(word)) return { field: 'name', message: SIGNUP_NAME_GIBBERISH_MESSAGE };
+    if (count >= 2 && !NAME_PARTICLE.test(word)) meaningful += 1;
+  }
+  if (meaningful < 2) return { field: 'name', message: SIGNUP_NAME_SURNAME_MESSAGE };
+  return null;
+}
+
+/** DDDs de celular (Anatel). WhatsApp do cadastro é celular, não fixo. */
+const BR_MOBILE_DDD = new Set([
+  '11', '12', '13', '14', '15', '16', '17', '18', '19',
+  '21', '22', '24', '27', '28',
+  '31', '32', '33', '34', '35', '37', '38',
+  '41', '42', '43', '44', '45', '46', '47', '48', '49',
+  '51', '53', '54', '55',
+  '61', '62', '63', '64', '65', '66', '67', '68', '69',
+  '71', '73', '74', '75', '77', '79',
+  '81', '82', '83', '84', '85', '86', '87', '88', '89',
+  '91', '92', '93', '94', '95', '96', '97', '98', '99',
+]);
+
+/** Dígitos nacionais de celular (DDD + 9xxxxxxxx), ou null. */
+export function brazilianMobileDigits(value: string): string | null {
+  let digits = value.replace(/\D/g, '');
+  if (digits.startsWith('55') && digits.length === 13) digits = digits.slice(2);
+  if (!/^\d{11}$/.test(digits)) return null;
+  if (/^(\d)\1{10}$/.test(digits)) return null;
+  const ddd = digits.slice(0, 2);
+  const local = digits.slice(2);
+  if (!BR_MOBILE_DDD.has(ddd) || !/^9\d{8}$/.test(local)) return null;
+  return digits;
+}
+
+/** Vazio é válido (campo opcional). Preenchido precisa ser celular com DDD. */
+export function signupPhoneIssue(phone: string): SignupIssue | null {
+  const trimmed = phone.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 32) return { field: 'phone', message: SIGNUP_PHONE_TOO_LONG_MESSAGE };
+  if (/[A-Za-z]/.test(trimmed) || !brazilianMobileDigits(trimmed)) {
+    return { field: 'phone', message: SIGNUP_PHONE_INVALID_MESSAGE };
   }
   return null;
 }
@@ -241,17 +355,13 @@ export function signupProfileIssue(input: {
   birthDate: string;
   phone: string;
 }, now: Date = new Date()): SignupIssue | null {
-  if (input.name.trim().length < 2) {
-    return { field: 'name', message: 'Informe seu nome completo.' };
-  }
+  const nameIssue = signupNameIssue(input.name);
+  if (nameIssue) return nameIssue;
   const cpfIssue = signupCpfIssue(input.cpf);
   if (cpfIssue) return cpfIssue;
   const birthIssue = signupBirthDateDisplayIssue(input.birthDate, now);
   if (birthIssue) return birthIssue;
-  if (input.phone.trim().length > 32) {
-    return { field: 'phone', message: 'WhatsApp pode ter no máximo 32 caracteres.' };
-  }
-  return null;
+  return signupPhoneIssue(input.phone);
 }
 
 /** Passo 3 — senha e aceite. Confirmação e privacidade ficam só no navegador. */
