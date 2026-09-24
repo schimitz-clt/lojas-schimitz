@@ -254,6 +254,8 @@ export async function fetchPublicSellers(): Promise<PublicSellerCard[]> {
 export async function fetchCategoryMeta(slug: string): Promise<{
   name: string;
   description: string;
+  /** False when the categories API answered and this slug is not listed. */
+  listed: boolean;
 } | null> {
   try {
     const res = await fetch(`${API}/categories`, { next: { revalidate: 3600 } });
@@ -265,17 +267,12 @@ export async function fetchCategoryMeta(slug: string): Promise<{
     const items = json.data || [];
     const hit = items.find((c) => c.slug === slug);
     if (!hit) {
-      // Soft fallback for nav-only slugs (e.g. ofertas) — still emit a stable title.
-      const pretty = slug.replace(/-/g, ' ').trim();
-      if (!pretty) return null;
-      return {
-        name: pretty.charAt(0).toUpperCase() + pretty.slice(1),
-        description: `${pretty.charAt(0).toUpperCase() + pretty.slice(1)} na Lojas Schimitz`,
-      };
+      return { name: '', description: '', listed: false };
     }
     return {
       name: hit.name,
       description: `${hit.name} na Lojas Schimitz — eletro, celulares e casa em Porto Alegre.`,
+      listed: true,
     };
   } catch {
     return null;

@@ -89,7 +89,7 @@ const marketingFiles = [
   'components/ProductCard.tsx',
   'app/marketplace/page.tsx',
   'app/produto/[slug]/ProductClient.tsx',
-  'app/page.tsx',
+  'app/home-client.tsx',
 ];
 for (const f of marketingFiles) {
   const src = readFileSync(join(srcRoot, f), 'utf8');

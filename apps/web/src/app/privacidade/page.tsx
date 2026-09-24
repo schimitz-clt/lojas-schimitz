@@ -1,12 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PRIVACIDADE_SEO, storefrontPageMetadata } from '@/lib/seo-metadata';
 
-export const metadata: Metadata = {
-  title: 'Política de Privacidade',
-  description:
-    'Como a Lojas Schimitz trata dados de conta, pedidos, pagamentos e cookies no site e no app.',
-  alternates: { canonical: '/privacidade' },
-};
+export const metadata: Metadata = storefrontPageMetadata(PRIVACIDADE_SEO);
 
 const UPDATED = '12 de setembro de 2026';
 

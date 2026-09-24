@@ -10,13 +10,9 @@ import {
   marketplaceSellersHeading,
 } from '@/lib/marketplace-copy';
 import { fetchPublicSellers } from '@/lib/storefront';
+import { MARKETPLACE_SEO, storefrontPageMetadata } from '@/lib/seo-metadata';
 
-export const metadata: Metadata = {
-  title: 'Marketplace',
-  description:
-    'Marketplace Lojas Schimitz — catálogo com Vendido por, checkout unificado e portal do vendedor. Split Mercado Pago só com flags de produção (ops).',
-  alternates: { canonical: '/marketplace' },
-};
+export const metadata: Metadata = storefrontPageMetadata(MARKETPLACE_SEO);
 
 export default async function MarketplacePage() {
   const sellers = await fetchPublicSellers();

@@ -4,8 +4,11 @@ import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
-import { shareImageMetadata } from '@/lib/og-image';
+import { JsonLd } from '@/components/JsonLd';
+import { buildStoreJsonLd } from '@/lib/json-ld';
+import { resolveShareImage, shareImageTag } from '@/lib/og-image';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
+import { storeWhatsAppDigits } from '@/lib/whatsapp';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -30,12 +33,11 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   const s = await fetchStoreSettings();
   const base = siteOrigin();
-  const share = shareImageMetadata(s.ogImageUrl, base);
+  const share = resolveShareImage(s.ogImageUrl, base);
   return {
     title: { default: s.siteTitle, template: `%s | ${s.siteTitle}` },
     description: s.siteDescription,
     metadataBase: new URL(base),
-    alternates: { canonical: '/' },
     openGraph: {
       title: s.siteTitle,
       description: s.siteDescription,
@@ -43,13 +45,13 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       url: base,
       siteName: s.siteTitle,
-      ...(share.imageUrl ? { images: [{ url: share.imageUrl }] } : {}),
+      images: [shareImageTag(share)],
     },
     twitter: {
       card: share.twitterCard,
       title: s.siteTitle,
       description: s.siteDescription,
-      ...(share.imageUrl ? { images: [share.imageUrl] } : {}),
+      images: [share.url],
     },
     appleWebApp: {
       capable: true,
@@ -70,10 +72,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const settings = await fetchStoreSettings();
+  const origin = siteOrigin();
+  const jsonLd = buildStoreJsonLd(origin, {
+    name: settings.siteTitle,
+    description: settings.siteDescription,
+    logoUrl: '/android-chrome-512x512.png',
+    telephone: storeWhatsAppDigits(process.env.NEXT_PUBLIC_WHATSAPP),
+  });
   return (
     <html lang="pt-BR" className={jakarta.variable}>
       <body className={jakarta.className}>
+        <JsonLd data={jsonLd} />
         <SessionHydrator>
           <StorefrontChrome>{children}</StorefrontChrome>
         </SessionHydrator>

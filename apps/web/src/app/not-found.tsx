@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  BRAND_SHARE_IMAGE_ALT,
+  BRAND_SHARE_IMAGE_HEIGHT,
+  BRAND_SHARE_IMAGE_PATH,
+  BRAND_SHARE_IMAGE_WIDTH,
+} from '@/lib/og-image';
 
 /**
  * Unknown routes and notFound() (missing products) share this page.
@@ -8,7 +14,28 @@ import Link from 'next/link';
  */
 export const metadata: Metadata = {
   title: 'Página não encontrada',
+  description: 'Esse endereço não existe ou o produto saiu do ar.',
   robots: { index: false, follow: true },
+  openGraph: {
+    title: 'Página não encontrada',
+    description: 'Esse endereço não existe ou o produto saiu do ar.',
+    locale: 'pt_BR',
+    type: 'website',
+    images: [
+      {
+        url: BRAND_SHARE_IMAGE_PATH,
+        alt: BRAND_SHARE_IMAGE_ALT,
+        width: BRAND_SHARE_IMAGE_WIDTH,
+        height: BRAND_SHARE_IMAGE_HEIGHT,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Página não encontrada',
+    description: 'Esse endereço não existe ou o produto saiu do ar.',
+    images: [BRAND_SHARE_IMAGE_PATH],
+  },
 };
 
 export default function NotFound() {
