@@ -1121,6 +1121,32 @@
   box-shadow: var(--sf-shadow-xs);
 }
 
+.sf-empty-panel {
+  border-style: solid !important;
+  border-color: #111 !important;
+  border-top: 4px solid var(--sf-yellow, #ffd100) !important;
+}
+
+.sf-empty-kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #111;
+}
+
+.sf-empty-kicker::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  margin-right: 8px;
+  border-radius: 2px;
+  background: var(--sf-yellow, #ffd100);
+  vertical-align: middle;
+}
+
 .sf-catalog-empty-title {
   margin: 0;
   font-weight: 800;

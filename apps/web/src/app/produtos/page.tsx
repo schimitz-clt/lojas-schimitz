@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, waLink } from '@/lib/api';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { ProductGridSkeleton } from '@/components/Skeleton';
 import {
@@ -11,16 +11,17 @@ import {
   activeFilterCount,
   buildFilterChips,
   catalogSearchQuickChips,
+  catalogListEmptyCopy,
   emptySearchSuggestions,
   isCatalogSearchResults,
   isExternalSearchShortcut,
   parseCatalogSort,
-  searchEmptyCopy,
   searchResultsHeading,
   type FilterChip,
 } from '@/lib/storefront-pro';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { CatalogPager } from '@/components/storefront/CatalogPager';
+import { StorefrontEmpty } from '@/components/storefront/StorefrontEmpty';
 import { CATALOG_PAGE_SIZE, catalogPageSearch, parseCatalogPage } from '@/lib/catalog-pagination';
 
 type Category = { id: string; name: string; slug: string };
@@ -40,6 +41,7 @@ function ProdutosInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sellerDirectoryName, setSellerDirectoryName] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -62,6 +64,26 @@ function ProdutosInner() {
       .then((d) => setCategories(Array.isArray(d) ? d : []))
       .catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (!seller) {
+      setSellerDirectoryName(null);
+      return;
+    }
+    let cancelled = false;
+    api<Array<{ slug?: string; name?: string }>>('/sellers')
+      .then((rows) => {
+        if (cancelled) return;
+        const hit = (Array.isArray(rows) ? rows : []).find((row) => row?.slug === seller);
+        setSellerDirectoryName(hit?.name?.trim() || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSellerDirectoryName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [seller]);
 
   const categoryName = useMemo(() => {
     if (!category) return null;
@@ -183,8 +205,8 @@ function ProdutosInner() {
   const sellerName = useMemo(() => {
     if (!seller) return null;
     const hit = products.find((p) => p.seller?.slug === seller);
-    return hit?.seller?.name || null;
-  }, [products, seller]);
+    return hit?.seller?.name || sellerDirectoryName;
+  }, [products, seller, sellerDirectoryName]);
 
   const hasExtraFilters = Boolean(
     category || seller || minPrice || maxPrice || (sort && sort !== 'relevance'),
@@ -205,7 +227,13 @@ function ProdutosInner() {
     loading,
     categoryName: categoryName || (category ? category : null),
   });
-  const empty = searchEmptyCopy(q, hasExtraFilters);
+  const sellerOnly = Boolean(seller) && !q && !category && !minPrice && !maxPrice && (!sort || sort === 'relevance');
+  const empty = catalogListEmptyCopy({
+    q,
+    hasFilters: hasExtraFilters,
+    sellerOnly,
+    sellerName,
+  });
   const suggestions = emptySearchSuggestions();
   const quickChips = catalogSearchQuickChips();
   const searching = isCatalogSearchResults(q);
@@ -407,12 +435,15 @@ function ProdutosInner() {
       {err ? <div className="alert">{err}</div> : null}
       {loading ? <ProductGridSkeleton count={8} /> : null}
       {!loading && !err && products.length === 0 ? (
-        <div className="catalog-empty sf-catalog-empty">
-          <p className="sf-catalog-empty-title">{empty.title}</p>
-          <p className="muted sf-catalog-empty-body">{empty.body}</p>
+        <StorefrontEmpty kicker={empty.kicker} title={empty.title} body={empty.body}>
           <div className="sf-catalog-empty-actions">
+            {empty.whatsappText ? (
+              <a className="btn" href={waLink(empty.whatsappText)} target="_blank" rel="noopener noreferrer">
+                Avise-me no WhatsApp
+              </a>
+            ) : null}
             {hasAnyFilter ? (
-              <button className="btn" type="button" onClick={clearAll}>
+              <button className={empty.whatsappText ? 'btn ghost' : 'btn'} type="button" onClick={clearAll}>
                 {empty.clearFiltersLabel}
               </button>
             ) : null}
@@ -431,19 +462,21 @@ function ProdutosInner() {
             </Link>
           </div>
           <ul className="sf-empty-suggestions" aria-label="Sugestões">
-            {suggestions.map((s) => (
-              <li key={s.href}>
-                {isExternalSearchShortcut(s) ? (
-                  <a href={s.href} target="_blank" rel="noopener noreferrer">
-                    {s.label}
-                  </a>
-                ) : (
-                  <Link href={s.href}>{s.label}</Link>
-                )}
-              </li>
-            ))}
+            {suggestions
+              .filter((s) => hasAnyFilter || s.href !== '/produtos')
+              .map((s) => (
+                <li key={s.href}>
+                  {isExternalSearchShortcut(s) ? (
+                    <a href={s.href} target="_blank" rel="noopener noreferrer">
+                      {s.label}
+                    </a>
+                  ) : (
+                    <Link href={s.href}>{s.label}</Link>
+                  )}
+                </li>
+              ))}
           </ul>
-        </div>
+        </StorefrontEmpty>
       ) : null}
       {!loading ? (
         <div className={`grid${searching ? ' grid-search' : ''}`}>

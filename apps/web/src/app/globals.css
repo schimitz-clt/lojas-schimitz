@@ -936,6 +936,12 @@ textarea { resize: vertical; min-height: 72px; }
   line-height: 1.35;
   color: var(--muted);
 }
+.soon-disclaimer {
+  margin: 6px 0 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.4;
+}
 .home-search-head { padding: 14px 0 6px; }
 .home-search-head h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.03em; }
 .home-benefits { margin: 28px 0 8px; }

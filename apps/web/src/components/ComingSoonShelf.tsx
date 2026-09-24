@@ -7,6 +7,7 @@ import {
   comingSoonBadgeLabel,
   comingSoonCardNote,
   comingSoonCtaLabel,
+  comingSoonDisclaimer,
   comingSoonSubtitle,
   comingSoonTitle,
   comingSoonWhatsAppText,
@@ -32,6 +33,7 @@ export function ComingSoonShelf() {
         <div className="home-shelf-heading">
           <h2 id={titleId}>{comingSoonTitle()}</h2>
           <p className="home-shelf-sub muted">{comingSoonSubtitle()}</p>
+          <p className="home-shelf-sub soon-disclaimer">{comingSoonDisclaimer()}</p>
         </div>
         <a href={waLink(comingSoonWhatsAppText())} target="_blank" rel="noopener noreferrer">
           {comingSoonCtaLabel()}
