@@ -3,11 +3,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   SIGNUP_PASSWORD_PATTERN,
+  birthDateToIso,
   buildRegisterBody,
   continueFromEmail,
+  maskBirthDate,
   maskCpf,
   signupAccessIssue,
   signupBirthDateBounds,
+  signupBirthDateDisplayIssue,
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
@@ -50,6 +53,49 @@ assert.equal(signupBirthDateIssue('2008-09-23', fixedNow), null);
 assert.equal(signupBirthDateIssue('1990-05-15', fixedNow), null);
 assert.deepEqual(signupBirthDateBounds(fixedNow), { min: '1906-09-23', max: '2008-09-23' });
 
+assert.equal(maskBirthDate(''), '');
+assert.equal(maskBirthDate('0'), '0');
+assert.equal(maskBirthDate('08'), '08/');
+assert.equal(maskBirthDate('080'), '08/0');
+assert.equal(maskBirthDate('0803'), '08/03/');
+assert.equal(maskBirthDate('08031'), '08/03/1');
+assert.equal(maskBirthDate('08031990'), '08/03/1990');
+assert.equal(maskBirthDate('08/03/1990'), '08/03/1990');
+assert.equal(maskBirthDate('080319901234'), '08/03/1990');
+assert.equal(maskBirthDate('0a8b03c1990'), '08/03/1990');
+assert.equal(maskBirthDate('1990-05-15'), '15/05/1990');
+assert.equal(maskBirthDate('08', '08/'), '0');
+assert.equal(maskBirthDate('08/03', '08/03/'), '08/0');
+assert.equal(maskBirthDate('08/03/199', '08/03/1990'), '08/03/199');
+
+assert.equal(birthDateToIso(''), null);
+assert.equal(birthDateToIso('08'), null);
+assert.equal(birthDateToIso('08/'), null);
+assert.equal(birthDateToIso('08/03'), null);
+assert.equal(birthDateToIso('08/03/'), null);
+assert.equal(birthDateToIso('08/03/199'), null);
+assert.equal(birthDateToIso('08/03/1990'), '1990-03-08');
+assert.equal(birthDateToIso('  15/05/1990  '), '1990-05-15');
+assert.equal(birthDateToIso('1990-05-15'), '1990-05-15');
+assert.equal(birthDateToIso('31/02/2024'), '2024-02-31');
+assert.equal(birthDateToIso('15/13/1990'), '1990-13-15');
+
+assert.equal(signupBirthDateDisplayIssue('', fixedNow)?.message, 'Informe a data de nascimento.');
+assert.equal(signupBirthDateDisplayIssue('08/', fixedNow)?.message, 'Informe a data de nascimento no formato DD/MM/AAAA.');
+assert.equal(signupBirthDateDisplayIssue('08/03/', fixedNow)?.message, 'Informe a data de nascimento no formato DD/MM/AAAA.');
+assert.equal(signupBirthDateDisplayIssue('08/03/199', fixedNow)?.message, 'Informe a data de nascimento no formato DD/MM/AAAA.');
+assert.equal(signupBirthDateDisplayIssue('31/02/2024', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('15/13/1990', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('32/01/1990', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('29/02/2023', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('29/02/2000', fixedNow), null);
+assert.equal(signupBirthDateDisplayIssue('24/09/2008', fixedNow)?.message, 'É preciso ter 18 anos ou mais para criar a conta.');
+assert.equal(signupBirthDateDisplayIssue('23/09/1905', fixedNow)?.message, 'Informe uma data de nascimento válida.');
+assert.equal(signupBirthDateDisplayIssue('23/09/2008', fixedNow), null);
+assert.equal(signupBirthDateDisplayIssue('15/05/1990', fixedNow), null);
+assert.equal(signupBirthDateDisplayIssue('1990-05-15', fixedNow), null);
+assert.equal(String(signupBirthDateDisplayIssue('08/03', fixedNow)?.message).includes('AAAA-MM-DD'), false);
+
 const base = {
   email: 'Ana@Loja.com',
   name: 'Ana Silva',
@@ -76,6 +122,34 @@ assert.equal(
   'name',
 );
 assert.equal(
+  signupProfileIssue(
+    { name: base.name, cpf: base.cpf, birthDate: '15/05/1990', phone: '' },
+    fixedNow,
+  ),
+  null,
+);
+assert.equal(
+  signupProfileIssue(
+    { name: base.name, cpf: base.cpf, birthDate: '24/09/2008', phone: '' },
+    fixedNow,
+  )?.message,
+  'É preciso ter 18 anos ou mais para criar a conta.',
+);
+assert.equal(
+  signupProfileIssue(
+    { name: base.name, cpf: base.cpf, birthDate: '08/03', phone: '' },
+    fixedNow,
+  )?.message,
+  'Informe a data de nascimento no formato DD/MM/AAAA.',
+);
+assert.equal(
+  signupProfileIssue(
+    { name: ' A ', cpf: base.cpf, birthDate: '08/', phone: '' },
+    fixedNow,
+  )?.field,
+  'name',
+);
+assert.equal(
   signupAccessIssue({ password: 'senha1234', confirmPassword: 'senha1234', acceptedPrivacy: true }),
   null,
 );
@@ -87,6 +161,11 @@ assert.equal(signupDetailsIssue(base, fixedNow), null);
 assert.equal(signupDetailsIssue({ ...base, name: ' A ' }, fixedNow)?.field, 'name');
 assert.equal(signupDetailsIssue({ ...base, cpf: '123' }, fixedNow)?.field, 'cpf');
 assert.equal(signupDetailsIssue({ ...base, birthDate: '2015-01-01' }, fixedNow)?.field, 'birthDate');
+assert.equal(signupDetailsIssue({ ...base, birthDate: '15/05/1990' }, fixedNow), null);
+assert.equal(
+  signupDetailsIssue({ ...base, birthDate: '08/03' }, fixedNow)?.message,
+  'Informe a data de nascimento no formato DD/MM/AAAA.',
+);
 assert.equal(signupDetailsIssue({ ...base, phone: '1'.repeat(33) }, fixedNow)?.field, 'phone');
 assert.equal(signupDetailsIssue({ ...base, phone: '1'.repeat(32) }, fixedNow), null);
 assert.equal(signupDetailsIssue({ ...base, password: 'curta1' }, fixedNow)?.message, 'A senha precisa ter no mínimo 8 caracteres.');
@@ -151,6 +230,13 @@ assert.ok(flow.includes('/privacidade'), 'privacy policy is the existing page');
 assert.ok(flow.includes('buildRegisterBody'), 'submit uses the real register payload');
 assert.ok(flow.includes('signupProfileIssue'), 'step 2 validates before leaving');
 assert.ok(flow.includes('signupAccessIssue'), 'step 3 validates before register');
+assert.ok(flow.includes('Passo 3 de 3'), 'signup stays three steps');
+assert.ok(flow.includes('SignupProgress'), 'progress shows passo N de 3');
+assert.ok(flow.includes('FixedEmail'), 'e-mail stays fixed after step 1');
+const submit = flow.slice(flow.indexOf('async function submitAccess'), flow.indexOf('const message'));
+assert.ok(submit.includes('birthDateToIso'), 'display date is converted before register');
+assert.ok(submit.indexOf('birthDateToIso') < submit.indexOf('buildRegisterBody'), 'ISO is ready before the register body');
+assert.ok(submit.includes('birthDate: birthIso'), 'register payload keeps AAAA-MM-DD');
 const emailStep = flow.slice(flow.indexOf('data-signup-step="email"'), flow.indexOf('data-signup-step="profile"'));
 assert.ok(emailStep.includes('type="email"'), 'step 1 has the e-mail field');
 assert.equal(emailStep.includes('signup-cpf'), false, 'step 1 does not ask for CPF');
@@ -161,8 +247,19 @@ assert.ok(later.includes('signup-cpf'), 'step 2 asks for CPF');
 assert.ok(later.includes('CPF'), 'CPF label is Portuguese');
 assert.ok(later.includes('Data de nascimento'), 'step 2 asks for birth date');
 assert.ok(later.includes('maskCpf'), 'CPF input is masked');
-assert.ok(later.includes('type="date"'), 'birth date uses the native mobile picker');
 assert.ok(later.includes('signup-birth'), 'birth date field is present');
+const profile = later.slice(0, later.indexOf('data-signup-step="access"'));
+assert.equal(profile.includes('type="date"'), false, 'birth date does not open the native calendar');
+assert.ok(profile.includes('type="text"'), 'birth date is a text field');
+assert.ok(profile.includes('inputMode="numeric"'), 'birth date opens the numeric keyboard');
+assert.ok(profile.includes('pattern="[0-9]*"'), 'numeric pattern keeps the mobile keypad');
+assert.ok(profile.includes('autoComplete="bday"'), 'birth date stays a birthday field');
+assert.ok(profile.includes('enterKeyHint="next"'), 'birth date advances with Próximo');
+assert.ok(profile.includes('placeholder="DD/MM/AAAA"'), 'placeholder shows the typed format');
+assert.ok(profile.includes('maskBirthDate'), 'birth date is masked while typing');
+assert.ok(profile.includes('aria-invalid={fieldInvalid(\'birthDate\')'), 'birth date exposes aria-invalid');
+assert.ok(profile.includes("getElementById('signup-phone')"), 'Próximo moves to WhatsApp');
+assert.equal(profile.includes('signup-password'), false, 'password stays on step 3');
 const access = later.slice(later.indexOf('data-signup-step="access"'));
 assert.ok(access.includes('data-fixed-email'), 'e-mail stays fixed on the password step');
 assert.equal(access.includes('type="email"'), false, 'password step does not ask for e-mail');

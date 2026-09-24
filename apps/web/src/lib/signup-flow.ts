@@ -4,7 +4,8 @@
  * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
  * Retrigger the web Railpack build after the stuck production deploy of #130.
  * CPF goes as digits or máscara; the API stores digits only.
- * birthDate is AAAA-MM-DD. Idade mínima: 18 anos (maioridade civil).
+ * birthDate na API é AAAA-MM-DD. Na tela a pessoa digita DD/MM/AAAA.
+ * Idade mínima: 18 anos (maioridade civil).
  */
 
 export const SIGNUP_STORE_NAME = 'Lojas Schimitz';
@@ -42,6 +43,43 @@ export function maskCpf(value: string): string {
 
 export function cpfDigits(value: string): string {
   return value.replace(/\D/g, '');
+}
+
+function formatBirthDigits(digits: string): string {
+  if (digits.length <= 1) return digits;
+  if (digits.length === 2) return `${digits}/`;
+  if (digits.length === 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  if (digits.length === 4) return `${digits.slice(0, 2)}/${digits.slice(2)}/`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * Máscara progressiva DD/MM/AAAA. A barra entra sozinha (08/ → 08/03/ → 08/03/1990).
+ * `previous` deixa o backspace apagar o dígito quando a barra foi inserida sozinha.
+ * Autofill `bday` chega como AAAA-MM-DD e vira o formato da tela.
+ */
+export function maskBirthDate(value: string, previous = ''): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+
+  let digits = value.replace(/\D/g, '').slice(0, 8);
+  const prevDigits = previous.replace(/\D/g, '');
+  const removedAutoSlash =
+    previous.endsWith('/') &&
+    value.length < previous.length &&
+    digits === prevDigits &&
+    (prevDigits.length === 2 || prevDigits.length === 4);
+  if (removedAutoSlash) digits = prevDigits.slice(0, -1);
+  return formatBirthDigits(digits);
+}
+
+/** DD/MM/AAAA completo → AAAA-MM-DD. ISO já válido passa direto. Incompleto → null. */
+export function birthDateToIso(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  if (!match) return null;
+  return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
 function isValidCpfDigits(digits: string): boolean {
@@ -96,7 +134,7 @@ function isoFromParts(y: number, m: number, d: number): string {
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-/** Limites do input date: o mais novo tem 18 anos; o mais velho, 120. */
+/** Janela etária: o mais novo tem 18 anos; o mais velho, 120. Calendário de São Paulo. */
 export function signupBirthDateBounds(now: Date = new Date()): { min: string; max: string } {
   const today = calendarToday(now);
   return {
@@ -122,6 +160,20 @@ export function signupBirthDateIssue(birthDate: string, now: Date = new Date()):
     return { field: 'birthDate', message: 'Informe uma data de nascimento válida.' };
   }
   return null;
+}
+
+/**
+ * O que a pessoa digitou no passo 2 (DD/MM/AAAA). Data completa vira AAAA-MM-DD
+ * e segue as mesmas regras de `signupBirthDateIssue`.
+ */
+export function signupBirthDateDisplayIssue(display: string, now: Date = new Date()): SignupIssue | null {
+  const trimmed = display.trim();
+  if (!trimmed) return signupBirthDateIssue('', now);
+  const iso = birthDateToIso(trimmed);
+  if (!iso) {
+    return { field: 'birthDate', message: 'Informe a data de nascimento no formato DD/MM/AAAA.' };
+  }
+  return signupBirthDateIssue(iso, now);
 }
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -159,7 +211,7 @@ export function signupProfileIssue(input: {
   }
   const cpfIssue = signupCpfIssue(input.cpf);
   if (cpfIssue) return cpfIssue;
-  const birthIssue = signupBirthDateIssue(input.birthDate, now);
+  const birthIssue = signupBirthDateDisplayIssue(input.birthDate, now);
   if (birthIssue) return birthIssue;
   if (input.phone.trim().length > 32) {
     return { field: 'phone', message: 'WhatsApp pode ter no máximo 32 caracteres.' };

@@ -4,11 +4,12 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref }
 import Link from 'next/link';
 import {
   SIGNUP_STORE_NAME,
+  birthDateToIso,
   buildRegisterBody,
   continueFromEmail,
+  maskBirthDate,
   maskCpf,
   signupAccessIssue,
-  signupBirthDateBounds,
   signupEmailIssue,
   signupProfileIssue,
   type RegisterBody,
@@ -267,20 +268,25 @@ export function CreateAccountFlow({
       setIssue(nextIssue);
       return;
     }
+    const birthIso = birthDateToIso(birthDate);
+    if (!birthIso) {
+      setIssue({ field: 'birthDate', message: 'Informe a data de nascimento no formato DD/MM/AAAA.' });
+      setStep('profile');
+      return;
+    }
     setIssue(null);
     await onRegister(
       buildRegisterBody({
         email: displayEmail,
         name,
         cpf,
-        birthDate,
+        birthDate: birthIso,
         phone,
         password,
       }),
     );
   }
 
-  const birthBounds = signupBirthDateBounds();
   const message = error || issue?.message || '';
   const accountAction = (
     <HaveAccount
@@ -401,18 +407,27 @@ export function CreateAccountFlow({
               id="signup-birth"
               name="bday"
               className="acct-line"
-              type="date"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               autoComplete="bday"
-              min={birthBounds.min}
-              max={birthBounds.max}
+              enterKeyHint="next"
+              placeholder="DD/MM/AAAA"
+              maxLength={10}
               value={birthDate}
               aria-invalid={fieldInvalid('birthDate') || undefined}
+              aria-describedby="signup-birth-hint"
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                document.getElementById('signup-phone')?.focus();
+              }}
               onChange={(e) => {
-                setBirthDate(e.target.value);
+                setBirthDate(maskBirthDate(e.target.value, birthDate));
                 touch();
               }}
             />
-            <p className="acct-hint">É preciso ter 18 anos ou mais.</p>
+            <p id="signup-birth-hint" className="acct-hint">É preciso ter 18 anos ou mais.</p>
           </div>
           <div className={fieldInvalid('phone') ? 'acct-field is-invalid' : 'acct-field'}>
             <label className="acct-label" htmlFor="signup-phone">
