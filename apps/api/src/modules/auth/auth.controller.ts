@@ -5,7 +5,17 @@ import type { Request, Response } from 'express';
 import { ok } from '../../common/http';
 import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
-import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto, SignupEmailDto } from './dto';
+import {
+  ForgotPasswordCpfDto,
+  ForgotPasswordDto,
+  LoginCpfDto,
+  LoginDto,
+  RefreshDto,
+  RegisterDto,
+  ResetPasswordDto,
+  SignupCpfDto,
+  SignupEmailDto,
+} from './dto';
 import {
   clearAuthCookies,
   issueAuthSession,
@@ -51,6 +61,17 @@ export class AuthController {
     return ok(await this.auth.signupEmailExists(dto.email));
   }
 
+  @Post('signup-cpf')
+  @ApiOperation({
+    summary: 'CPF já tem conta?',
+    description:
+      'Só depois de um CPF completo e válido no cadastro. CPF inválido: 400, sem consulta. Sem conta: { exists: false }. Com conta: { exists: true, maskedEmail } (ex.: sch***@gmail.com) — nunca o e-mail inteiro, nome ou telefone. Não grava sessão. A senha entra em POST /auth/login-cpf. Limite mais baixo que o e-mail (5/min).',
+  })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async signupCpf(@Body() dto: SignupCpfDto) {
+    return ok(await this.auth.signupCpfAccount(dto.cpf));
+  }
+
   @Post('register')
   @ApiOperation({
     summary: 'Registrar cliente',
@@ -81,6 +102,25 @@ export class AuthController {
     @Headers('x-guest-token') guestToken?: string,
   ) {
     const tokens = await this.auth.login(dto, clientIp(req), guestToken);
+    await this.mergeGuest(tokens.user.id, guestToken);
+    return ok(issueAuthSession(res, tokens));
+  }
+
+  @Post('login-cpf')
+  @ApiOperation({
+    summary: 'Login pela conta do CPF',
+    description:
+      'Senha da conta que já possui o CPF (o e-mail mascarado em POST /auth/signup-cpf). Mesmo Set-Cookie sch_refresh e sch_access de POST /auth/login. Não cria usuário. CPF desconhecido ou senha errada: 401 “Credenciais inválidas”.',
+  })
+  @ApiSecurity('guest-token')
+  @Throttle({ default: { limit: 8, ttl: 60000 } })
+  async loginCpf(
+    @Body() dto: LoginCpfDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('x-guest-token') guestToken?: string,
+  ) {
+    const tokens = await this.auth.loginWithCpf(dto.cpf, dto.password, clientIp(req), guestToken);
     await this.mergeGuest(tokens.user.id, guestToken);
     return ok(issueAuthSession(res, tokens));
   }
@@ -131,6 +171,17 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
     return ok(await this.auth.forgotPassword(dto.email, clientIp(req)));
+  }
+
+  @Post('forgot-password-cpf')
+  @ApiOperation({
+    summary: 'Reset de senha a partir do CPF do cadastro',
+    description:
+      'Mesma resposta genérica de POST /auth/forgot-password. Se o CPF tiver conta ativa, o link vai para o e-mail dessa conta (SMTP/Resend, ou log local se o envio estiver desligado). A resposta não traz o e-mail. CPF inválido: 400.',
+  })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async forgotPasswordCpf(@Body() dto: ForgotPasswordCpfDto, @Req() req: Request) {
+    return ok(await this.auth.forgotPasswordByCpf(dto.cpf, clientIp(req)));
   }
 
   @Post('reset-password')

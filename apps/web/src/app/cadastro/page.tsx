@@ -4,7 +4,9 @@ import { api, saveSession } from '@/lib/api';
 import { loginNextPath } from '@/lib/order-recovery';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
 import {
+  cpfDigits,
   readRegisterFailure,
+  readSignupCpfMatch,
   readSignupEmailExists,
   signupEmailForApi,
   type RegisterBody,
@@ -32,12 +34,34 @@ export default function CadastroPage() {
     setLoginHref(loginNextPath(safeNextPath()));
   }, []);
 
+  function finishSession(data: { accessToken: string; refreshToken?: string; user: unknown } | null) {
+    if (!data?.accessToken || !data.user) {
+      setErr('Não foi possível abrir a sessão. Tente entrar.');
+      return;
+    }
+    saveSession(data);
+    try {
+      localStorage.removeItem('sch_guest');
+    } catch {
+      /* ignore */
+    }
+    window.location.href = safeNextPath();
+  }
+
   async function lookupEmail(email: string) {
     const data = await api<{ exists: boolean }>('/auth/signup-email', {
       method: 'POST',
       body: JSON.stringify({ email: signupEmailForApi(email) }),
     });
     return readSignupEmailExists(data);
+  }
+
+  async function lookupCpf(cpf: string) {
+    const data = await api<unknown>('/auth/signup-cpf', {
+      method: 'POST',
+      body: JSON.stringify({ cpf: cpfDigits(cpf) }),
+    });
+    return readSignupCpfMatch(data);
   }
 
   async function signIn(input: { email: string; password: string }) {
@@ -52,17 +76,27 @@ export default function CadastroPage() {
           body: JSON.stringify({ email: signupEmailForApi(input.email), password: input.password }),
         },
       );
-      if (!data?.accessToken || !data.user) {
-        setErr('Não foi possível abrir a sessão. Tente entrar.');
-        return;
-      }
-      saveSession(data);
-      try {
-        localStorage.removeItem('sch_guest');
-      } catch {
-        /* ignore */
-      }
-      window.location.href = safeNextPath();
+      finishSession(data);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signInCpf(input: { cpf: string; password: string }) {
+    setErr('');
+    setServerIssue(null);
+    setBusy(true);
+    try {
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/login-cpf',
+        {
+          method: 'POST',
+          body: JSON.stringify({ cpf: cpfDigits(input.cpf), password: input.password }),
+        },
+      );
+      finishSession(data);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
     } finally {
@@ -79,17 +113,7 @@ export default function CadastroPage() {
         '/auth/register',
         { method: 'POST', body: JSON.stringify(body) },
       );
-      if (!data?.accessToken || !data.user) {
-        setErr('Não foi possível abrir a sessão. Tente entrar.');
-        return;
-      }
-      saveSession(data);
-      try {
-        localStorage.removeItem('sch_guest');
-      } catch {
-        /* ignore */
-      }
-      window.location.href = safeNextPath();
+      finishSession(data);
     } catch (e: unknown) {
       const failure = readRegisterFailure(e);
       if (failure.conflict) setServerIssue(failure.conflict);
@@ -111,7 +135,9 @@ export default function CadastroPage() {
         }}
         haveAccountHref={loginHref}
         onLookupEmail={lookupEmail}
+        onLookupCpf={lookupCpf}
         onSignIn={signIn}
+        onSignInCpf={signInCpf}
         onRegister={submit}
       />
     </div>

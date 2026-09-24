@@ -76,6 +76,34 @@ export class ForgotPasswordDto {
   email!: string;
 }
 
+/** CPF já digitado no cadastro. A resposta é só `{ exists }` e, se existir, `maskedEmail`. */
+export class SignupCpfDto {
+  @ApiProperty({
+    example: '529.982.247-25',
+    description: 'CPF completo e válido. A API não devolve o e-mail inteiro.',
+  })
+  @IsBrazilianCpf()
+  cpf!: string;
+}
+
+/** Senha da conta que já possui este CPF. Mesma sessão de POST /auth/login. */
+export class LoginCpfDto {
+  @ApiProperty({ example: '529.982.247-25' })
+  @IsBrazilianCpf()
+  cpf!: string;
+
+  @ApiProperty()
+  @IsString()
+  password!: string;
+}
+
+/** Esqueci/alterar senha quando o cadastro identificou a conta pelo CPF. Não devolve o e-mail. */
+export class ForgotPasswordCpfDto {
+  @ApiProperty({ example: '529.982.247-25' })
+  @IsBrazilianCpf()
+  cpf!: string;
+}
+
 export class ResetPasswordDto {
   @ApiProperty({ description: 'Token recebido por e-mail (hex)' })
   @IsString()

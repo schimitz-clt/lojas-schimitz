@@ -5,7 +5,9 @@ import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
 import {
+  cpfDigits,
   readRegisterFailure,
+  readSignupCpfMatch,
   readSignupEmailExists,
   signupEmailForApi,
   type RegisterBody,
@@ -74,6 +76,14 @@ export default function EntrarPage() {
     return readSignupEmailExists(data);
   }
 
+  async function lookupSignupCpf(cpf: string) {
+    const data = await api<unknown>('/auth/signup-cpf', {
+      method: 'POST',
+      body: JSON.stringify({ cpf: cpfDigits(cpf) }),
+    });
+    return readSignupCpfMatch(data);
+  }
+
   async function signInExisting(input: { email: string; password: string }) {
     setErr('');
     setServerIssue(null);
@@ -84,6 +94,26 @@ export default function EntrarPage() {
         {
           method: 'POST',
           body: JSON.stringify({ email: signupEmailForApi(input.email), password: input.password }),
+        },
+      );
+      await finishLogin(data);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signInExistingCpf(input: { cpf: string; password: string }) {
+    setErr('');
+    setServerIssue(null);
+    setBusy(true);
+    try {
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/login-cpf',
+        {
+          method: 'POST',
+          body: JSON.stringify({ cpf: cpfDigits(input.cpf), password: input.password }),
         },
       );
       await finishLogin(data);
@@ -217,7 +247,9 @@ export default function EntrarPage() {
             setServerIssue(null);
           }}
           onLookupEmail={lookupSignupEmail}
+          onLookupCpf={lookupSignupCpf}
           onSignIn={signInExisting}
+          onSignInCpf={signInExistingCpf}
           onRegister={submitRegister}
         />
       )}

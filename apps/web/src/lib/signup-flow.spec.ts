@@ -22,8 +22,15 @@ import {
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
+  PASSWORD_RESET_CPF_KEY,
+  SIGNUP_CPF_EMAIL_HIDDEN,
+  isMaskedAccountEmail,
+  parsePasswordResetCpf,
   passwordResetHref,
+  readSignupCpfMatch,
   readSignupEmailExists,
+  rememberPasswordResetCpf,
+  signupCpfLookupErrorMessage,
   signupEmailForApi,
   signupEmailIssue,
   signupLookupErrorMessage,
@@ -407,7 +414,7 @@ assert.ok(profile.includes('aria-invalid={Boolean(birthFieldError)'), 'birth dat
 assert.ok(profile.includes('signup-name-error'), 'name error sits under the field');
 assert.ok(profile.includes('signup-birth-error'), 'birth date error sits under the field');
 assert.ok(profile.includes('signup-phone-error'), 'WhatsApp error sits under the field');
-assert.ok(profile.includes('disabled={!profileReady || busy}'), 'Continuar stays disabled while passo 2 is invalid');
+assert.ok(profile.includes('disabled={!profileReady || busy || cpfChecking}'), 'Continuar stays disabled while passo 2 is invalid or the CPF check is running');
 assert.ok(profile.includes("getElementById('signup-phone')"), 'Próximo moves to WhatsApp');
 assert.equal(profile.includes('signup-password'), false, 'password stays on step 3');
 const access = later.slice(later.indexOf('data-signup-step="access"'));
@@ -498,5 +505,76 @@ const resetPage = readFileSync(join(__dirname, '../app/esqueci-senha/page.tsx'),
 assert.ok(resetPage.includes('/auth/forgot-password'), 'alterar senha still posts the reset endpoint');
 assert.ok(resetPage.includes("get('email')"), 'the password screen can prefill the reset form');
 assert.ok(resetPage.includes('signupEmailIssue'), 'only a valid e-mail is prefilled');
+assert.ok(resetPage.includes('/auth/forgot-password-cpf'), 'CPF reset sends the link to the account e-mail');
+assert.ok(resetPage.includes('parsePasswordResetCpf'), 'only a valid CPF handoff is accepted');
+assert.equal(resetPage.includes('schimitzclaiton@'), false, 'the reset page does not embed a full address');
+
+assert.equal(isMaskedAccountEmail('sch***@gmail.com'), true);
+assert.equal(isMaskedAccountEmail('an***@loja.com'), true);
+assert.equal(isMaskedAccountEmail('a***@gmail.com'), true);
+assert.equal(isMaskedAccountEmail('joa***@lojas.com.br'), true);
+assert.equal(isMaskedAccountEmail(SIGNUP_CPF_EMAIL_HIDDEN), true);
+assert.equal(isMaskedAccountEmail('schimitzclaiton@gmail.com'), false);
+assert.equal(isMaskedAccountEmail('schimitz***@gmail.com'), false);
+
+const cpfTaken = readSignupCpfMatch({ exists: true, maskedEmail: 'sch***@gmail.com' });
+assert.deepEqual(cpfTaken, { exists: true, maskedEmail: 'sch***@gmail.com' });
+assert.deepEqual(readSignupCpfMatch({ exists: false }), { exists: false });
+assert.deepEqual(readSignupCpfMatch({ exists: false, name: 'Ana', email: 'nao-mostra' }), { exists: false });
+assert.throws(() => readSignupCpfMatch(null), /verificar o CPF/);
+assert.throws(() => readSignupCpfMatch({ exists: true }), /verificar o CPF/);
+assert.throws(
+  () => readSignupCpfMatch({ exists: true, maskedEmail: 'schimitzclaiton@gmail.com' }),
+  /verificar o CPF/,
+);
+assert.throws(
+  () => readSignupCpfMatch({ exists: true, maskedEmail: 'sch***@gmail.com', email: 'schimitzclaiton@gmail.com' }),
+  /verificar o CPF/,
+);
+assert.equal(
+  signupCpfLookupErrorMessage(new Error('Failed to fetch')),
+  'Não foi possível verificar o CPF. Tente de novo.',
+);
+
+const stored: { value: string | null } = { value: null };
+rememberPasswordResetCpf(
+  { setItem(_key, value) { stored.value = value; } },
+  '529.982.247-25',
+  'sch***@gmail.com',
+);
+const remembered = parsePasswordResetCpf(stored.value);
+assert.deepEqual(remembered, { cpf: '52998224725', maskedEmail: 'sch***@gmail.com' });
+assert.equal(parsePasswordResetCpf(JSON.stringify({ cpf: '52998224725', maskedEmail: 'ana@loja.com' })), null);
+assert.equal(parsePasswordResetCpf(''), null);
+assert.ok(stored.value && !stored.value.includes('ana@'), 'stored handoff is the mask, not a raw address');
+assert.equal(PASSWORD_RESET_CPF_KEY, 'sch_reset_cpf');
+
+const submitProfile = flow.slice(flow.indexOf('async function submitProfile'), flow.indexOf('async function submitAccess'));
+assert.ok(submitProfile.includes('await lookupCpfCached'), 'passo 2 checks the CPF before the password step');
+assert.ok(submitProfile.indexOf('await lookupCpfCached') < submitProfile.indexOf("setStep('access')"), 'taken CPF does not open passo 3');
+assert.ok(submitProfile.includes('openCpfAccount'), 'taken CPF opens the password screen');
+assert.ok(submitProfile.includes('signupCpfLookupErrorMessage'), 'CPF lookup failure stays off the create path');
+
+assert.ok(signin.includes("data-account-match={cpfAccount ? 'cpf' : 'email'}"), 'CPF and e-mail gates stay distinct');
+assert.ok(signin.includes('Este CPF já tem conta'), 'existing CPF explains why dados stop');
+assert.ok(submitSignIn.includes('onSignInCpf'), 'CPF password uses the CPF login callback');
+assert.ok(signin.includes('rememberPasswordResetCpf'), 'Esqueci senha carries the CPF, not the raw e-mail');
+assert.ok(signin.includes("cpfAccount ? '/esqueci-senha' : passwordResetHref(displayEmail)"), 'e-mail reset link stays; CPF does not put the address in the URL');
+assert.equal(signin.includes('signup-cpf'), false, 'existing account does not ask for CPF');
+
+const submitAccess = flow.slice(flow.indexOf('async function submitAccess'), flow.indexOf('const nameFieldError'));
+assert.ok(submitAccess.includes('lookupCpfCached(cpf, true)'), 'register rechecks CPF so a taken one never posts');
+assert.ok(submitAccess.indexOf('lookupCpfCached(cpf, true)') < submitAccess.indexOf('onRegister'), 'CPF gate runs before register');
+
+assert.ok(cadastro.includes('/auth/signup-cpf'), 'cadastro checks CPF on the server');
+assert.ok(cadastro.includes('readSignupCpfMatch'), 'cadastro refuses a raw e-mail from the CPF probe');
+assert.ok(cadastro.includes('/auth/login-cpf'), 'existing CPF signs in against that account');
+assert.ok(cadastro.includes('onSignInCpf={signInCpf}'), 'cadastro wires the CPF password screen');
+assert.ok(cadastro.includes('/auth/login'), 'existing e-mail still uses /auth/login');
+assert.ok(entrar.includes('/auth/signup-cpf'), 'criar conta on Entrar checks CPF the same way');
+assert.ok(entrar.includes('/auth/login-cpf'), 'Entrar register mode can sign in by CPF');
+assert.ok(entrar.includes('onSignInCpf={signInExistingCpf}'), 'Entrar wires the CPF password screen');
+assert.equal(registerFn.includes('/auth/signup-cpf'), false, 'the register POST is still only /auth/register');
+assert.equal(registerFn.includes('/auth/login-cpf'), false, 'criar conta does not ask for a second login');
 
 console.log('signup-flow tests ok');
