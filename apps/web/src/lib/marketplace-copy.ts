@@ -53,6 +53,21 @@ export function marketplaceSellersHeading(sellers: PublicSellerCard[]): string {
   return 'Vendedores ativos';
 }
 
+export function marketplaceEmptySellersCopy(): { title: string; body: string } {
+  return {
+    title: 'Nenhum vendedor ativo no momento',
+    body: 'Quando houver parceiros com anúncios, eles aparecem aqui. Não listamos lojas fictícias. O catálogo da Lojas Schimitz continua em Produtos.',
+  };
+}
+
+/** Honest count. Zero is an empty shelf, not “0 produto(s)”. */
+export function sellerProductCountLabel(count: number | null | undefined): string | null {
+  if (count == null || !Number.isFinite(count)) return null;
+  if (count <= 0) return 'Sem anúncios no momento';
+  if (count === 1) return '1 produto';
+  return `${count.toLocaleString('pt-BR')} produtos`;
+}
+
 export function marketplaceIntro(sellers: PublicSellerCard[]): string {
   if (isHouseBrandOnly(sellers)) {
     return 'Hoje o catálogo público é vendido pela Lojas Schimitz (loja própria). Cada anúncio mostra Vendido por na listagem e na página do produto.';

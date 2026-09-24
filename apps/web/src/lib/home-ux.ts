@@ -117,6 +117,61 @@ export function deliveryBarCopy(input: {
 /** Customer-facing home catalog failure. No operator/seed instructions. */
 export const HOME_CATALOG_LOAD_ERROR = 'Não foi possível carregar os produtos agora.';
 
+export type HomeCatalogEmptyCopy = {
+  kicker: string;
+  title: string;
+  body: string;
+  whatsappText: string;
+  whatsappLabel: string;
+  supportHref: '/suporte';
+  supportLabel: string;
+};
+
+/**
+ * Home when GET /products has zero active items.
+ * Invites the shopper back. Does not invent SKUs or mention a seed.
+ */
+export function homeCatalogEmptyCopy(showPreview: boolean): HomeCatalogEmptyCopy {
+  return {
+    kicker: 'Vitrine',
+    title: 'A loja ainda não tem produtos à venda',
+    body: showPreview
+      ? 'A prévia abaixo não está à venda: sem preço, sem estoque e sem sacola. Avise a loja para ser chamado quando entrar um produto real.'
+      : 'Nada à venda nesta página por enquanto. Avise a loja no WhatsApp — a vitrine só publica produtos reais.',
+    whatsappText:
+      'Olá! Vi a Lojas Schimitz sem produtos na vitrine e quero ser avisado quando a loja tiver itens à venda.',
+    whatsappLabel: 'Avise-me no WhatsApp',
+    supportHref: '/suporte',
+    supportLabel: 'Falar com a loja',
+  };
+}
+
+export type HomeHeroEmptyCopy = {
+  kicker: string;
+  title: string;
+  accent: string;
+  sub: string;
+  supportHref: '/suporte';
+  supportLabel: string;
+  whatsappText: string;
+  whatsappLabel: string;
+};
+
+/** Fallback hero only when the catalog itself is empty and there is no banner. */
+export function homeHeroEmptyCopy(): HomeHeroEmptyCopy {
+  return {
+    kicker: 'Lojas Schimitz · Porto Alegre',
+    title: 'A vitrine está sendo montada.',
+    accent: 'Sem produtos de demonstração.',
+    sub: 'Quando houver itens reais, o preço, a foto e o estoque aparecem aqui. Frete grátis em POA, PIX e parcelamento continuam valendo.',
+    supportHref: '/suporte',
+    supportLabel: 'Falar com a loja',
+    whatsappText:
+      'Olá! Vi o destaque da Lojas Schimitz e quero ser avisado quando a vitrine tiver produtos à venda.',
+    whatsappLabel: 'Avise-me no WhatsApp',
+  };
+}
+
 /** Light path to the existing address form — login first when there is no session. */
 export function deliveryAddressHref(loggedIn: boolean): string {
   return loggedIn ? ACCOUNT_ENDERECO_PATH : accountLoginHref(ACCOUNT_ENDERECO_PATH);

@@ -169,7 +169,13 @@ export function searchResultsHeading(
   if (cat) {
     return {
       title: cat,
-      subtitle: `${countLabel} no catálogo Lojas Schimitz`,
+      subtitle: total <= 0 ? `Nenhum produto em ${cat}` : `${countLabel} no catálogo Lojas Schimitz`,
+    };
+  }
+  if (!query && total <= 0) {
+    return {
+      title: 'Produtos',
+      subtitle: 'Nenhum produto publicado ainda',
     };
   }
   return {
@@ -194,6 +200,99 @@ export function searchEmptyWhatsAppHref(envPhone?: string | null): string {
       envPhone ?? (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_WHATSAPP : undefined),
     ) || DEFAULT_STORE_WHATSAPP;
   return waMeUrl(digits, SEARCH_EMPTY_WHATSAPP_TEXT);
+}
+
+export type CatalogListEmptyCopy = SearchEmptyCopy & {
+  kicker: string;
+  whatsappText?: string;
+};
+
+/**
+ * /produtos with nothing to list.
+ * Search and filter misses stay on searchEmptyCopy.
+ * A seller with zero listings, or a catalog with zero products, gets its own invite.
+ */
+export function catalogListEmptyCopy(input: {
+  q: string;
+  hasFilters: boolean;
+  sellerOnly?: boolean;
+  sellerName?: string | null;
+}): CatalogListEmptyCopy {
+  const base = searchEmptyCopy(input.q, input.hasFilters);
+  if (input.sellerOnly) {
+    const name = (input.sellerName || '').trim();
+    return {
+      kicker: 'Vendedor',
+      title: name ? `${name} ainda não tem produtos` : 'Este vendedor ainda não tem produtos',
+      body: 'A vitrine deste vendedor está vazia. Só mostramos anúncios reais. Veja o catálogo da loja ou fale no WhatsApp.',
+      clearSearchLabel: base.clearSearchLabel,
+      clearFiltersLabel: 'Ver todo o catálogo',
+      whatsappText:
+        'Olá! Procurei um vendedor na Lojas Schimitz e a vitrine dele está vazia. Podem me avisar quando houver produtos?',
+    };
+  }
+  if (!input.q.trim() && !input.hasFilters) {
+    return {
+      kicker: 'Catálogo',
+      title: 'O catálogo ainda não tem produtos',
+      body: 'Nada à venda nesta lista por enquanto. Volte em breve ou avise a loja no WhatsApp — a vitrine só publica produtos reais.',
+      clearSearchLabel: base.clearSearchLabel,
+      clearFiltersLabel: base.clearFiltersLabel,
+      whatsappText:
+        'Olá! Abri o catálogo da Lojas Schimitz e ainda não há produtos. Quero ser avisado quando a loja publicar itens.',
+    };
+  }
+  return {
+    kicker: input.q.trim() ? 'Busca' : 'Filtros',
+    ...base,
+  };
+}
+
+export type DepartmentEmptyCopy = {
+  kicker: string;
+  title: string;
+  body: string;
+  primaryHref: string;
+  primaryLabel: string;
+};
+
+/**
+ * Empty department shelf. Ofertas is a real category that can be empty even
+ * when the home rail lists priced deals — send the shopper back to that rail.
+ */
+export function departmentEmptyCopy(input: {
+  slug: string;
+  title: string;
+  hasFilters: boolean;
+}): DepartmentEmptyCopy {
+  const slug = (input.slug || '').trim();
+  const title = (input.title || '').trim() || 'este departamento';
+  if (input.hasFilters) {
+    const base = searchEmptyCopy('', true);
+    return {
+      kicker: 'Departamento',
+      title: base.title,
+      body: base.body,
+      primaryHref: `/departamento/${encodeURIComponent(slug)}`,
+      primaryLabel: base.clearFiltersLabel,
+    };
+  }
+  if (slug === 'ofertas') {
+    return {
+      kicker: 'Ofertas',
+      title: 'Nenhuma oferta neste departamento',
+      body: 'A categoria Ofertas ainda não tem anúncios. Os produtos com preço promocional, quando existem, ficam na página inicial — só itens reais.',
+      primaryHref: '/#ofertas',
+      primaryLabel: 'Ver a página inicial',
+    };
+  }
+  return {
+    kicker: title,
+    title: `Nenhum produto em ${title} por enquanto`,
+    body: 'Esta prateleira está vazia. Quando houver itens reais, eles aparecem aqui com preço e estoque. Enquanto isso, veja o catálogo ou fale com a loja.',
+    primaryHref: '/produtos',
+    primaryLabel: 'Ver catálogo',
+  };
 }
 
 /** Empty-state copy for catalog / search (Portuguese). */

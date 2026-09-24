@@ -76,6 +76,11 @@ export function comingSoonWhatsAppText(): string {
   return 'Olá! Vi a vitrine Em breve da Lojas Schimitz e quero ser avisado quando esses produtos chegarem.';
 }
 
+/** Visible shelf note: names are a preview, not a catalog. */
+export function comingSoonDisclaimer(): string {
+  return 'Prévia. Estes nomes não estão à venda: sem preço, sem estoque e sem sacola.';
+}
+
 /** Show the teaser only while the live catalog has zero active products. */
 export function shouldShowComingSoonShelf(activeProductCount: number): boolean {
   if (!Number.isFinite(activeProductCount)) return false;
