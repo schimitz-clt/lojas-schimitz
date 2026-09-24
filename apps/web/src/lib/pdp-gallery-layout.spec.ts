@@ -69,13 +69,15 @@ assert.ok(/minmax\(min\(100%,\s*140px\)/.test(css), 'trust cards cannot force a 
 assert.ok(/\.pdp-gallery-col[\s\S]*margin-left:\s*-12px/.test(css), 'mobile gallery bleeds to wrap edges');
 assert.ok(/\.pdp-carousel-nav[\s\S]*display:\s*none/.test(css), 'mobile uses swipe + dots, not side arrows');
 assert.ok(/\.pdp-carousel-dots[\s\S]*position:\s*static/.test(css), 'dots sit under the photo, centered');
-assert.ok(
+assert.equal(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-sticky-atc\s*\{[^}]*position:\s*fixed/.test(css),
-  'mobile PDP purchase bar is fixed above the bottom nav',
+  false,
+  'mobile PDP has no fixed purchase bar above the bottom nav',
 );
-assert.ok(
+assert.equal(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-actions \.pdp-cta-primary,\s*\.pdp-actions \.pdp-cta-buy-now\s*\{[^}]*display:\s*none/.test(css),
-  'mobile hides the duplicate in-page Adicionar and Comprar agora',
+  false,
+  'mobile shows Adicionar and Comprar agora in the product column',
 );
 assert.ok(
   /@media \(max-width: 720px\)[\s\S]*\.pdp-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css),
