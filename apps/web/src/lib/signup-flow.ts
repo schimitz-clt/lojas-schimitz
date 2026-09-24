@@ -2,6 +2,7 @@
  * Multi-step customer signup (client only).
  * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
  * One POST /auth/register at the end: email, password, name, optional phone, CPF, birthDate.
+ * Retrigger the web Railpack build after the stuck production deploy of #130.
  * CPF goes as digits or máscara; the API stores digits only.
  * birthDate is AAAA-MM-DD. Idade mínima: 18 anos (maioridade civil).
  */
