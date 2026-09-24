@@ -359,6 +359,15 @@ import {
   assert.ok(!checkout.includes('formatDaysAfterDispatch'), 'checkout does not use após o despacho helper');
   assert.ok(!/após o despacho/.test(checkout), 'checkout freight has no após o despacho');
   assert.ok(!/taxa padrão/.test(checkout), 'checkout does not present the flat default fee');
+  assert.ok(checkout.includes('const canConfirm = freightReady'), 'pay CTA waits for a settled quote');
+  assert.ok(checkout.includes('Calcule o frete deste endereço antes de pagar'), 'submit refuses unsettled freight');
+  const summaryAt = checkout.indexOf('checkout-pay-heading');
+  const payAt = checkout.indexOf('Confirmar pedido e pagar');
+  assert.ok(summaryAt > 0 && payAt > summaryAt, 'payment summary sits before the pay CTA');
+  const summary = checkout.slice(summaryAt, payAt);
+  assert.ok(summary.includes('freightLines.eta'), 'totals show prazo before pay');
+  assert.ok(summary.includes('freightLines.prazo'), 'totals repeat Prazo: N dias before pay');
+  assert.ok(summary.includes('freightLines.priceLabel'), 'totals show freight price before pay');
   assert.ok(freightCmp.includes('STOREFRONT_CEP_KEY') || freightCmp.includes('readStoredCep'), 'reuses sch_cep');
 
   const relatedCmp = readFileSync(join(srcRoot, 'components/PdpRelatedProducts.tsx'), 'utf8');

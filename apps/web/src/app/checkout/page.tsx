@@ -127,6 +127,7 @@ export default function CheckoutPage() {
       return;
     }
     let cancelled = false;
+    setFreight(null);
     setFreightLoading(true);
     setFreightErr('');
     api<FreightQuote>('/shipping/quote', {
@@ -218,6 +219,12 @@ export default function CheckoutPage() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    if (freightLoading || !freight) {
+      setErr('Calcule o frete deste endereço antes de pagar.');
+      const el = document.getElementById('checkout-freight-heading');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     submittingRef.current = true;
     setLoading(true);
     setErr('');
@@ -274,7 +281,7 @@ export default function CheckoutPage() {
   const freightPrice = freight?.price ?? 0;
   const freightLines = freight ? freightCustomerLines(freight) : null;
   const displayTotal = Math.max(0, cart.subtotal - couponDiscount - cashbackApplied + freightPrice);
-  const freightReady = Boolean(freight) && !freightLoading;
+  const freightReady = Boolean(addressId) && Boolean(freight) && !freightLoading && !freightErr;
   const totalsSettled = freightReady;
   const skipAutoPix = Boolean(
     couponPreview?.collidesWithPixPromo ||
@@ -284,7 +291,7 @@ export default function CheckoutPage() {
   const pixSave = skipAutoPix ? 0 : pixSavings(displayTotal);
   const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
   const demoCart = cartHasDemoItem(cart.items);
-  const canConfirm = Boolean(addressId) && !loading && !mixedCart && !demoCart;
+  const canConfirm = freightReady && !loading && !mixedCart && !demoCart;
   const supportHref = waLink('Olá! Preciso de ajuda no checkout da Lojas Schimitz.');
 
   return (
@@ -474,16 +481,20 @@ export default function CheckoutPage() {
               <dt>Frete</dt>
               <dd>
                 {freightLoading
-                  ? '…'
-                  : freight
-                    ? freight.price === 0
-                      ? 'Grátis'
-                      : brl(freight.price)
+                  ? 'Calculando…'
+                  : freightLines
+                    ? `${freightLines.priceLabel} · ${freightLines.eta}`
                     : addressId
                       ? '—'
                       : 'Informe o endereço'}
               </dd>
             </div>
+            {freightLines && !freightLoading ? (
+              <div>
+                <dt>Prazo</dt>
+                <dd>{freightLines.prazo}</dd>
+              </div>
+            ) : null}
             <div className="checkout-breakdown-total">
               <dt>{totalsSettled ? 'Total' : 'Total (aguardando frete)'}</dt>
               <dd>{brl(displayTotal)}</dd>
@@ -589,6 +600,13 @@ export default function CheckoutPage() {
       {!addressId && addressesLoaded ? (
         <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
           O botão libera depois que você salvar um endereço nesta página.
+        </p>
+      ) : null}
+      {addressId && !freightReady && !mixedCart && !demoCart ? (
+        <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          {freightLoading
+            ? 'Calculando frete e prazo deste CEP. O pagamento libera em seguida.'
+            : 'O pagamento fica bloqueado até o frete e o prazo deste CEP serem calculados.'}
         </p>
       ) : null}
 
