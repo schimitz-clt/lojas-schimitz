@@ -6,12 +6,14 @@ import {
   buildRegisterBody,
   continueFromEmail,
   maskCpf,
+  signupAccessIssue,
   signupBirthDateBounds,
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
   signupEmailForApi,
   signupEmailIssue,
+  signupProfileIssue,
 } from './signup-flow';
 
 assert.equal(signupEmailIssue('')?.message, 'Informe seu e-mail para continuar.');
@@ -59,6 +61,28 @@ const base = {
   acceptedPrivacy: true,
 };
 
+assert.equal(
+  signupProfileIssue(
+    { name: base.name, cpf: base.cpf, birthDate: base.birthDate, phone: base.phone },
+    fixedNow,
+  ),
+  null,
+);
+assert.equal(
+  signupProfileIssue(
+    { name: ' A ', cpf: base.cpf, birthDate: base.birthDate, phone: '' },
+    fixedNow,
+  )?.field,
+  'name',
+);
+assert.equal(
+  signupAccessIssue({ password: 'senha1234', confirmPassword: 'senha1234', acceptedPrivacy: true }),
+  null,
+);
+assert.equal(
+  signupAccessIssue({ password: 'senha1234', confirmPassword: 'senha1234', acceptedPrivacy: false })?.field,
+  'privacy',
+);
 assert.equal(signupDetailsIssue(base, fixedNow), null);
 assert.equal(signupDetailsIssue({ ...base, name: ' A ' }, fixedNow)?.field, 'name');
 assert.equal(signupDetailsIssue({ ...base, cpf: '123' }, fixedNow)?.field, 'cpf');
@@ -118,20 +142,32 @@ assert.ok(registerDto.includes('@IsAdultBirthDate()'), 'age rule lives on the DT
 
 const flow = readFileSync(join(__dirname, '../components/account/CreateAccountFlow.tsx'), 'utf8');
 assert.ok(flow.includes('data-signup-step="email"'), 'step 1 collects e-mail');
+assert.ok(flow.includes('data-signup-step="profile"'), 'step 2 collects personal data');
+assert.ok(flow.includes('data-signup-step="access"'), 'step 3 collects password');
 assert.ok(flow.includes('Cadastrar e continuar'), 'Portuguese register CTA');
 assert.ok(flow.includes('Já tenho conta'), 'path back to login');
 assert.ok(flow.includes('Lojas Schimitz'), 'store name on the fixed header');
 assert.ok(flow.includes('/privacidade'), 'privacy policy is the existing page');
 assert.ok(flow.includes('buildRegisterBody'), 'submit uses the real register payload');
-const details = flow.slice(flow.indexOf('data-signup-step="details"'));
-assert.ok(details.includes('data-fixed-email'), 'chosen e-mail is fixed on step 2');
-assert.equal(details.includes('type="email"'), false, 'step 2 does not ask for e-mail again');
-assert.ok(details.includes('signup-cpf'), 'step 2 asks for CPF');
-assert.ok(details.includes('CPF'), 'CPF label is Portuguese');
-assert.ok(details.includes('Data de nascimento'), 'step 2 asks for birth date');
-assert.ok(details.includes('maskCpf'), 'CPF input is masked');
-assert.ok(details.includes('type="date"'), 'birth date uses the native mobile picker');
-assert.ok(details.includes('signup-birth'), 'birth date field is present');
+assert.ok(flow.includes('signupProfileIssue'), 'step 2 validates before leaving');
+assert.ok(flow.includes('signupAccessIssue'), 'step 3 validates before register');
+const emailStep = flow.slice(flow.indexOf('data-signup-step="email"'), flow.indexOf('data-signup-step="profile"'));
+assert.ok(emailStep.includes('type="email"'), 'step 1 has the e-mail field');
+assert.equal(emailStep.includes('signup-cpf'), false, 'step 1 does not ask for CPF');
+const later = flow.slice(flow.indexOf('data-signup-step="profile"'));
+assert.ok(later.includes('data-fixed-email'), 'chosen e-mail is fixed after step 1');
+assert.equal(later.includes('type="email"'), false, 'later steps do not ask for e-mail again');
+assert.ok(later.includes('signup-cpf'), 'step 2 asks for CPF');
+assert.ok(later.includes('CPF'), 'CPF label is Portuguese');
+assert.ok(later.includes('Data de nascimento'), 'step 2 asks for birth date');
+assert.ok(later.includes('maskCpf'), 'CPF input is masked');
+assert.ok(later.includes('type="date"'), 'birth date uses the native mobile picker');
+assert.ok(later.includes('signup-birth'), 'birth date field is present');
+const access = later.slice(later.indexOf('data-signup-step="access"'));
+assert.ok(access.includes('data-fixed-email'), 'e-mail stays fixed on the password step');
+assert.equal(access.includes('type="email"'), false, 'password step does not ask for e-mail');
+assert.equal(access.includes('signup-cpf'), false, 'password step does not repeat CPF');
+assert.ok(access.includes('Cadastrar e continuar'), 'register happens on the last step');
 assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(flow), false, 'signup UI does not store JWTs');
 
 const entrar = readFileSync(join(__dirname, '../app/entrar/page.tsx'), 'utf8');

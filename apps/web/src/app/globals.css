@@ -2932,12 +2932,29 @@ textarea { resize: vertical; min-height: 72px; }
   outline-offset: 2px;
 }
 .acct-step {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #8a7400;
+}
+.acct-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.acct-progress > span {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: #e6e6e1;
+}
+.acct-progress > span.is-done { background: var(--ink); }
+.acct-progress > span.is-current {
+  background: var(--yellow);
+  outline: 1px solid var(--ink);
 }
 .acct-title {
   margin: 0;
@@ -3027,13 +3044,22 @@ textarea { resize: vertical; min-height: 72px; }
   line-height: 1.35;
   color: var(--muted);
 }
+.acct-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 12px;
+}
+.acct-head .acct-title { font-size: 22px; }
 .acct-identity {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 18px;
-  padding: 2px 0 14px;
-  border-bottom: 1px solid var(--line);
+  margin: 0 0 16px;
+  padding: 12px 8px 12px 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
 }
 .acct-mark {
   width: 48px;
@@ -3042,32 +3068,54 @@ textarea { resize: vertical; min-height: 72px; }
   border-radius: 12px;
   object-fit: cover;
   background: #111;
+  box-shadow: 0 0 0 1px rgba(255, 209, 0, 0.55);
 }
 .acct-identity strong {
   display: block;
   font-size: 16px;
   font-weight: 800;
-  color: var(--ink);
+  color: #fff;
 }
 .acct-identity-email {
   margin: 2px 0 0;
-  color: var(--muted);
+  color: var(--yellow);
   font-size: 14px;
+  font-weight: 700;
   line-height: 1.35;
   word-break: break-word;
 }
-.acct-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin: 0 0 8px;
-  padding: 0;
+.acct-alter {
+  margin-left: auto;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 0;
   background: transparent;
-  color: var(--ink);
-  font-size: 20px;
+  color: var(--yellow);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.acct-alter:hover { color: #fff; }
+.acct-alter:disabled { opacity: .55; cursor: not-allowed; }
+.acct-alter:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.acct-back {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
   cursor: pointer;
 }
 .acct-back:disabled { opacity: .55; cursor: not-allowed; }
