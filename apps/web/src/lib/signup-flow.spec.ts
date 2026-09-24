@@ -14,8 +14,12 @@ import {
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
+  CPF_ALREADY_REGISTERED_MESSAGE,
+  EMAIL_ALREADY_REGISTERED_MESSAGE,
+  postRegisterPath,
   signupEmailForApi,
   signupEmailIssue,
+  signupIssueFromRegisterError,
   signupProfileIssue,
 } from './signup-flow';
 
@@ -266,20 +270,49 @@ assert.equal(access.includes('type="email"'), false, 'password step does not ask
 assert.equal(access.includes('signup-cpf'), false, 'password step does not repeat CPF');
 assert.ok(access.includes('Cadastrar e continuar'), 'register happens on the last step');
 assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(flow), false, 'signup UI does not store JWTs');
+assert.ok(flow.includes('signupIssueFromRegisterError'), 'register errors jump back to the matching field');
+
+assert.equal(postRegisterPath(''), '/conta');
+assert.equal(postRegisterPath('?next=%2Fcheckout'), '/checkout');
+assert.equal(postRegisterPath('next=%2Fpedidos'), '/pedidos');
+assert.equal(postRegisterPath('?next=https://evil.example'), '/conta');
+assert.equal(postRegisterPath('?next=//evil.example'), '/conta');
+assert.deepEqual(signupIssueFromRegisterError(CPF_ALREADY_REGISTERED_MESSAGE), {
+  field: 'cpf',
+  message: CPF_ALREADY_REGISTERED_MESSAGE,
+});
+assert.equal(CPF_ALREADY_REGISTERED_MESSAGE, 'Este CPF já possui conta. Entre ou use outro CPF.');
+assert.deepEqual(signupIssueFromRegisterError(EMAIL_ALREADY_REGISTERED_MESSAGE), {
+  field: 'email',
+  message: EMAIL_ALREADY_REGISTERED_MESSAGE,
+});
+assert.equal(EMAIL_ALREADY_REGISTERED_MESSAGE, 'Este e-mail já possui conta. Faça login.');
+assert.equal(signupIssueFromRegisterError('CPF inválido')?.field, 'cpf');
+assert.equal(
+  signupIssueFromRegisterError('É preciso ter 18 anos ou mais para criar a conta.')?.field,
+  'birthDate',
+);
+assert.equal(signupIssueFromRegisterError('Não foi possível cadastrar'), null);
 
 const entrar = readFileSync(join(__dirname, '../app/entrar/page.tsx'), 'utf8');
 assert.ok(entrar.includes('/auth/register'), 'entrar still registers on the real endpoint');
-assert.ok(entrar.includes('/auth/login'), 'register then login still issues the session');
-assert.ok(entrar.includes('saveSession'), 'login still uses the cookie-first session helper');
+assert.ok(entrar.includes('/auth/login'), 'login tab still posts /auth/login');
+assert.ok(entrar.includes('saveSession'), 'login and register use the cookie-first session helper');
 assert.ok(entrar.includes('CreateAccountFlow'), 'entrar register mode is the multi-step flow');
 assert.ok(entrar.includes('Esqueci minha senha'), 'login recovery stays available');
 assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(entrar), false, 'entrar does not store JWTs');
+const registerFn = entrar.slice(entrar.indexOf('async function submitRegister'), entrar.indexOf('return ('));
+assert.ok(registerFn.includes('/auth/register'), 'Criar conta posts register');
+assert.ok(registerFn.includes('finishLogin'), 'register success saves the session from the register response');
+assert.equal(registerFn.includes('/auth/login'), false, 'register does not require a second login');
 const loginTab = entrar.slice(entrar.indexOf("mode === 'login'"), entrar.indexOf('<CreateAccountFlow'));
 assert.equal(/cpf|nascimento|birthDate/i.test(loginTab), false, 'Entrar tab stays email and password only');
 
 const cadastro = readFileSync(join(__dirname, '../app/cadastro/page.tsx'), 'utf8');
 assert.ok(cadastro.includes('/auth/register'), 'standalone cadastro still posts register');
 assert.ok(cadastro.includes('CreateAccountFlow'), 'standalone cadastro uses the same steps');
-assert.equal(cadastro.includes('saveSession'), false, 'standalone cadastro stays anti-enum (no auto-login)');
+assert.ok(cadastro.includes('saveSession'), 'cadastro saves the session from register');
+assert.ok(cadastro.includes('postRegisterPath'), 'cadastro redirects to next or /conta');
+assert.equal(cadastro.includes('Entrar para continuar'), false, 'no extra login wall after signup');
 
 console.log('signup-flow tests ok');

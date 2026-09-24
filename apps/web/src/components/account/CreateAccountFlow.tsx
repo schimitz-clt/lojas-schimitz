@@ -11,6 +11,7 @@ import {
   maskCpf,
   signupAccessIssue,
   signupEmailIssue,
+  signupIssueFromRegisterError,
   signupProfileIssue,
   type RegisterBody,
   type SignupField,
@@ -208,6 +209,22 @@ export function CreateAccountFlow({
     else if (step === 'profile') nameRef.current?.focus();
     else passwordRef.current?.focus();
   }, [step]);
+
+  useEffect(() => {
+    if (!error) return;
+    const mapped = signupIssueFromRegisterError(error);
+    if (!mapped) return;
+    setIssue(mapped);
+    if (mapped.field === 'email') setStep('email');
+    else if (
+      mapped.field === 'cpf' ||
+      mapped.field === 'birthDate' ||
+      mapped.field === 'name' ||
+      mapped.field === 'phone'
+    ) {
+      setStep('profile');
+    }
+  }, [error]);
 
   function touch() {
     if (issue) setIssue(null);

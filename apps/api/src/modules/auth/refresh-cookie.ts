@@ -188,9 +188,9 @@ export function setAccessCookie(res: Response, accessToken: string) {
 }
 
 /**
- * Login / refresh: always Set-Cookie (refresh + access) when cookie mode is on,
+ * Login, register, and refresh: always Set-Cookie (refresh + access) when cookie mode is on,
  * then optionally omit `refreshToken` from the JSON body (cookie-only path).
- * Register does not issue a session (anti-enumeration — same generic JSON either way).
+ * Register success uses this same helper as login.
  */
 export function issueAuthSession<T extends { refreshToken: string; accessToken: string }>(
   res: Response,

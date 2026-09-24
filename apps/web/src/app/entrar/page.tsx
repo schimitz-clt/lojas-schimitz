@@ -4,21 +4,12 @@ import Link from 'next/link';
 import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
-import type { RegisterBody } from '@/lib/signup-flow';
+import { postRegisterPath, type RegisterBody } from '@/lib/signup-flow';
 
 function safeNextPath(): string {
   if (typeof window === 'undefined') return '/conta';
-  try {
-    const next = new URLSearchParams(window.location.search).get('next');
-    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
-  } catch {
-    /* ignore */
-  }
-  return '/conta';
+  return postRegisterPath(window.location.search);
 }
-
-const REGISTER_LOGIN_FAIL =
-  'Não foi possível entrar. Se você já tem conta, use a senha cadastrada.';
 
 export default function EntrarPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -66,21 +57,11 @@ export default function EntrarPage() {
     setErr('');
     setBusy(true);
     try {
-      await api('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      try {
-        const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
-          '/auth/login',
-          { method: 'POST', body: JSON.stringify({ email: body.email, password: body.password }) },
-        );
-        await finishLogin(data);
-      } catch {
-        setEmail(body.email);
-        setMode('login');
-        setErr(REGISTER_LOGIN_FAIL);
-      }
+      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
+        '/auth/register',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      await finishLogin(data);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Não foi possível cadastrar');
     } finally {
