@@ -4,7 +4,9 @@ import { api, saveSession } from '@/lib/api';
 import { loginNextPath } from '@/lib/order-recovery';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
 import {
+  cpfDigits,
   readRegisterFailure,
+  readSignupCpfExists,
   readSignupEmailExists,
   signupEmailForApi,
   type RegisterBody,
@@ -38,6 +40,14 @@ export default function CadastroPage() {
       body: JSON.stringify({ email: signupEmailForApi(email) }),
     });
     return readSignupEmailExists(data);
+  }
+
+  async function lookupCpf(cpf: string) {
+    const data = await api<{ exists: boolean }>('/auth/signup-cpf', {
+      method: 'POST',
+      body: JSON.stringify({ cpf: cpfDigits(cpf) }),
+    });
+    return readSignupCpfExists(data);
   }
 
   async function signIn(input: { email: string; password: string }) {
@@ -111,6 +121,7 @@ export default function CadastroPage() {
         }}
         haveAccountHref={loginHref}
         onLookupEmail={lookupEmail}
+        onLookupCpf={lookupCpf}
         onSignIn={signIn}
         onRegister={submit}
       />
