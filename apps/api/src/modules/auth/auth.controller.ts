@@ -5,7 +5,14 @@ import type { Request, Response } from 'express';
 import { ok } from '../../common/http';
 import { AuthService } from './auth.service';
 import { CartService } from '../cart/cart.service';
-import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RefreshDto,
+  RegisterDto,
+  ResetPasswordDto,
+  SignupEmailAvailabilityDto,
+} from './dto';
 import {
   clearAuthCookies,
   issueAuthSession,
@@ -38,6 +45,17 @@ export class AuthController {
     } catch (e: any) {
       this.log.warn(`guest cart merge falhou userId=${userId}: ${e?.message || e}`);
     }
+  }
+
+  @Post('register/email-availability')
+  @ApiOperation({
+    summary: 'Verificar e-mail do cadastro',
+    description:
+      'Passo 1. E-mail livre: 200 { available: true }. E-mail que já tem conta: 409 “Este e-mail já possui conta. Faça login.” (EMAIL_ALREADY_REGISTERED). Não cria conta, não abre sessão e não devolve dados da conta. O POST /auth/register continua rejeitando e-mail ou CPF duplicado.',
+  })
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async signupEmailAvailability(@Body() dto: SignupEmailAvailabilityDto) {
+    return ok(await this.auth.signupEmailAvailability(dto.email));
   }
 
   @Post('register')

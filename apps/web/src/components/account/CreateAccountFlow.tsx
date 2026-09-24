@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 import {
+  REGISTER_EMAIL_EXISTS_MESSAGE,
+  SIGNUP_EMAIL_AVAILABILITY_PATH,
   SIGNUP_STORE_NAME,
   birthDateToIso,
   buildRegisterBody,
@@ -13,7 +16,10 @@ import {
   signupAccessIssue,
   signupBirthDateDisplayIssue,
   signupCpfIssue,
+  signupEmailCheckFailure,
+  signupEmailForApi,
   signupEmailIssue,
+  signupEmailMayAdvance,
   signupNameIssue,
   signupPhoneIssue,
   signupProfileIssue,
@@ -207,7 +213,9 @@ export function CreateAccountFlow({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [issue, setIssue] = useState<SignupIssue | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const [profileTried, setProfileTried] = useState(false);
+  const emailCheckGen = useRef(0);
   const [touched, setTouched] = useState<Partial<Record<'name' | 'cpf' | 'birthDate' | 'phone', boolean>>>({});
   const emailRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -244,6 +252,8 @@ export function CreateAccountFlow({
   }, [viewStep]);
 
   function touch() {
+    emailCheckGen.current += 1;
+    setCheckingEmail(false);
     if (issue) setIssue(null);
     onEdit?.();
   }
@@ -279,17 +289,35 @@ export function CreateAccountFlow({
     setStep((current) => (current === 'access' ? 'profile' : 'email'));
   }
 
-  function submitEmail(e: FormEvent) {
+  async function submitEmail(e: FormEvent) {
     e.preventDefault();
     const next = continueFromEmail(email);
     if (!next.ok) {
       setIssue(next.issue);
       return;
     }
+    const gen = ++emailCheckGen.current;
+    setCheckingEmail(true);
     setIssue(null);
     onEdit?.();
-    setDisplayEmail(next.displayEmail);
-    setStep('profile');
+    try {
+      const data = await api<{ available?: boolean }>(SIGNUP_EMAIL_AVAILABILITY_PATH, {
+        method: 'POST',
+        body: JSON.stringify({ email: signupEmailForApi(next.displayEmail) }),
+      });
+      if (gen !== emailCheckGen.current) return;
+      if (!signupEmailMayAdvance(data)) {
+        setIssue({ field: 'email', message: REGISTER_EMAIL_EXISTS_MESSAGE });
+        return;
+      }
+      setDisplayEmail(next.displayEmail);
+      setStep('profile');
+    } catch (err: unknown) {
+      if (gen !== emailCheckGen.current) return;
+      setIssue(signupEmailCheckFailure(err));
+    } finally {
+      if (gen === emailCheckGen.current) setCheckingEmail(false);
+    }
   }
 
   function submitProfile(e: FormEvent) {
@@ -363,7 +391,7 @@ export function CreateAccountFlow({
   let body: ReactNode;
   if (viewStep === 'email') {
     body = (
-      <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail}>
+      <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail} aria-busy={checkingEmail || undefined}>
         <SignupProgress step="email" />
         <h1 className="acct-title">Criar meu cadastro</h1>
         <span className="acct-kicker" aria-hidden />
@@ -403,8 +431,8 @@ export function CreateAccountFlow({
             </p>
           ) : null}
         </div>
-        <button className="acct-cta" type="submit">
-          Continuar
+        <button className="acct-cta" type="submit" disabled={checkingEmail || busy}>
+          {checkingEmail ? 'Verificando…' : 'Continuar'}
         </button>
         {accountAction}
       </form>
