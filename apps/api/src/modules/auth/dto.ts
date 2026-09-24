@@ -1,6 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { IsAdultBirthDate, IsBrazilianCpf, IsBrazilianMobile, IsFullName } from './is-register-profile';
+
+/** Same address the cadastro passo 1 sends, before the account exists. */
+export function normalizeSignupEmail(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim().toLowerCase() : value;
+}
+
+export class SignupEmailAvailabilityDto {
+  @ApiProperty({ example: 'cliente@exemplo.com' })
+  @Transform(({ value }) => normalizeSignupEmail(value))
+  @IsEmail({}, { message: 'Informe um e-mail válido.' })
+  @MaxLength(254, { message: 'Informe um e-mail válido.' })
+  email!: string;
+}
 
 export class RegisterDto {
   @ApiProperty({ example: 'cliente@exemplo.com' })

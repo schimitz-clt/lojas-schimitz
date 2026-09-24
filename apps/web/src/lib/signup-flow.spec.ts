@@ -10,6 +10,9 @@ import {
   SIGNUP_PHONE_INVALID_MESSAGE,
   REGISTER_CPF_EXISTS_MESSAGE,
   REGISTER_EMAIL_EXISTS_MESSAGE,
+  SIGNUP_EMAIL_AVAILABILITY_PATH,
+  SIGNUP_EMAIL_CHECK_RATE_LIMIT_MESSAGE,
+  SIGNUP_EMAIL_CHECK_UNAVAILABLE_MESSAGE,
   birthDateToIso,
   buildRegisterBody,
   continueFromEmail,
@@ -22,8 +25,10 @@ import {
   signupBirthDateIssue,
   signupCpfIssue,
   signupDetailsIssue,
+  signupEmailCheckFailure,
   signupEmailForApi,
   signupEmailIssue,
+  signupEmailMayAdvance,
   signupNameIssue,
   signupPhoneIssue,
   signupProfileIssue,
@@ -65,6 +70,27 @@ const advanced = continueFromEmail('  Ana@Loja.com  ');
 assert.equal(advanced.ok, true);
 if (advanced.ok) assert.equal(advanced.displayEmail, 'Ana@Loja.com');
 assert.equal(signupEmailForApi('  Ana@Loja.com  '), 'ana@loja.com');
+assert.equal(signupEmailMayAdvance({ available: true }), true);
+assert.equal(signupEmailMayAdvance({ available: false }), false);
+assert.equal(signupEmailMayAdvance({ available: 'true' }), false);
+assert.equal(signupEmailMayAdvance(null), false);
+assert.equal(signupEmailMayAdvance(undefined), false);
+assert.equal(
+  signupEmailCheckFailure(
+    Object.assign(new Error(REGISTER_EMAIL_EXISTS_MESSAGE), { code: 'EMAIL_ALREADY_REGISTERED' }),
+  ).message,
+  'Este e-mail já possui conta. Faça login.',
+);
+assert.equal(signupEmailCheckFailure(Object.assign(new Error('email must be an email'), { code: 'VALIDATION_ERROR' })).message, 'Informe um e-mail válido.');
+assert.equal(
+  signupEmailCheckFailure(Object.assign(new Error('Too Many Requests'), { code: 'RATE_LIMITED' })).message,
+  SIGNUP_EMAIL_CHECK_RATE_LIMIT_MESSAGE,
+);
+assert.equal(
+  signupEmailCheckFailure(new Error('Erro na API')).message,
+  SIGNUP_EMAIL_CHECK_UNAVAILABLE_MESSAGE,
+);
+assert.equal(SIGNUP_EMAIL_AVAILABILITY_PATH, '/auth/register/email-availability');
 
 const fixedNow = new Date('2026-09-23T15:00:00-03:00');
 
@@ -376,9 +402,26 @@ assert.ok(submit.includes('signupProfileIssue'), 'password step rechecks persona
 assert.ok(submit.includes('birthDateToIso'), 'display date is converted before register');
 assert.ok(submit.indexOf('birthDateToIso') < submit.indexOf('buildRegisterBody'), 'ISO is ready before the register body');
 assert.ok(submit.includes('birthDate: birthIso'), 'register payload keeps AAAA-MM-DD');
+const submitEmail = flow.slice(flow.indexOf('async function submitEmail'), flow.indexOf('function submitProfile'));
+assert.ok(submitEmail.includes('continueFromEmail'), 'invalid e-mail is still blocked before the request');
+assert.ok(submitEmail.includes('SIGNUP_EMAIL_AVAILABILITY_PATH'), 'passo 1 asks the real availability endpoint');
+assert.ok(
+  submitEmail.indexOf('continueFromEmail') < submitEmail.indexOf('SIGNUP_EMAIL_AVAILABILITY_PATH'),
+  'format check runs before the availability request',
+);
+assert.ok(submitEmail.includes('signupEmailMayAdvance'), 'only available:true leaves passo 1');
+assert.ok(
+  submitEmail.indexOf("setStep('profile')") > submitEmail.indexOf('signupEmailMayAdvance'),
+  'passo 2 is after the availability check',
+);
+assert.ok(submitEmail.includes('signupEmailCheckFailure'), 'a failed check stays on passo 1');
+assert.equal(submitEmail.includes("'/auth/register'"), false, 'passo 1 does not call full register');
+assert.ok(flow.includes('Já tenho conta'), 'login path stays on the signup sheet');
 const emailStep = flow.slice(flow.indexOf('data-signup-step="email"'), flow.indexOf('data-signup-step="profile"'));
 assert.ok(emailStep.includes('type="email"'), 'step 1 has the e-mail field');
 assert.ok(emailStep.includes('signup-email-error'), 'e-mail conflict is shown on the e-mail field');
+assert.ok(emailStep.includes('disabled={checkingEmail || busy}'), 'Continuar waits for the e-mail check');
+assert.ok(emailStep.includes('Já tenho conta') || emailStep.includes('{accountAction}'), 'passo 1 keeps the login path');
 assert.equal(emailStep.includes('signup-cpf'), false, 'step 1 does not ask for CPF');
 const later = flow.slice(flow.indexOf('data-signup-step="profile"'));
 assert.ok(later.includes('data-fixed-email'), 'chosen e-mail is fixed after step 1');

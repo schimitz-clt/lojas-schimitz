@@ -21,7 +21,11 @@ import { fullNameError } from './full-name';
 import { phoneError } from './phone';
 import { LoginDto, RefreshDto, RegisterDto } from './dto';
 import { LoginAttemptService } from './login-attempt.service';
-import { registerDuplicateConflict } from './register-public';
+import {
+  REGISTER_EMAIL_EXISTS_CODE,
+  REGISTER_EMAIL_EXISTS_MESSAGE,
+  registerDuplicateConflict,
+} from './register-public';
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -107,6 +111,28 @@ export class AuthService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Passo 1. Lookup is the trimmed, lowercased address on the unique e-mail column.
+   * Taken → 409 EMAIL_ALREADY_REGISTERED. Free → `{ available: true }`.
+   * Does not create a user, open a session, or return account fields.
+   * POST /auth/register still rejects a duplicate e-mail or CPF on its own.
+   */
+  async signupEmailAvailability(emailRaw: string): Promise<{ available: true }> {
+    const email = (emailRaw || '').trim().toLowerCase();
+    if (!email) throw new BadRequestException('Informe um e-mail válido.');
+    const owner = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (owner) {
+      throw new ConflictException({
+        message: REGISTER_EMAIL_EXISTS_MESSAGE,
+        code: REGISTER_EMAIL_EXISTS_CODE,
+      });
+    }
+    return { available: true };
+  }
 
   /**
    * New customer: same session payload as login (`issue`).

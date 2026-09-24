@@ -82,7 +82,8 @@ async function main() {
   const freshEmail = `reg-${tag}-new@lojas-schimitz.test`;
   const takenEmail = `reg-${tag}-mail@lojas-schimitz.test`;
   const takenCpfEmail = `reg-${tag}-cpf@lojas-schimitz.test`;
-  const emails = [freshEmail, takenEmail, takenCpfEmail, `reg-${tag}-other@lojas-schimitz.test`];
+  const livreEmail = `livre-${tag}@lojas-schimitz.test`;
+  const emails = [freshEmail, takenEmail, takenCpfEmail, livreEmail, `reg-${tag}-other@lojas-schimitz.test`];
   const password = 'Senha1234';
   const freshCpf = '52998224725';
   const existingCpf = '11144477735';
@@ -147,6 +148,25 @@ async function main() {
     const stored = await prisma.user.findUnique({ where: { email: freshEmail } });
     assert.equal(stored?.cpf, freshCpf);
     assert.equal(stored?.name, 'Conta Nova');
+
+    const freeCheck = await auth.signupEmailAvailability(`  ${livreEmail.toUpperCase()}  `);
+    assert.deepEqual(freeCheck, { available: true });
+    assert.equal(
+      await prisma.user.findUnique({ where: { email: livreEmail } }),
+      null,
+      'availability check does not create a user',
+    );
+    await assert.rejects(
+      () => auth.signupEmailAvailability(`  ${takenEmail.toUpperCase()}  `),
+      (error: unknown) => {
+        assert.ok(error instanceof ConflictException);
+        assert.equal(error.getStatus(), 409);
+        assert.equal(messageOf(error), REGISTER_EMAIL_EXISTS_MESSAGE);
+        assert.equal(codeOf(error), REGISTER_EMAIL_EXISTS_CODE);
+        assert.equal(JSON.stringify(error.getResponse()).includes(takenEmail), false);
+        return true;
+      },
+    );
 
     await assert.rejects(
       () =>

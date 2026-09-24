@@ -1,6 +1,8 @@
 /**
  * Multi-step customer signup (client only).
- * Passo 1: e-mail. Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
+ * Passo 1: e-mail. CONTINUAR com formato válido consulta POST /auth/register/email-availability.
+ * E-mail que já tem conta permanece no passo 1. E-mail livre segue para o passo 2.
+ * Passo 2: nome, CPF, nascimento, WhatsApp. Passo 3: senha e privacidade.
  * Nome: 2+ palavras, só letras; recusa trecho cortado (`schimi`) e teclado (`asdf`).
  * CPF: dígitos verificadores (rejeita 111.111.111-11 e 034.268.570-80).
  * WhatsApp é opcional; se preenchido, precisa ser celular com DDD.
@@ -28,6 +30,15 @@ export const REGISTER_CPF_EXISTS_MESSAGE =
   'Este CPF já possui conta. Entre ou use outro CPF.';
 
 export const REGISTER_EMAIL_EXISTS_MESSAGE = 'Este e-mail já possui conta. Faça login.';
+
+/** Passo 1. Same path as POST on the API (`auth.controller.ts`). */
+export const SIGNUP_EMAIL_AVAILABILITY_PATH = '/auth/register/email-availability';
+
+export const SIGNUP_EMAIL_CHECK_UNAVAILABLE_MESSAGE =
+  'Não foi possível verificar o e-mail. Tente novamente.';
+
+export const SIGNUP_EMAIL_CHECK_RATE_LIMIT_MESSAGE =
+  'Muitas tentativas. Espere um instante e tente de novo.';
 
 /** Same copy as the API (`cpf.ts`). */
 export const SIGNUP_CPF_INVALID_MESSAGE = 'CPF inválido. Confira os números.';
@@ -346,6 +357,28 @@ export function continueFromEmail(
   const issue = signupEmailIssue(email);
   if (issue) return { ok: false, issue };
   return { ok: true, displayEmail: email.trim() };
+}
+
+/** Only a real `{ available: true }` from the passo 1 check may leave the e-mail step. */
+export function signupEmailMayAdvance(data: { available?: unknown } | null | undefined): boolean {
+  return data?.available === true;
+}
+
+/** Stay on passo 1. Duplicate e-mail uses the same copy as POST /auth/register. */
+export function signupEmailCheckFailure(error: unknown): SignupIssue {
+  const failure = readRegisterFailure(error);
+  if (failure.conflict?.field === 'email') return failure.conflict;
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code.toUpperCase()
+      : '';
+  if (code === 'VALIDATION_ERROR') {
+    return { field: 'email', message: 'Informe um e-mail válido.' };
+  }
+  if (code === 'RATE_LIMITED') {
+    return { field: 'email', message: SIGNUP_EMAIL_CHECK_RATE_LIMIT_MESSAGE };
+  }
+  return { field: 'email', message: SIGNUP_EMAIL_CHECK_UNAVAILABLE_MESSAGE };
 }
 
 /** Passo 2 — dados pessoais. O e-mail já foi aceito e não entra aqui. */
