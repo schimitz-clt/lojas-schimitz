@@ -11,6 +11,7 @@ import { MelhorEnvioCarrierProvider } from './carriers/melhor-envio.carrier';
 import { MelhorEnvioQuoteError } from './carriers/melhor-envio.quote';
 import { ShippingService } from './shipping.service';
 import {
+  SHIPPING_CEP_INVALID_MESSAGE,
   SHIPPING_QUOTE_NOT_CONFIGURED_MESSAGE,
   ShippingQuoteUnavailableError,
   composeHybridQuote,
@@ -176,6 +177,26 @@ async function main() {
         },
       }),
     (err: unknown) => err instanceof ShippingQuoteUnavailableError && err.reason === 'NO_OPTION',
+  );
+
+  await assert.rejects(
+    () =>
+      quoteHybridFreight({
+        cep: '93320021',
+        subtotal: 24.9,
+        settings,
+        rules: poaRules,
+        quoteCarrier: async () => {
+          throw new MelhorEnvioQuoteError('INVALID_CEP', SHIPPING_CEP_INVALID_MESSAGE, 422);
+        },
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof ShippingQuoteUnavailableError);
+      assert.equal(err.reason, 'INVALID_CEP');
+      assert.equal(err.code, 'SHIPPING_CEP_INVALID');
+      assert.equal(err.message, SHIPPING_CEP_INVALID_MESSAGE);
+      return true;
+    },
   );
 
   const svc = new ShippingService(fakePrisma(poaRules) as never);

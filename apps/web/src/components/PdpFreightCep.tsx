@@ -9,6 +9,7 @@ import {
   persistStoredCep,
   pdpFreightCheckoutFallback,
   pdpFreightDestinationLine,
+  pdpFreightErrorCopy,
   pdpFreightEstimateRow,
   pdpFreightIdleCopy,
   readStoredCep,
@@ -37,6 +38,7 @@ export function PdpFreightCep({ subtotal, item }: Props) {
   const [quote, setQuote] = useState<PdpFreightQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
@@ -53,10 +55,12 @@ export function PdpFreightCep({ subtotal, item }: Props) {
     if (!isCompleteCep(next)) {
       setQuote(null);
       setFailed(false);
+      setErrorMessage(null);
       return;
     }
     setLoading(true);
     setFailed(false);
+    setErrorMessage(null);
     try {
       const data = await api<PdpFreightQuote>('/shipping/quote', {
         method: 'POST',
@@ -77,9 +81,16 @@ export function PdpFreightCep({ subtotal, item }: Props) {
       });
       setQuote(data);
       setEditing(false);
-    } catch {
+    } catch (err) {
       setQuote(null);
       setFailed(true);
+      setEditing(true);
+      const fallback = pdpFreightCheckoutFallback();
+      const msg =
+        err instanceof Error && err.message.trim()
+          ? err.message.trim()
+          : fallback.body;
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -91,7 +102,6 @@ export function PdpFreightCep({ subtotal, item }: Props) {
   }
 
   const estimate = quote ? pdpFreightEstimateRow(quote) : null;
-  const fallback = pdpFreightCheckoutFallback();
   const showForm = editing || !isCompleteCep(cep);
 
   return (
@@ -110,6 +120,7 @@ export function PdpFreightCep({ subtotal, item }: Props) {
                 onChange={(e) => {
                   setCep(formatCepInput(e.target.value));
                   setFailed(false);
+                  setErrorMessage(null);
                   setQuote(null);
                 }}
                 aria-label="Informe seu CEP"
@@ -128,7 +139,7 @@ export function PdpFreightCep({ subtotal, item }: Props) {
           </button>
         </div>
       )}
-      {showForm ? <p className="muted pdp-freight-hint">{idle.body}</p> : null}
+      {showForm && !failed ? <p className="muted pdp-freight-hint">{idle.body}</p> : null}
       {loading ? <p className="muted pdp-freight-status">Calculando frete e prazo…</p> : null}
       {!loading && estimate && !showForm ? (
         <p className="pdp-freight-result pdp-freight-estimate" role="status">
@@ -140,11 +151,11 @@ export function PdpFreightCep({ subtotal, item }: Props) {
           <strong>{estimate.price}</strong>
         </p>
       ) : null}
-      {!loading && failed && !showForm ? (
-        <p className="pdp-freight-fallback" role="status">
-          <strong>{fallback.title}</strong>
+      {!loading && failed ? (
+        <p className="pdp-freight-fallback" role="alert">
+          <strong>{pdpFreightErrorCopy(errorMessage).title}</strong>
           <span className="muted">
-            {fallback.body}{' '}
+            {pdpFreightErrorCopy(errorMessage).body}{' '}
             <Link href="/carrinho">Ir ao checkout</Link>
           </span>
         </p>

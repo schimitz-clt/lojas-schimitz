@@ -20,13 +20,14 @@ import {
 export type HybridQuoteCarrier = (input: CarrierQuoteInput) => Promise<CarrierQuoteResult>;
 
 export class ShippingQuoteUnavailableError extends Error {
-  readonly code = 'SHIPPING_QUOTE_UNAVAILABLE' as const;
-  readonly reason: 'NOT_CONFIGURED' | 'CARRIER_ERROR' | 'NO_OPTION';
+  readonly code: 'SHIPPING_QUOTE_UNAVAILABLE' | 'SHIPPING_CEP_INVALID';
+  readonly reason: 'NOT_CONFIGURED' | 'CARRIER_ERROR' | 'NO_OPTION' | 'INVALID_CEP';
 
-  constructor(reason: 'NOT_CONFIGURED' | 'CARRIER_ERROR' | 'NO_OPTION', message: string) {
+  constructor(reason: 'NOT_CONFIGURED' | 'CARRIER_ERROR' | 'NO_OPTION' | 'INVALID_CEP', message: string) {
     super(message);
     this.name = 'ShippingQuoteUnavailableError';
     this.reason = reason;
+    this.code = reason === 'INVALID_CEP' ? 'SHIPPING_CEP_INVALID' : 'SHIPPING_QUOTE_UNAVAILABLE';
   }
 }
 
@@ -38,6 +39,9 @@ export const SHIPPING_QUOTE_CARRIER_ERROR_MESSAGE =
 
 export const SHIPPING_QUOTE_NO_OPTION_MESSAGE =
   'Nenhuma opção de frete atendeu este CEP na cotação. A taxa padrão da loja não substitui esse cálculo.';
+
+export const SHIPPING_CEP_INVALID_MESSAGE =
+  'CEP inválido ou não encontrado. Confira os dígitos e tente de novo.';
 
 function roundMoney(n: number): number {
   return Math.round(Number(n) * 100) / 100;
@@ -109,6 +113,9 @@ export async function quoteHybridFreight(input: {
     if (err instanceof ShippingQuoteUnavailableError) throw err;
     if (err instanceof CarrierNotConfiguredError) {
       throw new ShippingQuoteUnavailableError('NOT_CONFIGURED', SHIPPING_QUOTE_NOT_CONFIGURED_MESSAGE);
+    }
+    if (err instanceof MelhorEnvioQuoteError && err.code === 'INVALID_CEP') {
+      throw new ShippingQuoteUnavailableError('INVALID_CEP', err.message || SHIPPING_CEP_INVALID_MESSAGE);
     }
     if (err instanceof MelhorEnvioQuoteError && err.code === 'NO_OPTION') {
       throw new ShippingQuoteUnavailableError('NO_OPTION', SHIPPING_QUOTE_NO_OPTION_MESSAGE);

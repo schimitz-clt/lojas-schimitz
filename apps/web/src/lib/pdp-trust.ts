@@ -3,7 +3,7 @@
  * Real catalog + existing entrega-própria quote. No fake viewers, no invented freight.
  */
 
-import { formatPrazoDays, formatReceiveInDays } from '@/lib/delivery-eta';
+import { formatDaysAfterDispatch } from '@/lib/delivery-eta';
 import { catalogProductsFromResponse, parseHomeShelvesPayload } from '@/lib/home-shelves';
 import { LOW_STOCK_LABEL, LOW_STOCK_MAX, shouldShowLowStock } from '@/lib/low-stock';
 
@@ -259,7 +259,6 @@ export type PdpFreightQuote = {
   label?: string | null;
   modality?: string | null;
   carrier?: string | null;
-  service?: string | null;
   matchedPrefix?: string | null;
   freeAbove?: number | null;
 };
@@ -267,7 +266,7 @@ export type PdpFreightQuote = {
 export function pdpFreightIdleCopy(): { title: string; body: string } {
   return {
     title: 'Frete e prazo',
-    body: 'Informe o CEP para calcular o frete e o prazo. O valor final é confirmado no checkout.',
+    body: 'Informe o CEP para ver a estimativa da entrega própria. O valor final é confirmado no checkout.',
   };
 }
 
@@ -311,6 +310,21 @@ export function pdpFreightCheckoutFallback(): { title: string; body: string } {
   };
 }
 
+/**
+ * Mensagem de erro da cotação na PDP.
+ * Prefere a mensagem estruturada da API (ex.: CEP inválido); senão o fallback genérico.
+ */
+export function pdpFreightErrorCopy(apiMessage?: string | null): { title: string; body: string } {
+  const msg = String(apiMessage || '').trim();
+  const fallback = pdpFreightCheckoutFallback();
+  if (!msg) return fallback;
+  const lower = msg.toLowerCase();
+  if (/cep inválido|cep invalido|não encontrado|nao encontrado/.test(lower)) {
+    return { title: 'CEP inválido', body: msg };
+  }
+  return { title: 'Não foi possível calcular o frete', body: msg };
+}
+
 function formatFreightBrl(value: number): string {
   const n = Math.round(Number(value) * 100) / 100;
   return `R$ ${n.toFixed(2).replace('.', ',')}`;
@@ -320,7 +334,7 @@ export function pdpFreightResultCopy(q: PdpFreightQuote): { title: string; detai
   const price = Number(q.price);
   const title =
     Number.isFinite(price) && price <= 0 ? 'Frete grátis' : `Frete: ${formatFreightBrl(price)}`;
-  const days = `Receba ${formatReceiveInDays(Number(q.days) || 0)}`;
+  const days = formatDaysAfterDispatch(Number(q.days) || 0);
   const bits = [q.label?.trim(), q.matchedPrefix ? `CEP ${q.matchedPrefix}…` : '']
     .filter(Boolean)
     .join(' · ');
@@ -345,40 +359,17 @@ export function pdpFreightDestinationLine(cep: string, label?: string | null): s
 }
 
 /**
- * Linha da PDP. "em N dias" junta com o prefixo "Receba " do componente → "Receba em N dias".
- * Não usa "após o despacho" e não inventa data de calendário.
+ * Receive row. Prazo stays “N dias após o despacho” — no calendar date we do not have.
+ * Cost is Grátis or the quoted BRL amount.
  */
 export function pdpFreightEstimateRow(q: PdpFreightQuote): { eta: string; price: string; note: string } {
   const amount = Number(q.price);
   const price =
     Number.isFinite(amount) && amount <= 0 ? 'Grátis' : formatFreightBrl(amount);
   return {
-    eta: formatReceiveInDays(Number(q.days) || 0),
+    eta: formatDaysAfterDispatch(Number(q.days) || 0),
     price,
-    note: 'Prazo da cotação. O valor final é confirmado no checkout.',
-  };
-}
-
-/** Mesma frase no checkout: preço + "Receba em X dias". */
-export function freightCustomerLines(q: PdpFreightQuote): {
-  priceLabel: string;
-  eta: string;
-  prazo: string;
-  detail: string;
-} {
-  const amount = Number(q.price);
-  const priceLabel =
-    Number.isFinite(amount) && amount <= 0 ? 'Frete grátis' : `Frete: ${formatFreightBrl(amount)}`;
-  const carrier = String(q.carrier || '').trim();
-  const service = String(q.service || (q.modality && q.modality !== 'gratis' ? q.modality : '') || '').trim();
-  const quoteBit = [carrier, service].filter(Boolean).join(' · ');
-  const zone = String(q.label || '').trim();
-  const detail = [zone, quoteBit ? `Cotação: ${quoteBit}` : ''].filter(Boolean).join(' · ');
-  return {
-    priceLabel,
-    eta: `Receba ${formatReceiveInDays(Number(q.days) || 0)}`,
-    prazo: formatPrazoDays(Number(q.days) || 0),
-    detail: detail || 'Cotação por CEP',
+    note: 'Após o despacho. O valor final é confirmado no checkout.',
   };
 }
 

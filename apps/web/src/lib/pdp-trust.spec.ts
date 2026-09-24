@@ -15,6 +15,7 @@ import {
   pdpCompactTrustChips,
   pdpFreightCheckoutFallback,
   pdpFreightDestinationLine,
+  pdpFreightErrorCopy,
   freightCustomerLines,
   pdpFreightEstimateRow,
   pdpFreightIdleCopy,
@@ -221,6 +222,17 @@ import {
   const fallback = pdpFreightCheckoutFallback();
   assert.ok(/checkout/i.test(fallback.title));
   assert.ok(!/\d+,\d{2}/.test(fallback.body), 'fallback must not invent a price');
+  const invalidCepErr = pdpFreightErrorCopy(
+    'CEP inválido ou não encontrado. Confira os dígitos e tente de novo.',
+  );
+  assert.equal(invalidCepErr.title, 'CEP inválido');
+  assert.ok(/CEP inválido/i.test(invalidCepErr.body));
+  const genericErr = pdpFreightErrorCopy(
+    'A transportadora não devolveu uma cotação para este CEP. Tente de novo.',
+  );
+  assert.equal(genericErr.title, 'Não foi possível calcular o frete');
+  assert.ok(/transportadora/i.test(genericErr.body));
+  assert.deepEqual(pdpFreightErrorCopy(null), fallback);
 
   const free = pdpFreightResultCopy({
     price: 0,
@@ -347,6 +359,10 @@ import {
   const freightCmp = readFileSync(join(srcRoot, 'components/PdpFreightCep.tsx'), 'utf8');
   assert.ok(freightCmp.includes('/shipping/quote'), 'uses existing quote engine');
   assert.ok(freightCmp.includes('pdpFreightCheckoutFallback'), '401/error stays honest');
+  assert.ok(freightCmp.includes('pdpFreightErrorCopy'), 'PDP surfaces the API error message');
+  assert.ok(freightCmp.includes('role="alert"'), 'failed quote uses alert role');
+  assert.ok(freightCmp.includes('!loading && failed'), 'error shows even while the CEP form is open');
+  assert.ok(freightCmp.includes('setEditing(true)'), 'failed quote keeps the CEP form editable');
   assert.ok(freightCmp.includes('pdp-freight-estimate'), 'quote renders as an estimate row');
   assert.ok(freightCmp.includes('pdpFreightDestinationLine'), 'destination uses the saved CEP');
   assert.ok(freightCmp.includes('alterar'), 'CEP can be changed without a second address form');

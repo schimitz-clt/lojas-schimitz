@@ -16,9 +16,11 @@ import {
   MELHOR_ENVIO_CALCULATE_SERVICES,
   MELHOR_ENVIO_PRODUCTION_BASE,
   MELHOR_ENVIO_SANDBOX_BASE,
+  MELHOR_ENVIO_INVALID_CEP_MESSAGE,
   MelhorEnvioQuoteError,
   buildMelhorEnvioProducts,
   calculateMelhorEnvioFreight,
+  isMelhorEnvioInvalidDestinationCep,
   pickCheapestMelhorEnvioService,
   resolveMelhorEnvioUserAgent,
 } from './melhor-envio.quote';
@@ -362,6 +364,53 @@ async function main() {
           }),
       }),
     (err: unknown) => err instanceof MelhorEnvioQuoteError && err.code === 'NO_OPTION',
+  );
+
+  assert.equal(
+    isMelhorEnvioInvalidDestinationCep({
+      message: 'The given data was invalid.',
+      errors: { postal_code: ['O campo cep_destino está invalido'] },
+    }),
+    true,
+  );
+  assert.equal(
+    isMelhorEnvioInvalidDestinationCep({
+      message: 'The given data was invalid.',
+      errors: { 'to.postal_code': ['O CEP de destino é inválido.'] },
+    }),
+    true,
+  );
+  assert.equal(
+    isMelhorEnvioInvalidDestinationCep({
+      message: 'The given data was invalid.',
+      errors: { from: ['origem inválida'] },
+    }),
+    false,
+  );
+
+  await assert.rejects(
+    () =>
+      calculateMelhorEnvioFreight({
+        token: TOKEN,
+        toCep: '93320021',
+        subtotal: 24.9,
+        env: {},
+        fetchImpl: async () =>
+          jsonResponse(
+            {
+              message: 'The given data was invalid.',
+              errors: { postal_code: ['O campo cep_destino está invalido'] },
+            },
+            422,
+          ),
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof MelhorEnvioQuoteError);
+      assert.equal(err.code, 'INVALID_CEP');
+      assert.equal(err.status, 422);
+      assert.equal(err.message, MELHOR_ENVIO_INVALID_CEP_MESSAGE);
+      return true;
+    },
   );
 
   const poa = await quoteHybridFreight({

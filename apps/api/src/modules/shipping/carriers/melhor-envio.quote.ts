@@ -82,10 +82,10 @@ export type MelhorEnvioPickedQuote = {
 export type MelhorEnvioFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class MelhorEnvioQuoteError extends Error {
-  readonly code: 'HTTP' | 'NO_OPTION' | 'BAD_RESPONSE';
+  readonly code: 'HTTP' | 'NO_OPTION' | 'BAD_RESPONSE' | 'INVALID_CEP';
   readonly status: number | null;
 
-  constructor(code: 'HTTP' | 'NO_OPTION' | 'BAD_RESPONSE', message: string, status: number | null = null) {
+  constructor(code: 'HTTP' | 'NO_OPTION' | 'BAD_RESPONSE' | 'INVALID_CEP', message: string, status: number | null = null) {
     super(message);
     this.name = 'MelhorEnvioQuoteError';
     this.code = code;
@@ -268,6 +268,34 @@ export function pickCheapestMelhorEnvioService(payload: unknown): PickedService 
   return viable[0] ?? null;
 }
 
+
+/** Detecta CEP de destino inválido na resposta Melhor Envio (HTTP 422 ou corpo de validação). */
+export function isMelhorEnvioInvalidDestinationCep(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const rec = payload as Record<string, unknown>;
+  const errors = rec.errors;
+  const chunks: string[] = [];
+  const errorKeys: string[] = [];
+  if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+    for (const [key, val] of Object.entries(errors as Record<string, unknown>)) {
+      errorKeys.push(key);
+      chunks.push(String(key));
+      if (Array.isArray(val)) chunks.push(...val.map((v) => String(v)));
+      else if (val != null) chunks.push(String(val));
+    }
+  }
+  if (typeof rec.message === 'string') chunks.push(rec.message);
+  const blob = chunks.join(' ').toLowerCase();
+  if (!blob) return false;
+  const keyMentionsCep = errorKeys.some((k) => /postal|cep/i.test(k));
+  const textMentionsCep = /postal[_\s-]?code|cep[_\s-]?destino|cep de destino|\bcep\b/.test(blob);
+  const invalid = /invalido|inválido|invalid/.test(blob);
+  return (keyMentionsCep || textMentionsCep) && invalid;
+}
+
+export const MELHOR_ENVIO_INVALID_CEP_MESSAGE =
+  'CEP inválido ou não encontrado. Confira os dígitos e tente de novo.';
+
 export async function calculateMelhorEnvioFreight(
   input: MelhorEnvioCalculateInput,
 ): Promise<MelhorEnvioPickedQuote> {
@@ -315,14 +343,23 @@ export async function calculateMelhorEnvioFreight(
   }
 
   const text = await res.text();
-  if (!res.ok) {
-    throw new MelhorEnvioQuoteError('HTTP', `Melhor Envio HTTP ${res.status}`, res.status);
-  }
   let json: unknown;
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
+    if (!res.ok) {
+      throw new MelhorEnvioQuoteError('HTTP', `Melhor Envio HTTP ${res.status}`, res.status);
+    }
     throw new MelhorEnvioQuoteError('BAD_RESPONSE', 'Melhor Envio response was not JSON', res.status);
+  }
+  if (!res.ok) {
+    if (isMelhorEnvioInvalidDestinationCep(json)) {
+      throw new MelhorEnvioQuoteError('INVALID_CEP', MELHOR_ENVIO_INVALID_CEP_MESSAGE, res.status);
+    }
+    throw new MelhorEnvioQuoteError('HTTP', `Melhor Envio HTTP ${res.status}`, res.status);
+  }
+  if (isMelhorEnvioInvalidDestinationCep(json)) {
+    throw new MelhorEnvioQuoteError('INVALID_CEP', MELHOR_ENVIO_INVALID_CEP_MESSAGE, res.status);
   }
   const picked = pickCheapestMelhorEnvioService(json);
   if (!picked) {
