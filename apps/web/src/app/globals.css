@@ -3184,9 +3184,15 @@ textarea { resize: vertical; min-height: 72px; }
   text-decoration: none;
   cursor: pointer;
 }
-.acct-cta:hover { background: var(--yellow-deep); }
-.acct-cta:active { transform: scale(0.99); }
-.acct-cta:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.acct-cta:hover:not(:disabled) { background: var(--yellow-deep); }
+.acct-cta:active:not(:disabled) { transform: scale(0.99); }
+.acct-cta:disabled {
+  opacity: 1;
+  background: #e4e4df;
+  color: #6b6b66;
+  cursor: not-allowed;
+  transform: none;
+}
 .acct-cta:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
