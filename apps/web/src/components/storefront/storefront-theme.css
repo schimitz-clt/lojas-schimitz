@@ -863,7 +863,8 @@
 
 .sf-filter-bar {
   position: sticky;
-  top: 0;
+  /* Under the pinned chrome so a second sticky cannot push the search bar down. */
+  top: var(--site-chrome-h, 168px);
   z-index: 30;
   margin: 0 0 14px;
   padding: 12px 14px;
@@ -1197,7 +1198,7 @@
   color: var(--sf-ok);
 }
 
-/* —— Header search (Magalu-style product rows + history) —— */
+/* —— Header search (lightweight query rows + history) —— */
 .search-suggest-product .search-suggest-copy {
   gap: 3px;
 }
@@ -1387,7 +1388,7 @@
   }
 
   .sf-filter-bar {
-    top: 0;
+    top: var(--site-chrome-h, 168px);
     border-radius: 14px;
     margin-left: 0;
     margin-right: 0;

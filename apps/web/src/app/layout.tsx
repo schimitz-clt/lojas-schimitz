@@ -28,6 +28,8 @@ export const viewport: Viewport = {
      notched phones and edge-to-edge WebViews draw the promo under the clock. */
   viewportFit: 'cover',
   themeColor: '#0a0a0a',
+  /* Keyboard resizes the layout instead of shoving the sticky search bar down. */
+  interactiveWidget: 'resizes-content',
 };
 
 export async function generateMetadata(): Promise<Metadata> {
