@@ -48,7 +48,7 @@ export function BottomNav() {
     },
     {
       href: '/produtos',
-      label: 'Departamentos',
+      label: 'Buscar',
       icon: 'search',
       match: (p) =>
         p.startsWith('/produtos') ||
