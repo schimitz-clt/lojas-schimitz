@@ -9,6 +9,9 @@ import { discountPercent } from '@/lib/storefront-pro';
 import { installmentLine, pixPrice } from '@/lib/pricing';
 import { resolveProductImageUrl } from '@/lib/product-media';
 import { productLandingPath } from '@/lib/marketing';
+import { displayHeadline, lineupLabel, pixOffLabel } from '@/lib/identidade';
+import { PriceCount } from '@/components/identidade/Motion';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 import {
   bestsellerIdsFromShelves,
   configuredPromoLines,
@@ -172,57 +175,112 @@ function RetailTile({
 }
 
 export function EditorialStage({ products }: { products: ProductType[] }) {
-  const lead = products[0];
+  const lineup = products.slice(0, 5);
+  const [activeId, setActiveId] = useState(lineup[0]?.id || '');
+  const lead = lineup.find((product) => product.id === activeId) || lineup[0];
   if (!lead) return null;
+  const index = Math.max(0, lineup.findIndex((product) => product.id === lead.id));
   const href = productLandingPath(lead.slug);
   const price = Number(lead.price);
   const pix = pixPrice(price);
-  const layers = products.slice(1, 4);
+  const headline = displayHeadline(lead.name);
+  const img = resolveProductImageUrl(lead);
   return (
-    <section className="retail-stage" aria-labelledby="retail-stage-title">
-      <div className="retail-stage-copy">
-        <p className="retail-stage-kicker">Lojas Schimitz · Porto Alegre</p>
-        <h1 id="retail-stage-title">{lead.name}</h1>
-        <p className="retail-stage-price">
-          <strong>{brl(pix)}</strong>
-          <span>no PIX</span>
-        </p>
-        <p className="retail-stage-install">
-          {lead.compareAtPrice ? <s>{brl(lead.compareAtPrice)}</s> : null} {installmentLine(price)}
-        </p>
-        <div className="retail-stage-actions">
-          <Link className="btn retail-stage-cta" href={href}>
-            Comprar agora
-          </Link>
-          {products.length > 1 ? (
-            <a className="retail-stage-more" href="#retail-vitrine">
-              Ver a seleção
-            </a>
-          ) : null}
-        </div>
+    <section className="retail-stage id-abertura" aria-labelledby="retail-stage-title">
+      <div className="id-sweep" aria-hidden="true" />
+      <div className="id-halo" aria-hidden="true" />
+      <div className="id-grain" aria-hidden="true" />
+      <p className="id-kicker id-mono">
+        <span>{lead.category?.name || 'Na loja'}</span>
+        <span>
+          <b>{lineupLabel(index + 1, lineup.length).slice(0, 2)}</b>
+          {` / ${lineupLabel(index + 1, lineup.length).slice(5)}`}
+        </span>
+      </p>
+      <h1 id="retail-stage-title" className="id-display">
+        {headline.lead}
+        {headline.accent ? (
+          <>
+            <br />
+            <i>{headline.accent}</i>
+          </>
+        ) : null}
+      </h1>
+      <p className="id-cap id-mono">
+        <b>{lead.name}</b>
+      </p>
+      <div className="id-stage">
+        {img ? (
+          <>
+            {/* LCP: real catalog photo, not animated. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="id-stage-img id-lcp"
+              src={img}
+              alt=""
+              width={640}
+              height={480}
+              fetchPriority="high"
+              decoding="async"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="id-floor-reflect" src={img} alt="" aria-hidden="true" width={640} height={200} decoding="async" />
+          </>
+        ) : (
+          <span className="id-ph" aria-hidden="true">
+            <SchimitzMonogram size={72} ring />
+          </span>
+        )}
       </div>
-      <div className="retail-stage-layers" aria-hidden="true">
-        <div className="retail-stage-lead">
-          <ProductPhoto product={lead} priority className="retail-stage-lead-img" />
+      <div className="id-price-row">
+        <div>
+          <p className="id-pix-kicker id-mono">{pixOffLabel()}</p>
+          <p className="id-price">
+            <PriceCount value={pix} />
+          </p>
+          <p className="id-install">{installmentLine(price)}</p>
         </div>
-        {layers.map((product, index) => (
-          <div key={product.id} className={`retail-stage-sat retail-stage-sat-${index + 1}`}>
-            <ProductPhoto product={product} />
-          </div>
-        ))}
+        <Link className="id-buy" href={href}>
+          Comprar <span aria-hidden="true">→</span>
+        </Link>
       </div>
-      {layers.length ? (
-        <ol className="retail-stage-index">
-          {products.slice(0, 5).map((product, index) => (
+      <div className="id-lineup-head">
+        <h2 className="id-display">
+          A linha <i>completa</i>
+        </h2>
+        <span className="id-mono">
+          {String(lineup.length).padStart(2, '0')} {lineup.length === 1 ? 'produto' : 'produtos'}
+        </span>
+      </div>
+      <ul className="id-lineup">
+        {lineup.map((product, tileIndex) => {
+          const on = product.id === lead.id;
+          const tilePix = pixPrice(Number(product.price));
+          const tileImg = resolveProductImageUrl(product);
+          return (
             <li key={product.id}>
-              <Link href={productLandingPath(product.slug)}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                {product.name}
-              </Link>
+            <button
+              type="button"
+              className={`id-tile${on ? ' is-on' : ''}`}
+              aria-pressed={on}
+              onClick={() => setActiveId(product.id)}
+            >
+              <span className="id-tile-face">
+                <span className="id-tile-index id-mono">{String(tileIndex + 1).padStart(2, '0')}</span>
+                {tileImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={tileImg} alt="" width={80} height={80} />
+                ) : (
+                  <SchimitzMonogram size={28} />
+                )}
+              </span>
+              <span className="id-tile-name">{product.name}</span>
+              <span className="id-tile-price">{brl(tilePix)}</span>
+            </button>
             </li>
-          ))}
-        </ol>
-      ) : null}
+          );
+        })}
+      </ul>
     </section>
   );
 }

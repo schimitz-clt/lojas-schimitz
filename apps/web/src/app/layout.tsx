@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, Plus_Jakarta_Sans } from 'next/font/google';
+import { Geist_Mono, Instrument_Serif, Inter_Tight } from 'next/font/google';
 import { MarketingPixels } from '@/components/MarketingPixels';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
+import '@/components/storefront/identidade.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
 import { JsonLd } from '@/components/JsonLd';
@@ -11,18 +12,26 @@ import { resolveShareImage, shareImageTag } from '@/lib/og-image';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 import { storeWhatsAppDigits } from '@/lib/whatsapp';
 
-const jakarta = Plus_Jakarta_Sans({
+const jakarta = Inter_Tight({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-schimitz',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['300', '400', '500', '600', '700'],
 });
 
-const display = Cormorant_Garamond({
+const display = Instrument_Serif({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-display',
-  weight: ['500', '600', '700'],
+  weight: '400',
+  style: ['normal', 'italic'],
+});
+
+const mono = Geist_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+  weight: ['400', '500'],
 });
 
 /** Page/layout zoom locked like Magalu-style storefronts (pinch + double-tap).
@@ -92,7 +101,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     telephone: storeWhatsAppDigits(process.env.NEXT_PUBLIC_WHATSAPP),
   });
   return (
-    <html lang="pt-BR" className={`${jakarta.variable} ${display.variable}`}>
+    <html lang="pt-BR" className={`${jakarta.variable} ${display.variable} ${mono.variable}`}>
       <body className={jakarta.className}>
         <MarketingPixels />
         <JsonLd data={jsonLd} />

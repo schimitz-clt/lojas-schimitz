@@ -20,6 +20,7 @@ import {
   readStoredCep,
 } from '@/lib/pdp-trust';
 import { IconBell, IconCart, IconHeart, IconUser } from '@/components/icons/StorefrontIcons';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 import {
   catalogSearchBackHref,
   isCatalogSearchResults,
@@ -211,14 +212,8 @@ export function Header() {
               aria-label="Lojas Schimitz — início"
               prefetch={true}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="logo-mark"
-                src="/android-chrome-192x192.png"
-                alt=""
-                width={36}
-                height={36}
-              />LOJAS <span>SCHIMITZ</span>
+              <SchimitzMonogram size={36} ring className="logo-mark" title="Schimitz" />
+              <span className="id-wordmark">Schimitz<i className="id-dot">.</i></span>
             </Link>
 
             <SearchBox initialQuery={qInit} />

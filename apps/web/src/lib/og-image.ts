@@ -11,7 +11,7 @@ import { isMissingOrPlaceholderImage, isPlaceholderImageUrl } from './placeholde
 
 const IMAGE_EXT = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 
-/** Static 1200×630 card in apps/web/public. Black/yellow wordmark, no product photo. */
+/** Static 1200×630 card in apps/web/public. Identidade 2.0 monogram, no product photo. */
 export const BRAND_SHARE_IMAGE_PATH = '/og-loja.png';
 export const BRAND_SHARE_IMAGE_WIDTH = 1200;
 export const BRAND_SHARE_IMAGE_HEIGHT = 630;

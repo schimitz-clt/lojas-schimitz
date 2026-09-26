@@ -17,6 +17,8 @@ import { CartCouponField } from '@/components/CartCouponField';
 import { cartDiscountAmount, cartPayableTotal } from '@/lib/cart-coupon';
 import { cartEmptyCopy, cartFreightNote, cartLinePriceView } from '@/lib/cart-ux';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
+import { IdentitySteps } from '@/components/identidade/IdentitySteps';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 
 type CartItem = {
   id: string;
@@ -85,7 +87,7 @@ function CartThumb({ item }: { item: CartItem }) {
     return (
       <div className="cart-line-media" aria-hidden>
         <span className="cart-line-ph">
-          LOJAS <em>SCHIMITZ</em>
+          <SchimitzMonogram size={36} ring />
         </span>
       </div>
     );
@@ -260,10 +262,11 @@ export default function CartPage() {
 
   return (
     <div className="cart-page sf-pro-cart" style={{ paddingTop: 24 }}>
-      <h1 style={{ marginTop: 0 }}>
+      <h1 style={{ marginTop: 0 }} className="id-display">
         Sacola
         {hasItems ? <span className="cart-heading-count"> ({cart.itemCount})</span> : null}
       </h1>
+      <IdentitySteps current={1} />
       {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
       {mixedCart ? (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>
@@ -279,7 +282,7 @@ export default function CartPage() {
         <div className="card cart-empty">
           <div className="body">
             <p className="cart-empty-mark" aria-hidden>
-              LOJAS <em>SCHIMITZ</em>
+              <SchimitzMonogram size={56} ring />
             </p>
             <h2 className="cart-empty-title">{emptyCopy.title}</h2>
             <p className="muted cart-empty-body">{emptyCopy.body}</p>

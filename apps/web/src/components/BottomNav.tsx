@@ -83,6 +83,7 @@ export function BottomNav() {
 
   return (
     <nav className="bottom-nav" aria-label="Navegação principal">
+      <div className="bottom-nav-dock">
       {items.map((item) => {
         const active = item.match(path);
         return (
@@ -113,6 +114,7 @@ export function BottomNav() {
           </Link>
         );
       })}
+      </div>
     </nav>
   );
 }

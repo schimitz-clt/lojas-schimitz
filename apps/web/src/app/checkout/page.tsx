@@ -22,6 +22,7 @@ import { CartCouponField } from '@/components/CartCouponField';
 import { readStoredUtm } from '@/components/UtmCapture';
 import { cartDiscountAmount } from '@/lib/cart-coupon';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
+import { IdentitySteps } from '@/components/identidade/IdentitySteps';
 
 type CartItem = {
   id: string;
@@ -301,7 +302,8 @@ export default function CheckoutPage() {
       <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
         <Link href="/carrinho">Sacola</Link> · Checkout
       </p>
-      <h1 style={{ marginTop: 8 }}>Checkout</h1>
+      <h1 className="id-display" style={{ marginTop: 8 }}>Checkout</h1>
+      <IdentitySteps current={2} />
       <p className="muted" style={{ marginBottom: 16 }}>
         Confira o pedido, endereço e frete. O total definitivo é validado no servidor ao criar o pedido.
       </p>

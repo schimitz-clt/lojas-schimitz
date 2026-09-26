@@ -12,6 +12,7 @@ import {
   type GalleryImage,
 } from '@/lib/product-gallery';
 import { pdpGalleryTapOpensLightbox, pdpLightboxOpenedTooRecently } from '@/lib/pdp-gallery-layout';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 
 type Props = {
   images: GalleryImage[];
@@ -303,7 +304,7 @@ export function ProductGallery({ images, productName }: Props) {
           ) : (
             <div className="pdp-carousel-slide pdp-carousel-empty pdp-carousel-ph" aria-label="Imagem em breve">
               <span className="pdp-carousel-ph-mark">
-                LOJAS <em>SCHIMITZ</em>
+                <SchimitzMonogram size={72} ring />
               </span>
               <span className="pdp-carousel-ph-hint">Imagem em breve</span>
             </div>

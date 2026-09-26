@@ -10,6 +10,7 @@ import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 
 export type Product = {
   id: string;
@@ -45,7 +46,7 @@ function ProductImage({
     return (
       <div className="pcard-ph" aria-hidden>
         <span className="pcard-ph-mark">
-          LOJAS <em>SCHIMITZ</em>
+          <SchimitzMonogram size={40} ring />
         </span>
         <span className="pcard-ph-hint">Imagem em breve</span>
       </div>
@@ -153,7 +154,7 @@ export function ProductCard({
             aria-hidden={img ? true : undefined}
           >
             <span className="pcard-ph-mark">
-              LOJAS <em>SCHIMITZ</em>
+              <SchimitzMonogram size={40} ring />
             </span>
             <span className="pcard-ph-hint">Imagem em breve</span>
           </div>

@@ -77,15 +77,18 @@ html, body {
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.015em;
 }
-.logo,
 .main-shell h1,
 .main-shell h2,
+.acct-title,
+.id-display {
+  font-family: var(--font-display), "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
 .main-shell .price,
 .pdp-price,
 .pcard-price,
-.retail-price,
-.acct-title {
-  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+.retail-price {
+  font-family: var(--font-schimitz), "Inter Tight", sans-serif;
 }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
