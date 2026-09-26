@@ -10,7 +10,7 @@ const header = readFileSync(join(srcRoot, 'components/Header.tsx'), 'utf8');
 assert.ok(layout.includes("viewportFit: 'cover'"), 'viewport-fit=cover so safe-area env vars are non-zero');
 assert.ok(layout.includes('maximumScale: 1'), 'page zoom lock stays');
 assert.ok(layout.includes('userScalable: false'), 'pinch zoom stays off');
-assert.ok(layout.includes("themeColor: '#0a0a0a'"), 'theme color stays Schimitz black');
+assert.ok(layout.includes("themeColor: '#07122A'"), 'theme color is the storefront navy');
 
 assert.ok(/--safe-area-top:\s*0px/.test(css), 'inset defaults to 0 so desktop does not grow');
 assert.ok(

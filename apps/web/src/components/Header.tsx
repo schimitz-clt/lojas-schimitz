@@ -25,6 +25,7 @@ import {
   isCatalogSearchResults,
 } from '@/lib/storefront-pro';
 import { chromeStackHeight, chromeVisualTop, SEARCH_RESULTS_CLASS } from '@/lib/search-chrome';
+import { configuredPromoLines } from '@/lib/retail-home';
 
 export function Header() {
   const pathname = usePathname() || '/';
@@ -38,6 +39,7 @@ export function Header() {
   const [editingCep, setEditingCep] = useState(false);
   const [cepDraft, setCepDraft] = useState('');
   const [addresses, setAddresses] = useState<AccountAddressRecord[]>([]);
+  const [customPromo, setCustomPromo] = useState<string[] | null>(null);
   const { count: favCount } = useFavorites();
   const favBadge = formatWishlistBadge(favCount);
   const chromeRef = useRef<HTMLDivElement>(null);
@@ -86,6 +88,12 @@ export function Header() {
       vv.removeEventListener('scroll', apply);
       vv.removeEventListener('resize', apply);
     };
+  }, []);
+
+  useEffect(() => {
+    api<{ promoLines?: unknown }>('/store/settings')
+      .then((settings) => setCustomPromo(configuredPromoLines(settings?.promoLines)))
+      .catch(() => setCustomPromo(null));
   }, []);
 
   useEffect(() => {
@@ -182,17 +190,7 @@ export function Header() {
 
   return (
     <div className="site-chrome" ref={chromeRef}>
-      <div className="topbar" role="note" aria-label="Benefícios Lojas Schimitz">
-        <span>Frete grátis em POA</span>
-        <span className="topbar-sep" aria-hidden>
-          ·
-        </span>
-        <span>5% OFF no PIX</span>
-        <span className="topbar-sep" aria-hidden>
-          ·
-        </span>
-        <span>{interestFreeInstallmentClaim()}</span>
-      </div>
+      <div className="topbar" aria-label="Benefícios">{customPromo?.map((line, i) => <span key={i}>{i ? ' · ' : ''}{line}</span>) ?? <><span>Frete grátis em POA</span><span className="topbar-sep" aria-hidden>·</span><span>5% OFF no PIX</span><span className="topbar-sep" aria-hidden>·</span><span>{interestFreeInstallmentClaim()}</span></>}</div>
       <div className={`site-chrome-head${searchResults ? ' is-search-results' : ''}`}>
       <header className="header">
         <div className="wrap">

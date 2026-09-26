@@ -26,6 +26,7 @@ import { recordAbandonedProductView } from '@/lib/abandoned-product-view';
 import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/ProductShareButton';
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
+import { ProductStory } from '@/components/ProductStory';
 import type { Product } from '@/components/ProductCard';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
@@ -57,6 +58,10 @@ export type ProductDetail = {
   category?: { slug: string; name: string } | null;
   sku?: string | null;
   isDemo?: boolean | null;
+  highlights?: unknown;
+  features?: unknown;
+  boxContents?: unknown;
+  faq?: unknown;
   weightKg?: number | string | null;
   widthCm?: number | string | null;
   heightCm?: number | string | null;
@@ -169,6 +174,7 @@ export default function ProductPage({
   const [addedToBag, setAddedToBag] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showBagToast, setShowBagToast] = useState(false);
+  const [atcPulse, setAtcPulse] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
 
   const loadReviews = useCallback(async (productId: string) => {
@@ -211,6 +217,7 @@ export default function ProductPage({
     getGuestToken();
     setAddedToBag(false);
     setShowBagToast(false);
+    setAtcPulse(false);
     setDescOpen(false);
     setMsg('');
     setErr('');
@@ -260,18 +267,25 @@ export default function ProductPage({
     }
   }
 
+  function pulseBag() {
+    setAtcPulse(true);
+    window.setTimeout(() => setAtcPulse(false), 720);
+  }
+
   async function add() {
     const ok = await postToCart();
     if (!ok) return;
     setAddedToBag(true);
     setShowBagToast(true);
     setMsg('Adicionado à sacola.');
+    pulseBag();
   }
 
   async function buyNow() {
     const ok = await postToCart();
     if (!ok) return;
     setAddedToBag(true);
+    pulseBag();
     router.push(pdpBuyNowHref());
   }
 
@@ -347,17 +361,15 @@ export default function ProductPage({
             {p.badge ? <div className="badge">{p.badge}</div> : null}
             <div className="pdp-title-row">
               <h1 className="pdp-title">{p.name}</h1>
-              <div className="pdp-rating">
-                <span className="pdp-rating-score">
-                  {count > 0 ? avg.toFixed(1).replace('.', ',') : '—'}
-                </span>
-                <Stars value={Math.round(avg)} size={14} />
-                <span className="pdp-rating-meta muted">
-                  {count > 0
-                    ? `${count} avaliação${count === 1 ? '' : 'ões'}`
-                    : 'Sem avaliações'}
-                </span>
-              </div>
+              {count > 0 ? (
+                <div className="pdp-rating">
+                  <span className="pdp-rating-score">{avg.toFixed(1).replace('.', ',')}</span>
+                  <Stars value={Math.round(avg)} size={14} />
+                  <span className="pdp-rating-meta muted">
+                    {count} avaliação{count === 1 ? '' : 'ões'}
+                  </span>
+                </div>
+              ) : null}
               <ProductWhatsAppShareButton
                 productName={p.name}
                 productSlug={p.slug}
@@ -445,6 +457,8 @@ export default function ProductPage({
             </div>
           ) : null}
 
+          <ProductStory product={p} />
+
           <p className={`pdp-stock${urgency ? ' pdp-stock-low' : stock != null && stock <= 0 ? ' pdp-stock-out' : ''}`}>
             {urgency ? <span className="pcard-stock pcard-stock-low">{urgency}</span> : null}{' '}
             {stockLabel}
@@ -478,7 +492,11 @@ export default function ProductPage({
                 Ir para a sacola
               </Link>
             ) : (
-              <button className="btn pdp-cta-primary" onClick={add} disabled={buyBlocked || adding}>
+              <button
+                className={`btn pdp-cta-primary${adding ? ' is-atc-busy' : ''}${atcPulse ? ' is-atc-done' : ''}`}
+                onClick={add}
+                disabled={buyBlocked || adding}
+              >
                 {demo ? 'Não disponível' : outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
               </button>
             )}
@@ -540,6 +558,7 @@ export default function ProductPage({
         </div>
       </div>
 
+      {reviews.length || eligibility?.canReview ? (
       <section className="card pdp-reviews" style={{ marginTop: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Avaliações</h2>
@@ -607,17 +626,20 @@ export default function ProductPage({
                 {r.body ? <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p> : null}
               </div>
             ))}
-            {!reviews.length ? (
-              <div className="pdp-reviews-empty">
-                <p style={{ margin: 0, fontWeight: 700 }}>Ainda não há avaliações</p>
-                <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
-                  Seja o primeiro a contar como foi a experiência com este produto após a compra.
-                </p>
-              </div>
-            ) : null}
           </div>
         </div>
       </section>
+      ) : null}
+
+      <div className={`pdp-buybar${atcPulse ? ' is-pulse' : ''}${adding ? ' is-atc-busy' : ''}`}>
+        <div className="pdp-buybar-price">
+          <strong>{brl(pix)}</strong>
+          <span>no PIX</span>
+        </div>
+        <button className={`btn pdp-buybar-cta${atcPulse ? ' is-atc-done' : ''}`} type="button" onClick={buyNow} disabled={buyBlocked || adding}>
+          {buyNowLabel({ outOfStock, adding, demo })}
+        </button>
+      </div>
 
       {relatedSlot ?? (
         <PdpRelatedProducts

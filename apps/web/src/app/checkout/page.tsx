@@ -19,6 +19,7 @@ import {
   isMixedSellerCart,
 } from '@/lib/mixed-cart';
 import { CartCouponField } from '@/components/CartCouponField';
+import { readStoredUtm } from '@/components/UtmCapture';
 import { cartDiscountAmount } from '@/lib/cart-coupon';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
 
@@ -251,6 +252,7 @@ export default function CheckoutPage() {
           addressId,
           couponCode: couponPreview?.code || coupon.trim() || undefined,
           cashbackAmount: cashbackNum > 0 ? cashbackNum : undefined,
+          ...readStoredUtm(),
         }),
       });
       sessionStorage.removeItem(persistKey);

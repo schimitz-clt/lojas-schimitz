@@ -290,6 +290,7 @@ export function ProductGallery({ images, productName }: Props) {
                     height={800}
                     sizes="(max-width: 768px) 100vw, 480px"
                     loading={i === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={i === 0 ? 'high' : 'low'}
                     decoding="async"
                     draggable={false}
                     onError={(e) => {

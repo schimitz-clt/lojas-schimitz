@@ -16,9 +16,46 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IsRealProductImageUrl } from './is-real-product-image-url';
+
+export class ProductFeatureDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  label!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  value!: string;
+}
+
+export class ProductFaqDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  question!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(600)
+  answer!: string;
+}
+
+export class StoreTrustItemDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(40)
+  title!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(140)
+  body!: string;
+}
 
 /** Converte string/número; preserva null/undefined (limpar preço “de”). */
 function optionalMoney({ value }: { value: unknown }) {
@@ -95,6 +132,34 @@ export class AdminCreateProductDto {
   @IsString()
   @MaxLength(80)
   badge?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  highlights?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => ProductFeatureDto)
+  features?: ProductFeatureDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  boxContents?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ProductFaqDto)
+  faq?: ProductFaqDto[];
 }
 
 export class AdminUpdateProductDto {
@@ -158,6 +223,34 @@ export class AdminUpdateProductDto {
   @IsString()
   @MaxLength(80)
   badge?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  highlights?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => ProductFeatureDto)
+  features?: ProductFeatureDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  boxContents?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ProductFaqDto)
+  faq?: ProductFaqDto[];
 }
 
 /** Query GET /admin/orders?status=&q=&take= */
@@ -476,6 +569,32 @@ export class AdminUpdateStoreSettingsDto {
   @IsUrl({ require_protocol: true })
   @MaxLength(2000)
   ogImageUrl?: string | null;
+
+  /** Vazio limpa. Dígitos ou máscara; a API valida os verificadores. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(18)
+  cnpj?: string | null;
+
+  /** ISO 8601. Vazio limpa e a home deixa de contar. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  promoEndsAt?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @MaxLength(48, { each: true })
+  promoLines?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @ValidateNested({ each: true })
+  @Type(() => StoreTrustItemDto)
+  trustItems?: StoreTrustItemDto[] | null;
 }
 
 /** Admin: criar banner da home */

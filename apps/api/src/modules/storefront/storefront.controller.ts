@@ -23,4 +23,10 @@ export class StorefrontController {
   async shelves() {
     return ok(await this.storefront.listPublicShelves());
   }
+
+  /** Avaliações publicadas de produtos vendáveis. Lista vazia quando não há nenhuma. */
+  @Get('store/reviews')
+  async reviews() {
+    return ok(await this.storefront.listPublicReviews());
+  }
 }

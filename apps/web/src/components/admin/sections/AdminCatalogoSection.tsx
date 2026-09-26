@@ -847,6 +847,40 @@ export function AdminCatalogoSection() {
                 {form.description.trim().length} caracteres · aparece inteira na página do produto
               </span>
             </label>
+            <label>
+              Benefícios (um por linha, opcional)
+              <textarea
+                rows={3}
+                value={form.highlightsText}
+                onChange={(e) => setForm({ ...form, highlightsText: e.target.value })}
+                placeholder="Só o que o produto realmente tem"
+              />
+            </label>
+            <label>
+              Detalhes (rótulo | valor, opcional)
+              <textarea
+                rows={3}
+                value={form.featuresText}
+                onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
+                placeholder="Peso | 250 g"
+              />
+            </label>
+            <label>
+              O que vem na caixa (um por linha, opcional)
+              <textarea
+                rows={3}
+                value={form.boxText}
+                onChange={(e) => setForm({ ...form, boxText: e.target.value })}
+              />
+            </label>
+            <label>
+              Perguntas frequentes (pergunta | resposta, opcional)
+              <textarea
+                rows={3}
+                value={form.faqText}
+                onChange={(e) => setForm({ ...form, faqText: e.target.value })}
+              />
+            </label>
             <div className="row" style={{ alignItems: 'stretch' }}>
               <label style={{ flex: 1 }}>
                 Preço (R$) *

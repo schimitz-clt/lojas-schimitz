@@ -20,7 +20,28 @@ import {
   coverUrlToApplyOnUpdate,
 } from './admin-product-images';
 import { SellersService } from '../sellers/sellers.service';
+import { publicProductStory } from '../catalog/product-story';
 import { InventoryService } from '../inventory/inventory.service';
+
+type ProductStoryColumns = Pick<
+  Prisma.ProductCreateInput,
+  'highlights' | 'features' | 'boxContents' | 'faq'
+>;
+
+function productStoryColumns(dto: {
+  highlights?: string[];
+  features?: { label: string; value: string }[];
+  boxContents?: string[];
+  faq?: { question: string; answer: string }[];
+}): ProductStoryColumns {
+  const story = publicProductStory(dto);
+  const data: ProductStoryColumns = {};
+  if (dto.highlights !== undefined) data.highlights = story.highlights;
+  if (dto.features !== undefined) data.features = story.features;
+  if (dto.boxContents !== undefined) data.boxContents = story.boxContents;
+  if (dto.faq !== undefined) data.faq = story.faq;
+  return data;
+}
 import {
   capCatalogErrors,
   matchCategory,
@@ -292,6 +313,7 @@ export class AdminProductsService {
             badge: dto.badge?.trim() || null,
             active,
             isDemo: false,
+            ...productStoryColumns(dto),
             inventory: {
               create: { qtyOnHand: stock, qtyReserved: 0 },
             },
@@ -350,6 +372,7 @@ export class AdminProductsService {
     }
     if (dto.active !== undefined) data.active = dto.active;
     if (dto.badge !== undefined) data.badge = dto.badge?.trim() || null;
+    Object.assign(data, productStoryColumns(dto));
     if (dto.sellerId !== undefined) {
       const sid = await this.sellers.resolveActiveSellerId(dto.sellerId);
       data.seller = { connect: { id: sid } };

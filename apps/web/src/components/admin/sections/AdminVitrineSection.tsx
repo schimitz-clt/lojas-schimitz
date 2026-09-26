@@ -156,6 +156,41 @@ export function AdminVitrineSection() {
                   placeholder="https://... (ou use upload de banner e cole a URL)"
                 />
               </label>
+              <label>
+                CNPJ (opcional — libera “Nota fiscal” na vitrine)
+                <input
+                  value={seoForm.cnpj}
+                  onChange={(e) => setSeoForm({ ...seoForm, cnpj: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="00.000.000/0000-00"
+                />
+              </label>
+              <label>
+                Fim da oferta do dia (opcional — sem data não há contagem)
+                <input
+                  type="datetime-local"
+                  value={seoForm.promoEndsAt}
+                  onChange={(e) => setSeoForm({ ...seoForm, promoEndsAt: e.target.value })}
+                />
+              </label>
+              <label>
+                Faixa do topo (uma frase por linha, opcional)
+                <textarea
+                  rows={3}
+                  value={seoForm.promoLines}
+                  onChange={(e) => setSeoForm({ ...seoForm, promoLines: e.target.value })}
+                  placeholder="Vazio usa frete grátis em POA, PIX e parcelas reais"
+                />
+              </label>
+              <label>
+                Confiança (título | texto, opcional)
+                <textarea
+                  rows={3}
+                  value={seoForm.trustItems}
+                  onChange={(e) => setSeoForm({ ...seoForm, trustItems: e.target.value })}
+                  placeholder="Vazio usa frete, compra segura e troca em 7 dias"
+                />
+              </label>
               <button className="btn admin-btn-primary-accent" type="submit" disabled={savingSeo}>
                 {savingSeo ? 'Salvando...' : 'Salvar SEO'}
               </button>

@@ -14,6 +14,7 @@ import {
 } from '../shipping/carriers';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { sanitizeOrderUtm } from './utm';
 import type { PaymentProvider } from '../payments/payment.provider';
 import {
   assertValidTransition,
@@ -278,6 +279,7 @@ export class OrdersService {
     const freight = totals.freight;
     const total = totals.total;
     const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const utm = sanitizeOrderUtm(dto);
 
     try {
       const order = await this.prisma.$transaction(async (tx) => {
@@ -301,6 +303,11 @@ export class OrdersService {
             total: new Decimal(total),
             couponId,
             idempotencyKey: idempotencyKey || null,
+            utmSource: utm.utmSource,
+            utmMedium: utm.utmMedium,
+            utmCampaign: utm.utmCampaign,
+            utmContent: utm.utmContent,
+            utmTerm: utm.utmTerm,
             reservationExpiresAt,
             freightSnap: quote as object,
             addressSnap: {

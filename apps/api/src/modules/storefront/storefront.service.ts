@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
 import { PAID_REVENUE_STATUSES } from '../admin/admin-sales-report';
@@ -17,6 +17,16 @@ import {
   visibleHomeShelves,
   type SoldQtyRow,
 } from './home-shelves';
+import {
+  isNotaFiscalTrust,
+  isValidCnpj,
+  normalizeCnpj,
+  parsePromoEndsAt,
+  parsePromoLines,
+  parseTrustItems,
+  trustItemsForPublic,
+  type StoreTrustItem,
+} from './store-settings';
 
 const DEFAULT_TITLE = 'Lojas Schimitz';
 const DEFAULT_DESCRIPTION =
@@ -26,6 +36,10 @@ export type UpdateStoreSettingsInput = {
   siteTitle: string;
   siteDescription: string;
   ogImageUrl?: string | null;
+  cnpj?: string | null;
+  promoEndsAt?: string | null;
+  promoLines?: string[] | null;
+  trustItems?: StoreTrustItem[] | null;
 };
 
 export type CreateBannerInput = {
@@ -44,13 +58,24 @@ function serializeSettings(s: {
   siteTitle: string;
   siteDescription: string;
   ogImageUrl: string | null;
+  cnpj?: string | null;
+  promoEndsAt?: Date | null;
+  promoLines?: unknown;
+  trustItems?: unknown;
   updatedAt: Date;
 }) {
+  const cnpj = normalizeCnpj(s.cnpj);
+  const promoLines = parsePromoLines(s.promoLines);
+  const trustItems = trustItemsForPublic(parseTrustItems(s.trustItems), cnpj);
   return {
     id: s.id,
     siteTitle: s.siteTitle,
     siteDescription: s.siteDescription,
     ogImageUrl: rewritePublicUploadUrl(s.ogImageUrl) ?? s.ogImageUrl,
+    cnpj,
+    promoEndsAt: s.promoEndsAt ? s.promoEndsAt.toISOString() : null,
+    promoLines: promoLines.length ? promoLines : null,
+    trustItems,
     updatedAt: s.updatedAt,
   };
 }
@@ -132,15 +157,93 @@ export class StorefrontService {
       og = assertImageUrl(String(input.ogImageUrl));
     }
     await this.ensureSettings();
+    const data: {
+      siteTitle: string;
+      siteDescription: string;
+      ogImageUrl: string | null;
+      cnpj?: string | null;
+      promoEndsAt?: Date | null;
+      promoLines?: StoreTrustItem[] | string[] | null;
+      trustItems?: StoreTrustItem[] | null;
+    } = {
+      siteTitle: title.slice(0, 120),
+      siteDescription: description.slice(0, 320),
+      ogImageUrl: og,
+    };
+    if (input.cnpj !== undefined) {
+      const raw = String(input.cnpj || '').trim();
+      if (!raw) data.cnpj = null;
+      else if (!isValidCnpj(raw)) throw new BadRequestException('CNPJ inválido');
+      else data.cnpj = normalizeCnpj(raw);
+    }
+    if (input.promoEndsAt !== undefined) {
+      const raw = String(input.promoEndsAt || '').trim();
+      if (!raw) data.promoEndsAt = null;
+      else {
+        const parsed = parsePromoEndsAt(raw);
+        if (!parsed) throw new BadRequestException('Data de fim da promo inválida');
+        data.promoEndsAt = parsed;
+      }
+    }
+    if (input.promoLines !== undefined) {
+      data.promoLines = input.promoLines == null ? null : parsePromoLines(input.promoLines);
+      if (Array.isArray(data.promoLines) && data.promoLines.length === 0) data.promoLines = null;
+    }
+    const nextCnpj = data.cnpj !== undefined ? data.cnpj : normalizeCnpj((await this.ensureSettings()).cnpj);
+    if (input.trustItems !== undefined) {
+      const items = input.trustItems == null ? [] : parseTrustItems(input.trustItems);
+      if (!nextCnpj && items.some((item) => isNotaFiscalTrust(item))) {
+        throw new BadRequestException('Nota fiscal só pode aparecer com um CNPJ válido da loja');
+      }
+      data.trustItems = items.length ? items : null;
+    }
     const updated = await this.prisma.storeSettings.update({
       where: { id: 'default' },
       data: {
-        siteTitle: title.slice(0, 120),
-        siteDescription: description.slice(0, 320),
-        ogImageUrl: og,
+        siteTitle: data.siteTitle,
+        siteDescription: data.siteDescription,
+        ogImageUrl: data.ogImageUrl,
+        ...(input.cnpj !== undefined ? { cnpj: data.cnpj ?? null } : {}),
+        ...(input.promoEndsAt !== undefined ? { promoEndsAt: data.promoEndsAt ?? null } : {}),
+        ...(input.promoLines !== undefined
+          ? { promoLines: data.promoLines == null ? Prisma.DbNull : data.promoLines }
+          : {}),
+        ...(input.trustItems !== undefined
+          ? { trustItems: data.trustItems == null ? Prisma.DbNull : data.trustItems }
+          : {}),
       },
     });
     return serializeSettings(updated);
+  }
+
+  /** Published reviews of sellable products. Empty array when nobody has reviewed. */
+  async listPublicReviews(limit = 6) {
+    const take = Math.max(1, Math.min(8, Math.floor(Number(limit) || 6)));
+    const rows = await this.prisma.review.findMany({
+      where: {
+        status: 'published',
+        product: { active: true, isDemo: false },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        id: true,
+        rating: true,
+        body: true,
+        createdAt: true,
+        user: { select: { name: true } },
+        product: { select: { name: true, slug: true } },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      body: row.body,
+      createdAt: row.createdAt,
+      authorName: row.user.name,
+      productName: row.product.name,
+      productSlug: row.product.slug,
+    }));
   }
 
   async listPublicBanners() {
