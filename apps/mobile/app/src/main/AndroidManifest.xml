@@ -57,7 +57,10 @@
             android:value="lojas_schimitz_promos" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_splash_mark" />
+            android:resource="@drawable/ic_stat_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/schimitz_navy" />
 
         <activity
             android:name=".MainActivity"
