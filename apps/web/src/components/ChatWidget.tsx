@@ -106,6 +106,12 @@ export function ChatWidget() {
   }, []);
 
   useEffect(() => {
+    const onToggle = () => setOpen((v) => !v);
+    window.addEventListener('sch-ai-toggle', onToggle);
+    return () => window.removeEventListener('sch-ai-toggle', onToggle);
+  }, []);
+
+  useEffect(() => {
     if (open) bottom.current?.scrollIntoView({ behavior: 'smooth' });
   }, [open, msgs, busy]);
 
