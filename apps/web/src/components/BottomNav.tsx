@@ -100,8 +100,8 @@ export function BottomNav() {
                   className="bottom-nav-brand-ico"
                   src={item.iconSrc}
                   alt=""
-                  width={22}
-                  height={22}
+                  width={28}
+                  height={28}
                 />
               ) : item.icon ? (
                 <BottomNavGlyph id={item.icon} active={active} />

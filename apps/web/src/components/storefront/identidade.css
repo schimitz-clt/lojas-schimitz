@@ -12,7 +12,7 @@
   --id-cream: #f3ecdf;
   --id-rose: #e2b3bd;
   --id-mono: var(--font-mono), "Geist Mono", ui-monospace, monospace;
-  --tab-bar-h: 56px;
+  --tab-bar-h: 64px;
   --bg: var(--id-cream);
   --on-dark: var(--id-cream);
 }
@@ -891,10 +891,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
     min-height: var(--tab-bar-h);
-    padding: 6px 2px 4px;
+    padding: 6px 2px 5px;
     border-radius: 0;
     background: transparent;
     color: rgba(243, 236, 223, 0.62);
@@ -907,7 +907,7 @@
     overflow: visible;
     clip: auto;
     max-width: 100%;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1.1;
@@ -930,6 +930,15 @@
   }
   .bottom-nav .bottom-nav-item.active .bottom-nav-label {
     color: #e2b3bd;
+  }
+  .bottom-nav-ico {
+    width: 28px;
+    height: 28px;
+  }
+  .bottom-nav-ico svg,
+  .bottom-nav-brand-ico {
+    width: 28px;
+    height: 28px;
   }
   .bottom-nav-badge {
     background: #7a1e30;

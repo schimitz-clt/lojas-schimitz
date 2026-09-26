@@ -153,7 +153,7 @@ export function IconSparkles(props: IconProps) {
 export type BottomNavIconId = 'home' | 'search' | 'cart' | 'heart';
 
 export function BottomNavGlyph({ id, active }: { id: BottomNavIconId; active?: boolean }) {
-  const size = 22;
+  const size = 28;
   switch (id) {
     case 'home':
       return <IconHome size={size} />;

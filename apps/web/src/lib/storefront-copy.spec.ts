@@ -84,5 +84,12 @@ assert.ok(
   /\.id-pdp \.pdp-buybar\s*\{[^}]*bottom:\s*calc\(var\(--tab-bar-h\) \+ env\(safe-area-inset-bottom/.test(idMobile),
   'product buy bar sits on top of the tab bar',
 );
+assert.ok(/--tab-bar-h:\s*64px/.test(idCss), 'tab bar content is 64px before the safe area');
+assert.ok(
+  /\.bottom-nav-item\s*\{[^}]*min-height:\s*var\(--tab-bar-h\)/.test(idMobile),
+  'each tab touch target fills the bar',
+);
+assert.ok(/\.bottom-nav-label\s*\{[^}]*font-size:\s*12px/.test(idMobile), 'tab labels are 12px');
+assert.ok(/\.bottom-nav-ico\s*\{[^}]*width:\s*28px/.test(idMobile), 'tab icons are 28px');
 
 console.log('storefront-copy unit tests ok');
