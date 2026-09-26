@@ -35,7 +35,7 @@ export const viewport: Viewport = {
   /* Lets env(safe-area-inset-*) report the status bar / notch. Without this,
      notched phones and edge-to-edge WebViews draw the promo under the clock. */
   viewportFit: 'cover',
-  themeColor: '#5A1424',
+  themeColor: '#07122A',
   /* Keyboard resizes the layout instead of shoving the sticky search bar down. */
   interactiveWidget: 'resizes-content',
 };

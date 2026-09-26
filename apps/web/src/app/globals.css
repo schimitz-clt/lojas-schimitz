@@ -1,26 +1,26 @@
-/* Lojas Schimitz — loja: bordô / creme / dourado champanhe */
+/* Lojas Schimitz — loja: azul-marinho / creme / dourado champanhe */
 :root {
   --bg: #f6efe4;
   --bg2: #fffbf5;
   --card: #fffbf5;
-  --ink: #5a1424;
-  --text: #2a1218;
-  --muted: #7a655c;
+  --ink: #0b1b3a;
+  --text: #152238;
+  --muted: #3a4a63;
   --line: #e6d8c6;
   --line-strong: #c9a45c;
   --yellow: #c9a45c;
   --yellow-deep: #a8873e;
   --yellow-soft: #f3e6c8;
   --yellow-glow: rgba(201, 164, 92, 0.35);
-  --header-bg: #5a1424;
+  --header-bg: #07122a;
   --header-fg: #f6efe4;
-  --wine: #7a1e30;
+  --wine: #13284f;
   --ok: #146b34;
   --ok-soft: #e6f7ec;
   --danger: #c62828;
   --danger-soft: #fdecea;
-  --primary: #5a1424;
-  --primary-dark: #3e0e18;
+  --primary: #0b1b3a;
+  --primary-dark: #07122a;
   --primary-soft: #f3e6c8;
   --shadow: 0 1px 2px rgba(0,0,0,.03), 0 8px 24px rgba(0,0,0,.05);
   --shadow-hover: 0 14px 36px rgba(0,0,0,.1);
@@ -459,7 +459,7 @@ html.search-open .search-suggest {
 /* —— Footer —— */
 .footer {
   margin-top: 40px; border-top: 3px solid var(--yellow); padding: 32px 0 96px;
-  color: rgba(246,239,228,.78); font-size: 13.5px; background: #5a1424;
+  color: rgba(246,239,228,.78); font-size: 13.5px; background: #07122a;
 }
 .footer a { color: #fff; }
 .footer-grid { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 24px; margin-bottom: 20px; }
@@ -693,7 +693,7 @@ textarea { resize: vertical; min-height: 72px; }
   display: grid; place-items: center; text-align: center;
   background:
     radial-gradient(70% 60% at 50% 40%, rgba(201,164,92,.4), transparent 70%),
-    linear-gradient(160deg, #7a1e30, #5a1424);
+    linear-gradient(160deg, #13284f, #07122a);
   color: #fff; font-weight: 800; letter-spacing: .06em; font-size: 13px;
 }
 .home-hero-visual-ph em { font-style: normal; color: var(--yellow); }
@@ -725,7 +725,7 @@ textarea { resize: vertical; min-height: 72px; }
   border: 2.5px solid var(--ink);
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 14px rgba(90,20,36,.12);
+  box-shadow: 0 4px 14px rgba(7,18,42,.16);
 }
 .home-shortcut-ico svg {
   display: block;
@@ -770,7 +770,7 @@ textarea { resize: vertical; min-height: 72px; }
   color: var(--ink);
   display: grid; place-items: center;
   border: 2.5px solid var(--ink);
-  box-shadow: 0 4px 14px rgba(90,20,36,.12);
+  box-shadow: 0 4px 14px rgba(7,18,42,.16);
   overflow: hidden;
 }
 .cat-chip-ico-fallback {
@@ -998,7 +998,7 @@ textarea { resize: vertical; min-height: 72px; }
   aspect-ratio: var(--home-banner-aspect);
   border-radius: var(--radius-lg);
   overflow: clip;
-  background: #5a1424;
+  background: #07122a;
   box-shadow: var(--shadow);
 }
 .home-banner-track {
@@ -1036,7 +1036,7 @@ textarea { resize: vertical; min-height: 72px; }
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
-  background: #5a1424;
+  background: #07122a;
   scroll-snap-align: start;
   scroll-snap-stop: normal;
   user-select: none;
@@ -1151,7 +1151,7 @@ textarea { resize: vertical; min-height: 72px; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   background:
     radial-gradient(80% 60% at 50% 30%, rgba(201,164,92,.22), transparent 70%),
-    linear-gradient(160deg, #7a1e30 0%, #5a1424 100%);
+    linear-gradient(160deg, #13284f 0%, #07122a 100%);
   padding: 16px;
   text-align: center;
 }
@@ -1174,7 +1174,7 @@ textarea { resize: vertical; min-height: 72px; }
   letter-spacing: .02em; text-transform: uppercase; box-shadow: 0 2px 6px rgba(0,0,0,.12);
 }
 .pcard-demo {
-  background: #5a1424; color: var(--yellow);
+  background: #07122a; color: var(--yellow);
   font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 999px;
   letter-spacing: .04em; text-transform: uppercase;
 }
@@ -1182,7 +1182,7 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #5a1424;
+  background: #07122a;
   color: #f6efe4;
   font-size: 14px;
   font-weight: 700;
@@ -1341,7 +1341,7 @@ textarea { resize: vertical; min-height: 72px; }
   border: 1px solid rgba(201, 164, 92, 0.72);
   backdrop-filter: blur(16px);
   box-shadow:
-    0 18px 40px rgba(62, 14, 24, 0.18),
+    0 18px 40px rgba(7, 18, 42, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
   transform: translateX(-50%);
 }
@@ -1366,9 +1366,9 @@ textarea { resize: vertical; min-height: 72px; }
   100% { box-shadow: 0 0 0 10px rgba(201, 164, 92, 0); }
 }
 @keyframes pdp-buybar-glow {
-  0% { box-shadow: 0 18px 40px rgba(62, 14, 24, 0.18); }
-  40% { box-shadow: 0 18px 40px rgba(62, 14, 24, 0.18), 0 0 0 6px rgba(201, 164, 92, 0.35); }
-  100% { box-shadow: 0 18px 40px rgba(62, 14, 24, 0.18); }
+  0% { box-shadow: 0 18px 40px rgba(7, 18, 42, 0.22); }
+  40% { box-shadow: 0 18px 40px rgba(7, 18, 42, 0.22), 0 0 0 6px rgba(201, 164, 92, 0.35); }
+  100% { box-shadow: 0 18px 40px rgba(7, 18, 42, 0.22); }
 }
 .pdp-buybar-price { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .pdp-buybar-price strong {
@@ -2020,7 +2020,7 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: center;
   background:
     radial-gradient(80% 60% at 50% 30%, rgba(201,164,92,.22), transparent 70%),
-    linear-gradient(160deg, #7a1e30 0%, #5a1424 100%);
+    linear-gradient(160deg, #13284f 0%, #07122a 100%);
 }
 .order-card-thumb-ph-mark {
   font-size: 9px;
@@ -3147,7 +3147,7 @@ textarea { resize: vertical; min-height: 72px; }
   flex: 0 0 auto;
   border-radius: 12px;
   object-fit: cover;
-  background: #5a1424;
+  background: #07122a;
   box-shadow: 0 0 0 1px rgba(201, 164, 92, 0.55);
 }
 .acct-identity strong {
@@ -3332,9 +3332,9 @@ button.acct-textlink {
   color: #f6efe4;
   background:
     radial-gradient(90% 70% at 100% 0%, rgba(228, 201, 138, 0.42), transparent 46%),
-    radial-gradient(70% 80% at 0% 100%, rgba(122, 30, 48, 0.55), transparent 52%),
-    linear-gradient(148deg, #3e0e18 0%, #5a1424 46%, #7a1e30 100%);
-  box-shadow: 0 24px 50px rgba(62, 14, 24, 0.16);
+    radial-gradient(70% 80% at 0% 100%, rgba(19, 40, 79, 0.72), transparent 52%),
+    linear-gradient(148deg, #07122a 0%, #0b1b3a 46%, #13284f 100%);
+  box-shadow: 0 24px 50px rgba(7, 18, 42, 0.28);
 }
 .retail-stage::before {
   content: "";
@@ -3374,7 +3374,7 @@ button.acct-textlink {
 .retail-stage-install { margin: 4px 0 0; color: #f6efe4; font-size: 14px; }
 .retail-stage-install s { margin-right: 6px; }
 .retail-stage-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; }
-.retail-stage-cta { background: #f3e6c8; color: #3e0e18; }
+.retail-stage-cta { background: #f3e6c8; color: #07122a; }
 .retail-stage-cta:hover { background: #e4c98a; }
 .retail-stage-more {
   color: #f6efe4;
@@ -3537,7 +3537,7 @@ button.acct-textlink {
   padding: 4px 8px;
   border-radius: 999px;
   background: var(--yellow);
-  color: #3e0e18;
+  color: #07122a;
   font-size: 11px;
   font-weight: 800;
 }
@@ -3547,7 +3547,7 @@ button.acct-textlink {
 .retail-tile h3 a { font-family: var(--font-display), Georgia, serif; color: var(--ink); }
 .retail-price { margin: 0; display: flex; align-items: baseline; gap: 6px; }
 .retail-price strong { font-size: clamp(28px, 4vw, 40px); font-weight: 600; color: var(--ink); }
-.retail-price span, .retail-install { margin: 0; color: #5c463c; font-size: 13px; }
+.retail-price span, .retail-install { margin: 0; color: #3a4a63; font-size: 13px; }
 .retail-install s { margin-right: 6px; }
 .retail-buy { justify-self: start; margin-top: 8px; }
 .retail-buy:active { transform: scale(0.97); }
@@ -3569,7 +3569,7 @@ button.acct-textlink {
 }
 .retail-trust li:last-child { border-bottom: 0; }
 .retail-trust strong { color: var(--ink); font-size: 15px; letter-spacing: -0.02em; }
-.retail-trust span { color: #5c463c; font-size: 13px; line-height: 1.4; }
+.retail-trust span { color: #3a4a63; font-size: 13px; line-height: 1.4; }
 .retail-reviews ul { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 18px; }
 .retail-reviews li {
   padding: 0 0 8px;
@@ -3582,7 +3582,7 @@ button.acct-textlink {
   line-height: 1.15;
   color: var(--ink);
 }
-.retail-reviews span { color: #5c463c; font-size: 13px; }
+.retail-reviews span { color: #3a4a63; font-size: 13px; }
 .retail-stars { color: #8a6a2f; letter-spacing: 2px; }
 .retail-stars span { color: #e6d8c6; }
 .retail-reveal:not(.is-in) { opacity: 0; transform: translateY(18px); }

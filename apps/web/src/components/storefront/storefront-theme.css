@@ -8,9 +8,9 @@
   --sf-bg: #f6efe4;
   --sf-surface: #fffbf5;
   --sf-surface-2: #f6efe4;
-  --sf-ink: #5a1424;
-  --sf-text: #2a1218;
-  --sf-muted: #7a655c;
+  --sf-ink: #0b1b3a;
+  --sf-text: #152238;
+  --sf-muted: #3a4a63;
   --sf-line: #e6d8c6;
   --sf-line-strong: #c9a45c;
   --sf-yellow: #c9a45c;
@@ -226,7 +226,7 @@
 .pcard-ph {
   background:
     radial-gradient(80% 60% at 50% 30%, rgba(201, 164, 92, 0.22), transparent 70%),
-    linear-gradient(160deg, #7a1e30 0%, #5a1424 100%);
+    linear-gradient(160deg, #13284f 0%, #07122a 100%);
 }
 
 .pcard-title {
