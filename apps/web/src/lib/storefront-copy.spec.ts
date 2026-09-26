@@ -34,7 +34,7 @@ assert.ok(
 const bottomNav = readFileSync(join(__dirname, '..', 'components/BottomNav.tsx'), 'utf8');
 assert.ok(/label: 'Início'/.test(bottomNav), 'bottom tab Início');
 assert.ok(/label: 'Buscar'/.test(bottomNav), 'catalog tab uses the short Buscar label');
-assert.ok(!/label: 'Departamentos'/.test(bottomNav), 'catalog tab label fits the glass pill');
+assert.ok(!/label: 'Departamentos'/.test(bottomNav), 'catalog tab uses a short label');
 assert.ok(/href: '\/produtos'/.test(bottomNav), 'Buscar opens the existing catalog');
 assert.ok(/label: 'Sacola'/.test(bottomNav), 'cart tab is Sacola');
 assert.ok(/href: '\/carrinho'/.test(bottomNav), 'Sacola keeps the cart route');
@@ -49,16 +49,40 @@ const idCss = readFileSync(join(__dirname, '..', 'components/storefront/identida
 const idMobile = idCss.slice(idCss.indexOf('@media (max-width: 720px)'));
 assert.ok(idMobile.startsWith('@media (max-width: 720px)'), 'identidade mobile block');
 assert.ok(
-  /\.bottom-nav \.bottom-nav-item\.active\s*\{[^}]*container-type:\s*normal/.test(idMobile),
-  'active pill drops inline-size containment so icon and label set its width',
+  /\.bottom-nav\s*\{[^}]*background:\s*#07122a/.test(idMobile),
+  'tab bar is solid navy',
 );
 assert.ok(
-  /\.bottom-nav \.bottom-nav-item\.active\s*\{[^}]*width:\s*max-content/.test(idMobile),
-  'active pill grows to the short label',
+  /\.bottom-nav\s*\{[^}]*border-radius:\s*0/.test(idMobile),
+  'tab bar is flat and edge-to-edge',
 );
 assert.ok(
-  /\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(120px \+ env\(safe-area-inset-bottom/.test(idMobile),
-  'page content clears the floating dock and safe area',
+  /\.bottom-nav\s*\{[^}]*padding-bottom:\s*env\(safe-area-inset-bottom/.test(idMobile),
+  'tab bar pads the safe area',
+);
+assert.ok(
+  !/\.bottom-nav-dock\s*\{[^}]*border-radius:\s*28px/.test(idCss),
+  'nav row is not a floating pill',
+);
+assert.ok(
+  /\.bottom-nav-label\s*\{[^}]*position:\s*static/.test(idMobile),
+  'every tab shows its label under the icon',
+);
+assert.ok(
+  !/\.bottom-nav-item:not\(\.active\) \.bottom-nav-label/.test(idMobile),
+  'inactive labels stay visible',
+);
+assert.ok(
+  /\.chatw-fab\s*\{[^}]*display:\s*none/.test(idMobile),
+  'mobile AI control is not a floating circle',
+);
+assert.ok(
+  /\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(var\(--tab-bar-h\) \+ env\(safe-area-inset-bottom/.test(idMobile),
+  'page content clears the tab bar and safe area',
+);
+assert.ok(
+  /\.id-pdp \.pdp-buybar\s*\{[^}]*bottom:\s*calc\(var\(--tab-bar-h\) \+ env\(safe-area-inset-bottom/.test(idMobile),
+  'product buy bar sits on top of the tab bar',
 );
 
 console.log('storefront-copy unit tests ok');

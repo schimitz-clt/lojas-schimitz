@@ -12,6 +12,7 @@
   --id-cream: #f3ecdf;
   --id-rose: #e2b3bd;
   --id-mono: var(--font-mono), "Geist Mono", ui-monospace, monospace;
+  --tab-bar-h: 56px;
   --bg: var(--id-cream);
   --on-dark: var(--id-cream);
 }
@@ -695,7 +696,7 @@
   color: var(--id-cream);
 }
 
-/* Floating dock sits inside the full-width bar the layout already docks to the screen edge. */
+/* Tab row inside the edge-to-edge bar. It has no chrome of its own. */
 .pcard-ph,
 .home-hero-visual-ph,
 .pdp-carousel-ph {
@@ -725,21 +726,21 @@
 .bottom-nav-dock {
   pointer-events: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: min(420px, calc(100% - 20px));
-  margin: 0 auto 8px;
-  min-height: 56px;
-  padding: 6px;
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgba(28, 50, 96, 0.62), rgba(7, 18, 42, 0.72));
-  border: 0.5px solid rgba(243, 236, 223, 0.18);
-  box-shadow:
-    0 24px 48px -20px rgba(0, 0, 0, 0.75),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 0;
+  width: 100%;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.hdr-ai {
+  display: none;
 }
 
 .id-reveal {
@@ -803,9 +804,13 @@
 
 @media (max-width: 720px) {
   .header .logo .id-wordmark { display: none; }
-  /* Floating pill is taller than the old 64px bar. Keep the tested 80px rule in globals and clear the dock here. */
+  .header .hdr-ai {
+    display: inline-flex;
+    color: var(--id-cream);
+  }
+  /* Clear the fixed tab bar. Globals keeps the tested 80px rule; this matches the real bar. */
   .main-shell {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
   }
   .id-abertura {
     padding-bottom: 18px;
@@ -820,99 +825,114 @@
   .id-lcp {
     max-height: 150px;
   }
-  .sf-catalog .pcard-media {
-    aspect-ratio: auto;
-    height: 92px;
-  }
   .id-pdp .pdp-buybar {
-    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
     z-index: 31;
   }
-  .chatw {
-    right: 8px;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    z-index: 33;
-  }
   .chatw-fab {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    padding: 0;
+    display: none;
   }
-  .chatw-fab-word {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .chatw {
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 35;
+    align-items: stretch;
+  }
+  .chatw-panel {
+    width: 100%;
+    height: min(68dvh, 520px);
+    border-radius: 16px 16px 0 0;
   }
   body:has(.pdp) .chatw,
   body:has(.id-pdp) .chatw {
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--tab-bar-h) + 64px + env(safe-area-inset-bottom, 0px));
   }
   .bottom-nav {
-    background: transparent;
-    border-top: 0;
-    justify-content: flex-start;
-    align-items: flex-end;
-    gap: 8px;
-    padding-left: 10px;
-    padding-right: 58px;
-    pointer-events: none;
+    background: #07122a;
+    color: var(--id-cream);
+    border-radius: 0;
+    border-top: 1px solid rgba(243, 236, 223, 0.16);
     box-shadow: none;
+    margin: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    min-height: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 0;
+    pointer-events: auto;
+    backdrop-filter: none;
   }
   .bottom-nav-dock {
-    width: auto;
+    width: 100%;
     flex: 1 1 auto;
-    margin: 0 0 6px;
+    margin: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
   .bottom-nav-item {
-    flex: 0 1 auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    min-width: 44px;
-    min-height: 44px;
-    border-radius: 22px;
-    color: rgba(243, 236, 223, 0.78);
-  }
-  .bottom-nav .bottom-nav-item.active {
-    /* inline-size containment (globals) ignores the label, so the cream pill
-       collapsed to its padding and the word spilled out without the icon. */
     container-type: normal;
-    flex: 0 0 auto;
-    width: max-content;
-    max-width: none;
-    min-width: max-content;
-    overflow: visible;
-    background: var(--id-cream);
-    color: var(--id-navy);
-    padding: 0 12px 0 8px;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: var(--tab-bar-h);
+    padding: 6px 2px 4px;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(243, 236, 223, 0.62);
   }
-  .bottom-nav .bottom-nav-item.active .bottom-nav-ico {
-    color: var(--id-navy);
-  }
-  .bottom-nav .bottom-nav-item.active .bottom-nav-label {
+  .bottom-nav-label {
     position: static;
     width: auto;
     height: auto;
     margin: 0;
     overflow: visible;
     clip: auto;
-    font-size: 13px;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: var(--id-navy);
+    max-width: 100%;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    text-align: center;
+    color: inherit;
   }
-  .bottom-nav-item:not(.active) .bottom-nav-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+  .bottom-nav .bottom-nav-item.active {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    background: transparent;
+    color: var(--id-cream);
+    padding: 6px 2px 4px;
+    box-shadow: inset 0 2px 0 #7a1e30;
+  }
+  .bottom-nav .bottom-nav-item.active .bottom-nav-ico {
+    color: var(--id-cream);
+  }
+  .bottom-nav .bottom-nav-item.active .bottom-nav-label {
+    color: #e2b3bd;
+  }
+  .bottom-nav-badge {
+    background: #7a1e30;
+    color: var(--id-cream);
   }
 }

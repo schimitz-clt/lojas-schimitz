@@ -19,7 +19,7 @@ import {
   persistStoredCep,
   readStoredCep,
 } from '@/lib/pdp-trust';
-import { IconBell, IconCart, IconHeart, IconUser } from '@/components/icons/StorefrontIcons';
+import { IconBell, IconCart, IconHeart, IconSparkles, IconUser } from '@/components/icons/StorefrontIcons';
 import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 import {
   catalogSearchBackHref,
@@ -257,6 +257,17 @@ export function Header() {
             )}
 
             <div className="actions">
+              <button
+                type="button"
+                className="hdr-link hdr-ai"
+                aria-label="Abrir Schimitz AI"
+                onClick={() => window.dispatchEvent(new Event('sch-ai-toggle'))}
+              >
+                <span className="hdr-link-ico" aria-hidden>
+                  <IconSparkles size={17} />
+                </span>
+                <span className="hdr-link-label">AI</span>
+              </button>
               <Link className="hdr-link hdr-hide-sm" href={user ? '/conta' : '/entrar'} prefetch={true}>
                 <span className="hdr-link-ico" aria-hidden>
                   <IconUser size={17} />
