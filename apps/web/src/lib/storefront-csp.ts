@@ -41,6 +41,8 @@ export const CSP_SCRIPT_HOSTS = [
   'https://http2.mlstatic.com',
   'https://*.mlstatic.com',
   'https://applepay.cdn-apple.com',
+  'https://www.googletagmanager.com',
+  'https://connect.facebook.net',
 ] as const;
 
 /** XHR/fetch/WebSocket hosts (API same-origin via 'self'; MP + ViaCEP). */
@@ -59,6 +61,12 @@ export const CSP_CONNECT_HOSTS = [
   'https://http2.mlstatic.com',
   'https://*.mlstatic.com',
   'https://viacep.com.br',
+  'https://www.google-analytics.com',
+  'https://*.google-analytics.com',
+  'https://*.analytics.google.com',
+  'https://www.googletagmanager.com',
+  'https://www.facebook.com',
+  'https://connect.facebook.net',
 ] as const;
 
 /** Local-only connect (never in production enforce). */

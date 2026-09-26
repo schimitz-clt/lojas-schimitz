@@ -17,6 +17,32 @@ export class CreateOrderDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   cashbackAmount?: number;
+
+  /** Atribuição opcional. Valores inválidos viram null e não impedem o pedido. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  utmSource?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  utmMedium?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  utmCampaign?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  utmContent?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  utmTerm?: string;
 }
 
 /** Admin: avanço manual de fulfillment (entrega própria). */

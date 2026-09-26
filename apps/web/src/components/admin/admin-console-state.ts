@@ -22,6 +22,18 @@ import {
 import { isPlaceholderImageUrl } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
+  boxContentsToText,
+  faqToText,
+  featuresToText,
+  highlightsToText,
+  textToBoxContents,
+  textToFaq,
+  textToFeatures,
+  textToHighlights,
+  textToTrustItems,
+  trustItemsToText,
+} from '@/lib/product-story';
+import {
   buildAdminOrdersQueryPath,
   shouldServerOrderSearch,
 } from '@/lib/admin-order-search';
@@ -183,7 +195,15 @@ export function useAdminConsoleState() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
-  const [seoForm, setSeoForm] = useState({ siteTitle: 'Lojas Schimitz', siteDescription: '', ogImageUrl: '' });
+  const [seoForm, setSeoForm] = useState({
+    siteTitle: 'Lojas Schimitz',
+    siteDescription: '',
+    ogImageUrl: '',
+    cnpj: '',
+    promoEndsAt: '',
+    promoLines: '',
+    trustItems: '',
+  });
   const [savingSeo, setSavingSeo] = useState(false);
   const [banners, setBanners] = useState<AdminBanner[]>([]);
   const [bannerForm, setBannerForm] = useState<BannerForm>(emptyBannerForm());
@@ -307,6 +327,10 @@ export function useAdminConsoleState() {
           siteTitle: seo.siteTitle || 'Lojas Schimitz',
           siteDescription: seo.siteDescription || '',
           ogImageUrl: seo.ogImageUrl || '',
+          cnpj: seo.cnpj || '',
+          promoEndsAt: seo.promoEndsAt ? seo.promoEndsAt.slice(0, 16) : '',
+          promoLines: Array.isArray(seo.promoLines) ? seo.promoLines.join('\n') : '',
+          trustItems: trustItemsToText(seo.trustItems),
         });
         setBanners(bannersList);
         setAdmins(adminsList);
@@ -800,6 +824,10 @@ export function useAdminConsoleState() {
       active: !!p.active,
       imageUrl: imgs[0]?.url || '',
       badge: p.badge || '',
+      highlightsText: highlightsToText(p.highlights || []),
+      featuresText: featuresToText(p.features || []),
+      boxText: boxContentsToText(p.boxContents || []),
+      faqText: faqToText(p.faq || []),
     });
   }
 
@@ -1109,6 +1137,10 @@ export function useAdminConsoleState() {
       sellerId: form.sellerId || null,
       badge: form.badge.trim() || null,
       compareAtPrice,
+      highlights: textToHighlights(form.highlightsText),
+      features: textToFeatures(form.featuresText),
+      boxContents: textToBoxContents(form.boxText),
+      faq: textToFaq(form.faqText),
     };
     if (form.sku.trim()) body.sku = form.sku.trim();
     // Edit: omit imageUrl entirely (empty string used to wipe ProductImage rows).
@@ -1813,12 +1845,24 @@ export function useAdminConsoleState() {
           siteTitle: seoForm.siteTitle.trim(),
           siteDescription: seoForm.siteDescription.trim(),
           ogImageUrl: seoForm.ogImageUrl.trim() || null,
+          cnpj: seoForm.cnpj.trim() || null,
+          promoEndsAt: seoForm.promoEndsAt.trim() ? new Date(seoForm.promoEndsAt).toISOString() : null,
+          promoLines: seoForm.promoLines
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 4),
+          trustItems: textToTrustItems(seoForm.trustItems),
         }),
       });
       setSeoForm({
         siteTitle: data.siteTitle,
         siteDescription: data.siteDescription,
         ogImageUrl: data.ogImageUrl || '',
+        cnpj: data.cnpj || '',
+        promoEndsAt: data.promoEndsAt ? data.promoEndsAt.slice(0, 16) : '',
+        promoLines: Array.isArray(data.promoLines) ? data.promoLines.join('\n') : '',
+        trustItems: trustItemsToText(data.trustItems),
       });
       setMsg('SEO da loja salvo.');
     } catch (err: any) {

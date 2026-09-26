@@ -26,6 +26,7 @@ import { recordAbandonedProductView } from '@/lib/abandoned-product-view';
 import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/ProductShareButton';
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
+import { ProductStory } from '@/components/ProductStory';
 import type { Product } from '@/components/ProductCard';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
@@ -57,6 +58,10 @@ export type ProductDetail = {
   category?: { slug: string; name: string } | null;
   sku?: string | null;
   isDemo?: boolean | null;
+  highlights?: unknown;
+  features?: unknown;
+  boxContents?: unknown;
+  faq?: unknown;
   weightKg?: number | string | null;
   widthCm?: number | string | null;
   heightCm?: number | string | null;
@@ -347,17 +352,15 @@ export default function ProductPage({
             {p.badge ? <div className="badge">{p.badge}</div> : null}
             <div className="pdp-title-row">
               <h1 className="pdp-title">{p.name}</h1>
-              <div className="pdp-rating">
-                <span className="pdp-rating-score">
-                  {count > 0 ? avg.toFixed(1).replace('.', ',') : '—'}
-                </span>
-                <Stars value={Math.round(avg)} size={14} />
-                <span className="pdp-rating-meta muted">
-                  {count > 0
-                    ? `${count} avaliação${count === 1 ? '' : 'ões'}`
-                    : 'Sem avaliações'}
-                </span>
-              </div>
+              {count > 0 ? (
+                <div className="pdp-rating">
+                  <span className="pdp-rating-score">{avg.toFixed(1).replace('.', ',')}</span>
+                  <Stars value={Math.round(avg)} size={14} />
+                  <span className="pdp-rating-meta muted">
+                    {count} avaliação{count === 1 ? '' : 'ões'}
+                  </span>
+                </div>
+              ) : null}
               <ProductWhatsAppShareButton
                 productName={p.name}
                 productSlug={p.slug}
@@ -444,6 +447,8 @@ export default function ProductPage({
               ) : null}
             </div>
           ) : null}
+
+          <ProductStory product={p} />
 
           <p className={`pdp-stock${urgency ? ' pdp-stock-low' : stock != null && stock <= 0 ? ' pdp-stock-out' : ''}`}>
             {urgency ? <span className="pcard-stock pcard-stock-low">{urgency}</span> : null}{' '}
@@ -540,6 +545,7 @@ export default function ProductPage({
         </div>
       </div>
 
+      {reviews.length || eligibility?.canReview ? (
       <section className="card pdp-reviews" style={{ marginTop: 28 }}>
         <div className="body">
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Avaliações</h2>
@@ -607,17 +613,20 @@ export default function ProductPage({
                 {r.body ? <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p> : null}
               </div>
             ))}
-            {!reviews.length ? (
-              <div className="pdp-reviews-empty">
-                <p style={{ margin: 0, fontWeight: 700 }}>Ainda não há avaliações</p>
-                <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
-                  Seja o primeiro a contar como foi a experiência com este produto após a compra.
-                </p>
-              </div>
-            ) : null}
           </div>
         </div>
       </section>
+      ) : null}
+
+      <div className="pdp-buybar">
+        <div className="pdp-buybar-price">
+          <strong>{brl(pix)}</strong>
+          <span>no PIX</span>
+        </div>
+        <button className="btn pdp-buybar-cta" type="button" onClick={buyNow} disabled={buyBlocked || adding}>
+          {buyNowLabel({ outOfStock, adding, demo })}
+        </button>
+      </div>
 
       {relatedSlot ?? (
         <PdpRelatedProducts

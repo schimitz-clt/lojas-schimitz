@@ -7,12 +7,14 @@ import { ProductCard, Product } from '@/components/ProductCard';
 import { HomeBanners } from '@/components/HomeBanners';
 import { HomeShortcuts } from '@/components/HomeShortcuts';
 import { HomeShelves } from '@/components/HomeShelves';
+import { RetailHome } from '@/components/RetailHome';
 import { ComingSoonShelf } from '@/components/ComingSoonShelf';
 import { TrustBadges } from '@/components/TrustBadges';
 import { ProductGridSkeleton } from '@/components/Skeleton';
 import { HOME_CATEGORIES, categoryChipLabelLines, categoryCircleSrc } from '@/lib/category-visual';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
+import { sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
 import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
 import {
   parseHomeShelvesPayload,
@@ -84,6 +86,8 @@ function CategoryStrip({ products }: { products: Product[] }) {
 function HomeInner() {
   const q = useSearchParams().get('q') || '';
   const [products, setProducts] = useState<Product[]>([]);
+  const [retailProducts, setRetailProducts] = useState<Product[] | null>(null);
+  const [homeMode, setHomeMode] = useState<'pending' | 'retail' | 'market'>('pending');
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
   const [err, setErr] = useState('');
@@ -93,6 +97,8 @@ function HomeInner() {
     setLoading(true);
     setErr('');
     setActiveCount(null);
+    setHomeMode('pending');
+    setRetailProducts(null);
     const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
     let cancelled = false;
     (async () => {
@@ -104,8 +110,25 @@ function HomeInner() {
         setActiveCount(activeProductCountFromCatalog(catalog));
         if (q) {
           setShelves(null);
+          setHomeMode('market');
           return;
         }
+        if (shouldUseRetailHome(sellableCountFromCatalog(catalog))) {
+          let focused = items.filter((item) => item.isDemo !== true);
+          try {
+            const focusedRes = await api<Product[] | ListResponse>('/products?sellable=1&pageSize=5&sort=newest');
+            const focusedItems = Array.isArray(focusedRes) ? focusedRes : focusedRes.items || [];
+            focused = focusedItems.filter((item) => item.isDemo !== true);
+          } catch {
+            /* the first page is enough when the sellable call fails */
+          }
+          if (cancelled) return;
+          setRetailProducts(focused.slice(0, 5));
+          setShelves(null);
+          setHomeMode('retail');
+          return;
+        }
+        setHomeMode('market');
         try {
           const payload = await api<unknown>('/store/shelves');
           if (cancelled) return;
@@ -119,6 +142,8 @@ function HomeInner() {
         if (cancelled) return;
         setErr(e instanceof Error ? e.message : 'Erro ao carregar');
         setProducts([]);
+        setRetailProducts(null);
+        setHomeMode('market');
         setActiveCount(null);
         setShelves(null);
       } finally {
@@ -169,6 +194,14 @@ function HomeInner() {
         <RecentlyViewedStrip />
       </>
     );
+  }
+
+  if (!q && homeMode === 'pending') {
+    return <ProductGridSkeleton count={4} />;
+  }
+
+  if (!q && homeMode === 'retail') {
+    return <RetailHome products={retailProducts || []} />;
   }
 
   return (

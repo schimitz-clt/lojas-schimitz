@@ -43,13 +43,16 @@ export class CatalogController {
     @Query('seller') seller?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '24',
+    @Query('sellable') sellable?: string,
   ) {
     const listWindow = catalogListWindow(page, pageSize);
     const take = listWindow.pageSize;
     const pageNum = listWindow.page;
     const skip = listWindow.skip;
     const sortKey = parseSort(sort);
-    const where = buildProductWhere({ q, category, minPrice, maxPrice, seller });
+    const baseWhere = buildProductWhere({ q, category, minPrice, maxPrice, seller });
+    const sellableOnly = sellable === '1' || sellable === 'true';
+    const where = sellableOnly ? sellableProductWhere(baseWhere) : baseWhere;
     const orderBy = buildProductOrderBy(sortKey);
 
     // total = catálogo de navegação (active, inclui DEMO). sellableTotal = active && !isDemo.

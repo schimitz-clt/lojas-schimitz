@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
+import { UtmCapture } from '@/components/UtmCapture';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BottomNav } from '@/components/BottomNav';
 import { ChatWidget } from '@/components/ChatWidget';
@@ -31,6 +32,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
       <FavoritesProvider>
         <NavigationProgress />
         <Suspense fallback={null}>
+          <UtmCapture />
           <Header />
         </Suspense>
         <main className="wrap main-shell">{children}</main>

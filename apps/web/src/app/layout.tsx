@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Cormorant_Garamond, Plus_Jakarta_Sans } from 'next/font/google';
+import { MarketingPixels } from '@/components/MarketingPixels';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
@@ -17,6 +18,13 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+const display = Cormorant_Garamond({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+  weight: ['500', '600', '700'],
+});
+
 /** Page/layout zoom locked like Magalu-style storefronts (pinch + double-tap).
  *  PDP photo enlarge remains the lightbox ("Ampliar"), not browser zoom. */
 export const viewport: Viewport = {
@@ -27,7 +35,7 @@ export const viewport: Viewport = {
   /* Lets env(safe-area-inset-*) report the status bar / notch. Without this,
      notched phones and edge-to-edge WebViews draw the promo under the clock. */
   viewportFit: 'cover',
-  themeColor: '#0a0a0a',
+  themeColor: '#5A1424',
   /* Keyboard resizes the layout instead of shoving the sticky search bar down. */
   interactiveWidget: 'resizes-content',
 };
@@ -84,8 +92,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     telephone: storeWhatsAppDigits(process.env.NEXT_PUBLIC_WHATSAPP),
   });
   return (
-    <html lang="pt-BR" className={jakarta.variable}>
+    <html lang="pt-BR" className={`${jakarta.variable} ${display.variable}`}>
       <body className={jakarta.className}>
+        <MarketingPixels />
         <JsonLd data={jsonLd} />
         <SessionHydrator>
           <StorefrontChrome>{children}</StorefrontChrome>

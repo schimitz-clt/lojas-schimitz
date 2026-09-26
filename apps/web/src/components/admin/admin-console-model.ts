@@ -160,6 +160,10 @@ export type AdminProduct = {
   images?: { id: string; url: string; position?: number; alt?: string }[];
   sellerId?: string | null;
   seller?: { id: string; name: string; slug: string; status?: string } | null;
+  highlights?: string[] | null;
+  features?: { label: string; value: string }[] | null;
+  boxContents?: string[] | null;
+  faq?: { question: string; answer: string }[] | null;
 };
 
 export type FormImage = { id?: string; url: string; position: number };
@@ -178,6 +182,10 @@ export type ProductForm = {
   active: boolean;
   imageUrl: string;
   badge: string;
+  highlightsText: string;
+  featuresText: string;
+  boxText: string;
+  faqText: string;
 };
 
 export const emptyForm = (): ProductForm => ({
@@ -192,6 +200,10 @@ export const emptyForm = (): ProductForm => ({
   active: true,
   imageUrl: '',
   badge: '',
+  highlightsText: '',
+  featuresText: '',
+  boxText: '',
+  faqText: '',
 });
 
 
@@ -265,6 +277,10 @@ export type StoreSeoSettings = {
   siteTitle: string;
   siteDescription: string;
   ogImageUrl: string | null;
+  cnpj?: string | null;
+  promoEndsAt?: string | null;
+  promoLines?: string[] | null;
+  trustItems?: { title: string; body: string }[] | null;
 };
 
 export type AdminBanner = {

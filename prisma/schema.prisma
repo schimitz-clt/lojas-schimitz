@@ -217,6 +217,14 @@ model Product {
   name           String
   slug           String            @unique
   description    String            @default("")
+  /** Frases curtas reais (benefícios). Vazio = a vitrine não mostra a seção. */
+  highlights     Json?
+  /** Pares rótulo/valor reais (especificações). */
+  features       Json?
+  /** Itens reais da caixa. Vazio = não renderiza "O que vem na caixa". */
+  boxContents    Json?
+  /** Perguntas e respostas reais do produto. */
+  faq            Json?
   sellerId       String
   seller         Seller            @relation(fields: [sellerId], references: [id])
   categoryId     String?
@@ -335,6 +343,12 @@ model Order {
   trackingCode         String?
   reservationExpiresAt DateTime?
   idempotencyKey       String?
+  /** Atribuição de mídia paga. Nulos quando o anúncio não trouxe UTM. */
+  utmSource            String?     @db.VarChar(80)
+  utmMedium            String?     @db.VarChar(80)
+  utmCampaign          String?     @db.VarChar(120)
+  utmContent           String?     @db.VarChar(120)
+  utmTerm              String?     @db.VarChar(120)
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -546,6 +560,14 @@ model StoreSettings {
   siteTitle       String   @default("Lojas Schimitz")
   siteDescription String   @default("Tudo o que você precisa. No padrão das grandes. Eletro, celulares e casa em Porto Alegre.")
   ogImageUrl      String?
+  /** CNPJ somente dígitos. Nota fiscal na vitrine só existe com este valor. */
+  cnpj            String?  @db.VarChar(18)
+  /** Fim real de uma promo configurada. Sem data, a home não mostra contagem. */
+  promoEndsAt     DateTime?
+  /** Faixa do topo. Nulo = textos padrão verdadeiros (frete POA, PIX, parcelas). */
+  promoLines      Json?
+  /** Faixa de confiança. Nulo = frete, compra segura e troca. Nota fiscal é filtrada sem CNPJ. */
+  trustItems      Json?
   updatedAt       DateTime @updatedAt
 }
 
