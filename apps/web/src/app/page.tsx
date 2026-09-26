@@ -11,8 +11,11 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-/** Real sellable catalog for the editorial hero. Null keeps the marketplace home. */
-async function loadRetailProducts(): Promise<Product[] | null> {
+/**
+ * First sellable products for the abertura (at most five).
+ * The boutique home still replaces the marketplace only when the catalog is 1–5.
+ */
+async function loadSellablePreview(): Promise<{ products: Product[]; retail: boolean } | null> {
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
   try {
     const res = await fetch(`${api}/products?sellable=1&pageSize=5&sort=newest`, {
@@ -21,7 +24,7 @@ async function loadRetailProducts(): Promise<Product[] | null> {
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: unknown };
     const data = json?.data ?? json;
-    if (!shouldUseRetailHome(sellableCountFromCatalog(data))) return null;
+    const retail = shouldUseRetailHome(sellableCountFromCatalog(data));
     const items = (Array.isArray(data) ? data : ((data as { items?: Product[] } | null)?.items ?? [])).filter(
       (item) => item && item.isDemo !== true,
     );
@@ -29,7 +32,7 @@ async function loadRetailProducts(): Promise<Product[] | null> {
     if (!products.length) return null;
     const img = resolveProductImageUrl(products[0]);
     if (img) preload(img, { as: 'image', fetchPriority: 'high' });
-    return products;
+    return { products, retail };
   } catch {
     return null;
   }
@@ -41,11 +44,12 @@ export default async function Page({
   searchParams?: Promise<{ q?: string }>;
 }) {
   const q = (await searchParams)?.q || '';
-  const initialRetail = q ? null : await loadRetailProducts();
+  const preview = q ? null : await loadSellablePreview();
+  const products = preview?.products ?? null;
   return (
     <>
-      {initialRetail?.length ? <EditorialStage products={initialRetail} /> : null}
-      <HomePage initialRetail={initialRetail} suppressStage={!!initialRetail?.length} />
+      {products?.length ? <EditorialStage products={products} /> : null}
+      <HomePage initialRetail={preview?.retail ? products : null} suppressStage={!!products?.length} />
     </>
   );
 }

@@ -89,6 +89,10 @@ assert.ok(!campaign.includes('Cinema em casa'), 'campaign source has no mock hea
 assert.ok(campaign.includes('installmentLine'), 'campaign uses the real installment helper');
 assert.ok(campaign.includes('formatWhatsAppDisplay'), 'campaign shows the store WhatsApp');
 
+const page = readFileSync(join(src, 'app/page.tsx'), 'utf8');
+assert.ok(page.includes('shouldUseRetailHome'), 'boutique home still uses the 1–5 catalog gate');
+assert.ok(page.includes('EditorialStage'), 'abertura renders the sellable preview');
+
 const home = readFileSync(join(src, 'components/RetailHome.tsx'), 'utf8');
 assert.ok(home.includes('pixPrice'), 'home price is the PIX helper');
 assert.ok(home.includes('installmentLine'), 'home installments are the real rule');

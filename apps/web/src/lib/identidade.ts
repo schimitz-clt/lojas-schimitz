@@ -59,7 +59,7 @@ export function posterToken(name: string | null | undefined): string | null {
     .replace(/\s+/g, ' ');
   if (!clean) return null;
   const sized = clean.match(
-    /\d+(?:[.,]\d+)?\s?(?:"|”|″|pol(?:egadas)?|mm|cm|gb|tb|hz|khz|w|mah)\b/i,
+    /\d+(?:[.,]\d+)?\s?(?:"|”|″|(?:pol(?:egadas)?|mm|cm|gb|tb|k?hz|mah|w)\b)/i,
   );
   if (sized) {
     return sized[0]

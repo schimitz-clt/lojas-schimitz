@@ -373,7 +373,7 @@ export default function ProductPage({
           <div className="pdp-identity">
             {p.badge ? <div className="badge">{p.badge}</div> : null}
             <div className="pdp-title-row">
-              <h1 className="pdp-title id-display">
+              <h1 className="pdp-title">
                 {headline.lead}
                 {headline.accent ? <i> {headline.accent}</i> : null}
               </h1>
