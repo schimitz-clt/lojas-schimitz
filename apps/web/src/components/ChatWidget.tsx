@@ -213,7 +213,7 @@ export function ChatWidget() {
             <span className="chatw-fab-ico" aria-hidden>
               <IconSparkles size={16} />
             </span>
-            AI
+            <span className="chatw-fab-word">AI</span>
           </>
         )}
       </button>

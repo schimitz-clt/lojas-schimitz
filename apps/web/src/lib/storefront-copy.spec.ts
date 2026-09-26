@@ -33,8 +33,9 @@ assert.ok(
 
 const bottomNav = readFileSync(join(__dirname, '..', 'components/BottomNav.tsx'), 'utf8');
 assert.ok(/label: 'Início'/.test(bottomNav), 'bottom tab Início');
-assert.ok(/label: 'Departamentos'/.test(bottomNav), 'catalog tab is Departamentos');
-assert.ok(/href: '\/produtos'/.test(bottomNav), 'Departamentos opens the existing catalog');
+assert.ok(/label: 'Buscar'/.test(bottomNav), 'catalog tab uses the short Buscar label');
+assert.ok(!/label: 'Departamentos'/.test(bottomNav), 'catalog tab label fits the glass pill');
+assert.ok(/href: '\/produtos'/.test(bottomNav), 'Buscar opens the existing catalog');
 assert.ok(/label: 'Sacola'/.test(bottomNav), 'cart tab is Sacola');
 assert.ok(/href: '\/carrinho'/.test(bottomNav), 'Sacola keeps the cart route');
 assert.ok(/label: 'Favoritos'/.test(bottomNav), 'wishlist tab is Favoritos');
@@ -43,5 +44,21 @@ assert.ok(/label: 'Conta'/.test(bottomNav), 'bottom tab bar keeps Conta');
 assert.ok(/contaHref/.test(bottomNav), 'bottom Conta still uses contaHref');
 assert.ok(/contaHref = '\/conta'/.test(bottomNav), 'bottom Conta always opens the /conta hub');
 assert.ok(/sch-cart-updated/.test(bottomNav), 'Sacola badge still listens for cart updates');
+
+const idCss = readFileSync(join(__dirname, '..', 'components/storefront/identidade.css'), 'utf8');
+const idMobile = idCss.slice(idCss.indexOf('@media (max-width: 720px)'));
+assert.ok(idMobile.startsWith('@media (max-width: 720px)'), 'identidade mobile block');
+assert.ok(
+  /\.bottom-nav \.bottom-nav-item\.active\s*\{[^}]*container-type:\s*normal/.test(idMobile),
+  'active pill drops inline-size containment so icon and label set its width',
+);
+assert.ok(
+  /\.bottom-nav \.bottom-nav-item\.active\s*\{[^}]*width:\s*max-content/.test(idMobile),
+  'active pill grows to the short label',
+);
+assert.ok(
+  /\.main-shell\s*\{[^}]*padding-bottom:\s*calc\(120px \+ env\(safe-area-inset-bottom/.test(idMobile),
+  'page content clears the floating dock and safe area',
+);
 
 console.log('storefront-copy unit tests ok');
