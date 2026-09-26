@@ -16,7 +16,7 @@ import { pdpSharePixLabel } from '@/lib/pdp-share';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { buyNowLabel, pdpBuyNowHref, pixHighlight } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
-import { resolveProductStock } from '@/lib/product-media';
+import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { ProductGallery } from '@/components/ProductGallery';
 import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
@@ -27,6 +27,7 @@ import { ProductShareButton, ProductWhatsAppShareButton } from '@/components/Pro
 import { PdpFreightCep } from '@/components/PdpFreightCep';
 import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import { ProductStory } from '@/components/ProductStory';
+import { displayHeadline, posterToken, specNumerals } from '@/lib/identidade';
 import type { Product } from '@/components/ProductCard';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 import { scheduleAfterFirstPaint } from '@/lib/navigation-progress';
@@ -333,12 +334,24 @@ export default function ProductPage({
   const description = productDescriptionText(p.description);
   const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
   const offerPills = pdpOfferPills();
+  const numerals = specNumerals(p.features, 3);
+  const poster = posterToken(p.name);
+  const sceneImg = resolveProductImageUrl(p);
+  const headline = displayHeadline(p.name);
 
   return (
-    <div className="pdp sf-pro-pdp">
+    <div className="pdp sf-pro-pdp id-pdp">
       <div className="pdp-grid">
         <div className="pdp-gallery-col">
-          <ProductGallery images={gallery} productName={p.name} />
+          <div className="id-pdp-scene">
+            <div className="id-grain" aria-hidden="true" />
+            {poster ? <p className="id-poster id-display" aria-hidden="true">{poster}</p> : null}
+            <ProductGallery images={gallery} productName={p.name} />
+            {sceneImg ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="id-floor-reflect" src={sceneImg} alt="" aria-hidden="true" width={480} height={160} decoding="async" />
+            ) : null}
+          </div>
           <div className="pdp-gallery-tools">
             <FavoriteToggle productId={p.id} product={p} variant="pdp" />
             <ProductWhatsAppShareButton
@@ -360,7 +373,10 @@ export default function ProductPage({
           <div className="pdp-identity">
             {p.badge ? <div className="badge">{p.badge}</div> : null}
             <div className="pdp-title-row">
-              <h1 className="pdp-title">{p.name}</h1>
+              <h1 className="pdp-title id-display">
+                {headline.lead}
+                {headline.accent ? <i> {headline.accent}</i> : null}
+              </h1>
               {count > 0 ? (
                 <div className="pdp-rating">
                   <span className="pdp-rating-score">{avg.toFixed(1).replace('.', ',')}</span>
@@ -458,6 +474,19 @@ export default function ProductPage({
           ) : null}
 
           <ProductStory product={p} />
+          {numerals.length ? (
+            <ul className="id-specs" aria-label="Especificações em destaque">
+              {numerals.map((row) => (
+                <li key={`${row.label}-${row.number}`}>
+                  <strong className="id-num">
+                    {row.number}
+                    {row.unit ? <small>{row.unit}</small> : null}
+                  </strong>
+                  <span className="id-mono">{row.label}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <p className={`pdp-stock${urgency ? ' pdp-stock-low' : stock != null && stock <= 0 ? ' pdp-stock-out' : ''}`}>
             {urgency ? <span className="pcard-stock pcard-stock-low">{urgency}</span> : null}{' '}
@@ -635,6 +664,7 @@ export default function ProductPage({
         <div className="pdp-buybar-price">
           <strong>{brl(pix)}</strong>
           <span>no PIX</span>
+          <span className="pdp-buybar-install">{installmentLine(price)}</span>
         </div>
         <button className={`btn pdp-buybar-cta${atcPulse ? ' is-atc-done' : ''}`} type="button" onClick={buyNow} disabled={buyBlocked || adding}>
           {buyNowLabel({ outOfStock, adding, demo })}

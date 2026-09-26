@@ -94,7 +94,9 @@ assert.ok(search.includes('IconSearch'), 'search submit uses SVG');
 assert.ok(!search.includes('🔍'), 'search submit dropped emoji');
 
 const header = readFileSync(join(srcRoot, 'components/Header.tsx'), 'utf8');
-assert.ok(header.includes('LOJAS <span>SCHIMITZ</span>'), 'header wordmark text unchanged');
+assert.ok(header.includes('Schimitz<i className="id-dot">.</i>'), 'header uses the Identidade 2.0 wordmark');
+assert.ok(header.includes('SchimitzMonogram'), 'header uses the S. monogram');
+assert.equal(header.includes('LOJAS <span>SCHIMITZ</span>'), false, 'black/yellow wordmark is gone');
 assert.ok(header.includes('IconCart'), 'header cart uses SVG');
 assert.ok(!header.includes('🛒'), 'header cart dropped emoji');
 

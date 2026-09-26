@@ -11,6 +11,7 @@ import {
   resolveRealProductImageUrl,
   type CatProductLike,
 } from '@/lib/category-visual';
+import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
 import {
   HOME_BANNER_AUTO_MS,
   HOME_BANNER_RESUME_MS,
@@ -129,9 +130,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
             />
           ) : (
             <div className="home-hero-visual-ph">
-              <span>
-                LOJAS <em>SCHIMITZ</em>
-              </span>
+              <SchimitzMonogram size={72} ring />
             </div>
           )}
         </div>

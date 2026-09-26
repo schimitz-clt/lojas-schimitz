@@ -558,7 +558,7 @@ export default function PedidoPage() {
       ) : null}
 
       {awaiting && !intent ? (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card id-pay-card" style={{ marginTop: 16 }}>
           <div className="body">
             <h3>Pagamento pendente</h3>
             <p className="muted">
@@ -618,7 +618,7 @@ export default function PedidoPage() {
       ) : null}
 
       {intent?.payment ? (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card id-pay-card" style={{ marginTop: 16 }}>
           <div className="body">
             <h3>Pagamento {intent.payment.method.toUpperCase()}</h3>
             <p>
