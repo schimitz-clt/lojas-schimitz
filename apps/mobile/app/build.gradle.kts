@@ -24,8 +24,8 @@ android {
         applicationId = "com.lojasschimitz.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.0.11"
+        versionCode = 13
+        versionName = "1.0.12"
         resourceConfigurations += listOf("pt", "pt-rBR")
         buildConfigField("boolean", "FCM_GOOGLE_SERVICES", googleServicesFile.exists().toString())
     }

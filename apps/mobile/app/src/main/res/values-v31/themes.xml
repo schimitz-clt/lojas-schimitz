@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ system splash: N5 launcher icon on the N5 navy background. -->
+    <style name="Theme.LojasSchimitz.Splash" parent="Theme.LojasSchimitz">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/schimitz_navy</item>
+    </style>
+</resources>

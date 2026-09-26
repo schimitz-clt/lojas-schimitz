@@ -3,7 +3,7 @@
     <color name="schimitz_black">#1A1A1A</color>
     <color name="schimitz_gold">#D4AF37</color>
     <color name="schimitz_gold_dark">#B8962E</color>
-    <!-- Letter gold from Play listing icon (release play-store-listing-assets-v1) -->
-    <color name="schimitz_gold_mark">#FCC303</color>
+    <!-- Proposta N5 "LS fatiado" -->
+    <color name="schimitz_navy">#0B1B3F</color>
     <color name="ic_launcher_background">#0B1B3F</color>
 </resources>

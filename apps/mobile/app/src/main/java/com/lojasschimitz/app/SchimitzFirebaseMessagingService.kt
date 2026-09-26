@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -55,7 +56,8 @@ class SchimitzFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(this, PushDeepLink.CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_splash_mark)
+            .setSmallIcon(R.drawable.ic_stat_notification)
+            .setColor(ContextCompat.getColor(this, R.color.schimitz_navy))
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
