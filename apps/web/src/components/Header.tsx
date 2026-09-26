@@ -20,7 +20,7 @@ import {
   readStoredCep,
 } from '@/lib/pdp-trust';
 import { IconBell, IconCart, IconHeart, IconSparkles, IconUser } from '@/components/icons/StorefrontIcons';
-import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
+import { N5_BRAND } from '@/components/brand/SchimitzMark';
 import {
   catalogSearchBackHref,
   isCatalogSearchResults,
@@ -212,8 +212,23 @@ export function Header() {
               aria-label="Lojas Schimitz — início"
               prefetch={true}
             >
-              <SchimitzMonogram size={36} ring className="logo-mark" title="Schimitz" />
-              <span className="id-wordmark">Schimitz<i className="id-dot">.</i></span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={N5_BRAND.symbolOnNavy}
+                width={38}
+                height={36}
+                alt=""
+                aria-hidden
+                className="logo-mark logo-mark-n5"
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={N5_BRAND.lockupOnNavy}
+                width={170}
+                height={34}
+                alt="Lojas Schimitz"
+                className="logo-lockup"
+              />
             </Link>
 
             <SearchBox initialQuery={qInit} />
