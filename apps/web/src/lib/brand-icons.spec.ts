@@ -94,8 +94,22 @@ assert.ok(search.includes('IconSearch'), 'search submit uses SVG');
 assert.ok(!search.includes('🔍'), 'search submit dropped emoji');
 
 const header = readFileSync(join(srcRoot, 'components/Header.tsx'), 'utf8');
-assert.ok(header.includes('Schimitz<i className="id-dot">.</i>'), 'header uses the Identidade 2.0 wordmark');
-assert.ok(header.includes('SchimitzMonogram'), 'header uses the S. monogram');
+assert.ok(header.includes('N5_BRAND.lockupOnNavy'), 'header uses the N5 navy lockup');
+assert.ok(header.includes('N5_BRAND.symbolOnNavy'), 'header uses the N5 navy symbol on mobile');
+assert.equal(header.includes('SchimitzMonogram'), false, 'S. monogram is gone from the header');
+for (const f of [
+  'favicon.svg',
+  'icone-app-512.svg',
+  'lockup-horizontal-fundo-claro.svg',
+  'lockup-horizontal-fundo-navy.svg',
+  'simbolo-fundo-claro.svg',
+  'simbolo-fundo-navy.svg',
+]) {
+  assert.ok(existsSync(join(webRoot, 'public/brand/n5', f)), `N5 asset ${f}`);
+}
+const mark = readFileSync(join(srcRoot, 'components/brand/SchimitzMark.tsx'), 'utf8');
+assert.ok(mark.includes("'/brand/n5/icone-app-512.svg'"), 'monogram component renders the N5 app icon');
+assert.equal(mark.includes('S_PATH'), false, 'S. monogram geometry removed');
 assert.equal(header.includes('LOJAS <span>SCHIMITZ</span>'), false, 'black/yellow wordmark is gone');
 assert.ok(header.includes('IconCart'), 'header cart uses SVG');
 assert.ok(!header.includes('🛒'), 'header cart dropped emoji');

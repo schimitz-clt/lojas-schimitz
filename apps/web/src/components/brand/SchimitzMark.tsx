@@ -1,87 +1,67 @@
-import type { SVGProps } from 'react';
+import type { ImgHTMLAttributes } from 'react';
 
 /**
- * Identidade 2.0 monogram. Arcs are 270° with r1 < r2, full stop on the baseline.
- * Geometry matches the approved construction sheet (viewBox 64).
+ * Approved brand mark: proposta N5 "LS fatiado" (outlined SVGs in /public/brand/n5).
+ * Kept under the historical `SchimitzMonogram` name so every call site (placeholders,
+ * cart, campaign, home) switches to the N5 app-icon artwork without touching its logic.
  */
-const S_PATH = 'M36.40 22.20A8.2 8.2 0 1 0 28.20 30.40A9.3 9.3 0 1 1 18.90 39.70';
+export const N5_BRAND = {
+  appIcon: '/brand/n5/icone-app-512.svg',
+  symbolOnNavy: '/brand/n5/simbolo-fundo-navy.svg',
+  symbolOnLight: '/brand/n5/simbolo-fundo-claro.svg',
+  lockupOnNavy: '/brand/n5/lockup-horizontal-fundo-navy.svg',
+  lockupOnLight: '/brand/n5/lockup-horizontal-fundo-claro.svg',
+  favicon: '/brand/n5/favicon.svg',
+} as const;
 
 type Variant = 'navy' | 'bordo' | 'cream';
 
-type MonogramProps = SVGProps<SVGSVGElement> & {
+type MonogramProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'width' | 'height'> & {
   size?: number;
+  /** Legacy prop from the S. monogram; the N5 icon carries its own contrast. */
   variant?: Variant;
+  /** Legacy prop: adds a hairline cream ring around the rounded icon. */
   ring?: boolean;
   title?: string;
 };
 
 export function SchimitzMonogram({
   size = 36,
-  variant = 'navy',
+  variant: _variant,
   ring = false,
   title,
   className,
+  style,
   ...rest
 }: MonogramProps) {
-  const uid = `s${size}${variant}${ring ? 'r' : ''}`;
-  const rx = 14.32;
-  const stroke = variant === 'cream' ? '#07122A' : '#F3ECDF';
-  const dot = variant === 'bordo' ? '#F3ECDF' : '#A8324A';
+  const radius = Math.round(size * (112 / 512));
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={N5_BRAND.appIcon}
       width={size}
       height={size}
-      viewBox="0 0 64 64"
-      className={className}
-      role={title ? 'img' : undefined}
+      alt={title || ''}
       aria-hidden={title ? undefined : true}
-      aria-label={title}
+      className={className ? `n5-mark ${className}` : 'n5-mark'}
+      decoding="async"
+      draggable={false}
+      style={{
+        display: 'block',
+        width: size,
+        height: size,
+        // Immune to container img rules (e.g. PDP carousel padding/max-size).
+        padding: 0,
+        maxWidth: 'none',
+        maxHeight: 'none',
+        objectFit: 'contain',
+        flex: '0 0 auto',
+        borderRadius: radius,
+        ...(ring ? { boxShadow: '0 0 0 1px rgba(243,234,219,.22)' } : null),
+        ...style,
+      }}
       {...rest}
-    >
-      {variant === 'navy' ? (
-        <defs>
-          <radialGradient id={`mg${uid}`} cx="28%" cy="18%" r="100%">
-            <stop offset="0" stopColor="#1C3869" />
-            <stop offset="0.5" stopColor="#0B1B3A" />
-            <stop offset="1" stopColor="#07122A" />
-          </radialGradient>
-          <linearGradient id={`hl${uid}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.09" />
-            <stop offset="0.35" stopColor="#fff" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      ) : null}
-      {variant === 'bordo' ? (
-        <defs>
-          <linearGradient id={`mb${uid}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#8E2439" />
-            <stop offset="1" stopColor="#5A1424" />
-          </linearGradient>
-        </defs>
-      ) : null}
-      {variant === 'navy' ? (
-        <>
-          <rect width="64" height="64" rx={rx} fill={`url(#mg${uid})`} />
-          <rect width="64" height="64" rx={rx} fill={`url(#hl${uid})`} />
-        </>
-      ) : null}
-      {variant === 'bordo' ? <rect width="64" height="64" rx={rx} fill={`url(#mb${uid})`} /> : null}
-      {variant === 'cream' ? <rect width="64" height="64" rx={rx} fill="#F3ECDF" /> : null}
-      <path d={S_PATH} fill="none" stroke={stroke} strokeWidth="6" strokeLinecap="butt" />
-      <circle cx="46.6" cy="48.5" r="3.5" fill={dot} />
-      {ring ? (
-        <rect
-          x="0.5"
-          y="0.5"
-          width="63"
-          height="63"
-          rx={rx - 0.5}
-          fill="none"
-          stroke="rgba(243,236,223,.22)"
-          strokeWidth="1"
-        />
-      ) : null}
-    </svg>
+    />
   );
 }
 
