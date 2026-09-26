@@ -20,7 +20,7 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 - **Mercado Pago** e outros HTTPS externos abrem no navegador do sistema (melhor para pagamento/OAuth).
 - `tel:` / `mailto:` / `sms:` externos.
 - Status bar / splash escuros com destaque dourado (`#1A1A1A` / `#D4AF37`).
-- Ícone do launcher: wordmark **SCHIMITZ** (branco + barra amarela no fundo `#08080A`), o mesmo mark da loja/PWA. Adaptive (API 26+) em `mipmap-anydpi-v26` com foreground em `drawable/ic_launcher_foreground.png` (safe zone); PNG legado em `drawable/ic_launcher.png`. PNG Play 512×512 em `store/icon-512.png`.
+- Ícone do launcher: logo aprovado **N5 "LS fatiado"** (LS creme/bordô sobre azul-marinho `#0B1B3F`), o mesmo mark da loja/PWA (fontes em `apps/web/public/brand/n5/`). Adaptive (API 26+) em `mipmap-anydpi-v26` com foreground em `drawable/ic_launcher_foreground.png` (símbolo dentro da safe zone circular) e fundo `@color/ic_launcher_background`; PNG legado em `drawable/ic_launcher.png`. PNG Play 512×512 em `store/icon-512.png` (fonte full-bleed em `store/play-listing-icon-512-source.png`).
 - Pull-to-refresh e botão voltar do sistema navegam no histórico do WebView.
 - Página offline/erro (`assets/offline.html`) se não houver rede, falha da carga principal ou erro SSL.
 - `CookieManager` aceita cookies first-party (sessão cookie-first / `sch_refresh` + `sch_access` HttpOnly); 3P cookies desligados (MP abre externo).
