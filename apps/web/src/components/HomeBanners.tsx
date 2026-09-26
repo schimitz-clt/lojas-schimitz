@@ -152,7 +152,14 @@ function BannerSkeleton() {
   );
 }
 
-export function HomeBanners({ products }: { products?: HeroProduct[] }) {
+export function HomeBanners({
+  products,
+  placement = 'home',
+}: {
+  products?: HeroProduct[];
+  /** Retail home already paints the editorial stage, so skip the duplicate fallback hero. */
+  placement?: 'home' | 'retail';
+}) {
   const [banners, setBanners] = useState<HomeBanner[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
@@ -384,8 +391,8 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
     }
   }, []);
 
-  if (banners === null) return <BannerSkeleton />;
-  if (total === 0) return <StaticPromoStrip featured={featured} />;
+  if (banners === null) return placement === 'retail' ? null : <BannerSkeleton />;
+  if (total === 0) return placement === 'retail' ? null : <StaticPromoStrip featured={featured} />;
 
   return (
     <section
@@ -414,8 +421,9 @@ export function HomeBanners({ products }: { products?: HeroProduct[] }) {
         >
           {loopSlides.map((slot) => {
             const b = slot.item;
-            const priority = bannerImageIsPriority(slot.clone, slot.logicalIndex);
-            const eager = bannerImagePreload(slot.clone, slot.logicalIndex, total);
+            const priority =
+              placement === 'retail' ? false : bannerImageIsPriority(slot.clone, slot.logicalIndex);
+            const eager = placement === 'retail' ? false : bannerImagePreload(slot.clone, slot.logicalIndex, total);
             const href = bannerCtaHref(b);
             const img = (
               // eslint-disable-next-line @next/next/no-img-element

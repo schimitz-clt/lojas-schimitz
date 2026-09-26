@@ -174,6 +174,7 @@ export default function ProductPage({
   const [addedToBag, setAddedToBag] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showBagToast, setShowBagToast] = useState(false);
+  const [atcPulse, setAtcPulse] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
 
   const loadReviews = useCallback(async (productId: string) => {
@@ -216,6 +217,7 @@ export default function ProductPage({
     getGuestToken();
     setAddedToBag(false);
     setShowBagToast(false);
+    setAtcPulse(false);
     setDescOpen(false);
     setMsg('');
     setErr('');
@@ -265,18 +267,25 @@ export default function ProductPage({
     }
   }
 
+  function pulseBag() {
+    setAtcPulse(true);
+    window.setTimeout(() => setAtcPulse(false), 720);
+  }
+
   async function add() {
     const ok = await postToCart();
     if (!ok) return;
     setAddedToBag(true);
     setShowBagToast(true);
     setMsg('Adicionado à sacola.');
+    pulseBag();
   }
 
   async function buyNow() {
     const ok = await postToCart();
     if (!ok) return;
     setAddedToBag(true);
+    pulseBag();
     router.push(pdpBuyNowHref());
   }
 
@@ -483,7 +492,11 @@ export default function ProductPage({
                 Ir para a sacola
               </Link>
             ) : (
-              <button className="btn pdp-cta-primary" onClick={add} disabled={buyBlocked || adding}>
+              <button
+                className={`btn pdp-cta-primary${adding ? ' is-atc-busy' : ''}${atcPulse ? ' is-atc-done' : ''}`}
+                onClick={add}
+                disabled={buyBlocked || adding}
+              >
                 {demo ? 'Não disponível' : outOfStock ? 'Indisponível' : adding ? 'Adicionando...' : 'Adicionar à sacola'}
               </button>
             )}
@@ -618,12 +631,12 @@ export default function ProductPage({
       </section>
       ) : null}
 
-      <div className="pdp-buybar">
+      <div className={`pdp-buybar${atcPulse ? ' is-pulse' : ''}${adding ? ' is-atc-busy' : ''}`}>
         <div className="pdp-buybar-price">
           <strong>{brl(pix)}</strong>
           <span>no PIX</span>
         </div>
-        <button className="btn pdp-buybar-cta" type="button" onClick={buyNow} disabled={buyBlocked || adding}>
+        <button className={`btn pdp-buybar-cta${atcPulse ? ' is-atc-done' : ''}`} type="button" onClick={buyNow} disabled={buyBlocked || adding}>
           {buyNowLabel({ outOfStock, adding, demo })}
         </button>
       </div>

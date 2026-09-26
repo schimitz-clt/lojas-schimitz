@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import { HomeBanners } from '@/components/HomeBanners';
@@ -38,6 +38,36 @@ type StorePromo = {
   trustItems?: { title: string; body: string }[] | null;
 };
 
+function useReveal<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const inView = () => {
+      const rect = el.getBoundingClientRect();
+      return rect.top < window.innerHeight * 0.92 && rect.bottom > 0;
+    };
+    el.classList.add('retail-reveal');
+    if (inView()) {
+      el.classList.add('is-in');
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          el.classList.add('is-in');
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.18 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
 function Stars({ value }: { value: number }) {
   const n = Math.max(0, Math.min(5, Math.round(value)));
   return (
@@ -67,34 +97,61 @@ function Countdown({ parts }: { parts: OfferCountdown }) {
   );
 }
 
-function RetailCard({
+function ProductPhoto({
+  product,
+  priority,
+  className,
+}: {
+  product: ProductType;
+  priority?: boolean;
+  className?: string;
+}) {
+  const img = resolveProductImageUrl(product);
+  if (!img) {
+    return (
+      <span className={`retail-mono ${className || ''}`} aria-hidden>
+        {product.name.trim().slice(0, 1) || 'L'}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className={className}
+      src={img}
+      alt=""
+      width={800}
+      height={800}
+      sizes={priority ? '(max-width: 720px) 72vw, 420px' : '(max-width: 720px) 42vw, 240px'}
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'low'}
+      decoding="async"
+    />
+  );
+}
+
+function RetailTile({
   product,
   bestseller,
-  priority,
+  lead,
 }: {
   product: ProductType;
   bestseller: boolean;
-  priority?: boolean;
+  lead?: boolean;
 }) {
   const href = productLandingPath(product.slug);
   const price = Number(product.price);
   const pix = pixPrice(price);
   const off = discountPercent(price, product.compareAtPrice);
   const badge = visibleCatalogBadge(product.badge, bestseller);
-  const img = resolveProductImageUrl(product);
   return (
-    <article className="retail-card">
-      <Link href={href} className="retail-card-media">
+    <article className={`retail-tile${lead ? ' retail-tile-lead' : ''}`}>
+      <Link href={href} className="retail-tile-media">
         {off ? <span className="retail-off">-{off}%</span> : null}
         {bestseller ? <span className="retail-best">Mais vendido</span> : null}
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt={product.name} width={640} height={640} loading={priority ? 'eager' : 'lazy'} />
-        ) : (
-          <span className="retail-card-ph">Lojas Schimitz</span>
-        )}
+        <ProductPhoto product={product} priority={lead} />
       </Link>
-      <div className="retail-card-body">
+      <div className="retail-tile-body">
         {badge && badge !== 'Mais vendido' ? <p className="retail-kicker">{badge}</p> : null}
         <h3>
           <Link href={href}>{product.name}</Link>
@@ -114,11 +171,77 @@ function RetailCard({
   );
 }
 
-export function RetailHome({ products }: { products: ProductType[] }) {
+export function EditorialStage({ products }: { products: ProductType[] }) {
+  const lead = products[0];
+  if (!lead) return null;
+  const href = productLandingPath(lead.slug);
+  const price = Number(lead.price);
+  const pix = pixPrice(price);
+  const layers = products.slice(1, 4);
+  return (
+    <section className="retail-stage" aria-labelledby="retail-stage-title">
+      <div className="retail-stage-copy">
+        <p className="retail-stage-kicker">Lojas Schimitz · Porto Alegre</p>
+        <h1 id="retail-stage-title">{lead.name}</h1>
+        <p className="retail-stage-price">
+          <strong>{brl(pix)}</strong>
+          <span>no PIX</span>
+        </p>
+        <p className="retail-stage-install">
+          {lead.compareAtPrice ? <s>{brl(lead.compareAtPrice)}</s> : null} {installmentLine(price)}
+        </p>
+        <div className="retail-stage-actions">
+          <Link className="btn retail-stage-cta" href={href}>
+            Comprar agora
+          </Link>
+          {products.length > 1 ? (
+            <a className="retail-stage-more" href="#retail-vitrine">
+              Ver a seleção
+            </a>
+          ) : null}
+        </div>
+      </div>
+      <div className="retail-stage-layers" aria-hidden="true">
+        <div className="retail-stage-lead">
+          <ProductPhoto product={lead} priority className="retail-stage-lead-img" />
+        </div>
+        {layers.map((product, index) => (
+          <div key={product.id} className={`retail-stage-sat retail-stage-sat-${index + 1}`}>
+            <ProductPhoto product={product} />
+          </div>
+        ))}
+      </div>
+      {layers.length ? (
+        <ol className="retail-stage-index">
+          {products.slice(0, 5).map((product, index) => (
+            <li key={product.id}>
+              <Link href={productLandingPath(product.slug)}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                {product.name}
+              </Link>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+}
+
+export function RetailHome({
+  products,
+  suppressStage = false,
+}: {
+  products: ProductType[];
+  suppressStage?: boolean;
+}) {
   const [settings, setSettings] = useState<StorePromo | null>(null);
   const [bestsellerIds, setBestsellerIds] = useState<Set<string>>(new Set());
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  const offersRef = useReveal<HTMLElement>();
+  const restRef = useReveal<HTMLElement>();
+  const trustRef = useReveal<HTMLUListElement>();
+  const reviewsRef = useReveal<HTMLElement>();
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +283,10 @@ export function RetailHome({ products }: { products: ProductType[] }) {
     () => products.filter((product) => isRealOffer(product.price, product.compareAtPrice)),
     [products],
   );
+  const rest = useMemo(() => {
+    const offerIds = new Set(offers.map((product) => product.id));
+    return products.filter((product) => !offerIds.has(product.id));
+  }, [offers, products]);
   const trust = useMemo(
     () => resolveRetailTrust({ trustItems: settings?.trustItems, cnpj: settings?.cnpj }),
     [settings],
@@ -168,11 +295,12 @@ export function RetailHome({ products }: { products: ProductType[] }) {
 
   return (
     <div className="home retail-home">
-      <HomeBanners products={products} />
+      {suppressStage ? null : <EditorialStage products={products} />}
+      <HomeBanners products={products} placement="retail" />
       {promoNote ? <p className="sr-only">Faixa promocional configurada na loja.</p> : null}
 
       {offers.length ? (
-        <section className="retail-offers" aria-labelledby="retail-offers-title">
+        <section ref={offersRef} className="retail-offers" id="retail-vitrine" aria-labelledby="retail-offers-title">
           <div className="retail-offers-head">
             <div>
               <p className="retail-kicker">Hoje na loja</p>
@@ -180,37 +308,44 @@ export function RetailHome({ products }: { products: ProductType[] }) {
             </div>
             {countdown ? <Countdown parts={countdown} /> : null}
           </div>
-          <div className="retail-grid">
+          <div className="retail-mosaic">
             {offers.map((product, index) => (
-              <RetailCard
+              <RetailTile
                 key={product.id}
                 product={product}
                 bestseller={bestsellerIds.has(product.id)}
-                priority={index < 2}
+                lead={index === 0}
               />
             ))}
           </div>
         </section>
       ) : null}
 
-      <section className="retail-catalog" aria-labelledby="retail-catalog-title">
-        <div className="section-head">
-          <h2 id="retail-catalog-title">Na loja</h2>
-          <span>{products.length === 1 ? '1 produto' : `${products.length} produtos`}</span>
-        </div>
-        <div className="retail-grid">
-          {products.map((product, index) => (
-            <RetailCard
-              key={product.id}
-              product={product}
-              bestseller={bestsellerIds.has(product.id)}
-              priority={index < 2}
-            />
-          ))}
-        </div>
-      </section>
+      {rest.length ? (
+        <section
+          ref={restRef}
+          className="retail-catalog"
+          id={offers.length ? undefined : 'retail-vitrine'}
+          aria-labelledby="retail-catalog-title"
+        >
+          <div className="section-head">
+            <h2 id="retail-catalog-title">Na loja</h2>
+            <span>{rest.length === 1 ? '1 produto' : `${rest.length} produtos`}</span>
+          </div>
+          <div className="retail-mosaic">
+            {rest.map((product, index) => (
+              <RetailTile
+                key={product.id}
+                product={product}
+                bestseller={bestsellerIds.has(product.id)}
+                lead={!offers.length && index === 0}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <ul className="retail-trust" aria-label="Confiança da loja">
+      <ul ref={trustRef} className="retail-trust" aria-label="Confiança da loja">
         {trust.map((item: RetailTrustItem) => (
           <li key={item.id}>
             <strong>{item.title}</strong>
@@ -220,7 +355,7 @@ export function RetailHome({ products }: { products: ProductType[] }) {
       </ul>
 
       {reviews.length ? (
-        <section className="retail-reviews" aria-labelledby="retail-reviews-title">
+        <section ref={reviewsRef} className="retail-reviews" aria-labelledby="retail-reviews-title">
           <h2 id="retail-reviews-title">Avaliações</h2>
           <ul>
             {reviews.map((review) => (

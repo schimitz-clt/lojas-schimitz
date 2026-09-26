@@ -83,22 +83,32 @@ function CategoryStrip({ products }: { products: Product[] }) {
   );
 }
 
-function HomeInner() {
+function HomeInner({
+  initialRetail,
+  suppressStage,
+}: {
+  initialRetail?: Product[] | null;
+  suppressStage?: boolean;
+}) {
   const q = useSearchParams().get('q') || '';
+  const seededRetail =
+    !q && Array.isArray(initialRetail) && initialRetail.length > 0 && initialRetail.length <= 5;
   const [products, setProducts] = useState<Product[]>([]);
-  const [retailProducts, setRetailProducts] = useState<Product[] | null>(null);
-  const [homeMode, setHomeMode] = useState<'pending' | 'retail' | 'market'>('pending');
+  const [retailProducts, setRetailProducts] = useState<Product[] | null>(seededRetail ? initialRetail : null);
+  const [homeMode, setHomeMode] = useState<'pending' | 'retail' | 'market'>(seededRetail ? 'retail' : 'pending');
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seededRetail);
 
   useEffect(() => {
     setLoading(true);
     setErr('');
     setActiveCount(null);
-    setHomeMode('pending');
-    setRetailProducts(null);
+    if (!(!q && seededRetail)) {
+      setHomeMode('pending');
+      setRetailProducts(null);
+    }
     const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
     let cancelled = false;
     (async () => {
@@ -201,7 +211,7 @@ function HomeInner() {
   }
 
   if (!q && homeMode === 'retail') {
-    return <RetailHome products={retailProducts || []} />;
+    return <RetailHome products={retailProducts || []} suppressStage={suppressStage} />;
   }
 
   return (
@@ -274,10 +284,16 @@ function HomeInner() {
   );
 }
 
-export default function Page() {
+export default function Page({
+  initialRetail,
+  suppressStage,
+}: {
+  initialRetail?: Product[] | null;
+  suppressStage?: boolean;
+}) {
   return (
     <Suspense fallback={<ProductGridSkeleton count={8} />}>
-      <HomeInner />
+      <HomeInner initialRetail={initialRetail} suppressStage={suppressStage} />
     </Suspense>
   );
 }
