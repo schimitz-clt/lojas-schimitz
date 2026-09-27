@@ -984,6 +984,21 @@ model FinancialDiscrepancy {
   @@index([lastSeenAt])
 }
 
+/**
+ * Persistent financial-core counters (daily buckets, America/Sao_Paulo calendar day).
+ * Written by FinanceMetricsStore with atomic `value = value + delta` upserts (multi-replica safe).
+ * Operational activity counters only — the ledger/events tables remain the financial truth.
+ */
+model FinanceMetricCounter {
+  day       DateTime @db.Date
+  name      String   @db.VarChar(64)
+  value     BigInt   @default(0)
+  updatedAt DateTime @default(now())
+
+  @@id([day, name])
+  @@index([name, day])
+}
+
 model FinancialReconciliationRun {
   id          String    @id @default(uuid())
   /** ORDER | PAYMENT | PERIOD | DAILY */
