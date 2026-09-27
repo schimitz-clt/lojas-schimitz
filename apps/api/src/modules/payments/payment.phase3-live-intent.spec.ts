@@ -121,6 +121,7 @@ async function main() {
       await p.createIntent({
         orderId: 'ord-no-live',
         publicId: 'SCH-NO-LIVE',
+        payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
         method: 'pix',
         amount: 95,
         sellerAccessToken: 'APP_USR-seller-live',
@@ -141,6 +142,7 @@ async function main() {
       await p.createIntent({
         orderId: 'ord-disabled',
         publicId: 'SCH-DISABLED',
+        payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
         method: 'pix',
         amount: 95,
         sellerAccessToken: 'APP_USR-seller-live',
@@ -162,6 +164,7 @@ async function main() {
     await p.createIntent({
       orderId: 'ord-sandbox-still',
       publicId: 'SCH-SANDBOX-STILL',
+      payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
       method: 'pix',
       amount: 95,
       sellerAccessToken: 'TEST-seller-oauth',
@@ -205,6 +208,7 @@ async function main() {
     const credFallback = await p.createIntent({
       orderId: 'ord-live-pix-unauth',
       publicId: 'SCH-LIVE-PIX-UNAUTH',
+      payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
       method: 'pix',
       amount: 95,
       sellerAccessToken: 'APP_USR-seller-live',
@@ -223,6 +227,7 @@ async function main() {
       await p.createIntent({
         orderId: 'ord-live-card',
         publicId: 'SCH-LIVE-CARD',
+        payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
         method: 'card',
         amount: 100,
         cardToken: 'tok_test',

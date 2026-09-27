@@ -73,7 +73,8 @@ Quando a condição some: LOW/MEDIUM são resolvidas automaticamente (auditado);
 re-aplicar o status do MP pelo mesmo caminho do webhook, backfill de ledger, e reconsultar estorno em processamento.
 
 ## Estornos (capacidades verificadas na doc oficial do MP)
-`POST /v1/payments/{id}/refunds` com `X-Idempotency-Key`; `amount` ⇒ parcial, sem corpo ⇒ total; `GET /v1/payments/{id}/refunds`.
+`POST /v1/payments/{id}/refunds` com `X-Idempotency-Key`; `amount` ⇒ parcial, sem corpo ⇒ total; `GET /v1/payments/{id}/refunds`
+(no sandbox real respondeu **405** — o adaptador cai para `refunds[]` de `GET /v1/payments/{id}` em 404/405).
 Fluxo: `requestRefund` (flag `FINANCE_REFUNDS_ENABLED`, motivo ≥10, Idempotency-Key, lock de linha, `refundável = pago − estornos ativos − estornos já vistos no MP`,
 `REFUND_EXCEEDS_PAID`) → `execute` (CAS→PROCESSING, chamada ao MP; 4xx ⇒ FAILED; 5xx/rede ⇒ UNKNOWN para retry com a mesma chave)
 → COMPLETED grava `REFUND_COMPLETED`; total chama `finalizeRefundLocal` (pedido refunded, estoque de volta 1×, comissão revertida);
@@ -134,3 +135,31 @@ quando `financialState` é nulo (senão a aprovação de um pagamento legado nã
   requisições HTTP reais (fetch nativo): checkout → PIX → webhook assinado → PAID → baixa; cartão recusado; 401/403;
   400 sem `confirm`/motivo; ajuste manual; throttle; estorno legado.
 - `finance.db-down.db.spec.ts`: proxy TCP "desligável" entre a API e o Postgres local; derruba o banco no meio do fluxo.
+
+## Sandbox real do Mercado Pago (fase 2, 2026-09-26)
+Conta de teste `2954551375` (mesmo `user_id` que o token de produção retorna em `/users/me`; o token `TEST-` é o par sandbox
+da mesma conta). Observado no sandbox real × o que o código assume:
+
+| Caso | MP devolveu (`status`/`status_detail`) | Nosso estado |
+|---|---|---|
+| PIX criado | `pending`/`pending_waiting_transfer`, `payment_type_id=bank_transfer`, QR em `point_of_interaction.transaction_data` | PENDING |
+| PIX cancelado (PUT status=cancelled) | `cancelled`/`by_collector` | CANCELLED (pedido **não** é cancelado — reserva expira pelo job, por design #6/#7) |
+| Cartão APRO | `approved`/`accredited`, `captured=true` | PAID |
+| Cartão OTHE / FUND / SECU / EXPI / FORM | `rejected`/`cc_rejected_other_reason` / `…insufficient_amount` / `…bad_filled_security_code` / `…bad_filled_date` / `…bad_filled_other` | FAILED |
+| Cartão CONT | `in_process`/`pending_contingency` | PENDING |
+| Estorno parcial | refund `approved` (HTTP 201); pagamento `approved`/`partially_refunded`, `transaction_amount_refunded` = soma | PARTIALLY_REFUNDED |
+| Estorno do saldo / total | pagamento `refunded`/`refunded` | REFUNDED |
+| Mesma `X-Idempotency-Key`, outro valor | HTTP **200** com o estorno ORIGINAL (não dá erro) | nossas chaves são por linha de estorno; reuso local ⇒ 409 antes do MP |
+| Estorno em PIX pendente / pagamento recusado | 400, cause 2063 | 4xx ⇒ FAILED (e o serviço já recusa localmente) |
+| Estorno acima do saldo | 400, cause 2017 | bloqueado antes (`REFUND_EXCEEDS_PAID`) |
+| `GET /v1/payments/{id}/refunds` | **405** corpo vazio | **corrigido**: fallback para `refunds[]` do pagamento |
+| `payer.email` `cliente@lojas-schimitz.test` (fallback antigo) | 400 "payer.email must be a valid email" | **corrigido**: e-mail ausente/malformado ⇒ `PAYER_EMAIL_INVALID` sem chamar o MP |
+| Refund `amount_refunded_to_payer` | diferente de `amount` no sandbox (ex.: 12,63 para 12,50) | usamos `amount` (valor estornado da transação) |
+| `POST /v1/card_tokens` | aceita o access token `TEST-`; intermitente "Card Token not found" (2006) ao usar o token | só afeta testes (no site o token vem do Brick) |
+
+Testes: `finance.mp-sandbox-contract.spec.ts` (no `test`, sem rede) reexecuta os JSON reais sanitizados
+(`testing/mp-sandbox-fixtures.json`) no adaptador real; `finance.mp-sandbox.live.spec.ts` (`npm run test:sandbox`, opt-in,
+exige `MP_SANDBOX_ACCESS_TOKEN` iniciando com `TEST-`) faz o fluxo HTTP completo contra o sandbox real. A entrega real de
+webhook do MP não é possível na máquina de testes (sem URL pública, e não enviamos `notification_url`): a entrega é
+**simulada** com o corpo/headers documentados (`x-signature: ts=…,v1=HMAC`, `x-request-id`, `?data.id=…&type=payment`) para
+ids reais do sandbox; o handler então busca o pagamento real por id (mesmo caminho de produção).

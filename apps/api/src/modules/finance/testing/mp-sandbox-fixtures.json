@@ -1,0 +1,205 @@
+{
+  "_meta": {
+    "source": "REAL Mercado Pago SANDBOX (TEST- access token), captured 2026-09-26 ~22:15 BRT",
+    "note": "Sanitized: only fields our code reads; QR/ticket values redacted. live_mode=false on every object."
+  },
+  "pix_created_pending": {
+    "id": 1328283934,
+    "status": "pending",
+    "status_detail": "pending_waiting_transfer",
+    "transaction_amount": 10,
+    "transaction_amount_refunded": 0,
+    "external_reference": "SBX-FIX-PIX",
+    "payment_method_id": "pix",
+    "payment_type_id": "bank_transfer",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": "2026-09-27T21:12:08.818-04:00",
+    "refunds": [],
+    "point_of_interaction": {
+      "transaction_data": {
+        "qr_code": "SANDBOX-QR-REDACTED",
+        "qr_code_base64": "SANDBOX-QR64-REDACTED",
+        "ticket_url": "SANDBOX-TICKET-REDACTED"
+      }
+    }
+  },
+  "pix_cancelled_by_collector": {
+    "id": 1328285924,
+    "status": "cancelled",
+    "status_detail": "by_collector",
+    "transaction_amount": 10,
+    "transaction_amount_refunded": 0,
+    "external_reference": "SBX-ac580e",
+    "payment_method_id": "pix",
+    "payment_type_id": "bank_transfer",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": "2026-09-27T21:07:00.000-04:00",
+    "refunds": [],
+    "point_of_interaction": {
+      "transaction_data": {
+        "qr_code": "SANDBOX-QR-REDACTED",
+        "qr_code_base64": "SANDBOX-QR64-REDACTED",
+        "ticket_url": "SANDBOX-TICKET-REDACTED"
+      }
+    }
+  },
+  "refund_partial_response": {
+    "http": 201,
+    "id": 1352536575,
+    "payment_id": 1328283878,
+    "status": "approved",
+    "amount": 12.5,
+    "amount_refunded_to_payer": 12.63,
+    "refund_mode": "standard",
+    "reason": null
+  },
+  "refund_same_key_different_amount_response": {
+    "http": 200,
+    "id": 1352536575,
+    "status": "approved",
+    "amount": 12.5
+  },
+  "card_approved_partially_refunded": {
+    "id": 1328283878,
+    "status": "approved",
+    "status_detail": "partially_refunded",
+    "transaction_amount": 50,
+    "transaction_amount_refunded": 12.5,
+    "external_reference": "SBX-APRO-2d8d29",
+    "payment_method_id": "master",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": [
+      {
+        "id": 1352536575,
+        "status": "approved",
+        "amount": 12.5,
+        "refund_mode": "standard",
+        "reason": null
+      }
+    ]
+  },
+  "card_refunded_full": {
+    "id": 1328285940,
+    "status": "refunded",
+    "status_detail": "refunded",
+    "transaction_amount": 30,
+    "transaction_amount_refunded": 30,
+    "external_reference": "SBX-APRO-d52908",
+    "payment_method_id": "visa",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": [
+      {
+        "id": 1352536571,
+        "status": "approved",
+        "amount": 30,
+        "refund_mode": "standard",
+        "reason": null
+      }
+    ]
+  },
+  "card_refunded_after_partial_plus_remainder": {
+    "id": 1328285944,
+    "status": "refunded",
+    "status_detail": "refunded",
+    "transaction_amount": 50,
+    "transaction_amount_refunded": 50,
+    "external_reference": "SBX-APRO-0137e4",
+    "payment_method_id": "master",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": [
+      {
+        "id": 1352656147,
+        "status": "approved",
+        "amount": 20,
+        "refund_mode": "standard",
+        "reason": null
+      },
+      {
+        "id": 1352656151,
+        "status": "approved",
+        "amount": 30,
+        "refund_mode": "standard",
+        "reason": null
+      }
+    ]
+  },
+  "card_rejected_other": {
+    "id": 1328283882,
+    "status": "rejected",
+    "status_detail": "cc_rejected_other_reason",
+    "transaction_amount": 50,
+    "transaction_amount_refunded": 0,
+    "external_reference": "SBX-OTHE-a7c154",
+    "payment_method_id": "master",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": []
+  },
+  "card_rejected_insufficient": {
+    "id": 1328283888,
+    "status": "rejected",
+    "status_detail": "cc_rejected_insufficient_amount",
+    "transaction_amount": 50,
+    "transaction_amount_refunded": 0,
+    "external_reference": "SBX-FUND-4bc932",
+    "payment_method_id": "master",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": []
+  },
+  "card_in_process_contingency": {
+    "id": 1328283902,
+    "status": "in_process",
+    "status_detail": "pending_contingency",
+    "transaction_amount": 50,
+    "transaction_amount_refunded": 0,
+    "external_reference": "SBX-CONT-550dcd",
+    "payment_method_id": "master",
+    "payment_type_id": "credit_card",
+    "currency_id": "BRL",
+    "live_mode": false,
+    "captured": true,
+    "date_of_expiration": null,
+    "refunds": []
+  },
+  "error_refund_pending_pix": {
+    "http": 400,
+    "message": "The action requested is not valid for the current payment state",
+    "cause_code": 2063
+  },
+  "error_over_refund": {
+    "http": 400,
+    "message": "Invalid transaction_amount for update",
+    "cause_code": 2017
+  },
+  "list_refunds_endpoint": {
+    "http": 405,
+    "body": ""
+  },
+  "error_invalid_payer_email": {
+    "http": 400,
+    "message": "payer.email must be a valid email"
+  }
+}

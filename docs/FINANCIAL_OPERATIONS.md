@@ -75,7 +75,7 @@ O botão antigo de estorno em Pedidos (`POST /admin/payments/:id/refund`) contin
 ### 4.7 Estorno travado
 - **Detectar:** aba Estornos com `PROCESSING` > 30 min ou `UNKNOWN`; divergência `REFUND_STUCK` (Alta).
 - **Recuperar:** `UNKNOWN` → **retry** (seguro: mesma chave no MP). `PROCESSING` → Reconciliar com *autoRepair* (reconsulta
-  `GET /v1/payments/{id}/refunds`). `FAILED` → ver motivo (`lastError`); tentar novo estorno com nova confirmação.
+  `GET /v1/payments/{id}/refunds`; se o MP responder 404/405 — como no sandbox — usa a lista `refunds[]` do pagamento). `FAILED` → ver motivo (`lastError`); tentar novo estorno com nova confirmação.
 
 ### 4.8 Estoque reservado sem pagamento
 - **Detectar:** `RESERVATION_WITHOUT_PAYMENT` (Média) ou `STOCK_RESERVED_DRIFT` (Alta).
@@ -90,6 +90,10 @@ Pagamentos criados antes do núcleo financeiro não tinham histórico de estados
 - com `--apply` em banco remoto exige `FINANCE_BACKFILL_BACKUP_SHA256` (sha256 de um `pg_dump` recém-feito);
 - rodar de novo não adiciona nada (chaves determinísticas);
 - achados viram **divergências** (sem correção automática) para tratar no painel.
+
+### 4.10 Cliente não consegue pagar: `PAYER_EMAIL_INVALID`
+O Mercado Pago exige e-mail válido do pagador. Se a conta do cliente não tem e-mail válido, a loja recusa **antes** de chamar o
+MP e pede para atualizar o e-mail (antes o MP recusava com erro genérico). Corrigir o e-mail do cliente e pedir nova tentativa.
 
 ## 5. Configuração (decisão do dono)
 | Variável | Padrão | Efeito |

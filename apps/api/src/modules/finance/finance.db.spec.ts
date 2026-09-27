@@ -371,6 +371,25 @@ async function main() {
     assert.equal((await pay(c.payment.id)).financialState, 'PARTIALLY_REFUNDED');
   });
 
+  await scenario('S16b', 'Estorno travado + GET /refunds 405 (como no sandbox real) → fallback payment.refunds[] conclui', async () => {
+    const c = await paidOrder(5);
+    fake.refundStatus = 'in_process';
+    await refunds.requestRefund({ paymentId: c.payment.id, amount: 6, reason: 'estorno lento teste S16b', idempotencyKey: `omega-s16b-${randomUUID()}`, actorId: adminUser.id });
+    fake.refundStatus = 'approved';
+    const row = await prisma.paymentRefund.findFirstOrThrow({ where: { paymentId: c.payment.id } });
+    assert.equal(row.status, 'PROCESSING');
+    fake.settleRefund(c.payment.externalId!, row.providerRefundId!, 'approved');
+    fake.refundListStatus = 405;
+    try {
+      await prisma.$executeRaw`UPDATE "PaymentRefund" SET "updatedAt" = NOW() - INTERVAL '1 hour' WHERE "id" = ${row.id}`;
+      await recon.run({ scope: 'PAYMENT', paymentId: c.payment.id, origin: 'test', autoRepair: true });
+    } finally {
+      fake.refundListStatus = 200;
+    }
+    assert.equal((await prisma.paymentRefund.findUniqueOrThrow({ where: { id: row.id } })).status, 'COMPLETED');
+    assert.equal((await pay(c.payment.id)).financialState, 'PARTIALLY_REFUNDED');
+  });
+
   await scenario('S17', 'Refunds desativados por padrão (FINANCE_REFUNDS_ENABLED)', async () => {
     process.env.FINANCE_REFUNDS_ENABLED = 'false';
     try {

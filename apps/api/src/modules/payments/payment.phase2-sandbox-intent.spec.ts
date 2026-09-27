@@ -102,6 +102,7 @@ async function main() {
       await p.createIntent({
         orderId: 'ord-3b',
         publicId: 'SCH-LIVE-SELLER',
+        payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
         method: 'pix',
         amount: 95,
         sellerAccessToken: 'APP_USR-seller-live',
@@ -133,6 +134,7 @@ async function main() {
       await p.createIntent({
         orderId: 'ord-5',
         publicId: 'SCH-PROD-FEE',
+        payerEmail: 'a@b.c', // MP requires a valid payer.email (sandbox-verified)
         method: 'pix',
         amount: 50,
         sellerAccessToken: 'TEST-seller-oauth',
