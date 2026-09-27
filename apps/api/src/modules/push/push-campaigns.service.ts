@@ -20,6 +20,7 @@ import {
 } from './push-campaign.rules';
 import { fcmDataPayload } from './push-deeplink';
 import { fcmTokenFingerprint } from './push-token.rules';
+import { deactivateDeadTokens, type DeadTokenHit } from './push-token-cleanup';
 
 @Injectable()
 export class PushCampaignsService {
@@ -245,7 +246,7 @@ export class PushCampaignsService {
     const batches = chunkTokens(devices);
     let sentCount = 0;
     let failedCount = 0;
-    const disableIds: string[] = [];
+    const deadTokens: DeadTokenHit[] = [];
 
     for (const batch of batches) {
       const send = await this.fcm.sendToTokens(
@@ -263,7 +264,9 @@ export class PushCampaignsService {
         const device = byToken.get(r.token);
         if (r.success) sentCount += 1;
         else failedCount += 1;
-        if (r.disableToken && device) disableIds.push(device.id);
+        if (r.disableToken && device) {
+          deadTokens.push({ id: device.id, token: r.token, errorCode: r.errorCode });
+        }
         rows.push({
           campaignId,
           tokenId: device?.id ?? null,
@@ -276,12 +279,7 @@ export class PushCampaignsService {
       if (rows.length) await this.prisma.pushDispatch.createMany({ data: rows });
     }
 
-    if (disableIds.length) {
-      await this.prisma.deviceFcmToken.updateMany({
-        where: { id: { in: disableIds } },
-        data: { enabled: false },
-      });
-    }
+    const deactivated = await deactivateDeadTokens(this.prisma, deadTokens, 'campaign');
 
     const status = sentCount > 0 ? 'sent' : 'failed';
     const updated = await this.prisma.pushCampaign.update({
@@ -296,7 +294,9 @@ export class PushCampaignsService {
         firebaseReady: true,
       },
     });
-    this.log.log(`Campanha ${campaignId} sent=${sentCount} failed=${failedCount}`);
+    this.log.log(
+      `Campanha ${campaignId} sent=${sentCount} failed=${failedCount} deadTokensDisabled=${deactivated}`,
+    );
     return { campaign: updated, dispatched: true, reason: 'ok' };
   }
 
@@ -377,7 +377,11 @@ export class PushCampaignsService {
       },
     });
     if (r?.disableToken) {
-      await this.prisma.deviceFcmToken.update({ where: { id: device.id }, data: { enabled: false } });
+      await deactivateDeadTokens(
+        this.prisma,
+        [{ id: device.id, token: device.token, errorCode: r.errorCode }],
+        'campaign_test',
+      );
     }
     const updated = await this.prisma.pushCampaign.update({
       where: { id: campaign.id },
