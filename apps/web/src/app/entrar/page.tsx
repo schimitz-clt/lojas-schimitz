@@ -1,6 +1,5 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { api, saveSession } from '@/lib/api';
 import { authPageModeFromSearch } from '@/lib/checkout-auth';
 import { CreateAccountFlow } from '@/components/account/CreateAccountFlow';
@@ -26,16 +25,19 @@ function safeNextPath(): string {
 }
 
 export default function EntrarPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  /**
+   * E-mail first (Magalu-style): one e-mail field; the server says whether the account exists.
+   * Existing → password (login or reset). New → the 3-step signup. `?cadastro=1` opens the signup
+   * wording directly ("Criar conta" links from /conta keep working).
+   */
+  const [mode, setMode] = useState<'identify' | 'register'>('identify');
   const [err, setErr] = useState('');
   const [serverIssue, setServerIssue] = useState<SignupIssue | null>(null);
   const [busy, setBusy] = useState(false);
   const [nextPath, setNextPath] = useState('/conta');
 
   useEffect(() => {
-    setMode(authPageModeFromSearch(window.location.search));
+    setMode(authPageModeFromSearch(window.location.search) === 'register' ? 'register' : 'identify');
     setNextPath(safeNextPath());
   }, []);
 
@@ -49,23 +51,6 @@ export default function EntrarPage() {
       /* ignore */
     }
     window.location.href = safeNextPath();
-  }
-
-  async function submitLogin(e: FormEvent) {
-    e.preventDefault();
-    setErr('');
-    setBusy(true);
-    try {
-      const data = await api<{ accessToken: string; refreshToken?: string; user: unknown }>(
-        '/auth/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) },
-      );
-      await finishLogin(data);
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Não foi possível entrar');
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function lookupSignupEmail(email: string) {
@@ -148,111 +133,37 @@ export default function EntrarPage() {
   }
 
   return (
-    <div className="acct-sheet">
+    <div className="acct-sheet" data-auth-entry={mode}>
       {atCheckout ? (
         <p className="acct-lead">
           Entre ou crie a conta agora para finalizar. Depois a sessão fica salva neste aparelho.
         </p>
       ) : null}
-      <div className="acct-tabs" role="tablist" aria-label="Conta">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'login'}
-          className={mode === 'login' ? 'acct-tab is-on' : 'acct-tab'}
-          disabled={busy}
-          onClick={() => {
-            setMode('login');
-            setErr('');
-            setServerIssue(null);
-          }}
-        >
-          Entrar
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'register'}
-          className={mode === 'register' ? 'acct-tab is-on' : 'acct-tab'}
-          disabled={busy}
-          onClick={() => {
-            setMode('register');
-            setErr('');
-            setServerIssue(null);
-          }}
-        >
-          Criar conta
-        </button>
-      </div>
-      {mode === 'login' ? (
-        <form className="acct-form" onSubmit={submitLogin}>
-          <h1 className="acct-title">Entrar</h1>
-          <span className="acct-kicker" aria-hidden />
-          {err ? (
-            <div className="alert" role="alert">
-              {err}
-            </div>
-          ) : null}
-          <div className="acct-field">
-            <label className="acct-label" htmlFor="login-email">
-              E-mail
-            </label>
-            <input
-              id="login-email"
-              name="email"
-              className="acct-line"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="acct-field">
-            <label className="acct-label" htmlFor="login-password">
-              Senha
-            </label>
-            <input
-              id="login-password"
-              name="password"
-              className="acct-line"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button className="acct-cta" type="submit" disabled={busy}>
-            {busy ? 'Entrando…' : 'Entrar'}
-          </button>
-          <Link className="acct-textlink" href="/esqueci-senha">
-            Esqueci minha senha
-          </Link>
-        </form>
-      ) : (
-        <CreateAccountFlow
-          busy={busy}
-          error={err}
-          serverIssue={serverIssue}
-          onEdit={() => {
-            setErr('');
-            setServerIssue(null);
-          }}
-          onHaveAccount={() => {
-            setMode('login');
-            setErr('');
-            setServerIssue(null);
-          }}
-          onLookupEmail={lookupSignupEmail}
-          onLookupCpf={lookupSignupCpf}
-          onSignIn={signInExisting}
-          onSignInCpf={signInExistingCpf}
-          onRegister={submitRegister}
-        />
-      )}
+      <CreateAccountFlow
+        key={mode}
+        entry={mode === 'register' ? 'signup' : 'identify'}
+        busy={busy}
+        error={err}
+        serverIssue={serverIssue}
+        onEdit={() => {
+          setErr('');
+          setServerIssue(null);
+        }}
+        onHaveAccount={
+          mode === 'register'
+            ? () => {
+                setMode('identify');
+                setErr('');
+                setServerIssue(null);
+              }
+            : undefined
+        }
+        onLookupEmail={lookupSignupEmail}
+        onLookupCpf={lookupSignupCpf}
+        onSignIn={signInExisting}
+        onSignInCpf={signInExistingCpf}
+        onRegister={submitRegister}
+      />
     </div>
   );
 }
