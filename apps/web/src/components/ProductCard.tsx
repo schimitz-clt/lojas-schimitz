@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import { installmentLine, pixPrice, stockBadge } from '@/lib/pricing';
@@ -55,7 +56,7 @@ function ProductImage({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      {...responsiveImageProps(src, IMAGE_WIDTHS.card)}
       alt={alt}
       width={480}
       height={480}

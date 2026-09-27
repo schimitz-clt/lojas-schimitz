@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import { createPortal } from 'react-dom';
 import {
   clampGalleryIndex,
@@ -285,7 +286,7 @@ export function ProductGallery({ images, productName }: Props) {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={img.url}
+                    {...responsiveImageProps(img.url, IMAGE_WIDTHS.gallery)}
                     alt={img.alt}
                     width={800}
                     height={800}
@@ -360,7 +361,7 @@ export function ProductGallery({ images, productName }: Props) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={img.url}
+                {...responsiveImageProps(img.url, IMAGE_WIDTHS.thumb)}
                 alt=""
                 width={80}
                 height={80}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
@@ -118,7 +119,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={img}
+              {...responsiveImageProps(img, IMAGE_WIDTHS.stage)}
               alt=""
               className="home-hero-product-img"
               width={560}
@@ -427,7 +428,7 @@ export function HomeBanners({
             const img = (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={bannerImageUrl(b)}
+                {...responsiveImageProps(bannerImageUrl(b), IMAGE_WIDTHS.banner)}
                 alt={slot.clone ? '' : bannerAlt(b)}
                 className="home-banner-img"
                 width={1400}

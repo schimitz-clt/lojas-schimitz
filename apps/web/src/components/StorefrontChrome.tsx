@@ -33,8 +33,9 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
         <NavigationProgress />
         <Suspense fallback={null}>
           <UtmCapture />
-          <Header />
         </Suspense>
+        {/* Header outside the Suspense boundary: server-rendered on every route (mobile speed / CLS). */}
+        <Header />
         <main className="wrap main-shell">{children}</main>
       <footer className="footer">
         <div className="wrap">

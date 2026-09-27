@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { IMAGE_WIDTHS, REFLECT_IMG_SIZES, STAGE_IMG_SIZES, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import { HomeBanners } from '@/components/HomeBanners';
@@ -121,7 +122,7 @@ function ProductPhoto({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       className={className}
-      src={img}
+      {...responsiveImageProps(img, IMAGE_WIDTHS.stage)}
       alt=""
       width={800}
       height={800}
@@ -216,7 +217,8 @@ export function EditorialStage({ products }: { products: ProductType[] }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className="id-stage-img id-lcp"
-              src={img}
+              {...responsiveImageProps(img, IMAGE_WIDTHS.stage)}
+              sizes={STAGE_IMG_SIZES}
               alt=""
               width={640}
               height={480}
@@ -224,7 +226,7 @@ export function EditorialStage({ products }: { products: ProductType[] }) {
               decoding="async"
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="id-floor-reflect" src={img} alt="" aria-hidden="true" width={640} height={200} decoding="async" />
+            <img className="id-floor-reflect" {...responsiveImageProps(img, IMAGE_WIDTHS.stage)} sizes={REFLECT_IMG_SIZES} alt="" aria-hidden="true" width={640} height={200} decoding="async" />
           </>
         ) : (
           <span className="id-ph" aria-hidden="true">
@@ -269,7 +271,7 @@ export function EditorialStage({ products }: { products: ProductType[] }) {
                 <span className="id-tile-index id-mono">{String(tileIndex + 1).padStart(2, '0')}</span>
                 {tileImg ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={tileImg} alt="" width={80} height={80} />
+                  <img {...responsiveImageProps(tileImg, IMAGE_WIDTHS.thumb)} sizes="80px" alt="" width={80} height={80} />
                 ) : (
                   <SchimitzMonogram size={28} />
                 )}
