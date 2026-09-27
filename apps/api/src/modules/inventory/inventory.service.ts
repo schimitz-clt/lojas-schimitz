@@ -1,10 +1,37 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { availableQty } from './inventory.math';
 import { demoPurchaseRejection } from '../catalog/demo-product';
 
+/** COMANDO OMEGA: optional journal reference. When given, the movement is recorded exactly once. */
+export type InventoryMovementRef = { orderId: string; orderItemId: string };
+export type InventoryMovementKind = 'RESERVE' | 'RELEASE' | 'COMMIT' | 'RESTOCK';
+
 @Injectable()
 export class InventoryService {
+  /**
+   * Journals (orderItem, kind) in InventoryMovement inside the caller's transaction.
+   * Returns false if this movement was already applied (caller must then skip the stock update),
+   * which makes reserve/commit/release/restock idempotent per order item.
+   */
+  async journal(
+    tx: Prisma.TransactionClient,
+    ref: InventoryMovementRef | undefined,
+    productId: string,
+    kind: InventoryMovementKind,
+    qty: number,
+  ): Promise<boolean> {
+    if (!ref) return true;
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      INSERT INTO "InventoryMovement" ("id", "orderId", "orderItemId", "productId", "kind", "qty", "createdAt")
+      VALUES (${randomUUID()}, ${ref.orderId}, ${ref.orderItemId}, ${productId}, ${kind}, ${qty}, NOW())
+      ON CONFLICT ("orderItemId", "kind") DO NOTHING
+      RETURNING "id"
+    `;
+    return rows.length > 0;
+  }
+
   available(qtyOnHand: number, qtyReserved: number) {
     return availableQty(qtyOnHand, qtyReserved);
   }
@@ -13,11 +40,12 @@ export class InventoryService {
    * Reserva atômica (CAS): qtyReserved += qty se disponível >= qty.
    * Usado no create do pedido (awaiting_payment). Pagamento confirma via commitSale.
    */
-  async reserve(tx: Prisma.TransactionClient, productId: string, qty: number) {
+  async reserve(tx: Prisma.TransactionClient, productId: string, qty: number, ref?: InventoryMovementRef) {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
     await this.rejectDemo(tx, productId);
+    if (!(await this.journal(tx, ref, productId, 'RESERVE', qty))) return;
     const inv = await tx.inventory.findUnique({ where: { productId } });
     if (!inv) {
       throw new BadRequestException({
@@ -40,10 +68,11 @@ export class InventoryService {
   }
 
   /** Libera reserva (cancelamento / expiração de unpaid). */
-  async release(tx: Prisma.TransactionClient, productId: string, qty: number) {
+  async release(tx: Prisma.TransactionClient, productId: string, qty: number, ref?: InventoryMovementRef) {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
+    if (!(await this.journal(tx, ref, productId, 'RELEASE', qty))) return 0;
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyReserved" = "qtyReserved" - ${qty}
@@ -60,11 +89,12 @@ export class InventoryService {
   }
 
   /** Confirma venda: baixa on-hand e reserva (pagamento aprovado). */
-  async commitSale(tx: Prisma.TransactionClient, productId: string, qty: number) {
+  async commitSale(tx: Prisma.TransactionClient, productId: string, qty: number, ref?: InventoryMovementRef) {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
     await this.rejectDemo(tx, productId);
+    if (!(await this.journal(tx, ref, productId, 'COMMIT', qty))) return;
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyOnHand" = "qtyOnHand" - ${qty},
@@ -117,10 +147,11 @@ export class InventoryService {
   }
 
   /** Reposição após estorno de Order ainda no depósito. NÃO altera o predicado CAS. */
-  async restock(tx: Prisma.TransactionClient, productId: string, qty: number) {
+  async restock(tx: Prisma.TransactionClient, productId: string, qty: number, ref?: InventoryMovementRef) {
     if (qty < 1) {
       throw new BadRequestException({ message: 'Quantidade inválida', code: 'INVALID_QTY' });
     }
+    if (!(await this.journal(tx, ref, productId, 'RESTOCK', qty))) return 0;
     const rows = await tx.$executeRaw`
       UPDATE "Inventory"
       SET "qtyOnHand" = "qtyOnHand" + ${qty}

@@ -25,6 +25,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PushModule } from './modules/push/push.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { SecurityModule } from './modules/security/security.module';
+import { FinanceCoreModule } from './modules/finance/finance-core.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { SecurityModule } from './modules/security/security.module';
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
+    FinanceCoreModule,
     HealthModule,
     AuthModule,
     CatalogModule,
@@ -55,6 +58,7 @@ import { SecurityModule } from './modules/security/security.module';
     PushModule,
     SellersModule,
     SecurityModule,
+    FinanceModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
