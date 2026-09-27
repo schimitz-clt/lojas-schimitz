@@ -8,7 +8,7 @@ import { ok } from '../../common/http';
 import { FinanceAdminService } from './finance-admin.service';
 import { ReconciliationService } from './reconciliation.service';
 import { RefundsService } from './refunds.service';
-import { ConfirmedActionDto, ReconcileDto, RefundRequestDto, ResolveDiscrepancyDto, ReviewDto } from './dto';
+import { ConfirmedActionDto, LedgerAdjustmentDto, ReconcileDto, RefundRequestDto, ResolveDiscrepancyDto, ReviewDto } from './dto';
 
 /**
  * Admin "Financeiro" API. ADMIN role only (DB-backed role via JwtAuthGuard + RolesGuard).
@@ -90,5 +90,18 @@ export class FinanceAdminController {
   @HttpCode(200)
   async resolve(@CurrentUser('sub') actorId: string, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ResolveDiscrepancyDto) {
     return ok(await this.admin.resolveDiscrepancy(id, dto.status ?? 'RESOLVED', actorId, dto.reason));
+  }
+
+  @Post('ledger/adjustments')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async adjustment(
+    @CurrentUser('sub') actorId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: LedgerAdjustmentDto,
+  ) {
+    if (!idempotencyKey || idempotencyKey.length < 8 || idempotencyKey.length > 120) {
+      throw new BadRequestException({ message: 'Header Idempotency-Key obrigatório (8-120 caracteres)', code: 'IDEMPOTENCY_KEY_REQUIRED' });
+    }
+    return ok(await this.admin.createAdjustment({ idempotencyKey, direction: dto.direction, amount: dto.amount, paymentId: dto.paymentId, orderId: dto.orderId, reason: dto.reason, actorId }));
   }
 }

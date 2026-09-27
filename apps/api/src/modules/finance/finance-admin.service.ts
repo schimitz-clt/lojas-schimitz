@@ -274,4 +274,68 @@ export class FinanceAdminService {
     await this.auditAction(`discrepancy.${status.toLowerCase()}`, actorId, { orderId: d.orderId, paymentId: d.paymentId, reason, oldState: d.status, newState: status, meta: { discrepancyId: d.id, type: d.type, severity: d.severity, conditionCleared: d.conditionCleared } });
     return { discrepancy: updated, idempotent: false };
   }
+
+  /**
+   * Manual ledger adjustment (ADJUSTMENT_CREATED). Idempotent by Idempotency-Key:
+   *  - same key + same payload → returns the existing entry (replay, no new row);
+   *  - same key + different payload → 409 IDEMPOTENCY_KEY_REUSED.
+   * Append-only (DB trigger blocks UPDATE/DELETE); audited in the same transaction.
+   */
+  async createAdjustment(input: { idempotencyKey: string; direction: 'CREDIT' | 'DEBIT'; amount: number; paymentId?: string; orderId?: string; reason: string; actorId: string }) {
+    const amount = money(input.amount);
+    if (!(amount >= 0.01)) throw new BadRequestException({ message: 'Valor inválido', code: 'INVALID_AMOUNT' });
+    if (!input.paymentId && !input.orderId) {
+      throw new BadRequestException({ message: 'Informe paymentId e/ou orderId', code: 'ADJUSTMENT_TARGET_REQUIRED' });
+    }
+    let orderId = input.orderId ?? null;
+    let externalId: string | null = null;
+    if (input.paymentId) {
+      const p = await this.prisma.payment.findUnique({ where: { id: input.paymentId }, select: { id: true, orderId: true, externalId: true } });
+      if (!p) throw new NotFoundException({ message: 'Pagamento não encontrado', code: 'PAYMENT_NOT_FOUND' });
+      if (orderId && orderId !== p.orderId) {
+        throw new BadRequestException({ message: 'orderId não corresponde ao pedido do pagamento', code: 'ADJUSTMENT_TARGET_MISMATCH' });
+      }
+      orderId = p.orderId;
+      externalId = p.externalId;
+    } else {
+      const o = await this.prisma.order.findUnique({ where: { id: orderId! }, select: { id: true } });
+      if (!o) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
+    }
+    const key = `ADJUSTMENT_CREATED:${input.idempotencyKey}`;
+    const fingerprint = { direction: input.direction, amount, paymentId: input.paymentId ?? null, orderId };
+    const result = await this.prisma.$transaction(async (tx) => {
+      const inserted = await this.recorder.appendLedger(tx, {
+        entryType: 'ADJUSTMENT_CREATED',
+        direction: input.direction,
+        amount,
+        idempotencyKey: key,
+        source: 'admin',
+        paymentId: input.paymentId ?? null,
+        orderId,
+        externalId,
+        actorId: input.actorId,
+        meta: { reason: input.reason.slice(0, 500), manual: true },
+      });
+      const entry = await tx.financialLedgerEntry.findUniqueOrThrow({ where: { idempotencyKey: key } });
+      if (!inserted) {
+        const same = entry.direction === fingerprint.direction && money(entry.amount) === amount
+          && (entry.paymentId ?? null) === fingerprint.paymentId && (entry.orderId ?? null) === fingerprint.orderId;
+        if (!same) {
+          throw new ConflictException({ message: 'Idempotency-Key já usada com outro conteúdo', code: 'IDEMPOTENCY_KEY_REUSED' });
+        }
+        return { entry, idempotent: true };
+      }
+      await this.recorder.audit(tx, {
+        action: 'ledger.adjustment_created', origin: 'admin', actorId: input.actorId, actorRole: 'admin',
+        orderId, paymentId: input.paymentId ?? null, amount, reason: input.reason,
+        meta: { ledgerEntryId: entry.id, direction: input.direction },
+      });
+      return { entry, idempotent: false };
+    });
+    if (!result.idempotent) {
+      financeMetrics.inc('ledger_adjustments');
+      await this.auditLog.log('finance.ledger.adjustment_created', { actorId: input.actorId, entity: input.paymentId ? 'Payment' : 'Order', entityId: (input.paymentId || orderId) ?? undefined, meta: { reason: input.reason, amount, direction: input.direction } }).catch(() => undefined);
+    }
+    return { entry: { ...result.entry, amount: money(result.entry.amount) }, idempotent: result.idempotent };
+  }
 }

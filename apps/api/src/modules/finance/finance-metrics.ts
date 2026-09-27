@@ -24,6 +24,7 @@ export const FINANCE_COUNTERS = [
   'forbidden_transitions',
   'finance_hook_failures',
   'reconciliation_runs',
+  'ledger_adjustments',
 ] as const;
 
 export type FinanceCounter = (typeof FINANCE_COUNTERS)[number];

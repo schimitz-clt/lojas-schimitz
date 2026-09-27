@@ -113,4 +113,24 @@ chargebacks, estornos em voo, fila de órfãos, última reconciliação) + conta
 ## Endpoints novos (todos `@Roles('admin')`)
 GET `/admin/finance/health`, `/dashboard`, `/payments`, `/payments/:id`, `/discrepancies`, `/chargebacks`, `/refunds`, `/ledger`, `/audit`, `/reconciliation-runs`.
 POST (corpo `{ reason ≥10, confirm: true }`): `/reconcile`, `/payments/:id/reprocess`, `/payments/:id/refunds` (+ header `Idempotency-Key`),
-`/refunds/:id/retry`, `/orders/:id/release-reservation`, `/payments/:id/review`, `/discrepancies/:id/resolve`.
+`/refunds/:id/retry`, `/orders/:id/release-reservation`, `/payments/:id/review`, `/discrepancies/:id/resolve`,
+`/ledger/adjustments` (+ header `Idempotency-Key`; corpo `{ direction: CREDIT|DEBIT, amount, paymentId?, orderId? }`).
+
+## Ajuste manual (ADJUSTMENT_CREATED)
+`FinanceAdminService.createAdjustment`: chave `ADJUSTMENT_CREATED:<Idempotency-Key>` (unique no ledger). Replay com o
+mesmo conteúdo devolve o mesmo lançamento (sem nova auditoria); conteúdo diferente → 409 `IDEMPOTENCY_KEY_REUSED`.
+Lançamento + `FinancialAuditEvent` na mesma transação. Não entra no cálculo de captura/estorno da reconciliação.
+
+## Backfill do histórico legado (`legacy-backfill.ts` + `legacy-backfill.cli.ts`)
+Para pagamentos sem transições: caminho de estados válido pela máquina (`CREATED|PENDING → … → estado atual`),
+transição inicial com `eventKey = 'created'` (o gravador ao vivo reconhece) e demais `backfill:<i>:<estado>`;
+ledger com as MESMAS chaves do gravador ao vivo (`PAYMENT_CAPTURED:<id>` etc.) → nunca duplica. Somente INSERT
+(`createMany skipDuplicates`), lock de linha `FOR UPDATE` sem escrita no Payment, PrismaClient avulso (não sobe o
+Nest → nenhum job roda). `syncPaymentState` passou a usar a última transição registrada como estado de origem
+quando `financialState` é nulo (senão a aprovação de um pagamento legado não geraria transição/captura).
+
+## Testes HTTP e de queda de banco
+- `finance.e2e.db.spec.ts`: compila a API com `tsc` (metadados de decorator → `ValidationPipe` igual produção) e faz
+  requisições HTTP reais (fetch nativo): checkout → PIX → webhook assinado → PAID → baixa; cartão recusado; 401/403;
+  400 sem `confirm`/motivo; ajuste manual; throttle; estorno legado.
+- `finance.db-down.db.spec.ts`: proxy TCP "desligável" entre a API e o Postgres local; derruba o banco no meio do fluxo.
