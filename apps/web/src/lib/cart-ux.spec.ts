@@ -84,15 +84,34 @@ const mobileCss = globals.slice(
   globals.indexOf('@media (max-width: 720px)'),
   globals.indexOf('@media (max-width: 520px)'),
 );
+// Owner decision 27/09 18:06 (Improvement 6, fix 1) replaces the 22/09 rule "CTAs rolam" (ad6cfd6):
+// on mobile the cart total + checkout CTA is pinned right above the fixed full-width bottom nav,
+// the same navy bar as the PDP buy bar. globals.css keeps the base (static) block; the pin lives in
+// identidade.css (loaded last), scoped to `.cart-page` and to the ≤720px block.
 assert.ok(
   /\.cart-sticky-checkout\s*\{[^}]*position:\s*static/.test(mobileCss),
-  'cart checkout stays in normal flow on mobile',
+  'globals base block unchanged (identidade.css pins it on mobile)',
 );
-assert.equal(
-  /\.cart-sticky-checkout[\s\S]{0,280}position:\s*fixed/.test(mobileCss),
-  false,
-  'cart checkout is not fixed above the bottom nav',
+const idCss = readFileSync(join(root, 'components/storefront/identidade.css'), 'utf8');
+const idMobile = idCss.slice(idCss.indexOf('@media (max-width: 720px)'));
+const pinned = /\.cart-page \.cart-sticky-checkout\s*\{([^}]*)\}/.exec(idMobile);
+assert.ok(pinned, 'cart checkout bar has a mobile pin rule');
+assert.ok(/position:\s*fixed/.test(pinned![1]), 'cart checkout pinned on mobile');
+assert.ok(/left:\s*0;[\s\S]*right:\s*0;/.test(pinned![1]), 'full-width bar, not floating');
+assert.ok(
+  /bottom:\s*calc\(var\(--tab-bar-h\) \+ env\(safe-area-inset-bottom, 0px\)\)/.test(pinned![1]),
+  'sits right above the bottom nav (same offset as the PDP buy bar)',
 );
+assert.ok(/border-radius:\s*0/.test(pinned![1]), 'square full-width bar like the PDP buy bar');
+assert.ok(/var\(--id-cream\)/.test(pinned![1]), 'navy bar with cream text (owner palette)');
+assert.ok(
+  /body:has\(\.cart-page \.cart-sticky-checkout\) \.footer\s*\{[^}]*padding-bottom:\s*calc\(var\(--tab-bar-h\)/.test(idMobile),
+  'footer end clears both the bottom nav and the pinned bar on the cart',
+);
+const pinAt = idCss.indexOf('.cart-page .cart-sticky-checkout {');
+const enclosingMedia = idCss.slice(0, pinAt).match(/@media[^{]*\{/g)?.pop() || '';
+assert.ok(enclosingMedia.includes('max-width: 720px'), 'pin only inside the ≤720px block (desktop untouched)');
+assert.equal((idCss.match(/\.cart-page \.cart-sticky-checkout \{/g) || []).length, 1, 'single pin rule');
 assert.equal(
   /padding-bottom:\s*calc\(110px/.test(mobileCss),
   false,

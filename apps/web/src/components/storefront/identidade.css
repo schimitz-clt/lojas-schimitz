@@ -838,6 +838,49 @@
     border-bottom: 0;
     z-index: 31;
   }
+  /* Cart: the total + "Finalizar / Entrar ou cadastrar" bar is pinned right above the
+     fixed full-width bottom nav, same navy bar as the PDP buy bar. Before, it sat below the
+     coupon/summary (y≈1100 on a 390×844 phone) and was never on the first screen. */
+  .cart-page .cart-sticky-checkout {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 31;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    padding: 10px 14px;
+    gap: 12px;
+    border: 0;
+    border-top: 0.5px solid rgba(243, 236, 223, 0.18);
+    border-radius: 0;
+    color: var(--id-cream);
+    background: linear-gradient(180deg, rgba(24, 44, 86, 0.96), rgba(7, 18, 42, 0.98));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: 0 -8px 24px rgba(7, 18, 42, 0.18);
+  }
+  .cart-page .cart-sticky-checkout .muted,
+  .cart-page .cart-sticky-checkout .price,
+  .cart-page .cart-sticky-checkout .cart-sticky-pix {
+    color: var(--id-cream);
+  }
+  .cart-page .cart-sticky-checkout .cart-sticky-pix {
+    opacity: 0.86;
+  }
+  .cart-page .cart-sticky-checkout .cart-checkout-btn {
+    flex: 0 1 auto;
+    min-width: 168px;
+    width: auto;
+    padding: 0 18px;
+    white-space: nowrap;
+  }
+  /* Room for the pinned bar at the end of the page: the footer already clears the bottom nav;
+     on the cart it also clears the bar (~72px). Browsers without :has() just keep today's padding. */
+  body:has(.cart-page .cart-sticky-checkout) .footer {
+    padding-bottom: calc(var(--tab-bar-h) + 96px + env(safe-area-inset-bottom, 0px));
+  }
   .chatw-fab {
     display: none;
   }
