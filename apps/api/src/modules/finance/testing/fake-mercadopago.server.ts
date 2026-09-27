@@ -38,6 +38,8 @@ export class FakeMercadoPagoServer {
   /** When set, POST /v1/payments returns this status for card payments. */
   nextCardStatus: { status: string; status_detail: string } = { status: 'approved', status_detail: 'accredited' };
   refundStatus: 'approved' | 'in_process' | 'rejected' = 'approved';
+  /** Real MP sandbox (2026-09-26) answered GET /v1/payments/{id}/refunds with 405; set 405 to mirror it. */
+  refundListStatus: 200 | 405 = 200;
   /** Test hook awaited right before a response is written (after fake state changed). Used to cut the DB mid-flow. */
   beforeSend: ((method: string, path: string, status: number) => Promise<void> | void) | null = null;
 
@@ -57,7 +59,7 @@ export class FakeMercadoPagoServer {
   reset() {
     this.payments.clear(); this.refunds.clear(); this.chargebacks.clear();
     this.idemPayments.clear(); this.idemRefunds.clear(); this.calls = []; this.failures = [];
-    this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null;
+    this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null; this.refundListStatus = 200;
     this.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
   }
 
@@ -87,7 +89,7 @@ export class FakeMercadoPagoServer {
 
   private send(res: ServerResponse, status: number, body: unknown) {
     res.writeHead(status, { 'content-type': 'application/json', 'x-fake-provider': 'TEST-LOCAL-NOT-PRODUCTION' });
-    res.end(JSON.stringify(body));
+    res.end(body === '' ? '' : JSON.stringify(body));
   }
 
   private async body(req: IncomingMessage): Promise<any> {
@@ -132,17 +134,21 @@ export class FakeMercadoPagoServer {
       if ((m = path.match(/^\/v1\/payments\/([^/]+)\/refunds$/))) {
         const p = this.payments.get(decodeURIComponent(m[1]));
         if (!p) return reply(404, { message: 'payment not found' });
-        if (method === 'GET') return reply(200, (this.refunds.get(p.id) || []).map(({ idem: _i, ...r }) => r));
+        if (method === 'GET') {
+          if (this.refundListStatus === 405) return reply(405, '');
+          return reply(200, (this.refunds.get(p.id) || []).map(({ idem: _i, ...r }) => r));
+        }
         if (method === 'POST') {
           const b = await this.body(req);
           if (idem && this.idemRefunds.has(idem)) {
+            // Real sandbox: same X-Idempotency-Key ⇒ HTTP 200 with the ORIGINAL refund, even if the amount differs.
             const { idem: _i, ...r } = this.idemRefunds.get(idem)!;
-            return reply(201, r);
+            return reply(200, r);
           }
-          if (p.status !== 'approved') return reply(400, { message: 'Payment not in a refundable state', cause: [{ code: 2063 }] });
+          if (p.status !== 'approved') return reply(400, { message: 'The action requested is not valid for the current payment state', error: 'bad_request', status: 400, cause: [{ code: 2063, description: 'The action requested is not valid for the current payment state' }] });
           const remaining = Math.round((p.transaction_amount - p.transaction_amount_refunded) * 100) / 100;
           const amount = b.amount != null ? Number(b.amount) : remaining;
-          if (amount > remaining + 0.001) return reply(400, { message: 'Invalid refund amount', cause: [{ code: 4040 }] });
+          if (amount > remaining + 0.001) return reply(400, { message: 'Invalid transaction_amount for update', error: 'bad_request', status: 400, cause: [{ code: 2017, description: 'Invalid transaction_amount for update' }] });
           if (this.refundStatus === 'rejected') return reply(400, { message: 'refund rejected (fake)' });
           const r: FakeMpRefund = { id: String(++this.seq), payment_id: p.id, amount, status: this.refundStatus, idem: idem || '' };
           if (idem) this.idemRefunds.set(idem, r);
@@ -195,6 +201,7 @@ export class FakeMercadoPagoServer {
   private view(p: FakeMpPayment) {
     return {
       ...p,
+      refunds: (this.refunds.get(p.id) || []).map(({ idem: _i, payment_id: _p, ...r }) => ({ ...r, refund_mode: 'standard', reason: null })),
       point_of_interaction: p.payment_method_id === 'pix' ? { transaction_data: { qr_code: `TEST-FAKE-QR-${p.id}`, qr_code_base64: null, ticket_url: null } } : undefined,
     };
   }

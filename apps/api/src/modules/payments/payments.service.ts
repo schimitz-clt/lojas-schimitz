@@ -507,6 +507,12 @@ export class PaymentsService {
           code: 'LIVE_SPLIT_CARD_FAILED',
         });
       }
+      if (e?.code === 'PAYER_EMAIL_INVALID') {
+        throw new BadRequestException({
+          message: 'Seu e-mail de cadastro é inválido para pagamento. Atualize o e-mail da conta e tente novamente.',
+          code: 'PAYER_EMAIL_INVALID',
+        });
+      }
       throw new BadRequestException({
         message: 'Falha ao criar intenção no provedor',
         code: 'PROVIDER_INTENT_FAILED',

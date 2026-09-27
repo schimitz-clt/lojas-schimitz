@@ -401,7 +401,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       transaction_amount: Number(input.amount),
       description: `Pedido ${input.publicId}`,
       external_reference: input.publicId,
-      payer: { email: input.payerEmail || 'cliente@lojas-schimitz.test' },
+      payer: { email: String(input.payerEmail || '').trim() },
     };
 
     // Webhook de produção (Railway). Sem isso o MP não notifica a loja.
@@ -474,6 +474,8 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     }
 
     const useSellerSplit = useSandboxSplit || useLiveSplit;
+    // Validated last so split/credential guards keep their own error codes.
+    requireMercadoPagoPayerEmail(input.payerEmail);
     const idempotencyKey = input.providerIdempotencyKey || `sch-intent-${input.orderId}-${input.method}`;
     let json: any;
     let splitMode: PaymentSplitModeValue = useSellerSplit ? 'seller_oauth_v1' : 'off';
@@ -609,13 +611,24 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
   }
 
-  /** GET /v1/payments/{id}/refunds */
+  /**
+   * GET /v1/payments/{id}/refunds. Observed against the real MP sandbox (2026-09-26): this route
+   * answered HTTP 405 with an empty body, while GET /v1/payments/{id} carries the same refunds in
+   * `refunds[]` ({id, status, amount}). On 404/405 we fall back to the payment resource instead of
+   * failing the refund refresh.
+   */
   async listRefunds(externalId: string, opts?: { accessToken?: string }): Promise<ProviderRefund[]> {
-    const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}/refunds`, {
-      accessToken: opts?.accessToken,
-    });
-    const rows: any[] = Array.isArray(json) ? json : Array.isArray(json?.results) ? json.results : [];
-    return rows.map((r) => ({ refundId: String(r.id ?? ''), status: String(r.status || 'unknown'), amount: Number(r.amount || 0) }));
+    const id = encodeURIComponent(externalId);
+    let rows: any[];
+    try {
+      const json = await this.mpFetch(`/v1/payments/${id}/refunds`, { accessToken: opts?.accessToken });
+      rows = Array.isArray(json) ? json : Array.isArray(json?.results) ? json.results : [];
+    } catch (e: any) {
+      if (e?.status !== 404 && e?.status !== 405) throw e;
+      const pay = await this.mpFetch(`/v1/payments/${id}`, { accessToken: opts?.accessToken });
+      rows = Array.isArray(pay?.refunds) ? pay.refunds : [];
+    }
+    return mapMercadoPagoRefunds(rows);
   }
 
   /**
@@ -743,6 +756,26 @@ export function assertNotRealMercadoPagoInTests(baseUrl: string, env: NodeJS.Pro
     err.code = 'REAL_PROVIDER_BLOCKED_IN_TEST';
     throw err;
   }
+}
+
+/** Normalises MP refund rows (list endpoint or payment.refunds[]). */
+export function mapMercadoPagoRefunds(rows: any[]): ProviderRefund[] {
+  return rows.map((r) => ({ refundId: String(r?.id ?? ''), status: String(r?.status || 'unknown'), amount: Number(r?.amount || 0) }));
+}
+
+/**
+ * MP requires a syntactically valid payer.email (sandbox 2026-09-26: `cliente@lojas-schimitz.test`
+ * → HTTP 400 "payer.email must be a valid email"). The old hard-coded fallback could never succeed,
+ * so a missing/malformed e-mail now fails locally with a clear code instead of a doomed MP call.
+ */
+export function requireMercadoPagoPayerEmail(email?: string | null): string {
+  const e = String(email || '').trim();
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(e)) {
+    const err: Error & { code?: string } = new Error('E-mail do pagador ausente ou inválido para o Mercado Pago');
+    err.code = 'PAYER_EMAIL_INVALID';
+    throw err;
+  }
+  return e;
 }
 
 /** Documented manifest: pairs whose value is absent are omitted. */
