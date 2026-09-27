@@ -35,6 +35,8 @@ export type PaymentsHealth = {
   recent15m: {
     providerErrors: number;
     webhookFailures: number;
+    /** Subset of webhookFailures: chargeback / provider fetch / apply failures (what the ops alert watches). */
+    webhookProcessingFailures: number;
     paymentsFailed: number;
     paymentsPaid: number;
   };
@@ -131,6 +133,7 @@ export function recentPaymentSignals(now = Date.now()): PaymentsHealth['recent15
   return {
     providerErrors: opsSignals.count('provider_errors', WINDOW, now),
     webhookFailures: opsSignals.count('webhook_failures', WINDOW, now),
+    webhookProcessingFailures: opsSignals.count('webhook_processing_failures', WINDOW, now),
     paymentsFailed: opsSignals.count('payments_failed', WINDOW, now),
     paymentsPaid: opsSignals.count('payments_paid', WINDOW, now),
   };

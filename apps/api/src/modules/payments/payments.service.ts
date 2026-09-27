@@ -33,6 +33,7 @@ import {
   roundMoney,
 } from '../../common/pricing';
 import { structuredLog } from '../../common/structured-log';
+import { describeWebhookRejection } from './webhook-rejection';
 import { pickLinkablePayment, resolveWebhookPayment } from './webhook-resolve';
 import { shouldRecordCommissionOnApprove } from './commission-on-approve';
 import {
@@ -676,11 +677,30 @@ export class PaymentsService {
     query?: Record<string, unknown>,
   ) {
     financeMetrics.inc('webhook_received');
+    // Unsigned legacy IPN ("MercadoPago Feed v2.0"): no x-signature by design, so it can never be
+    // authenticated. Acknowledge with 200 so MP stops retrying, but trust NOTHING: no PaymentEvent,
+    // no provider fetch, no state change. Signed Webhooks (same payment, same moment) + the admin
+    // reconciliation/reprocess path remain the only sources of truth.
+    const unsigned = this.provider.classifyUnsignedNotification?.({ headers, body, query }) ?? null;
+    if (unsigned) {
+      financeMetrics.inc('webhook_unsigned_ipn');
+      structuredLog('info', 'WEBHOOK_UNSIGNED_IPN_IGNORED', {
+        topic: unsigned.topic,
+        resourceId: unsigned.resourceId,
+        userAgentFamily: unsigned.userAgentFamily,
+      });
+      return { ok: true, applied: false, reason: 'unsigned_legacy_ipn_ignored' };
+    }
     let verified: VerifiedWebhookEvent;
     try {
       verified = await this.provider.verifyWebhook({ headers, body, query });
     } catch (e: any) {
-      financeMetrics.inc('webhook_failures');
+      const rejection = describeWebhookRejection(headers, body, query, e);
+      // Missing signature (and not a legacy IPN) = scanner/misrouted call → its own counter.
+      // Only a CLAIMED-but-invalid signature, a missing secret or an unparseable event is a failure.
+      if (rejection.reason === 'signature_missing') financeMetrics.inc('webhook_unsigned_rejected');
+      else financeMetrics.inc('webhook_failures');
+      structuredLog('warn', 'WEBHOOK_SIGNATURE_REJECTED', rejection);
       const status = e?.status || 401;
       if (status === 400) {
         throw new BadRequestException({ message: e.message || 'Webhook inválido', code: e.code || 'WEBHOOK_BAD_REQUEST' });
@@ -774,6 +794,7 @@ export class PaymentsService {
         return { ok: true, applied: true, reason: 'chargeback', ...r };
       } catch (e: any) {
         financeMetrics.inc('webhook_failures');
+        financeMetrics.inc('webhook_processing_failures');
         await this.markEvent(event.id, { processingStatus: 'FAILED', lastError: String(e?.message || e) });
         structuredLog('error', 'WEBHOOK_PROCESSING_FAILED', { eventId: event.id, topic: verified.topic, error: String(e?.message || e).slice(0, 200) });
         throw e;
@@ -801,6 +822,7 @@ export class PaymentsService {
     } catch (e: any) {
       financeMetrics.inc('provider_errors');
       financeMetrics.inc('webhook_failures');
+      financeMetrics.inc('webhook_processing_failures');
       await this.markEvent(event.id, { processingStatus: 'FAILED', lastError: `fetch_failed:${String(e?.status || e?.message || e)}` });
       this.log.error(`fetchPayment falhou para ${verified.externalId}`);
       structuredLog('error', 'WEBHOOK_FETCH_FAILED', {
@@ -1047,6 +1069,7 @@ export class PaymentsService {
     e: any,
   ) {
     financeMetrics.inc('webhook_failures');
+    financeMetrics.inc('webhook_processing_failures');
     await this.markEvent(eventId, { processingStatus: 'FAILED', lastError: String(e?.message || e), paymentId: local.id });
     structuredLog('error', 'WEBHOOK_APPLY_FAILED', {
       eventId,

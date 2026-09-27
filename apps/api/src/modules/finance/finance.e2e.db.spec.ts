@@ -331,6 +331,102 @@ async function main() {
     return 'legacy {} OK (reason null audited), reason recorded, replay idempotent, 1 provider refund';
   });
 
+  const counters = async () => {
+    const h = await http('GET', '/admin/finance/health', { cookie: admin.cookie });
+    assert.equal(h.status, 200);
+    return h.json.data.process.counters as Record<string, number>;
+  };
+  const delta = (a: Record<string, number>, b: Record<string, number>, k: string) => (b[k] || 0) - (a[k] || 0);
+  const FEED_UA = 'MercadoPago Feed v2.0 payment';
+
+  await scenario('E10', 'IPN/Feed sem assinatura → 200 ignorado (nada muda, sem fetch); forjado não altera nada; assinado segue fonte da verdade', async () => {
+    const b = await user('customer');
+    const p = await product(2);
+    const order = await httpCheckout(b, p.id, 1);
+    const pay = await httpIntent(b.cookie, orderId(order), 'pix');
+    fake.setPayment(pay.externalId, { status: 'approved', status_detail: 'accredited' });
+    const getRe = new RegExp(`/v1/payments/${pay.externalId}$`);
+    const gets0 = fake.count('GET', getRe);
+    const ev0 = await prisma.paymentEvent.count({ where: { dataId: pay.externalId } });
+    const audit0 = await prisma.auditLog.count({ where: { action: { startsWith: 'payment.webhook' } } });
+    const c0 = await counters();
+
+    // real Feed shape (query topic/id + body resource/topic, Feed UA, NO x-signature)
+    const feed = await http('POST', '/webhooks/mercadopago', { headers: { 'user-agent': FEED_UA }, body: { resource: pay.externalId, topic: 'payment' }, rawQuery: `?topic=payment&id=${pay.externalId}` });
+    assert.equal(feed.status, 200, JSON.stringify(feed.json));
+    assert.equal(feed.json.data.reason, 'unsigned_legacy_ipn_ignored');
+    assert.equal(feed.json.data.applied, false);
+    // forged unsigned request claiming "approved" with a Webhook-like body + IPN topic → still ignored
+    const forged = await http('POST', '/webhooks/mercadopago', { headers: { 'user-agent': FEED_UA }, body: { topic: 'payment', type: 'payment', action: 'payment.updated', status: 'approved', data: { id: pay.externalId } }, rawQuery: `?topic=payment&id=${pay.externalId}&data.id=${pay.externalId}` });
+    assert.equal(forged.status, 200);
+    assert.equal(forged.json.data.reason, 'unsigned_legacy_ipn_ignored');
+
+    // nothing changed: no PaymentEvent, no provider fetch, no audit, payment/order/stock untouched
+    assert.equal(await prisma.paymentEvent.count({ where: { dataId: pay.externalId } }), ev0);
+    assert.equal(fake.count('GET', getRe), gets0, 'no provider fetch for unsigned IPN');
+    assert.equal(await prisma.auditLog.count({ where: { action: { startsWith: 'payment.webhook' } } }), audit0);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status, 'pending');
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } })).status, 'awaiting_payment');
+    assert.equal((await inv(p.id)).qtyReserved, 1);
+    assert.equal((await inv(p.id)).qtyOnHand, 2);
+
+    // unsigned, NOT IPN-shaped (Webhook shape without signature) → 401, own counter, not a failure
+    const unsignedWebhook = await http('POST', '/webhooks/mercadopago', { body: { type: 'payment', action: 'payment.updated', data: { id: pay.externalId } }, rawQuery: `?data.id=${pay.externalId}&type=payment` });
+    assert.equal(unsignedWebhook.status, 401);
+    // claimed signature that is invalid (wrong secret) → 401 + webhook_failures (unchanged behaviour)
+    const bad = await postWebhook(pay.externalId, randomUUID(), 'wrong-secret-wrong-secret-wrong-secret');
+    assert.equal(bad.status, 401);
+    // Feed UA WITH a (forged) x-signature is NOT treated as IPN → verified → 401
+    const feedForgedSig = await http('POST', '/webhooks/mercadopago', { headers: { 'user-agent': FEED_UA, 'x-signature': 'ts=1,v1=' + 'c'.repeat(64), 'x-request-id': randomUUID() }, body: { topic: 'payment' }, rawQuery: `?topic=payment&id=${pay.externalId}` });
+    assert.equal(feedForgedSig.status, 401);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status, 'pending');
+    assert.equal(fake.count('GET', getRe), gets0);
+
+    const c1 = await counters();
+    assert.equal(delta(c0, c1, 'webhook_received'), 5);
+    assert.equal(delta(c0, c1, 'webhook_unsigned_ipn'), 2);
+    assert.equal(delta(c0, c1, 'webhook_unsigned_rejected'), 1);
+    assert.equal(delta(c0, c1, 'webhook_failures'), 2, 'only the 2 claimed-but-invalid signatures');
+    assert.equal(delta(c0, c1, 'webhook_processing_failures'), 0);
+
+    // the signed Webhook remains the source of truth → PAID
+    const w = await postWebhook(pay.externalId);
+    assert.equal(w.status, 200, JSON.stringify(w.json));
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status, 'approved');
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } })).status, 'paid');
+    // a late Feed after PAID changes nothing either
+    const late = await http('POST', '/webhooks/mercadopago', { headers: { 'user-agent': FEED_UA }, body: { resource: pay.externalId, topic: 'payment' }, rawQuery: `?topic=payment&id=${pay.externalId}` });
+    assert.equal(late.status, 200);
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } })).status, 'paid');
+    assert.equal((await inv(p.id)).qtyOnHand, 1);
+    return 'Feed 200/ignored ×3, forged unchanged, unsigned 401, bad sig 401 ×2, signed → paid';
+  });
+
+  await scenario('E11', 'Falha de processamento (fetch MP 500) → webhook_processing_failures (alerta) + 5xx p/ retry; retry assinado recupera', async () => {
+    const b = await user('customer');
+    const p = await product(2);
+    const order = await httpCheckout(b, p.id, 1);
+    const pay = await httpIntent(b.cookie, orderId(order), 'pix');
+    fake.setPayment(pay.externalId, { status: 'approved', status_detail: 'accredited' });
+    const c0 = await counters();
+    const h0 = await http('GET', '/health/payments');
+    const r0 = h0.json?.data?.recent15m ?? h0.json?.recent15m;
+    fake.failNext((m, path) => m === 'GET' && path === `/v1/payments/${pay.externalId}`, 500, 1);
+    const w1 = await postWebhook(pay.externalId);
+    assert.ok(w1.status >= 500, `expected 5xx, got ${w1.status}`);
+    const c1 = await counters();
+    assert.equal(delta(c0, c1, 'webhook_processing_failures'), 1);
+    assert.equal(delta(c0, c1, 'webhook_failures'), 1);
+    assert.equal(delta(c0, c1, 'webhook_unsigned_ipn'), 0);
+    const h1 = await http('GET', '/health/payments');
+    const r1 = h1.json?.data?.recent15m ?? h1.json?.recent15m;
+    assert.equal(r1.webhookProcessingFailures - r0.webhookProcessingFailures, 1, JSON.stringify(r1));
+    const w2 = await postWebhook(pay.externalId);
+    assert.equal(w2.status, 200, JSON.stringify(w2.json));
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } })).status, 'paid');
+    return `fetch 500 → HTTP ${w1.status}, processing_failures +1 (health recent15m +1), retry → paid`;
+  });
+
   await prisma.product.updateMany({ where: { sku: { startsWith: 'OMEGA-E2E-' } }, data: { active: false } });
   await srv.close();
   await prisma.$disconnect();

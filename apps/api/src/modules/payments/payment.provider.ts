@@ -144,7 +144,28 @@ export interface PaymentProvider {
   createRefund?(externalId: string, input: CreateRefundInput): Promise<ProviderRefund>;
   listRefunds?(externalId: string, opts?: { accessToken?: string }): Promise<ProviderRefund[]>;
   fetchChargeback?(caseId: string): Promise<ProviderChargeback>;
+  /**
+   * Optional: recognises UNSIGNED legacy notifications (Mercado Pago IPN / "Feed v2.0") that carry no
+   * x-signature by design. When it returns non-null the service acknowledges them (200) WITHOUT
+   * trusting, persisting or processing anything. Returns null for anything that has a signature
+   * header or does not look like a legacy IPN (those keep going through verifyWebhook).
+   */
+  classifyUnsignedNotification?(input: VerifyWebhookInput): UnsignedLegacyNotification | null;
 }
+
+/** Safe, non-secret description of an unsigned legacy IPN (for counters/logs only; never trusted). */
+export type UnsignedLegacyNotification = {
+  kind: 'legacy_ipn';
+  /** Sanitised topic claimed by the request (payment, merchant_order...) — informational only. */
+  topic: string;
+  /** Sanitised resource id claimed by the request (digits/letters, ≤ 40 chars) — informational only. */
+  resourceId: string | null;
+  /** 'feed' when the User-Agent looks like "MercadoPago Feed …", otherwise 'other'. */
+  userAgentFamily: 'feed' | 'other';
+};
+
+/** Why a webhook was rejected before processing (internal classification; not part of the HTTP body). */
+export type WebhookRejectReason = 'secret_missing' | 'signature_missing' | 'signature_mismatch' | 'unparseable';
 
 /** Map in-memory para testes do NullPaymentProvider. */
 const nullStore = new Map<string, FetchPaymentResult>();
@@ -658,6 +679,10 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
   }
 
+  classifyUnsignedNotification(input: VerifyWebhookInput): UnsignedLegacyNotification | null {
+    return detectUnsignedLegacyNotification(input);
+  }
+
   async verifyWebhook(input: VerifyWebhookInput): Promise<VerifiedWebhookEvent> {
     const headers = normalizeHeaders(input.headers);
     const secret = this.webhookSecret();
@@ -668,6 +693,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       const err: any = new Error('Webhook secret não configurado');
       err.status = 401;
       err.code = 'WEBHOOK_SIGNATURE_INVALID';
+      err.rejectReason = 'secret_missing' satisfies WebhookRejectReason;
       throw err;
     }
 
@@ -675,6 +701,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       const err: any = new Error('Assinatura ausente');
       err.status = 401;
       err.code = 'WEBHOOK_SIGNATURE_INVALID';
+      err.rejectReason = 'signature_missing' satisfies WebhookRejectReason;
       throw err;
     }
 
@@ -712,6 +739,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
         const err: any = new Error('Assinatura de webhook inválida');
         err.status = 401;
         err.code = 'WEBHOOK_SIGNATURE_INVALID';
+        err.rejectReason = 'signature_mismatch' satisfies WebhookRejectReason;
         throw err;
       }
     }
@@ -723,6 +751,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
         const err: any = new Error('Evento de webhook sem identidade');
         err.status = 400;
         err.code = 'WEBHOOK_EVENT_UNPARSEABLE';
+        err.rejectReason = 'unparseable' satisfies WebhookRejectReason;
         throw err;
       }
     }
@@ -834,7 +863,38 @@ export function buildMercadoPagoNotificationUrl(
   const prefix = String(apiPrefix || 'api/v1').replace(/^\//, '').replace(/\/$/, '');
   const withPrefix =
     base === prefix || base.endsWith(`/${prefix}`) ? base : `${base}/${prefix}`;
-  return `${withPrefix}/webhooks/mercadopago`;
+  // source_news=webhooks: Mercado Pago then sends ONLY signed Webhooks (x-signature) for this payment,
+  // not the unsigned legacy IPN/"Feed v2.0" duplicates (which we cannot authenticate and ignore).
+  return `${withPrefix}/webhooks/mercadopago?source_news=webhooks`;
+}
+
+/**
+ * Recognises an UNSIGNED legacy Mercado Pago IPN ("MercadoPago Feed v2.0 …"): no x-signature header
+ * AND the IPN shape (`topic` in query/body, or a `resource` field, or a Feed User-Agent).
+ * Anything with an x-signature header (even an invalid one) returns null → normal verification,
+ * so a forged signature is still rejected with 401. Signed Webhooks (type + data.id) never match.
+ * The result is informational only: callers must not trust or act on topic/resourceId.
+ */
+export function detectUnsignedLegacyNotification(input: VerifyWebhookInput): UnsignedLegacyNotification | null {
+  const headers = normalizeHeaders(input.headers);
+  if (String(headers['x-signature'] || '').trim()) return null;
+  const body = (input.body && typeof input.body === 'object' ? input.body : {}) as Record<string, unknown>;
+  const ua = String(headers['user-agent'] || '');
+  const feedUa = /^mercadopago feed\b/i.test(ua.trim());
+  const queryTopic = pickQueryString(input.query, 'topic');
+  const bodyTopic = typeof body.topic === 'string' ? body.topic : '';
+  const resource = typeof body.resource === 'string' ? body.resource : '';
+  if (!feedUa && !queryTopic && !bodyTopic && !resource) return null;
+  const uaTopic = feedUa ? (ua.trim().split(/\s+/)[3] || '') : '';
+  const topic = sanitizeToken(queryTopic || bodyTopic || uaTopic || 'unknown', 40) || 'unknown';
+  const rawId = pickQueryString(input.query, 'id') || (resource ? resource.split('/').filter(Boolean).pop() || '' : '');
+  const resourceId = sanitizeToken(rawId, 40) || null;
+  return { kind: 'legacy_ipn', topic, resourceId, userAgentFamily: feedUa ? 'feed' : 'other' };
+}
+
+/** Keeps only [A-Za-z0-9._-], truncated — safe to log/count (no injection, no PII-sized blobs). */
+export function sanitizeToken(v: unknown, max = 40): string {
+  return String(v ?? '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, max);
 }
 
 /** Opt-in explícito para body.status no NullPaymentProvider (nunca em prod/staging/Railway prod). */

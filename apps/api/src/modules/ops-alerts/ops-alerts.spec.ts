@@ -31,7 +31,7 @@ async function main() {
   assert.equal(cfg.rules.find((r) => r.key === 'provider_errors')!.threshold, 3);
 
   // --- evaluate: threshold + cooldown
-  const counts: Record<string, number> = { http_5xx: 2, provider_errors: 0, webhook_failures: 0 };
+  const counts: Record<string, number> = { http_5xx: 2, provider_errors: 0, webhook_failures: 0, webhook_processing_failures: 0 };
   const last = new Map<string, number>();
   const now = Date.UTC(2026, 8, 27, 18, 0);
   assert.equal(evaluateOpsAlerts(cfg, (k) => counts[k], last, now).length, 0);
@@ -41,6 +41,18 @@ async function main() {
   last.set('http_5xx', now);
   assert.equal(evaluateOpsAlerts(cfg, (k) => counts[k], last, now + 10 * 60_000).length, 0); // cooldown
   assert.equal(evaluateOpsAlerts(cfg, (k) => counts[k], last, now + 31 * 60_000).length, 1); // after cooldown
+
+  // --- webhook alert watches ONLY processing failures (fetch/apply/chargeback), never raw webhook_failures
+  assert.ok(!cfg.rules.some((r) => (r.key as string) === 'webhook_failures'), 'no rule on raw webhook_failures');
+  const wh = cfg.rules.find((r) => r.key === 'webhook_processing_failures')!;
+  assert.equal(wh.threshold, 10);
+  assert.equal(opsAlertConfigFromEnv({ OPS_ALERT_EMAIL_TO: 'a@b.io', OPS_ALERT_WEBHOOK_FAILURES_THRESHOLD: '4' }).rules.find((r) => r.key === 'webhook_processing_failures')!.threshold, 4);
+  {
+    const c2: Record<string, number> = { http_5xx: 0, provider_errors: 0, webhook_failures: 500, webhook_unsigned_ipn: 500, webhook_unsigned_rejected: 500, webhook_processing_failures: 0 };
+    assert.equal(evaluateOpsAlerts(cfg, (k) => c2[k] ?? 0, new Map(), now).length, 0, 'signature/IPN noise never alerts');
+    c2.webhook_processing_failures = 10;
+    assert.deepEqual(evaluateOpsAlerts(cfg, (k) => c2[k] ?? 0, new Map(), now).map((f) => f.rule.key), ['webhook_processing_failures']);
+  }
 
   // --- message: Portuguese, BRT, no data beyond counts
   const msg = formatOpsAlert(fired[0], 'production', cfg.cooldownMs, new Date(now));
@@ -56,6 +68,12 @@ async function main() {
   financeMetrics.inc('refunds_requested'); // not mirrored
   assert.equal(opsSignals.count('provider_errors', 60_000), 2);
   assert.equal(opsSignals.count('refunds_requested', 60_000), 0);
+  financeMetrics.inc('webhook_processing_failures');
+  financeMetrics.inc('webhook_unsigned_ipn'); // not mirrored (never alerts)
+  financeMetrics.inc('webhook_unsigned_rejected'); // not mirrored
+  assert.equal(opsSignals.count('webhook_processing_failures', 60_000), 1);
+  assert.equal(opsSignals.count('webhook_unsigned_ipn', 60_000), 0);
+  assert.equal(opsSignals.count('webhook_unsigned_rejected', 60_000), 0);
   financeMetrics.reset();
 
   // --- service with the REAL MailService (mail off in this env → logs OPS_ALERT, emailed=0, never throws)

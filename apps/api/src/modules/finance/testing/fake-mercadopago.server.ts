@@ -32,6 +32,8 @@ export class FakeMercadoPagoServer {
   private idemRefunds = new Map<string, FakeMpRefund>();
   private seq = Date.now() * 1000; // unique across runs (local DB keeps old rows)
   calls: { method: string; path: string; idem?: string; callerId?: string }[] = [];
+  /** Bodies received on POST /v1/payments (lets tests assert e.g. notification_url). */
+  createBodies: Record<string, unknown>[] = [];
   /** Failure injection: next N requests matching the predicate respond with `status`. */
   failures: { match: (m: string, p: string) => boolean; status: number; remaining: number }[] = [];
   delayMs = 0;
@@ -60,7 +62,7 @@ export class FakeMercadoPagoServer {
 
   reset() {
     this.payments.clear(); this.refunds.clear(); this.chargebacks.clear();
-    this.idemPayments.clear(); this.idemRefunds.clear(); this.calls = []; this.failures = [];
+    this.idemPayments.clear(); this.idemRefunds.clear(); this.calls = []; this.createBodies = []; this.failures = [];
     this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null; this.refundListStatus = 200; this.omitRefundsInView = false;
     this.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
   }
@@ -126,6 +128,7 @@ export class FakeMercadoPagoServer {
       }
       if (method === 'POST' && path === '/v1/payments') {
         const b = await this.body(req);
+        this.createBodies.push(b);
         if (idem && this.idemPayments.has(idem)) return reply(201, this.view(this.payments.get(this.idemPayments.get(idem)!)!));
         const isPix = b.payment_method_id === 'pix';
         const p = this.addPayment({
