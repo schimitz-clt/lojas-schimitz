@@ -29,8 +29,9 @@ Para quem opera o dia a dia (admin). Tudo aqui usa a área **Admin → Financeir
 | **Marcar revisão / Liberar revisão** | Suspeita (regras de risco) | Só sinaliza; não bloqueia nada automaticamente. |
 | **Liberar reserva** | Reserva vencida sem pagamento | Só funciona sem pagamento pendente/aprovado. Cancela o pedido e devolve a reserva. |
 | **Reconhecer / Resolver** divergência | Após tratar | Reconhecer = "estou vendo"; Resolver = "tratei" (Crítica exige ≥ 30 caracteres). |
+| **Ajuste manual de ledger** (`POST /admin/finance/ledger/adjustments`) | Tarifa, diferença conferida no extrato do MP, correção contábil | Cria um lançamento `ADJUSTMENT_CREATED` (CREDIT ou DEBIT) ligado a um pagamento e/ou pedido. Exige motivo, `confirm: true` e header `Idempotency-Key` (mesma chave = mesmo lançamento; mesma chave com outro valor = erro 409). **Não altera** status de pagamento/pedido nem estoque e **não chama** o Mercado Pago. Não existe editar/apagar: um ajuste errado se corrige com outro ajuste no sentido oposto. |
 
-O botão antigo de estorno em Pedidos (`POST /admin/payments/:id/refund`) continua existindo (total, sem motivo). Prefira o do Financeiro.
+O botão antigo de estorno em Pedidos (`POST /admin/payments/:id/refund`) continua existindo (total). O campo `reason` agora é **aceito e opcional** (compatível com o app atual, que envia `{}`); todo uso fica na auditoria (`payment.legacy_refund_requested`) e a ausência de motivo gera o log `LEGACY_REFUND_WITHOUT_REASON`. Prefira o do Financeiro.
 
 ## 4. Playbook de incidentes — DETECTAR → RECUPERAR → RECONCILIAR → ALERTAR → AUDITAR
 
@@ -56,6 +57,9 @@ O botão antigo de estorno em Pedidos (`POST /admin/payments/:id/refund`) contin
 ### 4.4 Banco de dados fora
 - **Detectar:** `/health/ready` falha; erros de Prisma nos logs.
 - **Recuperar:** restabelecer o Postgres no Railway (não rodar migrações manuais). Webhooks falham com 5xx e o MP re-tenta.
+  Medido em teste automatizado (`finance.db-down.db.spec.ts`, Prisma 6.19): depois que o banco volta, a API ainda
+  pode responder erro por **~15 segundos** (conexões antigas do pool). É esperado; o MP re-entrega e o resultado final
+  é aplicado uma única vez (1 PAID, 1 baixa de estoque, 1 estorno no MP). Se passar de 1 minuto, reinicie o serviço da API.
 - **Reconciliar:** Reconciliar o período da queda; conferir `WEBHOOK_FAILURES` e `APPROVED_NOT_APPLIED`.
 
 ### 4.5 Webhook atrasado ou duplicado
@@ -77,6 +81,15 @@ O botão antigo de estorno em Pedidos (`POST /admin/payments/:id/refund`) contin
 - **Detectar:** `RESERVATION_WITHOUT_PAYMENT` (Média) ou `STOCK_RESERVED_DRIFT` (Alta).
 - **Recuperar:** o job de expiração libera sozinho após 30 min (+2 h se houver PIX pendente). Se travou: **Liberar reserva**.
   `STOCK_RESERVED_DRIFT` persistente = investigar (não ajustar estoque na mão sem registrar motivo).
+
+### 4.9 Histórico de pagamentos antigos (backfill do ledger)
+Pagamentos criados antes do núcleo financeiro não tinham histórico de estados nem ledger. O comando
+`npm run finance:backfill` (em `apps/api`) cria esse histórico **somente com INSERT**, a partir dos dados locais:
+- nunca altera status de pagamento/pedido, estoque, nem chama o Mercado Pago;
+- sem `--apply` é **simulação** (mostra contagens e divergências, não grava nada);
+- com `--apply` em banco remoto exige `FINANCE_BACKFILL_BACKUP_SHA256` (sha256 de um `pg_dump` recém-feito);
+- rodar de novo não adiciona nada (chaves determinísticas);
+- achados viram **divergências** (sem correção automática) para tratar no painel.
 
 ## 5. Configuração (decisão do dono)
 | Variável | Padrão | Efeito |

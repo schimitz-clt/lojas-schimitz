@@ -1520,7 +1520,13 @@ export class PaymentsService {
     };
   }
 
-  async adminRefund(adminId: string, paymentId: string) {
+  async adminRefund(adminId: string, paymentId: string, reason?: string | null) {
+    // Legacy endpoint: reason is optional for backward compatibility (existing admin UI posts {}).
+    // It is always audited; its absence is logged so ops can migrate to /admin/finance refunds.
+    const legacyReason = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 500) : null;
+    if (!legacyReason) {
+      structuredLog('warn', 'LEGACY_REFUND_WITHOUT_REASON', { paymentId, actorId: adminId });
+    }
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { order: { include: { items: true } } },
@@ -1566,6 +1572,19 @@ export class PaymentsService {
 
     await this.finalizeRefundLocal(paymentId, adminId);
     const updated = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
+    await this.finance.auditSafe({
+      action: 'payment.legacy_refund_requested',
+      origin: 'admin',
+      actorId: adminId,
+      actorRole: 'admin',
+      orderId: payment.orderId,
+      paymentId,
+      amount: Number(payment.amount),
+      oldState: 'approved',
+      newState: updated.status,
+      reason: legacyReason,
+      meta: { endpoint: 'POST /admin/payments/:id/refund', reasonProvided: Boolean(legacyReason) },
+    });
     return { payment: this.serializePayment(updated), idempotent: false };
   }
 

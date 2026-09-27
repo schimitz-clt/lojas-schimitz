@@ -6,6 +6,7 @@ import { structuredLog } from '../../common/structured-log';
 import {
   canPaymentTransition,
   currentPaymentState,
+  isPaymentState,
   resolveTargetState,
   type PaymentState,
   type ProviderObservation,
@@ -249,7 +250,13 @@ export class FinancialRecorder {
       await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "id" = ${paymentId} FOR UPDATE`;
       const p = await tx.payment.findUnique({ where: { id: paymentId } });
       if (!p) return { applied: false, from: 'PENDING', to: 'PENDING', reason: 'missing' } as SyncResult;
-      const from = currentPaymentState(p);
+      // Legacy rows (financialState NULL) whose history was backfilled: the last recorded transition is
+      // the true "from". Deriving it from the (already updated) local status would hide the change.
+      let from = currentPaymentState(p);
+      if (!isPaymentState(p.financialState)) {
+        const last = await tx.paymentStateTransition.findFirst({ where: { paymentId: p.id }, orderBy: [{ createdAt: 'desc' }, { eventKey: 'desc' }], select: { toState: true } });
+        if (last && isPaymentState(last.toState)) from = last.toState;
+      }
       const local = { status: p.status, externalId: p.externalId, amount: Number(p.amount) };
       const to = resolveTargetState(from, local, opts.obs);
       const eventRef = `${opts.source}`;

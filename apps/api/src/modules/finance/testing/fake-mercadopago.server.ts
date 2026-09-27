@@ -38,6 +38,8 @@ export class FakeMercadoPagoServer {
   /** When set, POST /v1/payments returns this status for card payments. */
   nextCardStatus: { status: string; status_detail: string } = { status: 'approved', status_detail: 'accredited' };
   refundStatus: 'approved' | 'in_process' | 'rejected' = 'approved';
+  /** Test hook awaited right before a response is written (after fake state changed). Used to cut the DB mid-flow. */
+  beforeSend: ((method: string, path: string, status: number) => Promise<void> | void) | null = null;
 
   async start(): Promise<string> {
     this.server = createServer((req, res) => void this.handle(req, res));
@@ -55,7 +57,7 @@ export class FakeMercadoPagoServer {
   reset() {
     this.payments.clear(); this.refunds.clear(); this.chargebacks.clear();
     this.idemPayments.clear(); this.idemRefunds.clear(); this.calls = []; this.failures = [];
-    this.delayMs = 0; this.refundStatus = 'approved';
+    this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null;
     this.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
   }
 
@@ -99,20 +101,24 @@ export class FakeMercadoPagoServer {
     const method = req.method || 'GET';
     const path = (req.url || '/').split('?')[0];
     const auth = String(req.headers.authorization || '');
+    const reply = async (status: number, body: unknown) => {
+      if (this.beforeSend) await this.beforeSend(method, path, status);
+      this.send(res, status, body);
+    };
     const idem = req.headers['x-idempotency-key'] ? String(req.headers['x-idempotency-key']) : undefined;
     this.calls.push({ method, path, idem, callerId: req.headers['x-caller-id'] ? String(req.headers['x-caller-id']) : undefined });
-    if (!auth.startsWith('Bearer TEST-FAKE-')) return this.send(res, 401, { message: 'fake MP accepts only TEST-FAKE- tokens' });
+    if (!auth.startsWith('Bearer TEST-FAKE-')) return reply(401, { message: 'fake MP accepts only TEST-FAKE- tokens' });
     if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
     const f = this.failures.find((x) => x.remaining > 0 && x.match(method, path));
     if (f) {
       f.remaining--;
-      return this.send(res, f.status, { message: `fake MP injected ${f.status}` });
+      return reply(f.status, { message: `fake MP injected ${f.status}` });
     }
     try {
       let m: RegExpMatchArray | null;
       if (method === 'POST' && path === '/v1/payments') {
         const b = await this.body(req);
-        if (idem && this.idemPayments.has(idem)) return this.send(res, 201, this.view(this.payments.get(this.idemPayments.get(idem)!)!));
+        if (idem && this.idemPayments.has(idem)) return reply(201, this.view(this.payments.get(this.idemPayments.get(idem)!)!));
         const isPix = b.payment_method_id === 'pix';
         const p = this.addPayment({
           transaction_amount: Number(b.transaction_amount),
@@ -121,49 +127,49 @@ export class FakeMercadoPagoServer {
           ...(isPix ? { status: 'pending', status_detail: 'pending_waiting_transfer' } : this.nextCardStatus),
         });
         if (idem) this.idemPayments.set(idem, p.id);
-        return this.send(res, 201, this.view(p));
+        return reply(201, this.view(p));
       }
       if ((m = path.match(/^\/v1\/payments\/([^/]+)\/refunds$/))) {
         const p = this.payments.get(decodeURIComponent(m[1]));
-        if (!p) return this.send(res, 404, { message: 'payment not found' });
-        if (method === 'GET') return this.send(res, 200, (this.refunds.get(p.id) || []).map(({ idem: _i, ...r }) => r));
+        if (!p) return reply(404, { message: 'payment not found' });
+        if (method === 'GET') return reply(200, (this.refunds.get(p.id) || []).map(({ idem: _i, ...r }) => r));
         if (method === 'POST') {
           const b = await this.body(req);
           if (idem && this.idemRefunds.has(idem)) {
             const { idem: _i, ...r } = this.idemRefunds.get(idem)!;
-            return this.send(res, 201, r);
+            return reply(201, r);
           }
-          if (p.status !== 'approved') return this.send(res, 400, { message: 'Payment not in a refundable state', cause: [{ code: 2063 }] });
+          if (p.status !== 'approved') return reply(400, { message: 'Payment not in a refundable state', cause: [{ code: 2063 }] });
           const remaining = Math.round((p.transaction_amount - p.transaction_amount_refunded) * 100) / 100;
           const amount = b.amount != null ? Number(b.amount) : remaining;
-          if (amount > remaining + 0.001) return this.send(res, 400, { message: 'Invalid refund amount', cause: [{ code: 4040 }] });
-          if (this.refundStatus === 'rejected') return this.send(res, 400, { message: 'refund rejected (fake)' });
+          if (amount > remaining + 0.001) return reply(400, { message: 'Invalid refund amount', cause: [{ code: 4040 }] });
+          if (this.refundStatus === 'rejected') return reply(400, { message: 'refund rejected (fake)' });
           const r: FakeMpRefund = { id: String(++this.seq), payment_id: p.id, amount, status: this.refundStatus, idem: idem || '' };
           if (idem) this.idemRefunds.set(idem, r);
           this.refunds.set(p.id, [...(this.refunds.get(p.id) || []), r]);
           if (r.status === 'approved') this.applyRefund(p, amount);
           const { idem: _i, ...out } = r;
-          return this.send(res, 201, out);
+          return reply(201, out);
         }
       }
       if ((m = path.match(/^\/v1\/payments\/([^/]+)$/))) {
         const p = this.payments.get(decodeURIComponent(m[1]));
-        if (!p) return this.send(res, 404, { message: 'payment not found' });
-        if (method === 'GET') return this.send(res, 200, this.view(p));
+        if (!p) return reply(404, { message: 'payment not found' });
+        if (method === 'GET') return reply(200, this.view(p));
         if (method === 'PUT') {
           const b = await this.body(req);
           if (b.status === 'cancelled' && p.status === 'pending') Object.assign(p, { status: 'cancelled', status_detail: 'by_collector' });
-          return this.send(res, 200, this.view(p));
+          return reply(200, this.view(p));
         }
       }
       if ((m = path.match(/^\/v1\/chargebacks\/([^/]+)$/)) && method === 'GET') {
         const c = this.chargebacks.get(decodeURIComponent(m[1]));
-        if (!c) return this.send(res, 404, { message: 'chargeback not found' });
-        return this.send(res, 200, c);
+        if (!c) return reply(404, { message: 'chargeback not found' });
+        return reply(200, c);
       }
-      return this.send(res, 404, { message: `fake MP: no route ${method} ${path}` });
+      return reply(404, { message: `fake MP: no route ${method} ${path}` });
     } catch (e: any) {
-      return this.send(res, 500, { message: String(e?.message || e) });
+      return reply(500, { message: String(e?.message || e) });
     }
   }
 

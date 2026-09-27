@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Equals, IsBoolean, IsIn, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsIn, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 /** Every controlled admin action requires an explicit confirmation + a written reason (audited). */
 export class ConfirmedActionDto {
@@ -46,4 +46,23 @@ export class ResolveDiscrepancyDto extends ConfirmedActionDto {
   @IsOptional()
   @IsIn(['RESOLVED', 'ACKNOWLEDGED'])
   status?: 'RESOLVED' | 'ACKNOWLEDGED';
+}
+
+/**
+ * Manual ledger adjustment (ADJUSTMENT_CREATED). Append-only: a wrong adjustment is corrected by a
+ * new opposite adjustment, never by editing/deleting. Must reference a payment and/or an order.
+ */
+export class LedgerAdjustmentDto extends ConfirmedActionDto {
+  @ApiProperty({ enum: ['CREDIT', 'DEBIT'], description: 'CREDIT = entrada, DEBIT = saída' })
+  @IsIn(['CREDIT', 'DEBIT'])
+  direction!: 'CREDIT' | 'DEBIT';
+
+  @ApiProperty({ description: 'Valor em BRL (> 0, até 2 casas)' })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(1_000_000)
+  amount!: number;
+
+  @ApiPropertyOptional() @IsOptional() @IsUUID() paymentId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() orderId?: string;
 }
