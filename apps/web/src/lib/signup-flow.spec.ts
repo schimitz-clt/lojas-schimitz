@@ -431,10 +431,22 @@ assert.ok(entrar.includes('saveSession'), 'login still uses the cookie-first ses
 assert.ok(entrar.includes('finishLogin'), 'register keeps the same session helper as login');
 assert.ok(entrar.includes('CreateAccountFlow'), 'entrar register mode is the multi-step flow');
 assert.ok(entrar.includes('readRegisterFailure'), 'entrar maps CPF and e-mail conflicts');
-assert.ok(entrar.includes('Esqueci minha senha'), 'login recovery stays available');
+const flowSrc = readFileSync(join(__dirname, '../components/account/CreateAccountFlow.tsx'), 'utf8');
+assert.ok(flowSrc.includes('Esqueci minha senha'), 'login recovery stays available (e-mail step and password step)');
 assert.equal(/localStorage\.setItem\(\s*['"]sch_(access|refresh)/.test(entrar), false, 'entrar does not store JWTs');
-const loginTab = entrar.slice(entrar.indexOf("mode === 'login'"), entrar.indexOf('<CreateAccountFlow'));
-assert.equal(/cpf|nascimento|birthDate/i.test(loginTab), false, 'Entrar tab stays email and password only');
+// Improvement 6 fix 2 (owner 27/09): /entrar is e-mail first. No separate login tab/form; the flow
+// asks only the e-mail, then password (existing account) or the 3-step signup (new e-mail).
+assert.equal(entrar.includes('acct-tabs'), false, 'no Entrar/Criar conta tabs on /entrar');
+assert.equal(entrar.includes('id="login-password"'), false, 'no separate e-mail+password form');
+assert.ok(/entry=\{mode === 'register' \? 'signup' : 'identify'\}/.test(entrar), 'identify entry by default, signup on ?cadastro=1');
+assert.ok(entrar.includes("useState<'identify' | 'register'>('identify')"), 'e-mail-first is the default');
+assert.ok(entrar.includes('safeNextPath()'), 'next is kept after login/signup');
+assert.ok(flowSrc.includes("entry = 'signup'"), '/cadastro keeps the signup wording by default');
+assert.ok(flowSrc.includes('{identify ? null : <SignupProgress step="email" />}'), 'no "Passo 1 de 3" before we know it is a signup');
+assert.ok(flowSrc.includes('IDENTIFY_TITLE') && flowSrc.includes("'Entrar ou criar conta'"), 'neutral identify title');
+assert.ok(/autoComplete="username"[\s\S]{0,80}value=\{displayEmail\}/.test(flowSrc), 'password managers get the username');
+const signinView = flowSrc.slice(flowSrc.indexOf('data-signup-step="signin"'));
+assert.equal(/signup-name|signup-cpf|signup-birth/.test(signinView), false, 'existing account: password only, no name/CPF again');
 const registerFn = entrar.slice(entrar.indexOf('async function submitRegister'), entrar.indexOf('\n  return ('));
 assert.ok(registerFn.includes('/auth/register'), 'criar conta posts register');
 assert.ok(registerFn.includes('finishLogin'), 'criar conta saves the register session');
