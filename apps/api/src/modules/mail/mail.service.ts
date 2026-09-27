@@ -384,4 +384,20 @@ export class MailService {
       this.keyFor('payment_refused', to, ctx),
     );
   }
+
+  /**
+   * Internal ops alert (site/API errors, payment provider failures). Plain text, no customer data.
+   * `dedupeKey` (e.g. `http_5xx:2026-09-27T18:30`) prevents duplicate sends within the process.
+   */
+  async notifyOpsAlert(to: string, subject: string, text: string, dedupeKey: string) {
+    const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string);
+    return this.send(
+      to,
+      subject,
+      text,
+      `<pre style="font-family:monospace;white-space:pre-wrap">${esc}</pre>`,
+      'ops_alert',
+      this.keyFor('ops_alert', to, { publicId: dedupeKey }),
+    );
+  }
 }

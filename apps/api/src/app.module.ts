@@ -18,6 +18,7 @@ import { CouponsModule } from './modules/coupons/coupons.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MailModule } from './modules/mail/mail.module';
+import { OpsAlertsModule } from './modules/ops-alerts/ops-alerts.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
@@ -51,6 +52,7 @@ import { FinanceModule } from './modules/finance/finance.module';
     LoyaltyModule,
     PaymentsModule,
     MailModule,
+    OpsAlertsModule,
     ShippingModule,
     ChatModule,
     StorefrontModule,

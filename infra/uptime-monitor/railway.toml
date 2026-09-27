@@ -1,0 +1,9 @@
+# OPTIONAL Railway service "uptime-monitor" (NOT created yet — needs owner OK).
+# Root directory: infra/uptime-monitor. Long-running (not cron): keeps state between checks.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+watchPatterns = ["infra/uptime-monitor/**"]
+
+[deploy]
+restartPolicyType = "ALWAYS"

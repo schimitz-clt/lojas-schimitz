@@ -8,11 +8,26 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { applyHttpBodyParsers } from './common/http-body-parsers';
 import { setupSwagger, shouldEnableSwagger } from './common/swagger';
+import { requestIdMiddleware } from './common/request-id';
+import { logProcessError } from './common/error-log';
+
+// H4: crashes / stray promise rejections leave a structured, masked line in Railway logs.
+// Behaviour kept as Node's default: the process still exits(1) and Railway restarts it.
+process.on('unhandledRejection', (reason) => {
+  logProcessError('UNHANDLED_REJECTION', reason);
+  process.exit(1);
+});
+process.on('uncaughtException', (err) => {
+  logProcessError('UNCAUGHT_EXCEPTION', err);
+  process.exit(1);
+});
 
 async function bootstrap() {
   // bodyParser: false — register json + urlencoded + CSP report types ourselves.
   // CSP-only typed parsers (PR #60) left application/json bodies empty in prod.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  // H4: every response carries x-request-id; 5xx log lines use the same id.
+  app.use(requestIdMiddleware);
   applyHttpBodyParsers(app);
   const prefix = process.env.API_PREFIX || 'api/v1';
   app.setGlobalPrefix(prefix);

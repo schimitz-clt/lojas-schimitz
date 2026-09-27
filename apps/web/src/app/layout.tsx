@@ -6,6 +6,7 @@ import '@/components/storefront/storefront-theme.css';
 import '@/components/storefront/identidade.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
+import { ClientErrorReporter } from '@/components/ClientErrorReporter';
 import { JsonLd } from '@/components/JsonLd';
 import { buildStoreJsonLd } from '@/lib/json-ld';
 import { resolveShareImage, shareImageTag } from '@/lib/og-image';
@@ -105,6 +106,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="pt-BR" className={`${jakarta.variable} ${display.variable} ${mono.variable}`}>
       <body className={jakarta.className}>
         <MarketingPixels />
+        <ClientErrorReporter />
         <JsonLd data={jsonLd} />
         <SessionHydrator>
           <StorefrontChrome>{children}</StorefrontChrome>
