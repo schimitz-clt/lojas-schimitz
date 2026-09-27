@@ -23,15 +23,15 @@ assert.equal(mp.translateStatus('authorized'), 'pending');
 
 assert.equal(
   buildMercadoPagoNotificationUrl('https://lojasschimitz.com.br/api/v1'),
-  'https://lojasschimitz.com.br/api/v1/webhooks/mercadopago',
+  'https://lojasschimitz.com.br/api/v1/webhooks/mercadopago?source_news=webhooks',
 );
 assert.equal(
   buildMercadoPagoNotificationUrl('https://lojasschimitz.com.br'),
-  'https://lojasschimitz.com.br/api/v1/webhooks/mercadopago',
+  'https://lojasschimitz.com.br/api/v1/webhooks/mercadopago?source_news=webhooks',
 );
 assert.equal(
   buildMercadoPagoNotificationUrl('https://example.up.railway.app/api/v1/'),
-  'https://example.up.railway.app/api/v1/webhooks/mercadopago',
+  'https://example.up.railway.app/api/v1/webhooks/mercadopago?source_news=webhooks',
 );
 assert.equal(buildMercadoPagoNotificationUrl(''), null);
 assert.equal(buildMercadoPagoNotificationUrl('   '), null);

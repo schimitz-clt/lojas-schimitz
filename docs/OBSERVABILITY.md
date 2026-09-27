@@ -17,6 +17,8 @@ Todas as linhas são JSON de uma linha. Busque pelo campo `msg`:
 | `WEB_CLIENT_ERROR` | API (vem do navegador) | erro JS não tratado no navegador do cliente (tela de erro, `window.onerror`, promise rejeitada) | `kind`, `page` (só o caminho), `message`, `stack`, `digest`, `userAgent` |
 | `MONITOR_DOWN` / `MONITOR_UP` / `MONITOR_HEARTBEAT` | `uptime-monitor` (opcional) | alvo caiu / voltou / resumo de hora em hora | `target`, `httpStatus`, … |
 | `BACKUP_OK` / `BACKUP_FAILED` | `db-backup` | backup diário (ver `docs/BACKUP_RESTORE.md`) | |
+| `WEBHOOK_UNSIGNED_IPN_IGNORED` | API | notificação antiga do MP sem assinatura ("MercadoPago Feed v2.0") — respondida 200 e **ignorada** (nada é gravado nem consultado) | `topic`, `resourceId`, `userAgentFamily` |
+| `WEBHOOK_SIGNATURE_REJECTED` | API | webhook recusado antes de processar (401/400) | `reason` (`signature_missing` · `signature_mismatch` · `secret_missing` · `unparseable`), `httpStatus`, `code`, `hasSignature`, `hasRequestId`, `hasDataId`, `topic`, `userAgent` — nunca a assinatura, o `ts`, o segredo ou o corpo |
 
 **Privacidade (LGPD):** mensagens e stacks passam por `maskPii()` — e-mail → `[EMAIL]`, CPF → `[CPF]`,
 CNPJ, telefone, cartão, JWT, `Bearer …`, tokens do Mercado Pago (`APP_USR-…`), chaves `re_…`/`sk-…`,
@@ -56,11 +58,27 @@ Desligado por padrão. Liga com uma variável no serviço **lojas-schimitz** (AP
 | `OPS_ALERT_EMAIL_TO` | (vazio = desligado) | até 5 e-mails separados por vírgula |
 | `OPS_ALERT_5XX_THRESHOLD` | `10` | nº de erros 500 em 5 min para alertar |
 | `OPS_ALERT_PROVIDER_ERRORS_THRESHOLD` | `3` | falhas ao criar pagamento no MP em 15 min |
-| `OPS_ALERT_WEBHOOK_FAILURES_THRESHOLD` | `10` | falhas de webhook do MP em 15 min |
+| `OPS_ALERT_WEBHOOK_FAILURES_THRESHOLD` | `10` | falhas ao **processar** webhook autenticado do MP em 15 min (buscar pagamento no MP / aplicar / chargeback). Assinatura rejeitada e IPN sem assinatura **não** contam |
 | `OPS_ALERT_COOLDOWN_MINUTES` | `30` | no máximo 1 e-mail por tipo nesse intervalo |
 
 Usa o mesmo envio (Resend) dos e-mails de pedido — plano grátis da Resend: 3.000 e-mails/mês, 100/dia.
 Limitação: se a API inteira cair, ela não consegue avisar — para isso servem os monitores do §4.
+
+### Webhooks do Mercado Pago: o que é "falha"
+
+O MP pode mandar dois tipos de aviso para o mesmo pagamento: **Webhook** assinado (`x-signature`,
+User-Agent `MercadoPago WebHook v1.0`) e **IPN/Feed** antigo sem assinatura (`MercadoPago Feed v2.0`).
+Desde este PR o `notification_url` leva `?source_news=webhooks` (o MP passa a mandar só Webhooks nos
+pagamentos novos). O IPN que ainda chegar (pagamentos antigos / retentativas) é respondido **200** e
+ignorado — não é possível autenticá-lo, então ele **nunca** muda pagamento, pedido ou estoque. A verdade
+continua vindo só do Webhook assinado (+ reconsulta ao MP) e de `POST /admin/finance/payments/:id/reprocess`
+/ `POST /admin/finance/reconcile`.
+
+Contadores (`/admin/finance/health` → `process`/`persisted`):
+`webhook_unsigned_ipn` (IPN ignorado) · `webhook_unsigned_rejected` (sem assinatura e sem formato de IPN → 401) ·
+`webhook_failures` (assinatura presente porém inválida, segredo ausente, evento ilegível **ou** falha de processamento) ·
+`webhook_processing_failures` (só fetch/aplicar/chargeback — é o que dispara o alerta e aparece em
+`/health/payments` → `recent15m.webhookProcessingFailures`).
 
 ## 4. Monitor externo "site/API/pagamentos fora do ar"
 

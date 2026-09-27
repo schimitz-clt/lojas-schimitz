@@ -4,7 +4,7 @@
  */
 
 export type OpsAlertRule = {
-  key: 'http_5xx' | 'provider_errors' | 'webhook_failures';
+  key: 'http_5xx' | 'provider_errors' | 'webhook_processing_failures';
   /** events counted in this window… */
   windowMs: number;
   /** …at or above this count fire the alert */
@@ -60,7 +60,9 @@ export function opsAlertConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Ops
         hint: 'Clientes podem não estar conseguindo pagar. Veja GET /api/v1/health/payments e os logs "payment.intent_failed". Status do MP: https://status.mercadopago.com',
       },
       {
-        key: 'webhook_failures',
+        // Only failures while PROCESSING an authenticated webhook (chargeback / provider fetch / apply).
+        // Rejected signatures and unsigned legacy IPN never fire this (they are noise, not lost updates).
+        key: 'webhook_processing_failures',
         windowMs: 15 * 60_000,
         threshold: intEnv(env, 'OPS_ALERT_WEBHOOK_FAILURES_THRESHOLD', 10),
         title: 'Falhas nos webhooks do Mercado Pago',
