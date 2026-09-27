@@ -5,6 +5,7 @@ import { AuditService } from '../../common/audit.service';
 import { OrdersService } from '../orders/orders.service';
 import { FinancialRecorder } from './financial-recorder.service';
 import { financeMetrics } from './finance-metrics';
+import { FinanceMetricsStore } from './finance-metrics.store';
 import { currentPaymentState, PAYMENT_STATE_LABEL_PT } from './payment-state-machine';
 import { refundsEnabled } from './refunds.service';
 import { reconciliationCronEnabled } from './reconciliation.scheduler';
@@ -28,12 +29,13 @@ export class FinanceAdminService {
     @Inject(AuditService) private readonly auditLog: AuditService,
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(FinancialRecorder) private readonly recorder: FinancialRecorder,
+    @Inject(FinanceMetricsStore) private readonly metricsStore: FinanceMetricsStore,
   ) {}
 
-  /** Admin-only financial health: DB-derived durable counts + in-process counters. */
+  /** Admin-only financial health: DB-derived durable counts + persistent counters + in-process counters. */
   async health() {
     const since24h = new Date(Date.now() - 86_400_000);
-    const [byStatus, webhook24h, webhookFailed24h, dupAttempts, openDisc, openCb, refundsOpen, lastRun, orphanQueue] = await Promise.all([
+    const [byStatus, webhook24h, webhookFailed24h, dupAttempts, openDisc, openCb, refundsOpen, lastRun, orphanQueue, persisted] = await Promise.all([
       this.prisma.payment.groupBy({ by: ['status'], where: { updatedAt: { gte: since24h } }, _count: { _all: true } }),
       this.prisma.paymentEvent.count({ where: { createdAt: { gte: since24h } } }),
       this.prisma.paymentEvent.count({ where: { createdAt: { gte: since24h }, processingStatus: 'FAILED' } }),
@@ -43,6 +45,7 @@ export class FinanceAdminService {
       this.prisma.paymentRefund.count({ where: { status: { in: ['REQUESTED', 'PROCESSING', 'UNKNOWN'] } } }),
       this.prisma.financialReconciliationRun.findFirst({ where: { status: { in: ['COMPLETED', 'FAILED'] } }, orderBy: { startedAt: 'desc' } }),
       this.prisma.paymentReconciliation.count({ where: { status: 'RECONCILIATION_REQUIRED', resolvedAt: null } }),
+      this.metricsStore.persisted(),
     ]);
     const disc: Record<string, number> = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
     for (const d of openDisc) disc[d.severity] = d._count._all;
@@ -62,6 +65,8 @@ export class FinanceAdminService {
         lastReconciliation: lastRun ? { id: lastRun.id, scope: lastRun.scope, status: lastRun.status, startedAt: lastRun.startedAt, finishedAt: lastRun.finishedAt } : null,
       },
       process: financeMetrics.snapshot(),
+      /** Durable counters (survive restarts, summed across replicas). */
+      persisted,
       flags: {
         refundsEnabled: refundsEnabled(),
         reconciliationCronEnabled: reconciliationCronEnabled(),
