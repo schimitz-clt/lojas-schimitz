@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { api, userAccountLabel, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
@@ -28,9 +28,31 @@ import {
 import { chromeStackHeight, chromeVisualTop, SEARCH_RESULTS_CLASS } from '@/lib/search-chrome';
 import { configuredPromoLines } from '@/lib/retail-home';
 
+/**
+ * Mirrors ?q= into the header (catalog search-results mode). Isolated because useSearchParams()
+ * makes everything up to the nearest Suspense boundary client-only on statically rendered pages.
+ * Same logic/deps as the previous inline effect.
+ */
+function CatalogSearchSync({
+  pathname,
+  onSync,
+}: {
+  pathname: string;
+  onSync: (q: string, results: boolean) => void;
+}) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const fromUrl = (searchParams.get('q') || '').trim();
+    const onCatalog = pathname.startsWith('/produtos');
+    if (onCatalog && isCatalogSearchResults(fromUrl)) onSync(fromUrl, true);
+    else onSync('', false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams]);
+  return null;
+}
+
 export function Header() {
   const pathname = usePathname() || '/';
-  const searchParams = useSearchParams();
   const { user } = useSessionUser();
   const [qInit, setQInit] = useState('');
   const [searchResults, setSearchResults] = useState(false);
@@ -45,17 +67,10 @@ export function Header() {
   const favBadge = formatWishlistBadge(favCount);
   const chromeRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const fromUrl = (searchParams.get('q') || '').trim();
-    const onCatalog = pathname.startsWith('/produtos');
-    if (onCatalog && isCatalogSearchResults(fromUrl)) {
-      setQInit(fromUrl);
-      setSearchResults(true);
-    } else {
-      setQInit('');
-      setSearchResults(false);
-    }
-  }, [pathname, searchParams]);
+  const onCatalogSearchSync = (q: string, results: boolean) => {
+    setQInit(q);
+    setSearchResults(results);
+  };
 
   useLayoutEffect(() => {
     const el = chromeRef.current;
@@ -191,6 +206,11 @@ export function Header() {
 
   return (
     <div className="site-chrome" ref={chromeRef}>
+      {/* Only this null-rendering child reads ?q=, so the header itself is server-rendered on
+          static routes (was client-only → popped in after JS: CLS 0.14 + late LCP on /produtos). */}
+      <Suspense fallback={null}>
+        <CatalogSearchSync pathname={pathname} onSync={onCatalogSearchSync} />
+      </Suspense>
       <div className="topbar" aria-label="Benefícios">{customPromo?.map((line, i) => <span key={i}>{i ? ' · ' : ''}{line}</span>) ?? <><span>Frete grátis em POA</span><span className="topbar-sep" aria-hidden>·</span><span>5% OFF no PIX</span><span className="topbar-sep" aria-hidden>·</span><span>{interestFreeInstallmentClaim()}</span></>}</div>
       <div className={`site-chrome-head${searchResults ? ' is-search-results' : ''}`}>
       <header className="header">

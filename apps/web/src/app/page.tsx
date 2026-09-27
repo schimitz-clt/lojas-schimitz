@@ -4,6 +4,7 @@ import HomePage from './home-client';
 import { EditorialStage } from '@/components/RetailHome';
 import type { Product } from '@/components/ProductCard';
 import { resolveProductImageUrl } from '@/lib/product-media';
+import { IMAGE_WIDTHS, STAGE_IMG_SIZES, responsiveImageProps } from '@/lib/responsive-image';
 import { sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
 
 /** Homepage only. Other routes set their own canonical so they do not inherit `/`. */
@@ -31,7 +32,15 @@ async function loadSellablePreview(): Promise<{ products: Product[]; retail: boo
     const products = items.slice(0, 5);
     if (!products.length) return null;
     const img = resolveProductImageUrl(products[0]);
-    if (img) preload(img, { as: 'image', fetchPriority: 'high' });
+    if (img) {
+      // Must match the <img> in EditorialStage (same srcSet/sizes) or the phone downloads the photo twice.
+      const r = responsiveImageProps(img, IMAGE_WIDTHS.stage);
+      preload(r.src, {
+        as: 'image',
+        fetchPriority: 'high',
+        ...(r.srcSet ? { imageSrcSet: r.srcSet, imageSizes: STAGE_IMG_SIZES } : {}),
+      });
+    }
     return { products, retail };
   } catch {
     return null;
