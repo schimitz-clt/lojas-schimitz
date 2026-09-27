@@ -53,7 +53,7 @@ export class WebhooksController {
   @HttpCode(200)
   @Throttle({ default: { limit: 120, ttl: 60000 } })
   async mercadopago(@Req() req: any, @Body() body: unknown) {
-    const result = await this.payments.handleWebhook(req.headers || {}, body);
+    const result = await this.payments.handleWebhook(req.headers || {}, body, req.query || {});
     return ok(result);
   }
 }

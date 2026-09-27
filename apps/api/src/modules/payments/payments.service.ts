@@ -55,8 +55,18 @@ import {
   decryptSellerAccessTokenByMpUserId,
   listLinkedSellerAccessTokens,
 } from '../marketplace-mp/seller-mp-token';
+import { FinancialRecorder } from '../finance/financial-recorder.service';
+import { ChargebacksService, isChargebackTopic } from '../finance/chargebacks.service';
+import { RiskService } from '../finance/risk.service';
+import { financeMetrics } from '../finance/finance-metrics';
+import { KeyedMutex } from '../finance/keyed-mutex';
+import { currentPaymentState } from '../finance/payment-state-machine';
+import { isIgnoredWebhookTopic } from '../finance/webhook-topics';
 
 const MVP_METHODS = new Set(['pix', 'card']);
+
+/** Serializes webhook/reconciliation apply for the same payment inside this replica (COMANDO OMEGA). */
+export const paymentApplyMutex = new KeyedMutex();
 
 @Injectable()
 export class PaymentsService {
@@ -72,7 +82,52 @@ export class PaymentsService {
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
     @Inject(CommissionsService) private readonly commissions: CommissionsService,
+    @Inject(FinancialRecorder) private readonly finance: FinancialRecorder,
+    @Inject(ChargebacksService) private readonly chargebacks: ChargebacksService,
+    @Inject(RiskService) private readonly risk: RiskService,
   ) {}
+
+  private providerKey() {
+    return this.provider.name === 'null' ? 'null' : 'mercadopago';
+  }
+
+  /** Best-effort update of PaymentEvent processing columns (never throws). */
+  private async markEvent(
+    eventId: string,
+    data: { processingStatus: string; lastError?: string | null; paymentId?: string | null; applied?: boolean },
+  ) {
+    await this.prisma.paymentEvent
+      .update({
+        where: { id: eventId },
+        data: {
+          processingStatus: data.processingStatus,
+          lastError: data.lastError ? String(data.lastError).slice(0, 500) : null,
+          processedAt: new Date(),
+          ...(data.paymentId ? { paymentId: data.paymentId } : {}),
+          ...(data.applied !== undefined ? { applied: data.applied } : {}),
+        },
+      })
+      .catch(() => undefined);
+  }
+
+  /** Approved at MP for an order already cancelled locally: CRITICAL, money must be returned. */
+  private async flagApprovedAfterCancel(payment: { id: string; orderId: string; externalId: string | null; amount: unknown }, refundAttempted: boolean) {
+    try {
+      await this.finance.openDiscrepancy(this.prisma, {
+        type: 'APPROVED_AFTER_CANCEL',
+        severity: 'CRITICAL',
+        dedupeKey: `APPROVED_AFTER_CANCEL:${payment.id}`,
+        message: `Pagamento aprovado depois do pedido cancelado. Estorno automático ${refundAttempted ? 'foi tentado (conferir no Mercado Pago)' : 'NÃO foi tentado'}.`,
+        orderId: payment.orderId,
+        paymentId: payment.id,
+        externalId: payment.externalId,
+        expected: 'refund_confirmed',
+        actual: 'approved_on_cancelled_order',
+      });
+    } catch {
+      financeMetrics.inc('finance_hook_failures');
+    }
+  }
 
   private scopedIntentKey(userId: string, key: string) {
     // Prefixo evita colisão com Idempotency-Key do checkout (#8).
@@ -162,7 +217,7 @@ export class PaymentsService {
    * Fetch MP payment trying platform token, then seller collector tokens.
    * Needed because sandbox split charges live on the seller collector.
    */
-  private async fetchPaymentResolvingCollector(externalId: string) {
+  async fetchPaymentResolvingCollector(externalId: string) {
     const local = await this.prisma.payment.findFirst({
       where: { externalId },
       select: { splitMode: true, collectorMpUserId: true },
@@ -197,7 +252,7 @@ export class PaymentsService {
     }
   }
 
-  private async collectorAccessTokenForPayment(payment: {
+  async collectorAccessTokenForPayment(payment: {
     splitMode?: string | null;
     collectorMpUserId?: string | null;
   }): Promise<string | undefined> {
@@ -397,6 +452,8 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: 'cancelled', payload: { error: 'SELLER_TOKEN_UNAVAILABLE' } as object },
       }).catch(() => undefined);
+      await this.finance.recordPaymentCreatedSafe(payment.id, { source: 'checkout', actorId: userId });
+      await this.finance.syncPaymentStateSafe(payment.id, { source: 'checkout', reason: 'SELLER_TOKEN_UNAVAILABLE', actorId: userId });
       throw new BadRequestException({
         message: 'Vendedor vinculado sem credencial Mercado Pago válida. Não cobramos no collector da plataforma como se fosse split.',
         code: 'SELLER_TOKEN_UNAVAILABLE',
@@ -425,6 +482,9 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: 'cancelled', payload: { error: String(e?.message || e) } as object },
       }).catch(() => undefined);
+      financeMetrics.inc('provider_errors');
+      await this.finance.recordPaymentCreatedSafe(payment.id, { source: 'checkout', actorId: userId });
+      await this.finance.syncPaymentStateSafe(payment.id, { source: 'checkout', reason: 'provider_intent_failed', actorId: userId });
       await this.audit.log('payment.intent_failed', {
         actorId: userId,
         entity: 'Payment',
@@ -497,6 +557,8 @@ export class PaymentsService {
       throw e;
     }
 
+    await this.finance.recordPaymentCreatedSafe(payment.id, { source: 'checkout', actorId: userId });
+
     // Se o provedor já aprovou na criação (cartão), aplica domínio.
     if (remote.status === 'approved') {
       await this.applyProviderStatus(payment.id, {
@@ -513,6 +575,12 @@ export class PaymentsService {
       });
       payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
       await this.notifyCustomerPaymentRefused(order.id);
+    }
+    if (remote.status === 'approved' || remote.status === 'refused') {
+      await this.finance.syncPaymentStateSafe(payment.id, { source: 'checkout', actorId: userId });
+      if (payment.status === 'approved') {
+        await this.risk.assessSafe(order.id, { paymentId: payment.id, trigger: 'payment_approved' });
+      }
     }
 
     const response = {
@@ -596,11 +664,17 @@ export class PaymentsService {
    * Webhook: verify → persist event → fetch fora do lock → apply curto (#9/#12).
    * Body ≠ verdade.
    */
-  async handleWebhook(headers: Record<string, string | string[] | undefined>, body: unknown) {
+  async handleWebhook(
+    headers: Record<string, string | string[] | undefined>,
+    body: unknown,
+    query?: Record<string, unknown>,
+  ) {
+    financeMetrics.inc('webhook_received');
     let verified: VerifiedWebhookEvent;
     try {
-      verified = await this.provider.verifyWebhook({ headers, body });
+      verified = await this.provider.verifyWebhook({ headers, body, query });
     } catch (e: any) {
+      financeMetrics.inc('webhook_failures');
       const status = e?.status || 401;
       if (status === 400) {
         throw new BadRequestException({ message: e.message || 'Webhook inválido', code: e.code || 'WEBHOOK_BAD_REQUEST' });
@@ -622,10 +696,16 @@ export class PaymentsService {
           topic: verified.topic,
           payload: verified.payload as object,
           applied: false,
+          notificationId: verified.notificationId ? String(verified.notificationId).slice(0, 80) : null,
+          dataId: verified.dataId ? String(verified.dataId).slice(0, 80) : null,
+          action: verified.action ? String(verified.action).slice(0, 80) : null,
+          processingStatus: 'RECEIVED',
+          attempts: 1,
         },
       });
     } catch (e) {
       if (this.isUniqueViolation(e)) {
+        financeMetrics.inc('webhook_duplicates');
         const existing = await this.prisma.paymentEvent.findUnique({
           where: {
             provider_providerEventId: {
@@ -635,6 +715,9 @@ export class PaymentsService {
           },
         });
         if (existing?.applied) {
+          await this.prisma.paymentEvent
+            .update({ where: { id: existing.id }, data: { attempts: { increment: 1 } } })
+            .catch(() => undefined);
           await this.audit.log('payment.webhook_ignored_duplicate', {
             entity: 'PaymentEvent',
             entityId: existing.id,
@@ -646,6 +729,9 @@ export class PaymentsService {
           return { ok: true, duplicate: true, applied: true };
         }
         event = existing!;
+        await this.prisma.paymentEvent
+          .update({ where: { id: event.id }, data: { attempts: { increment: 1 } } })
+          .catch(() => undefined);
       } else {
         throw e;
       }
@@ -662,11 +748,42 @@ export class PaymentsService {
       externalId: verified.externalId || null,
     });
 
+    // COMANDO OMEGA topic routing: chargebacks have their own engine; known non-payment topics
+    // (merchant_order, claims, ...) are acknowledged instead of being fetched as payments (which
+    // 404s and made Mercado Pago retry forever).
+    if (isChargebackTopic(verified.topic, verified.action)) {
+      const data = ((verified.payload || {}) as any).data || {};
+      const caseId = String(verified.dataId || data.id || verified.externalId || '');
+      if (!caseId) {
+        await this.markEvent(event.id, { processingStatus: 'IGNORED', lastError: 'chargeback_without_case_id', applied: true });
+        return { ok: true, applied: false, reason: 'chargeback_without_case_id' };
+      }
+      try {
+        const r = await this.chargebacks.handleNotification({
+          caseId,
+          paymentIdHint: data.payment_id != null ? String(data.payment_id) : null,
+          eventId: event.id,
+        });
+        await this.markEvent(event.id, { processingStatus: 'PROCESSED', applied: true });
+        return { ok: true, applied: true, reason: 'chargeback', ...r };
+      } catch (e: any) {
+        financeMetrics.inc('webhook_failures');
+        await this.markEvent(event.id, { processingStatus: 'FAILED', lastError: String(e?.message || e) });
+        structuredLog('error', 'WEBHOOK_PROCESSING_FAILED', { eventId: event.id, topic: verified.topic, error: String(e?.message || e).slice(0, 200) });
+        throw e;
+      }
+    }
+    if (isIgnoredWebhookTopic(verified.topic)) {
+      financeMetrics.inc('webhook_ignored_topic');
+      await this.markEvent(event.id, { processingStatus: 'IGNORED', lastError: `topic:${verified.topic}`, applied: true });
+      return { ok: true, applied: false, reason: 'ignored_topic', topic: verified.topic };
+    }
+
     if (!verified.externalId) {
       // Notificação sem payment id — persistida, sem transição
       await this.prisma.paymentEvent.update({
         where: { id: event.id },
-        data: { applied: true },
+        data: { applied: true, processingStatus: 'IGNORED', lastError: 'no_external_id', processedAt: new Date() },
       }).catch(() => undefined);
       return { ok: true, applied: false, reason: 'no_external_id' };
     }
@@ -676,6 +793,9 @@ export class PaymentsService {
     try {
       fetched = await this.fetchPaymentResolvingCollector(verified.externalId);
     } catch (e: any) {
+      financeMetrics.inc('provider_errors');
+      financeMetrics.inc('webhook_failures');
+      await this.markEvent(event.id, { processingStatus: 'FAILED', lastError: `fetch_failed:${String(e?.status || e?.message || e)}` });
       this.log.error(`fetchPayment falhou para ${verified.externalId}`);
       structuredLog('error', 'WEBHOOK_FETCH_FAILED', {
         eventId: event.id,
@@ -804,8 +924,23 @@ export class PaymentsService {
       });
       await this.prisma.paymentEvent.update({
         where: { id: event.id },
-        data: { applied: true },
+        data: { applied: true, processingStatus: 'RECONCILIATION_REQUIRED', lastError: reconReason, processedAt: new Date() },
       });
+      try {
+        const moneyAtRisk = reconReason === 'orphan_approved' || reconReason === 'orphan_paid_status';
+        await this.finance.openDiscrepancy(this.prisma, {
+          type: 'PAYMENT_WITHOUT_ORDER',
+          severity: moneyAtRisk ? 'CRITICAL' : 'LOW',
+          dedupeKey: `PAYMENT_WITHOUT_ORDER:${providerName}:${verified.externalId}`,
+          message: `Pagamento ${verified.externalId} (${fetched.status}) no provedor sem Payment local${fetched.externalReference ? ` (referência ${fetched.externalReference})` : ''}.`,
+          externalId: verified.externalId,
+          expected: 'local_payment',
+          actual: `provider_${fetched.status}`,
+          details: { reconciliationId: reconciliation.id, amount: fetched.amount },
+        });
+      } catch {
+        financeMetrics.inc('finance_hook_failures');
+      }
       return {
         ok: true,
         applied: false,
@@ -819,24 +954,22 @@ export class PaymentsService {
       data: { paymentId: local.id },
     }).catch(() => undefined);
 
-    let applyResult: { applied: boolean; reason: string };
+    let applyResult: { applied: boolean; reason: string } = { applied: false, reason: 'not_run' };
     try {
-      applyResult = await this.applyProviderStatus(local.id, {
-        status: fetched.status,
-        amount: fetched.amount,
-        externalReference: fetched.externalReference,
-        externalId: fetched.externalId,
-        payload: fetched.payload,
+      const localRef = local;
+      // Serialized per payment (in-process) + row lock inside syncPaymentState (cross-replica).
+      await paymentApplyMutex.run(local.id, async () => {
+        applyResult = await this.applyProviderStatus(localRef.id, {
+          status: fetched.status,
+          amount: fetched.amount,
+          externalReference: fetched.externalReference,
+          externalId: fetched.externalId,
+          payload: fetched.payload,
+        });
+        await this.syncFinancialAfterProviderFetch(localRef, fetched, applyResult, 'webhook');
       });
     } catch (e: any) {
-      structuredLog('error', 'WEBHOOK_APPLY_FAILED', {
-        eventId: event.id,
-        paymentId: local.id,
-        orderId: local.orderId,
-        publicId: local.order?.publicId || null,
-        providerStatus: fetched.status,
-        error: String(e?.message || e).slice(0, 200),
-      });
+      await this.onWebhookApplyFailed(event.id, local, fetched.status, e);
       throw e; // 5xx → MP retry; durable PaymentEvent already persisted (applied stays false)
     }
 
@@ -860,7 +993,9 @@ export class PaymentsService {
           expectedOrder: Number(local.order?.total),
         });
         reconciliationId = reconciliation.id;
+        await this.markEvent(event.id, { processingStatus: 'RECONCILIATION_REQUIRED', lastError: decision.reason, paymentId: local.id });
       } else {
+        await this.markEvent(event.id, { processingStatus: 'NOT_APPLIED', lastError: decision.reason, paymentId: local.id });
         structuredLog('warn', 'WEBHOOK_NOT_APPLIED', {
           eventId: event.id,
           paymentId: local.id,
@@ -886,7 +1021,7 @@ export class PaymentsService {
 
     await this.prisma.paymentEvent.update({
       where: { id: event.id },
-      data: { applied: true },
+      data: { applied: true, processingStatus: 'PROCESSED', lastError: null, processedAt: new Date() },
     });
     structuredLog('info', 'WEBHOOK_APPLIED', {
       paymentId: local.id,
@@ -897,6 +1032,63 @@ export class PaymentsService {
     });
 
     return { ok: true, applied: true, paymentId: local.id, status: fetched.status, reason: decision.reason };
+  }
+
+  private async onWebhookApplyFailed(
+    eventId: string,
+    local: { id: string; orderId: string; order?: { publicId?: string | null } | null },
+    providerStatus: string,
+    e: any,
+  ) {
+    financeMetrics.inc('webhook_failures');
+    await this.markEvent(eventId, { processingStatus: 'FAILED', lastError: String(e?.message || e), paymentId: local.id });
+    structuredLog('error', 'WEBHOOK_APPLY_FAILED', {
+      eventId,
+      paymentId: local.id,
+      orderId: local.orderId,
+      publicId: local.order?.publicId || null,
+      providerStatus,
+      error: String(e?.message || e).slice(0, 200),
+    });
+  }
+
+  /**
+   * COMANDO OMEGA: after the legacy apply, align financialState/ledger with what MP reported
+   * (incl. partial refunds, disputes and chargebacks the legacy enum cannot hold), record chargeback
+   * cases and run the rule-based risk engine on fresh approvals. Never throws.
+   */
+  async syncFinancialAfterProviderFetch(
+    local: { id: string; orderId: string; externalId: string | null; amount: unknown },
+    fetched: { rawStatus?: string; statusDetail?: string; amount: number; refundedAmount?: number; status: string; externalId: string; externalReference?: string; payload: Record<string, unknown> },
+    applyResult: { applied: boolean; reason: string },
+    source: string,
+  ) {
+    const sync = await this.finance.syncPaymentStateSafe(local.id, {
+      source,
+      reason: applyResult.reason,
+      obs: {
+        rawStatus: fetched.rawStatus ?? fetched.status,
+        statusDetail: fetched.statusDetail ?? null,
+        amount: fetched.amount,
+        refundedAmount: fetched.refundedAmount ?? null,
+      },
+    });
+    const raw = String(fetched.rawStatus || '').toLowerCase();
+    if (raw === 'charged_back' || raw === 'in_mediation') {
+      try {
+        await this.chargebacks.ensureFromPaymentStatus(
+          { ...local, externalId: local.externalId || fetched.externalId },
+          fetched as any,
+        );
+      } catch (e: any) {
+        financeMetrics.inc('finance_hook_failures');
+        structuredLog('error', 'CHARGEBACK_RECORD_FAILED', { paymentId: local.id, error: String(e?.message || e).slice(0, 200) });
+      }
+    }
+    if (sync?.applied && sync.to === 'PAID') {
+      await this.risk.assessSafe(local.orderId, { paymentId: local.id, trigger: 'payment_approved' });
+    }
+    return sync;
   }
 
   /**
@@ -1032,6 +1224,46 @@ export class PaymentsService {
     });
     if (!payment) return { applied: false, reason: 'missing' };
 
+    // COMANDO OMEGA: money that already left (refunded / chargeback lost) or a payment MP rejected
+    // can never become paid again. Blocked, audited and raised as a HIGH discrepancy.
+    if (info.status === 'approved') {
+      const cur = currentPaymentState(payment);
+      if (cur === 'REFUNDED' || cur === 'CHARGEBACK_LOST' || cur === 'FAILED') {
+        financeMetrics.inc('forbidden_transitions');
+        await this.audit.log('payment.forbidden_transition', {
+          entity: 'Payment',
+          entityId: paymentId,
+          meta: { from: cur, to: 'PAID', externalId: info.externalId },
+        });
+        await this.finance.auditSafe({
+          action: 'payment.transition_forbidden',
+          origin: 'webhook',
+          orderId: payment.orderId,
+          paymentId,
+          amount: Number(info.amount),
+          oldState: cur,
+          newState: 'PAID',
+          reason: 'provider_reported_approved',
+        });
+        try {
+          await this.finance.openDiscrepancy(this.prisma, {
+            type: 'FORBIDDEN_TRANSITION',
+            severity: 'HIGH',
+            dedupeKey: `FORBIDDEN_TRANSITION:${paymentId}:${cur}->PAID`,
+            message: `Provedor reportou aprovado para pagamento em ${cur}; transição bloqueada.`,
+            orderId: payment.orderId,
+            paymentId,
+            externalId: info.externalId,
+            expected: cur,
+            actual: 'PAID',
+          });
+        } catch {
+          financeMetrics.inc('finance_hook_failures');
+        }
+        return { applied: false, reason: 'forbidden_transition' };
+      }
+    }
+
     // Já approved: NÃO no-op cego.
     // Crash entre payment.update(approved) e CAS/notify deixava pedido em awaiting_payment
     // (ou paid sem e-mail/in-app). Replay do webhook (novo x-request-id) ou retry deve recuperar.
@@ -1101,6 +1333,7 @@ export class PaymentsService {
             accessToken: await this.collectorAccessTokenForPayment(payment),
           })
           .catch(() => undefined);
+        await this.flagApprovedAfterCancel(payment, true);
         return { applied: false, reason: 'orphan_after_cancel' };
       }
 
@@ -1183,6 +1416,7 @@ export class PaymentsService {
             accessToken: await this.collectorAccessTokenForPayment(payment),
           })
           .catch(() => undefined);
+        await this.flagApprovedAfterCancel(payment, true);
         return { applied: false, reason: 'orphan_after_cancel' };
       }
       return { applied: true, reason: 'approved_payment_only' };
@@ -1335,7 +1569,8 @@ export class PaymentsService {
     return { payment: this.serializePayment(updated), idempotent: false };
   }
 
-  private async finalizeRefundLocal(paymentId: string, actorId?: string) {
+  /** Local refund finalization (payment+order refunded, restock). Public for the refund engine. */
+  async finalizeRefundLocal(paymentId: string, actorId?: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { order: { include: { items: true } } },
@@ -1376,7 +1611,7 @@ export class PaymentsService {
 
       if (shouldRestockOnRefund(fromStatus)) {
         for (const item of order.items) {
-          await this.inventory.restock(tx, item.productId, item.qty);
+          await this.inventory.restock(tx, item.productId, item.qty, { orderId: order.id, orderItemId: item.id });
         }
       }
     });
@@ -1390,6 +1625,11 @@ export class PaymentsService {
 
     await this.commissions.reverseOnRefund(payment.orderId).catch((e: any) => {
       this.log.warn(`commission reverse falhou para ${payment.orderId}: ${e?.message || e}`);
+    });
+    await this.finance.syncPaymentStateSafe(paymentId, {
+      source: actorId ? 'admin' : 'webhook',
+      actorId: actorId ?? null,
+      reason: 'payment_refunded',
     });
   }
 
@@ -1410,6 +1650,7 @@ export class PaymentsService {
       });
       if (p.externalId) externalIds.push(p.externalId);
       await this.audit.log('payment.expired', { entity: 'Payment', entityId: p.id, meta: { orderId } });
+      await this.finance.syncPaymentStateSafe(p.id, { source: 'expiry', reason: 'reservation_expired' });
     }
     return externalIds;
   }

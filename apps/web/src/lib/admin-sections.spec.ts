@@ -156,6 +156,9 @@ assert.equal(adminNavGroupFor('vitrine').label, 'Loja');
 assert.equal(adminNavGroupFor('avaliacoes').label, 'Loja');
 assert.equal(adminNavGroupFor('marketplace').label, 'Crescimento');
 assert.equal(adminNavGroupFor('equipe').label, 'Sistema');
+assert.equal(adminNavGroupFor('financeiro').label, 'Operação');
+assert.equal(parseAdminSection('payments'), 'financeiro');
+assert.ok(consoleSrcHasFinance());
 const catalogGroup = ADMIN_NAV_GROUPS.find((group) => group.id === 'catalogo');
 assert.equal(catalogGroup?.aliasTip?.label, 'Estoque');
 assert.equal(catalogGroup?.aliasTip?.target, 'catalogo');
@@ -183,6 +186,7 @@ assert.deepEqual(paths, [
   '/admin/marketplace',
   '/admin/equipe',
   '/admin/notificacoes',
+  '/admin/financeiro',
 ]);
 
 const consoleSrc = readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8');
@@ -248,3 +252,7 @@ const contaSrc = readFileSync(join(__dirname, '../app/conta/page.tsx'), 'utf8');
 assert.ok(contaSrc.includes('clearSession()'), 'Conta logout still uses clearSession');
 
 console.log('admin-sections web unit ok');
+
+function consoleSrcHasFinance() {
+  return readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8').includes('financeiro: AdminFinanceiroSection');
+}

@@ -69,7 +69,39 @@ export type FetchPaymentResult = {
   amount: number;
   externalReference?: string;
   rawStatus?: string;
+  /** MP status_detail (e.g. accredited, settled, reimbursed, expired). */
+  statusDetail?: string;
+  /** MP transaction_amount_refunded (partial/total refunds done anywhere, incl. MP panel). */
+  refundedAmount?: number;
   payload: Record<string, unknown>;
+};
+
+/** COMANDO OMEGA — refund with caller-controlled idempotency (partial or total). */
+export type CreateRefundInput = {
+  /** Omit for a total refund (MP semantics: no amount = full refund). */
+  amount?: number;
+  /** Sent as X-Idempotency-Key. Same key ⇒ MP returns the same refund (safe retry). */
+  idempotencyKey: string;
+  accessToken?: string;
+};
+
+export type ProviderRefund = {
+  refundId: string;
+  /** MP refund status: approved | in_process | rejected | cancelled | authorized */
+  status: string;
+  amount: number;
+};
+
+/** Chargeback case as returned by GET /v1/chargebacks/{id} (minimal, no PII). */
+export type ProviderChargeback = {
+  caseId: string;
+  paymentIds: string[];
+  amount: number | null;
+  currency: string | null;
+  reason: string | null;
+  coverageApplied: boolean | null;
+  documentationStatus: string | null;
+  documentationDeadline: string | null;
 };
 
 export type RefundResult = {
@@ -82,6 +114,8 @@ export type VerifyWebhookInput = {
   headers: Record<string, string | string[] | undefined>;
   rawBody?: string;
   body: unknown;
+  /** Query string of the notification URL (MP sends `data.id` and `type` there). */
+  query?: Record<string, unknown>;
 };
 
 export type VerifiedWebhookEvent = {
@@ -89,6 +123,11 @@ export type VerifiedWebhookEvent = {
   topic?: string;
   externalId?: string;
   payload: Record<string, unknown>;
+  /** MP notification body.id (same notification ⇒ same id). */
+  notificationId?: string;
+  action?: string;
+  /** Resource id from the notification (payment id, chargeback case id...). */
+  dataId?: string;
 };
 
 export interface PaymentProvider {
@@ -99,13 +138,19 @@ export interface PaymentProvider {
   refund(externalId: string, amount?: number, opts?: { accessToken?: string }): Promise<RefundResult>;
   verifyWebhook(input: VerifyWebhookInput): Promise<VerifiedWebhookEvent>;
   translateStatus(providerStatus: string): DomainPaymentStatus;
+  /** COMANDO OMEGA (optional so existing adapters/test doubles keep compiling). */
+  createRefund?(externalId: string, input: CreateRefundInput): Promise<ProviderRefund>;
+  listRefunds?(externalId: string, opts?: { accessToken?: string }): Promise<ProviderRefund[]>;
+  fetchChargeback?(caseId: string): Promise<ProviderChargeback>;
 }
 
 /** Map in-memory para testes do NullPaymentProvider. */
 const nullStore = new Map<string, FetchPaymentResult>();
+const nullRefunds = new Map<string, Array<{ key: string; refund: ProviderRefund }>>();
 
 export function nullProviderReset() {
   nullStore.clear();
+  nullRefunds.clear();
 }
 
 export function nullProviderSetStatus(externalId: string, status: DomainPaymentStatus, amount?: number) {
@@ -189,6 +234,32 @@ export class NullPaymentProvider implements PaymentProvider {
     };
   }
 
+  async createRefund(externalId: string, input: CreateRefundInput): Promise<ProviderRefund> {
+    const hit = nullStore.get(externalId);
+    const prior = nullRefunds.get(externalId) || [];
+    const same = prior.find((r) => r.key === input.idempotencyKey);
+    if (same) return same.refund;
+    const total = hit?.amount ?? 0;
+    const already = prior.reduce((s, r) => s + r.refund.amount, 0);
+    const amount = input.amount != null ? Number(input.amount) : Math.round((total - already) * 100) / 100;
+    const refund: ProviderRefund = { refundId: `null-refund-${prior.length + 1}-${externalId}`, status: 'approved', amount };
+    prior.push({ key: input.idempotencyKey, refund });
+    nullRefunds.set(externalId, prior);
+    if (hit) {
+      const refunded = Math.round((already + amount) * 100) / 100;
+      nullStore.set(externalId, {
+        ...hit,
+        refundedAmount: refunded,
+        ...(refunded + 0.009 >= total ? { status: 'refunded' as const, rawStatus: 'refunded' } : {}),
+      });
+    }
+    return refund;
+  }
+
+  async listRefunds(externalId: string): Promise<ProviderRefund[]> {
+    return (nullRefunds.get(externalId) || []).map((r) => r.refund);
+  }
+
   private webhookSecret(): string {
     const configured =
       process.env.NULL_WEBHOOK_SECRET ||
@@ -243,13 +314,16 @@ export class NullPaymentProvider implements PaymentProvider {
       topic: String(body.type || body.action || 'payment'),
       externalId: externalId || undefined,
       payload: body,
+      notificationId: body.id != null ? String(body.id) : undefined,
+      action: body.action != null ? String(body.action) : undefined,
+      dataId: externalId || undefined,
     };
   }
 }
 
 export class MercadoPagoPaymentProvider implements PaymentProvider {
   name = 'mercadopago';
-  private readonly baseUrl = 'https://api.mercadopago.com';
+  private readonly baseUrl = resolveMercadoPagoBaseUrl();
 
   private token() {
     const t = process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || '';
@@ -298,6 +372,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       ...(init.headers as Record<string, string> | undefined),
     };
     if (init.idempotencyKey) headers['X-Idempotency-Key'] = init.idempotencyKey;
+    assertNotRealMercadoPagoInTests(this.baseUrl);
     const res = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
     const text = await res.text();
     let json: any = {};
@@ -471,6 +546,9 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       amount: Number(json.transaction_amount || 0),
       externalReference: json.external_reference ? String(json.external_reference) : undefined,
       rawStatus: String(json.status || ''),
+      statusDetail: json.status_detail != null ? String(json.status_detail) : undefined,
+      refundedAmount:
+        json.transaction_amount_refunded != null ? Number(json.transaction_amount_refunded) : undefined,
       payload: {
         mpStatus: json.status,
         statusDetail: json.status_detail,
@@ -512,6 +590,57 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     return { externalId, status, payload: json as Record<string, unknown> };
   }
 
+  /**
+   * POST /v1/payments/{id}/refunds with a caller-controlled X-Idempotency-Key
+   * (MP docs: amount present ⇒ partial, absent ⇒ total; same key ⇒ same refund).
+   */
+  async createRefund(externalId: string, input: CreateRefundInput): Promise<ProviderRefund> {
+    const body = input.amount != null ? { amount: Number(input.amount) } : {};
+    const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}/refunds`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      idempotencyKey: input.idempotencyKey,
+      accessToken: input.accessToken,
+    });
+    return {
+      refundId: String(json.id ?? ''),
+      status: String(json.status || 'unknown'),
+      amount: Number(json.amount ?? input.amount ?? 0),
+    };
+  }
+
+  /** GET /v1/payments/{id}/refunds */
+  async listRefunds(externalId: string, opts?: { accessToken?: string }): Promise<ProviderRefund[]> {
+    const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}/refunds`, {
+      accessToken: opts?.accessToken,
+    });
+    const rows: any[] = Array.isArray(json) ? json : Array.isArray(json?.results) ? json.results : [];
+    return rows.map((r) => ({ refundId: String(r.id ?? ''), status: String(r.status || 'unknown'), amount: Number(r.amount || 0) }));
+  }
+
+  /**
+   * GET /v1/chargebacks/{id}. MP docs require X-Caller-Id (seller id) on this endpoint;
+   * configured via MERCADO_PAGO_USER_ID. Without it the call is attempted without the header
+   * and failures are surfaced (never simulated).
+   */
+  async fetchChargeback(caseId: string): Promise<ProviderChargeback> {
+    const callerId = String(process.env.MERCADO_PAGO_USER_ID || '').trim();
+    const json = await this.mpFetch(`/v1/chargebacks/${encodeURIComponent(caseId)}`, {
+      headers: callerId ? { 'X-Caller-Id': callerId } : undefined,
+    });
+    const pays = Array.isArray(json.payments) ? json.payments : json.payments != null ? [json.payments] : [];
+    return {
+      caseId: String(json.id ?? caseId),
+      paymentIds: pays.map((x: any) => String(typeof x === 'object' && x ? x.id ?? '' : x)).filter(Boolean),
+      amount: json.amount != null ? Number(json.amount) : null,
+      currency: json.currency != null ? String(json.currency) : null,
+      reason: json.reason != null ? String(json.reason) : null,
+      coverageApplied: typeof json.coverage_applied === 'boolean' ? json.coverage_applied : json.coverage_applied === 'true' ? true : json.coverage_applied === 'false' ? false : null,
+      documentationStatus: json.documentation_status != null ? String(json.documentation_status) : null,
+      documentationDeadline: json.date_documentation_deadline != null ? String(json.date_documentation_deadline) : null,
+    };
+  }
+
   async verifyWebhook(input: VerifyWebhookInput): Promise<VerifiedWebhookEvent> {
     const headers = normalizeHeaders(input.headers);
     const secret = this.webhookSecret();
@@ -543,7 +672,10 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
 
     const body = (input.body || {}) as Record<string, unknown>;
     const data = (body.data || {}) as Record<string, unknown>;
-    const dataId = String(data.id || body.data_id || '');
+    // MP docs: the signed id is `data.id` from the notification URL query string; body data.id
+    // carries the same value for payment topics. Prefer query, fall back to body (legacy behaviour).
+    const queryDataId = pickQueryDataId(input.query);
+    const dataId = String(queryDataId || data.id || body.data_id || '');
 
     // Manifesto oficial MP: id:[data.id_url];request-id:[x-request-id];ts:[ts];
     const crypto = await import('crypto');
@@ -551,10 +683,15 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
 
     if (!v1 || !timingSafeEqualHex(v1, expected)) {
-      // Fallback: alguns ambientes usam id em minúsculas na query
-      const manifestAlt = `id:${dataId.toLowerCase()};request-id:${xRequestId};ts:${ts};`;
-      const expectedAlt = crypto.createHmac('sha256', secret).update(manifestAlt).digest('hex');
-      if (!timingSafeEqualHex(v1, expectedAlt)) {
+      // Fallbacks: lower-cased id (older SDKs) and the documented "omit absent pairs" manifest.
+      const candidates = [
+        `id:${dataId.toLowerCase()};request-id:${xRequestId};ts:${ts};`,
+        buildMercadoPagoSignatureManifest({ dataId, requestId: xRequestId, ts }),
+      ];
+      const ok = candidates.some((m) =>
+        timingSafeEqualHex(v1, crypto.createHmac('sha256', secret).update(m).digest('hex')),
+      );
+      if (!ok) {
         const err: any = new Error('Assinatura de webhook inválida');
         err.status = 401;
         err.code = 'WEBHOOK_SIGNATURE_INVALID';
@@ -575,11 +712,62 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
 
     return {
       providerEventId,
-      topic: String(body.type || body.action || 'payment'),
+      topic: String(body.type || pickQueryString(input.query, 'type') || body.action || 'payment'),
       externalId: dataId || undefined,
       payload: body,
+      notificationId: body.id != null ? String(body.id) : undefined,
+      action: body.action != null ? String(body.action) : undefined,
+      dataId: dataId || undefined,
     };
   }
+}
+
+const OFFICIAL_MP_BASE_URL = 'https://api.mercadopago.com';
+
+/**
+ * Base URL for the Mercado Pago REST API. MERCADO_PAGO_API_BASE_URL exists ONLY so local tests can
+ * point the real adapter at a local fake server (labelled TEST). It is ignored in production/staging.
+ */
+export function resolveMercadoPagoBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const override = String(env.MERCADO_PAGO_API_BASE_URL || '').trim().replace(/\/$/, '');
+  if (!override) return OFFICIAL_MP_BASE_URL;
+  if (isProdLikeEnv(env)) return OFFICIAL_MP_BASE_URL;
+  return override;
+}
+
+/** Test harness guard: FINANCE_TEST_MODE=true must never reach the real Mercado Pago host. */
+export function assertNotRealMercadoPagoInTests(baseUrl: string, env: NodeJS.ProcessEnv = process.env) {
+  if (String(env.FINANCE_TEST_MODE || '') !== 'true') return;
+  if (/mercadopago\.com/i.test(baseUrl)) {
+    const err: any = new Error('FINANCE_TEST_MODE: chamada ao Mercado Pago real bloqueada em teste');
+    err.code = 'REAL_PROVIDER_BLOCKED_IN_TEST';
+    throw err;
+  }
+}
+
+/** Documented manifest: pairs whose value is absent are omitted. */
+export function buildMercadoPagoSignatureManifest(input: { dataId?: string; requestId?: string; ts?: string }) {
+  let m = '';
+  if (input.dataId) m += `id:${input.dataId};`;
+  if (input.requestId) m += `request-id:${input.requestId};`;
+  if (input.ts) m += `ts:${input.ts};`;
+  return m;
+}
+
+function pickQueryString(query: Record<string, unknown> | undefined, key: string): string {
+  if (!query) return '';
+  const v = query[key];
+  if (Array.isArray(v)) return String(v[0] ?? '');
+  return v == null ? '' : String(v);
+}
+
+function pickQueryDataId(query: Record<string, unknown> | undefined): string {
+  if (!query) return '';
+  const flat = pickQueryString(query, 'data.id');
+  if (flat) return flat;
+  const nested = query.data as Record<string, unknown> | undefined;
+  if (nested && typeof nested === 'object' && nested.id != null) return String(nested.id);
+  return '';
 }
 
 

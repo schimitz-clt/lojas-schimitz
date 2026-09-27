@@ -38,6 +38,7 @@ import { ORDER_ITEM_CUSTOMER_SELECT, serializeCustomerOrder } from './order-item
 import { assertSingleSellerCart, uniqueSellerIds } from '../marketplace-mp/mixed-cart';
 import { demoPurchaseRejection } from '../catalog/demo-product';
 import { customerMarketplaceSplitPreview } from '../marketplace-mp/mp-split-live';
+import { FinancialRecorder } from '../finance/financial-recorder.service';
 
 type AdminFulfillmentTarget = AdminFulfillmentTargetStatus;
 
@@ -56,6 +57,7 @@ export class OrdersService {
     @Inject(CouponsService) private readonly coupons: CouponsService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(FinancialRecorder) private readonly finance: FinancialRecorder,
   ) {}
 
   private publicId() {
@@ -335,8 +337,9 @@ export class OrdersService {
           include: { items: true, payments: true, statusHistory: { orderBy: { createdAt: 'asc' } } },
         });
 
-        for (const item of cart.items) {
-          await this.inventory.reserve(tx, item.productId, item.qty);
+        // Same quantities as the cart; journaled per order item (exactly-once, COMANDO OMEGA).
+        for (const item of created.items) {
+          await this.inventory.reserve(tx, item.productId, item.qty, { orderId: created.id, orderItemId: item.id });
         }
         if (couponId) await this.inventory.reserveCoupon(tx, couponId);
         if (Number(cashbackUsed) > 0) {
@@ -588,6 +591,13 @@ export class OrdersService {
     let count = 0;
     const remoteCancelIds: string[] = [];
     for (const o of expired) {
+      // COMANDO OMEGA: an APPROVED payment on an awaiting order means the confirmation did not finish
+      // (crash between payment update and order CAS). Never cancel/release such an order — the
+      // reconciliation engine flags it CRITICAL and re-applies the provider status.
+      if (o.payments.some((p) => p.status === 'approved')) {
+        structuredLog('error', 'RESERVATION_EXPIRY_SKIPPED_APPROVED_PAYMENT', { orderId: o.id, publicId: o.publicId });
+        continue;
+      }
       const hasPendingPayment = o.payments.some((p) => p.status === 'pending');
       if (shouldSkipReservationExpiry({
         hasPendingPayment,
@@ -622,6 +632,7 @@ export class OrdersService {
               entityId: p.id,
               meta: { orderId: o.id, via: 'reservation_expiry' },
             });
+            await this.finance.syncPaymentStateSafe(p.id, { source: 'expiry', reason: 'reservation_expired' });
           }
         }
       }
@@ -663,7 +674,7 @@ export class OrdersService {
 
       if (to === 'cancelled') {
         for (const item of order.items) {
-          await this.inventory.release(tx, item.productId, item.qty);
+          await this.inventory.release(tx, item.productId, item.qty, { orderId, orderItemId: item.id });
         }
         if (order.couponId) await this.inventory.releaseCoupon(tx, order.couponId);
         if (order.userId && Number(order.cashbackUsed) > 0) {
@@ -671,7 +682,7 @@ export class OrdersService {
         }
       } else {
         for (const item of order.items) {
-          await this.inventory.commitSale(tx, item.productId, item.qty);
+          await this.inventory.commitSale(tx, item.productId, item.qty, { orderId, orderItemId: item.id });
         }
         if (order.couponId) await this.inventory.consumeCoupon(tx, order.couponId);
       }

@@ -1,4 +1,5 @@
 import {
+  Inject,
   BadRequestException,
   Injectable,
   Logger,
@@ -90,7 +91,7 @@ export class ShippingService implements ShippingProvider {
   private readonly logger = new Logger(ShippingService.name);
   private readonly melhorEnvio = new MelhorEnvioCarrierProvider();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async ensureSettings() {
     const existing = await this.prisma.shippingSettings.findUnique({ where: { id: 'default' } });

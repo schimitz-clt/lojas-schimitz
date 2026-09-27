@@ -18,6 +18,7 @@ export const ADMIN_SECTION_IDS = [
   'marketplace',
   'equipe',
   'notificacoes',
+  'financeiro',
 ] as const;
 
 export type AdminSectionId = (typeof ADMIN_SECTION_IDS)[number];
@@ -45,6 +46,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: 'marketplace', label: 'Marketplace', description: 'Vendedores' },
   { id: 'equipe', label: 'Equipe', description: 'Administradores' },
   { id: 'notificacoes', label: 'Notificações', description: 'Push FCM' },
+  { id: 'financeiro', label: 'Financeiro', description: 'Pagamentos e divergências' },
 ] as const;
 
 export const ADMIN_NAV_GROUP_IDS = [
@@ -79,7 +81,7 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     id: 'operacao',
     label: 'Operação',
-    itemIds: ['ops', 'pedidos', 'notificacoes'],
+    itemIds: ['ops', 'pedidos', 'financeiro', 'notificacoes'],
   },
   {
     id: 'catalogo',
@@ -159,6 +161,10 @@ const SECTION_ALIASES: Record<string, AdminSectionId> = {
   notifications: 'notificacoes',
   notification: 'notificacoes',
   push: 'notificacoes',
+  finance: 'financeiro',
+  financas: 'financeiro',
+  pagamentos: 'financeiro',
+  payments: 'financeiro',
   fcm: 'notificacoes',
 };
 
