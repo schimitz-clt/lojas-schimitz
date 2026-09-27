@@ -3,7 +3,8 @@ import {
   firebaseAdminConfiguredFromEnv,
   readFirebaseServiceAccountJson,
 } from './push-fcm.config';
-import { shouldDisableInvalidFcmToken } from './push-token.rules';
+import { fcmTokenFingerprint, isMassInvalidation, shouldDisableInvalidFcmToken } from './push-token.rules';
+import { structuredLog } from '../../common/structured-log';
 
 export type FcmSendItemResult = {
   token: string;
@@ -167,9 +168,22 @@ export class PushFcmClient {
           messageId: r?.messageId || null,
           errorCode,
           errorMessage,
-          disableToken: shouldDisableInvalidFcmToken(errorCode),
+          disableToken: shouldDisableInvalidFcmToken(errorCode, errorMessage),
         };
       });
+      const disableCount = results.filter((r) => r.disableToken).length;
+      if (isMassInvalidation(results.length, disableCount)) {
+        for (const r of results) r.disableToken = false;
+        structuredLog('error', 'PUSH_TOKEN_MASS_INVALIDATION_BLOCKED', {
+          batchSize: results.length,
+          wouldDisable: disableCount,
+          codes: [...new Set(results.filter((r) => !r.success).map((r) => r.errorCode || 'unknown'))].slice(0, 5),
+          sampleFingerprints: results
+            .filter((r) => !r.success)
+            .slice(0, 3)
+            .map((r) => fcmTokenFingerprint(r.token)),
+        });
+      }
       return {
         configured: true,
         reason: 'ok',

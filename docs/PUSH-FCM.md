@@ -133,6 +133,26 @@ Sem DROP em `Notification`, `Order`, `Payment`, `Inventory`, `User` (só relaç�
 
 ---
 
+## Limpeza automática de tokens mortos (Melhoria 5)
+
+Quando o FCM diz que um token morreu (app desinstalado, dados apagados, token trocado), o aparelho vai receber outro token, e o antigo não pode ser retentado.
+
+| Erro do FCM | O que acontece com o token |
+|---|---|
+| `messaging/registration-token-not-registered` (UNREGISTERED), `messaging/invalid-registration-token`, `messaging/unregistered` | `enabled=false` (desativado) |
+| `messaging/invalid-argument` **que fala do registration token** | `enabled=false` |
+| `messaging/invalid-argument` sobre a mensagem (imagem inválida, payload grande…) | mantém, porque é erro da campanha e não do aparelho |
+| `unavailable`, `internal-error`, `quota-exceeded`, `*-rate-exceeded`, `mismatched-credential`, `third-party-auth-error`, erro de rede, código desconhecido | mantém |
+
+- **Desativação soft e reversível:** nada é apagado. O `PushDispatch`/`AbandonedViewPush` com falha guarda o erro e o `tokenId`, então dá para auditar e reativar (`enabled=true`).
+- **Vale para os 3 envios:** campanha, envio de teste e recuperação de produto (`deactivateDeadTokens` em `push-token-cleanup.ts`).
+- **Log:** `PUSH_TOKEN_DEACTIVATED {source, count, reasons, fingerprints}`. Só os últimos 12 caracteres do token aparecem, nunca o token inteiro.
+- **Trava de segurança:** se num envio de ≥ 10 aparelhos mais de 50% voltarem como "morto", nada é desativado e sai o log `PUSH_TOKEN_MASS_INVALIDATION_BLOCKED`. Um resultado assim é quase certamente configuração errada (credencial ou projeto Firebase), não desinstalação em massa.
+- **Se o app registrar o mesmo token de novo** (`POST /push/tokens`), ele volta a `enabled=true`, como a Firebase recomenda. Se ainda estiver morto, falha uma vez e é desativado de novo.
+- Sem migração: usa a coluna `enabled` que já existe.
+
+---
+
 ## Arquivos-chave
 
 - Android: `SchimitzFirebaseMessagingService`, `PushRegistration` (CookieManager), `PushDeepLink`

@@ -102,14 +102,86 @@ export function fcmTokenFingerprint(token: string): string {
   return t.slice(-12);
 }
 
+/**
+ * FCM error codes that mean "this token is permanently dead" (app uninstalled, data cleared,
+ * token rotated, or never valid). The device will get a new token; this one must not be retried.
+ * firebase-admin maps the FCM v1 `UNREGISTERED` status to `messaging/registration-token-not-registered`.
+ */
 export const FCM_UNREGISTER_ERROR_CODES = [
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
-  'messaging/invalid-argument',
+  'messaging/unregistered',
 ] as const;
 
-export function shouldDisableInvalidFcmToken(errorCode: string | null | undefined): boolean {
+/**
+ * `messaging/invalid-argument` is ambiguous: FCM uses it for a malformed token AND for a bad
+ * message (e.g. invalid image URL, payload too big). In the second case EVERY token in the send
+ * gets it, so it only counts as a dead token when the message is about the registration token.
+ */
+export const FCM_INVALID_ARGUMENT_CODE = 'messaging/invalid-argument';
+const TOKEN_ARGUMENT_MESSAGE_RE = /registration[ -]?token/i;
+
+/** Retry-worthy / not the token's fault — never deactivate on these. */
+export const FCM_TRANSIENT_ERROR_CODES = [
+  'messaging/unavailable',
+  'messaging/server-unavailable',
+  'messaging/internal-error',
+  'messaging/quota-exceeded',
+  'messaging/message-rate-exceeded',
+  'messaging/device-message-rate-exceeded',
+  'messaging/topics-message-rate-exceeded',
+  'messaging/mismatched-credential',
+  'messaging/third-party-auth-error',
+  'messaging/invalid-credential',
+  'messaging/authentication-error',
+  'app/invalid-credential',
+  'app/network-error',
+  'send_error',
+  'unavailable',
+  'internal',
+] as const;
+
+export type FcmErrorKind = 'invalid_token' | 'payload' | 'transient' | 'unknown';
+
+export function classifyFcmError(
+  errorCode: string | null | undefined,
+  errorMessage?: string | null,
+): FcmErrorKind {
   const c = String(errorCode || '').trim().toLowerCase();
-  if (!c) return false;
-  return (FCM_UNREGISTER_ERROR_CODES as readonly string[]).includes(c) || c.includes('not-registered');
+  if (!c) return 'unknown';
+  if ((FCM_UNREGISTER_ERROR_CODES as readonly string[]).includes(c) || c.includes('not-registered')) {
+    return 'invalid_token';
+  }
+  if (c === FCM_INVALID_ARGUMENT_CODE) {
+    return TOKEN_ARGUMENT_MESSAGE_RE.test(String(errorMessage || '')) ? 'invalid_token' : 'payload';
+  }
+  if ((FCM_TRANSIENT_ERROR_CODES as readonly string[]).includes(c)) return 'transient';
+  return 'unknown';
+}
+
+/** Only a permanent, token-specific error deactivates. Transient/payload/unknown keep the token. */
+export function shouldDisableInvalidFcmToken(
+  errorCode: string | null | undefined,
+  errorMessage?: string | null,
+): boolean {
+  return classifyFcmError(errorCode, errorMessage) === 'invalid_token';
+}
+
+/**
+ * Safety net: if most of a large send comes back "dead", it is far more likely a
+ * config/project problem than real uninstalls — deactivate nothing and alert instead.
+ * Batches smaller than `minBatch` (single-device sends) are never blocked.
+ */
+export const MASS_INVALIDATION_MIN_BATCH = 10;
+export const MASS_INVALIDATION_MAX_SHARE = 0.5;
+
+export function isMassInvalidation(
+  batchSize: number,
+  disableCount: number,
+  opts: { minBatch?: number; maxShare?: number } = {},
+): boolean {
+  const minBatch = opts.minBatch ?? MASS_INVALIDATION_MIN_BATCH;
+  const maxShare = opts.maxShare ?? MASS_INVALIDATION_MAX_SHARE;
+  if (batchSize < minBatch || disableCount <= 0) return false;
+  return disableCount / batchSize > maxShare;
 }

@@ -16,6 +16,7 @@ import {
   purchaseUserIds,
   readPushDeviceCookie,
 } from './abandoned-view.rules';
+import { deactivateDeadTokens } from './push-token-cleanup';
 
 const BATCH = 15;
 
@@ -281,10 +282,11 @@ export class AbandonedViewService {
         },
       });
       if (result?.disableToken) {
-        await this.prisma.deviceFcmToken.update({
-          where: { id: view.deviceId },
-          data: { enabled: false },
-        });
+        await deactivateDeadTokens(
+          this.prisma,
+          [{ id: view.deviceId, token: view.device.token, errorCode: result.errorCode }],
+          'abandoned_view',
+        );
       }
       if (ok) {
         sent += 1;
