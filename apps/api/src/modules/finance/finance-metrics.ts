@@ -30,6 +30,13 @@ export const FINANCE_COUNTERS = [
   'finance_hook_failures',
   'reconciliation_runs',
   'ledger_adjustments',
+  // Webhook classification (additive): unsigned legacy IPN acknowledged without processing;
+  // unsigned non-IPN requests rejected with 401; failures while processing an authenticated event
+  // (chargeback handler / provider fetch / apply). `webhook_failures` = processing failures +
+  // claimed-but-invalid signatures + missing secret + unparseable events.
+  'webhook_unsigned_ipn',
+  'webhook_unsigned_rejected',
+  'webhook_processing_failures',
 ] as const;
 
 export type FinanceCounter = (typeof FINANCE_COUNTERS)[number];
@@ -38,6 +45,7 @@ export type FinanceCounter = (typeof FINANCE_COUNTERS)[number];
 const OPS_SIGNAL_COUNTERS = new Set<FinanceCounter>([
   'provider_errors',
   'webhook_failures',
+  'webhook_processing_failures',
   'payments_failed',
   'payments_paid',
   'payments_created',

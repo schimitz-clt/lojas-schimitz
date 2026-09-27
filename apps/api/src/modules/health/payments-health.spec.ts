@@ -91,7 +91,7 @@ async function main() {
     provider: 'mercadopago',
     configured: true,
     ping: null,
-    recent: { providerErrors: 0, webhookFailures: 3, paymentsFailed: 1, paymentsPaid: 2 },
+    recent: { providerErrors: 0, webhookFailures: 3, webhookProcessingFailures: 0, paymentsFailed: 1, paymentsPaid: 2 },
     maxProviderErrors: 5,
   });
   assert.equal(e.status, 'ok');
