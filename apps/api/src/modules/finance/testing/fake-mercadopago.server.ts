@@ -40,6 +40,8 @@ export class FakeMercadoPagoServer {
   refundStatus: 'approved' | 'in_process' | 'rejected' = 'approved';
   /** Real MP sandbox (2026-09-26) answered GET /v1/payments/{id}/refunds with 405; set 405 to mirror it. */
   refundListStatus: 200 | 405 = 200;
+  /** Omit payment.refunds[] from GET /v1/payments/{id} (legacy observation: amount only, no refund ids). */
+  omitRefundsInView = false;
   /** Test hook awaited right before a response is written (after fake state changed). Used to cut the DB mid-flow. */
   beforeSend: ((method: string, path: string, status: number) => Promise<void> | void) | null = null;
 
@@ -59,7 +61,7 @@ export class FakeMercadoPagoServer {
   reset() {
     this.payments.clear(); this.refunds.clear(); this.chargebacks.clear();
     this.idemPayments.clear(); this.idemRefunds.clear(); this.calls = []; this.failures = [];
-    this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null; this.refundListStatus = 200;
+    this.delayMs = 0; this.refundStatus = 'approved'; this.beforeSend = null; this.refundListStatus = 200; this.omitRefundsInView = false;
     this.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
   }
 
@@ -201,7 +203,7 @@ export class FakeMercadoPagoServer {
   private view(p: FakeMpPayment) {
     return {
       ...p,
-      refunds: (this.refunds.get(p.id) || []).map(({ idem: _i, payment_id: _p, ...r }) => ({ ...r, refund_mode: 'standard', reason: null })),
+      refunds: this.omitRefundsInView ? undefined : (this.refunds.get(p.id) || []).map(({ idem: _i, payment_id: _p, ...r }) => ({ ...r, refund_mode: 'standard', reason: null })),
       point_of_interaction: p.payment_method_id === 'pix' ? { transaction_data: { qr_code: `TEST-FAKE-QR-${p.id}`, qr_code_base64: null, ticket_url: null } } : undefined,
     };
   }

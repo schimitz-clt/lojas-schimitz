@@ -105,6 +105,64 @@ function trunc(s: unknown, n: number) {
   return v && v.length > n ? v.slice(0, n) : v;
 }
 
+/** Canonical ledger key for a completed provider refund. Used by BOTH the refund engine and the
+ *  webhook/reconciliation sync path, so the unique idempotencyKey makes a double debit impossible. */
+export const REFUND_MP_KEY_PREFIX = 'REFUND_COMPLETED:mp:';
+export function refundLedgerKey(providerRefundId: string) {
+  return `${REFUND_MP_KEY_PREFIX}${providerRefundId}`;
+}
+
+export type RefundLedgerRow = {
+  id: string;
+  entryType: string;
+  direction: string;
+  amount: unknown;
+  refundId: string | null;
+  idempotencyKey: string;
+  meta: unknown;
+};
+
+/** Amount of each ledger entry that was corrected by an append-only corrective adjustment. */
+export function correctionsByEntry(rows: RefundLedgerRow[]): Map<string, { amount: number; entryType: string | null }> {
+  const out = new Map<string, { amount: number; entryType: string | null }>();
+  for (const r of rows) {
+    if (r.entryType !== 'ADJUSTMENT_CREATED') continue;
+    const m = (r.meta ?? {}) as Record<string, unknown>;
+    const target = typeof m.correctsLedgerEntryId === 'string' ? m.correctsLedgerEntryId : null;
+    if (!target) continue;
+    const prev = out.get(target);
+    out.set(target, { amount: money((prev?.amount ?? 0) + money(r.amount)), entryType: (m.correctsEntryType as string) ?? prev?.entryType ?? null });
+  }
+  return out;
+}
+
+/**
+ * Pure: refund debits net of corrective adjustments.
+ *  - total: effective REFUND_COMPLETED debits;
+ *  - external: the part not attributable to a local PaymentRefund (MP panel / legacy), i.e. no refundId
+ *    and not keyed by a provider refund id that a local refund owns.
+ */
+export function summarizeRefundLedger(rows: RefundLedgerRow[], localProviderRefundIds: Set<string>) {
+  const corr = correctionsByEntry(rows);
+  let total = 0;
+  let external = 0;
+  for (const r of rows) {
+    if (r.entryType !== 'REFUND_COMPLETED' || r.direction !== 'DEBIT') continue;
+    const eff = Math.max(0, money(money(r.amount) - (corr.get(r.id)?.amount ?? 0)));
+    total = money(total + eff);
+    if (!r.refundId) {
+      const m = (r.meta ?? {}) as Record<string, unknown>;
+      const mpId = r.idempotencyKey.startsWith(REFUND_MP_KEY_PREFIX)
+        ? r.idempotencyKey.slice(REFUND_MP_KEY_PREFIX.length)
+        : typeof m.providerRefundId === 'string' ? m.providerRefundId : null;
+      if (!(mpId && localProviderRefundIds.has(mpId))) external = money(external + eff);
+    }
+  }
+  return { total, external };
+}
+
+const INFLIGHT_REFUND_STATUSES = ['REQUESTED', 'PROCESSING', 'UNKNOWN'];
+
 /**
  * Core financial writer: state transitions + append-only ledger + immutable audit + discrepancies.
  * Depends only on Prisma so it can be injected everywhere (global module) without cycles.
@@ -231,13 +289,83 @@ export class FinancialRecorder {
     }
   }
 
-  /** Sum of completed refund debits in the ledger for a payment. */
+  /** Refund debits for a payment, net of corrective adjustments (total + external part). */
+  async refundLedgerSummary(db: Db, paymentId: string): Promise<{ total: number; external: number }> {
+    const rows = await db.financialLedgerEntry.findMany({
+      where: { paymentId, entryType: { in: ['REFUND_COMPLETED', 'ADJUSTMENT_CREATED'] } },
+      select: { id: true, entryType: true, direction: true, amount: true, refundId: true, idempotencyKey: true, meta: true },
+    });
+    const local = await db.paymentRefund.findMany({ where: { paymentId, providerRefundId: { not: null } }, select: { providerRefundId: true } });
+    return summarizeRefundLedger(rows, new Set(local.map((r) => r.providerRefundId!)));
+  }
+
+  /** Sum of completed refund debits in the ledger for a payment (net of corrective adjustments). */
   async ledgerRefundedTotal(db: Db, paymentId: string): Promise<number> {
-    const agg = await db.financialLedgerEntry.aggregate({
-      where: { paymentId, entryType: 'REFUND_COMPLETED', direction: 'DEBIT' },
+    return (await this.refundLedgerSummary(db, paymentId)).total;
+  }
+
+  /**
+   * Bring REFUND_COMPLETED debits up to what the provider reports as refunded. Caller holds the
+   * Payment row lock (FOR UPDATE), the same lock RefundsService.markCompleted takes.
+   *  - With provider refund ids: one entry per approved refund under the canonical key
+   *    REFUND_COMPLETED:mp:<id> (shared with the refund engine → unique index dedupes either order).
+   *  - Without ids (legacy observation): amount delta, minus local refunds still in flight
+   *    (their completion writes the debit), so a webhook that beats the MP response can't double count.
+   * Never exceeds min(target, payment amount). Returns the amount written.
+   */
+  async recordObservedRefunds(
+    tx: Db,
+    p: { id: string; orderId: string; amount: Prisma.Decimal | number; externalId: string | null },
+    o: { target: number; providerRefunds?: { refundId: string; status: string; amount: number }[] | null; source: string; actorId?: string | null; meta?: Record<string, unknown> },
+  ): Promise<number> {
+    const cap = money(Math.min(money(o.target), money(p.amount)));
+    let covered = await this.ledgerRefundedTotal(tx, p.id);
+    let written = 0;
+    const base = { paymentId: p.id, orderId: p.orderId, externalId: p.externalId, source: o.source, actorId: o.actorId ?? null };
+    const approved = (o.providerRefunds || []).filter((r) => r && r.refundId && String(r.status).toLowerCase() === 'approved');
+    if (approved.length) {
+      for (const r of approved) {
+        const key = refundLedgerKey(r.refundId);
+        if (await tx.financialLedgerEntry.findUnique({ where: { idempotencyKey: key }, select: { id: true } })) continue;
+        const local = await tx.paymentRefund.findFirst({ where: { paymentId: p.id, providerRefundId: r.refundId }, select: { id: true } });
+        // Refund completed before canonical keys existed: its debit lives under REFUND_COMPLETED:<refundId>.
+        if (local && (await tx.financialLedgerEntry.findUnique({ where: { idempotencyKey: `REFUND_COMPLETED:${local.id}` }, select: { id: true } }))) continue;
+        const room = money(cap - covered);
+        if (room <= 0.009) break;
+        const amt = money(Math.min(money(r.amount), room));
+        const ok = await this.appendLedger(tx, {
+          ...base,
+          entryType: 'REFUND_COMPLETED',
+          direction: 'DEBIT',
+          amount: amt,
+          idempotencyKey: key,
+          refundId: local?.id ?? null,
+          meta: { reason: 'provider_refund_observed', providerRefundId: r.refundId, ...(o.meta ?? {}) },
+        });
+        if (ok) {
+          covered = money(covered + amt);
+          written = money(written + amt);
+        }
+      }
+      return written;
+    }
+    const inflight = await tx.paymentRefund.aggregate({
+      where: { paymentId: p.id, status: { in: INFLIGHT_REFUND_STATUSES } },
       _sum: { amount: true },
     });
-    return money(agg._sum.amount);
+    const delta = money(cap - covered - money(inflight._sum.amount));
+    if (delta > 0.009) {
+      const ok = await this.appendLedger(tx, {
+        ...base,
+        entryType: 'REFUND_COMPLETED',
+        direction: 'DEBIT',
+        amount: delta,
+        idempotencyKey: `REFUND_COMPLETED:sync:${p.id}:${Math.round(cap * 100)}`,
+        meta: { reason: 'provider_or_legacy_refund_observed', observedRefunded: cap, ...(o.meta ?? {}) },
+      });
+      if (ok) written = delta;
+    }
+    return written;
   }
 
   /**
@@ -266,6 +394,18 @@ export class FinancialRecorder {
         // no ledger — historical ledger backfill is an explicit reconciliation action).
         if (!p.financialState) {
           await tx.payment.update({ where: { id: p.id }, data: { financialState: to, financialStateAt: new Date() } });
+        }
+        // Already (partially) refunded and the provider reports refunds: catch up missing debits
+        // (e.g. a 2nd partial refund done in the MP panel). Canonical keys keep this idempotent.
+        if ((to === 'PARTIALLY_REFUNDED' || to === 'REFUNDED') && opts.obs && (opts.obs.refunds?.length || Number(opts.obs.refundedAmount) > 0)) {
+          const target = Number(opts.obs.refundedAmount) > 0 ? money(opts.obs.refundedAmount) : to === 'REFUNDED' ? money(p.amount) : 0;
+          const written = await this.recordObservedRefunds(tx, p, { target, providerRefunds: opts.obs.refunds, source: opts.source, actorId: opts.actorId });
+          if (written > 0) {
+            await this.audit(tx, {
+              action: 'ledger.refund_observed', origin: opts.source, actorId: opts.actorId, actorRole: opts.actorRole,
+              orderId: p.orderId, paymentId: p.id, amount: written, oldState: from, newState: to, reason: opts.reason ?? null,
+            });
+          }
         }
         return { applied: false, from, to, reason: 'same_state' } as SyncResult;
       }
@@ -468,17 +608,7 @@ export class FinancialRecorder {
             : to === 'REFUNDED'
               ? amount
               : refundedLedger;
-        const delta = money(Math.min(observed, amount) - refundedLedger);
-        if (delta > 0.009) {
-          await this.appendLedger(tx, {
-            ...base,
-            entryType: 'REFUND_COMPLETED',
-            direction: 'DEBIT',
-            amount: delta,
-            idempotencyKey: `REFUND_COMPLETED:sync:${p.id}:${Math.round(Math.min(observed, amount) * 100)}`,
-            meta: { reason: 'provider_or_legacy_refund_observed', observedRefunded: observed },
-          });
-        }
+        await this.recordObservedRefunds(tx, p, { target: observed, providerRefunds: opts.obs?.refunds, source: opts.source, actorId: opts.actorId });
         return;
       }
       case 'IN_DISPUTE':

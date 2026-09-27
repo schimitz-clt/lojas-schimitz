@@ -73,6 +73,8 @@ export type FetchPaymentResult = {
   statusDetail?: string;
   /** MP transaction_amount_refunded (partial/total refunds done anywhere, incl. MP panel). */
   refundedAmount?: number;
+  /** MP payment.refunds[] ({id, status, amount}) when present — lets the ledger key refunds by provider refund id. */
+  refunds?: ProviderRefund[];
   payload: Record<string, unknown>;
 };
 
@@ -250,6 +252,7 @@ export class NullPaymentProvider implements PaymentProvider {
       nullStore.set(externalId, {
         ...hit,
         refundedAmount: refunded,
+        refunds: prior.map((r) => r.refund),
         ...(refunded + 0.009 >= total ? { status: 'refunded' as const, rawStatus: 'refunded' } : {}),
       });
     }
@@ -551,6 +554,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       statusDetail: json.status_detail != null ? String(json.status_detail) : undefined,
       refundedAmount:
         json.transaction_amount_refunded != null ? Number(json.transaction_amount_refunded) : undefined,
+      refunds: Array.isArray(json.refunds) ? mapMercadoPagoRefunds(json.refunds) : undefined,
       payload: {
         mpStatus: json.status,
         statusDetail: json.status_detail,

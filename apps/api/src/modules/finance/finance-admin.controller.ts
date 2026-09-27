@@ -102,6 +102,6 @@ export class FinanceAdminController {
     if (!idempotencyKey || idempotencyKey.length < 8 || idempotencyKey.length > 120) {
       throw new BadRequestException({ message: 'Header Idempotency-Key obrigatório (8-120 caracteres)', code: 'IDEMPOTENCY_KEY_REQUIRED' });
     }
-    return ok(await this.admin.createAdjustment({ idempotencyKey, direction: dto.direction, amount: dto.amount, paymentId: dto.paymentId, orderId: dto.orderId, reason: dto.reason, actorId }));
+    return ok(await this.admin.createAdjustment({ idempotencyKey, direction: dto.direction, amount: dto.amount, paymentId: dto.paymentId, orderId: dto.orderId, reason: dto.reason, actorId, correctsLedgerEntryId: dto.correctsLedgerEntryId }));
   }
 }

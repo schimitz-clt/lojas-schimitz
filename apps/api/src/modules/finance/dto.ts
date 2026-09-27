@@ -65,4 +65,9 @@ export class LedgerAdjustmentDto extends ConfirmedActionDto {
 
   @ApiPropertyOptional() @IsOptional() @IsUUID() paymentId?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() orderId?: string;
+
+  @ApiPropertyOptional({ description: 'Lançamento do ledger que este ajuste corrige (direção oposta, até o valor dele). Conta na reconciliação.' })
+  @IsOptional()
+  @IsUUID()
+  correctsLedgerEntryId?: string;
 }

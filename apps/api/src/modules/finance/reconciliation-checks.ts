@@ -37,6 +37,7 @@ export type ProviderSnapshot = {
   statusDetail?: string | null;
   amount: number;
   refundedAmount?: number | null;
+  refunds?: { refundId: string; status: string; amount: number }[] | null;
   externalReference?: string | null;
 } | null;
 
