@@ -15,7 +15,8 @@ export type MailSendKind =
   | 'order_delivered'
   | 'order_status'
   | 'payment_refused'
-  | 'password_reset';
+  | 'password_reset'
+  | 'ops_alert';
 
 /** True when MAIL_FROM + (RESEND_API_KEY or SMTP_HOST) env names are present. Does not read secret values beyond emptiness. */
 export function mailConfiguredFromEnvPresence(

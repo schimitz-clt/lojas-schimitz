@@ -4,11 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Response } from 'express';
 import { mapMulterUploadError } from '../../modules/uploads/upload-validate';
 import { isProdLikeAppEnv } from '../prod-like-env';
+import { logServerError } from '../error-log';
+import { requestIdOf } from '../request-id';
+import { OpsAlertsService } from '../../modules/ops-alerts/ops-alerts.service';
 import { sanitizeClientErrorDetails, sanitizeClientErrorMessage } from './sanitize-error';
 
 export type ClientErrorBody = {
@@ -95,17 +99,35 @@ export function buildClientError(
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  constructor(@Optional() private readonly opsAlerts?: OpsAlertsService) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<{ headers?: Record<string, string | string[] | undefined> }>();
-    const hdr = req?.headers?.['x-request-id'];
-    const fromHeader = Array.isArray(hdr) ? hdr[0] : hdr;
-    const requestId =
-      typeof fromHeader === 'string' && fromHeader.trim().length > 0 && fromHeader.length <= 128
-        ? fromHeader.trim()
-        : randomUUID();
+    const req = ctx.getRequest<{
+      headers?: Record<string, string | string[] | undefined>;
+      requestId?: string;
+      method?: string;
+      originalUrl?: string;
+      url?: string;
+      baseUrl?: string;
+      route?: { path?: unknown };
+    }>();
+    const requestId = requestIdOf(req);
     const { status, body } = buildClientError(exception, requestId);
+    if (status >= 500) {
+      // H4: 5xx used to leave no trace. One structured line with route + requestId + masked stack.
+      const routePath = req?.route && typeof req.route.path === 'string' ? req.route.path : undefined;
+      logServerError(exception, {
+        requestId,
+        status,
+        method: req?.method,
+        url: req?.originalUrl || req?.url,
+        route: routePath ? `${req?.baseUrl || ''}${routePath}` : undefined,
+        code: body.error.code,
+      });
+      this.opsAlerts?.checkSoon();
+    }
     res.setHeader('x-request-id', requestId);
     res.status(status).json(body);
   }

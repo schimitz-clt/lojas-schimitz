@@ -6,6 +6,8 @@
  *    `value = value + delta` upserts, so counters survive restarts and add up across replicas.
  * inc() stays synchronous and never throws/blocks the financial flow (no DB call on the hot path).
  */
+import { opsSignals } from '../../common/sliding-window';
+
 export const FINANCE_COUNTERS = [
   'payments_created',
   'payments_paid',
@@ -32,6 +34,15 @@ export const FINANCE_COUNTERS = [
 
 export type FinanceCounter = (typeof FINANCE_COUNTERS)[number];
 
+/** Counters mirrored into the ops sliding window (burst alerts + payments health). */
+const OPS_SIGNAL_COUNTERS = new Set<FinanceCounter>([
+  'provider_errors',
+  'webhook_failures',
+  'payments_failed',
+  'payments_paid',
+  'payments_created',
+]);
+
 const counters = new Map<FinanceCounter, number>();
 const startedAt = new Date();
 /** Deltas not yet persisted, keyed by `${YYYY-MM-DD}|${counter}` (day = America/Sao_Paulo). */
@@ -50,6 +61,14 @@ export const financeMetrics = {
     counters.set(name, (counters.get(name) || 0) + by);
     const key = `${saoPauloDay()}|${name}`;
     pending.set(key, (pending.get(key) || 0) + by);
+    // H4: recent-window signal for ops alerts / GET /health/payments (in-memory, never throws)
+    if (by > 0 && OPS_SIGNAL_COUNTERS.has(name)) {
+      try {
+        for (let i = 0; i < Math.min(by, 100); i++) opsSignals.record(name);
+      } catch {
+        /* ignore */
+      }
+    }
   },
   /** Take all unpersisted deltas (the caller must persist them or give them back with requeue). */
   drainPending(): PendingDelta[] {

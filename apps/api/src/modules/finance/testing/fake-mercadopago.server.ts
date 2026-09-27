@@ -120,6 +120,10 @@ export class FakeMercadoPagoServer {
     }
     try {
       let m: RegExpMatchArray | null;
+      // Read-only catalogue used by GET /health/payments (H4). Shape: array like the real API.
+      if (method === 'GET' && path === '/v1/payment_methods') {
+        return reply(200, [{ id: 'pix', payment_type_id: 'bank_transfer', status: 'active' }]);
+      }
       if (method === 'POST' && path === '/v1/payments') {
         const b = await this.body(req);
         if (idem && this.idemPayments.has(idem)) return reply(201, this.view(this.payments.get(this.idemPayments.get(idem)!)!));

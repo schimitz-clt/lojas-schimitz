@@ -1,4 +1,5 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Res, ServiceUnavailableException } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ok } from '../../common/http';
 import { PrismaService } from '../../prisma.service';
@@ -8,10 +9,13 @@ import {
   isUploadsDirPersistent,
   resolveUploadsDir,
 } from '../uploads/uploads-durability';
+import { PaymentsHealthChecker } from './payments-health';
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
+  private readonly payments = new PaymentsHealthChecker();
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
@@ -55,5 +59,18 @@ export class HealthController {
         message: 'Database unavailable',
       });
     }
+  }
+
+  /**
+   * H4 — payments health for uptime monitors. 200 ok / 503 down (monitor alerts on non-2xx).
+   * Written directly (not thrown) so a payments outage is not also counted as an API 5xx burst.
+   */
+  @Get('payments')
+  @ApiOperation({ summary: 'Payments health — MP read-only ping (cached 5 min) + recent provider errors' })
+  async paymentsHealth(@Res({ passthrough: true }) res: Response) {
+    const h = await this.payments.check();
+    res.setHeader('Cache-Control', 'no-store');
+    if (h.status !== 'ok') res.status(503);
+    return ok(h);
   }
 }

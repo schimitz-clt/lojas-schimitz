@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { structuredLog } from '../../common/structured-log';
 import { summarizeCspReport } from './csp-report';
+import { summarizeClientError } from './client-error';
 
 @Controller('security')
 export class SecurityController {
@@ -17,5 +18,17 @@ export class SecurityController {
         violations,
       });
     }
+  }
+
+  /**
+   * H4 — storefront uncaught errors (error boundaries + window.onerror/unhandledrejection).
+   * Sem auth (o browser envia). Sanitizado: sem query string, e-mail/CPF/tokens mascarados, tamanho limitado.
+   */
+  @Post('client-error')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  clientError(@Body() body: unknown) {
+    const report = summarizeClientError(body);
+    if (report) structuredLog('warn', 'WEB_CLIENT_ERROR', report);
   }
 }
