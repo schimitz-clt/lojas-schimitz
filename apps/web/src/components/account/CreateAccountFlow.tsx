@@ -51,9 +51,19 @@ type Props = {
   onHaveAccount?: () => void;
   /** Standalone /cadastro keeps a real link to login. */
   haveAccountHref?: string;
+  /**
+   * `signup` (default): /cadastro and ?cadastro=1 — "Criar meu cadastro · Passo 1 de 3".
+   * `identify`: /entrar e-mail-first — one e-mail field, then the server decides:
+   * existing account → password (login or reset), new e-mail → the same 3-step signup.
+   */
+  entry?: 'signup' | 'identify';
 };
 
 type CreateStep = Exclude<SignupStep, 'signin'>;
+
+export const IDENTIFY_TITLE = 'Entrar ou criar conta';
+export const IDENTIFY_LEAD =
+  'Informe seu e-mail. Se já tiver conta, pedimos só a senha. Se não tiver, o cadastro leva 3 passos.';
 
 const STEP_CAPTION: Record<CreateStep, string> = {
   email: 'E-mail',
@@ -218,7 +228,9 @@ export function CreateAccountFlow({
   onEdit,
   onHaveAccount,
   haveAccountHref,
+  entry = 'signup',
 }: Props) {
+  const identify = entry === 'identify';
   const [step, setStep] = useState<SignupStep>('email');
   const [email, setEmail] = useState('');
   const [displayEmail, setDisplayEmail] = useState('');
@@ -577,11 +589,18 @@ export function CreateAccountFlow({
   let body: ReactNode;
   if (viewStep === 'email') {
     body = (
-      <form data-signup-step="email" className="acct-form" noValidate onSubmit={submitEmail} aria-busy={checking || undefined}>
-        <SignupProgress step="email" />
-        <h1 className="acct-title">Criar meu cadastro</h1>
+      <form
+        data-signup-step="email"
+        data-entry={entry}
+        className="acct-form"
+        noValidate
+        onSubmit={submitEmail}
+        aria-busy={checking || undefined}
+      >
+        {identify ? null : <SignupProgress step="email" />}
+        <h1 className="acct-title">{identify ? IDENTIFY_TITLE : 'Criar meu cadastro'}</h1>
         <span className="acct-kicker" aria-hidden />
-        <p className="acct-lead">Informe seu e-mail para começar.</p>
+        <p className="acct-lead">{identify ? IDENTIFY_LEAD : 'Informe seu e-mail para começar.'}</p>
         {message ? (
           <div className="alert" role="alert">
             {message}
@@ -620,7 +639,13 @@ export function CreateAccountFlow({
         <button className="acct-cta" type="submit" disabled={checking || busy || Boolean(signupEmailIssue(email))}>
           {checking ? 'Verificando…' : 'Continuar'}
         </button>
-        {accountAction}
+        {identify ? (
+          <Link className="acct-textlink" href="/esqueci-senha">
+            Esqueci minha senha
+          </Link>
+        ) : (
+          accountAction
+        )}
       </form>
     );
   } else if (viewStep === 'profile') {
@@ -876,6 +901,19 @@ export function CreateAccountFlow({
           onAlter={cpfAccount ? editCpfAccount : editEmail}
         />
         <form className="acct-form" noValidate onSubmit={submitSignIn} aria-busy={busy}>
+          {cpfAccount ? null : (
+            // Password managers need the username in the same form as the password.
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              value={displayEmail}
+              readOnly
+              hidden
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          )}
           <p className="acct-lead">
             {cpfAccount
               ? 'Este CPF já tem conta. Informe a senha do e-mail abaixo.'
