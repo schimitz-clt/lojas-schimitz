@@ -5,7 +5,7 @@ import { structuredLog } from '../../common/structured-log';
 import { PENDING_PAYMENT_EXPIRY_GRACE_MS } from '../orders/reservation-expiry-policy';
 import { releaseSchedulerLock, tryAcquireSchedulerLock } from '../orders/scheduler-lock';
 import { PaymentsService, paymentApplyMutex } from '../payments/payments.service';
-import { FinancialRecorder } from './financial-recorder.service';
+import { FinancialRecorder, correctionsByEntry } from './financial-recorder.service';
 import { RefundsService } from './refunds.service';
 import { financeMetrics } from './finance-metrics';
 import {
@@ -150,7 +150,7 @@ export class ReconciliationService {
     try {
       const f = await this.payments.fetchPaymentResolvingCollector(externalId);
       stats.providerFetched++;
-      return { status: f.status, rawStatus: f.rawStatus, statusDetail: f.statusDetail, amount: f.amount, refundedAmount: f.refundedAmount ?? null, externalReference: f.externalReference ?? null };
+      return { status: f.status, rawStatus: f.rawStatus, statusDetail: f.statusDetail, amount: f.amount, refundedAmount: f.refundedAmount ?? null, refunds: f.refunds ?? null, externalReference: f.externalReference ?? null };
     } catch (e: any) {
       stats.providerErrors++;
       financeMetrics.inc('provider_errors');
@@ -159,14 +159,19 @@ export class ReconciliationService {
     }
   }
 
+  /**
+   * Ledger totals per category, net of corrective adjustments (ADJUSTMENT_CREATED with
+   * meta.correctsLedgerEntryId, opposite direction). Free-form adjustments (no target entry) are
+   * not attributed to a category and do not change these checks.
+   */
   private async ledgerSnapshot(paymentId: string) {
-    const rows = await this.prisma.financialLedgerEntry.groupBy({
-      by: ['entryType', 'direction'],
+    const rows = await this.prisma.financialLedgerEntry.findMany({
       where: { paymentId },
-      _sum: { amount: true },
-      _count: { _all: true },
+      select: { id: true, entryType: true, direction: true, amount: true, refundId: true, idempotencyKey: true, meta: true },
     });
-    const sum = (t: string, d: string) => money(rows.find((r) => r.entryType === t && r.direction === d)?._sum.amount);
+    const corr = correctionsByEntry(rows);
+    const sum = (t: string, d: string) =>
+      money(rows.filter((r) => r.entryType === t && r.direction === d).reduce((acc, r) => acc + Math.max(0, money(r.amount) - (corr.get(r.id)?.amount ?? 0)), 0));
     return {
       captured: sum('PAYMENT_CAPTURED', 'CREDIT'),
       refunded: sum('REFUND_COMPLETED', 'DEBIT'),
@@ -327,12 +332,13 @@ export class ReconciliationService {
     if (!['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED', 'IN_DISPUTE', 'CHARGEBACK_WON', 'CHARGEBACK_LOST'].includes(state)) return;
     const base = { paymentId: p.id, orderId: p.orderId, externalId: p.externalId, source: 'reconciliation_backfill' };
     await this.recorder.appendLedger(this.prisma, { ...base, entryType: 'PAYMENT_CAPTURED', direction: 'CREDIT', amount: Number(p.amount), idempotencyKey: `PAYMENT_CAPTURED:${p.id}`, meta: { backfill: true, runId, paymentUpdatedAt: p.updatedAt.toISOString() } });
-    const refundedLedger = await this.recorder.ledgerRefundedTotal(this.prisma, p.id);
-    const shouldBe = provider?.refundedAmount != null ? money(provider.refundedAmount) : state === 'REFUNDED' ? money(p.amount) : refundedLedger;
-    const delta = money(Math.min(shouldBe, Number(p.amount)) - refundedLedger);
-    if (delta > 0.009) {
-      await this.recorder.appendLedger(this.prisma, { ...base, entryType: 'REFUND_COMPLETED', direction: 'DEBIT', amount: delta, idempotencyKey: `REFUND_COMPLETED:sync:${p.id}:${Math.round(Math.min(shouldBe, Number(p.amount)) * 100)}`, meta: { backfill: true, runId } });
-    }
+    // Same writer as the webhook path (canonical REFUND_COMPLETED:mp:<id> keys, in-flight aware), under the Payment lock.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "id" = ${p.id} FOR UPDATE`;
+      const refundedLedger = await this.recorder.ledgerRefundedTotal(tx, p.id);
+      const shouldBe = provider?.refundedAmount != null ? money(provider.refundedAmount) : state === 'REFUNDED' ? money(p.amount) : refundedLedger;
+      await this.recorder.recordObservedRefunds(tx, p, { target: shouldBe, providerRefunds: provider?.refunds ?? null, source: 'reconciliation_backfill', meta: { backfill: true, runId } });
+    }, { maxWait: 20_000, timeout: 20_000 });
   }
 
   /**

@@ -1065,7 +1065,7 @@ export class PaymentsService {
    */
   async syncFinancialAfterProviderFetch(
     local: { id: string; orderId: string; externalId: string | null; amount: unknown },
-    fetched: { rawStatus?: string; statusDetail?: string; amount: number; refundedAmount?: number; status: string; externalId: string; externalReference?: string; payload: Record<string, unknown> },
+    fetched: { rawStatus?: string; statusDetail?: string; amount: number; refundedAmount?: number; refunds?: { refundId: string; status: string; amount: number }[]; status: string; externalId: string; externalReference?: string; payload: Record<string, unknown> },
     applyResult: { applied: boolean; reason: string },
     source: string,
   ) {
@@ -1077,6 +1077,7 @@ export class PaymentsService {
         statusDetail: fetched.statusDetail ?? null,
         amount: fetched.amount,
         refundedAmount: fetched.refundedAmount ?? null,
+        refunds: fetched.refunds ?? null,
       },
     });
     const raw = String(fetched.rawStatus || '').toLowerCase();

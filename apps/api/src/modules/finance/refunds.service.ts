@@ -11,7 +11,7 @@ import { PrismaService } from '../../prisma.service';
 import { structuredLog } from '../../common/structured-log';
 import type { PaymentProvider } from '../payments/payment.provider';
 import { PaymentsService } from '../payments/payments.service';
-import { FinancialRecorder } from './financial-recorder.service';
+import { FinancialRecorder, refundLedgerKey } from './financial-recorder.service';
 import { financeMetrics } from './finance-metrics';
 import { currentPaymentState } from './payment-state-machine';
 
@@ -107,13 +107,11 @@ export class RefundsService {
           where: { paymentId: p.id, status: { in: [...ACTIVE_REFUND_STATUSES] } },
           _sum: { amount: true },
         });
-        const external = await tx.financialLedgerEntry.aggregate({
-          where: { paymentId: p.id, entryType: 'REFUND_COMPLETED', direction: 'DEBIT', refundId: null },
-          _sum: { amount: true },
-        });
+        // Debits not owned by a local refund (MP panel / legacy), net of corrective adjustments.
+        const externalSum = (await this.recorder.refundLedgerSummary(tx, p.id)).external;
         const paid = money(p.amount);
         const activeSum = money(active._sum.amount);
-        const refundable = computeRefundable({ paid, activeRefunds: activeSum, externalRefunds: money(external._sum.amount) });
+        const refundable = computeRefundable({ paid, activeRefunds: activeSum, externalRefunds: externalSum });
         const amount = input.amount != null ? money(input.amount) : refundable;
         if (amount <= 0 || refundable <= 0) {
           throw new ConflictException({ message: 'Nada a estornar neste pagamento', code: 'NOTHING_TO_REFUND', refundable });
@@ -121,7 +119,7 @@ export class RefundsService {
         if (amount > refundable + 0.001) {
           throw new ConflictException({ message: `Estorno acima do valor disponível (R$ ${refundable.toFixed(2)})`, code: 'REFUND_EXCEEDS_PAID', refundable });
         }
-        const isFull = money(paid - activeSum - money(external._sum.amount) - amount) <= 0.009;
+        const isFull = money(paid - activeSum - externalSum - amount) <= 0.009;
         const row = await tx.paymentRefund.create({
           data: {
             paymentId: p.id,
@@ -241,23 +239,46 @@ export class RefundsService {
   ) {
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Same lock as the webhook/reconciliation sync path (syncPaymentState) → the two writers serialize.
+        await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`;
         await tx.paymentRefund.update({
           where: { id: refund.id },
           data: { status: 'COMPLETED', providerRefundId: providerRefundId || null, providerStatus, completedAt: new Date(), lastError: null },
         });
-        await this.recorder.appendLedger(tx, {
-          entryType: 'REFUND_COMPLETED',
-          direction: 'DEBIT',
-          amount: money(refund.amount),
-          idempotencyKey: `REFUND_COMPLETED:${refund.id}`,
-          source: 'refund',
-          paymentId: refund.paymentId,
-          orderId: refund.orderId,
-          refundId: refund.id,
-          externalId: payment.externalId,
-          actorId: refund.requestedBy,
-          meta: { providerRefundId },
-        });
+        // Canonical key per MP refund id (shared with the sync path); refund id only if MP gave none.
+        const legacyKey = `REFUND_COMPLETED:${refund.id}`;
+        const key = providerRefundId ? refundLedgerKey(providerRefundId) : legacyKey;
+        let coveredBy: string | null = null;
+        let ledgerWritten = 0;
+        const existing = await tx.financialLedgerEntry.findUnique({ where: { idempotencyKey: key }, select: { id: true, source: true } });
+        const legacy = !existing && key !== legacyKey
+          ? await tx.financialLedgerEntry.findUnique({ where: { idempotencyKey: legacyKey }, select: { id: true, source: true } })
+          : null;
+        if (existing || legacy) {
+          coveredBy = `${(existing || legacy)!.source}:${(existing || legacy)!.id}`;
+        } else {
+          // Never debit beyond what was paid (a legacy amount-based sync entry may already cover it).
+          const covered = await this.recorder.ledgerRefundedTotal(tx, refund.paymentId);
+          const amt = money(Math.min(money(refund.amount), money(payment.amount) - covered));
+          if (amt > 0.009) {
+            await this.recorder.appendLedger(tx, {
+              entryType: 'REFUND_COMPLETED',
+              direction: 'DEBIT',
+              amount: amt,
+              idempotencyKey: key,
+              source: 'refund',
+              paymentId: refund.paymentId,
+              orderId: refund.orderId,
+              refundId: refund.id,
+              externalId: payment.externalId,
+              actorId: refund.requestedBy,
+              meta: { providerRefundId, ...(amt < money(refund.amount) ? { cappedFrom: money(refund.amount) } : {}) },
+            });
+            ledgerWritten = amt;
+          } else {
+            coveredBy = 'ledger_total_already_covers_payment';
+          }
+        }
         await this.recorder.audit(tx, {
           action: 'refund.completed',
           origin: 'refund',
@@ -266,7 +287,7 @@ export class RefundsService {
           paymentId: refund.paymentId,
           refundId: refund.id,
           amount: money(refund.amount),
-          meta: { providerRefundId, providerStatus },
+          meta: { providerRefundId, providerStatus, ledgerKey: key, ledgerWritten, ...(coveredBy ? { ledgerAlreadyCoveredBy: coveredBy } : {}) },
         });
       }, TX_OPTS);
     } catch (e) {
@@ -292,15 +313,8 @@ export class RefundsService {
     financeMetrics.inc('refunds_completed');
     structuredLog('info', 'REFUND_COMPLETED', { refundId: refund.id, paymentId: refund.paymentId, orderId: refund.orderId });
 
-    const completedSum = await this.prisma.paymentRefund.aggregate({
-      where: { paymentId: refund.paymentId, status: 'COMPLETED' },
-      _sum: { amount: true },
-    });
-    const external = await this.prisma.financialLedgerEntry.aggregate({
-      where: { paymentId: refund.paymentId, entryType: 'REFUND_COMPLETED', direction: 'DEBIT', refundId: null },
-      _sum: { amount: true },
-    });
-    const totalRefunded = money(money(completedSum._sum.amount) + money(external._sum.amount));
+    // The ledger (net of corrections) is the single source of truth for "how much was refunded".
+    const totalRefunded = await this.recorder.ledgerRefundedTotal(this.prisma, refund.paymentId);
     if (totalRefunded + 0.009 >= money(payment.amount)) {
       // Total: reuse the existing local finalization (payment+order refunded, restock, commission reverse).
       await this.payments.finalizeRefundLocal(refund.paymentId, refund.requestedBy || undefined);

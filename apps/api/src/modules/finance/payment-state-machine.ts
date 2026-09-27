@@ -114,6 +114,8 @@ export type ProviderObservation = {
   statusDetail?: string | null;
   amount?: number | null;
   refundedAmount?: number | null;
+  /** Provider refunds (MP payment.refunds[]); approved ones are ledgered under REFUND_COMPLETED:mp:<refundId>. */
+  refunds?: { refundId: string; status: string; amount: number }[] | null;
 };
 
 /**

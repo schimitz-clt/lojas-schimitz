@@ -281,11 +281,14 @@ export class FinanceAdminService {
    *  - same key + different payload → 409 IDEMPOTENCY_KEY_REUSED.
    * Append-only (DB trigger blocks UPDATE/DELETE); audited in the same transaction.
    */
-  async createAdjustment(input: { idempotencyKey: string; direction: 'CREDIT' | 'DEBIT'; amount: number; paymentId?: string; orderId?: string; reason: string; actorId: string }) {
+  async createAdjustment(input: { idempotencyKey: string; direction: 'CREDIT' | 'DEBIT'; amount: number; paymentId?: string; orderId?: string; reason: string; actorId: string; actorRole?: string; correctsLedgerEntryId?: string }) {
     const amount = money(input.amount);
     if (!(amount >= 0.01)) throw new BadRequestException({ message: 'Valor inválido', code: 'INVALID_AMOUNT' });
     if (!input.paymentId && !input.orderId) {
       throw new BadRequestException({ message: 'Informe paymentId e/ou orderId', code: 'ADJUSTMENT_TARGET_REQUIRED' });
+    }
+    if (input.correctsLedgerEntryId && !input.paymentId) {
+      throw new BadRequestException({ message: 'Correção de lançamento exige paymentId', code: 'CORRECTION_PAYMENT_REQUIRED' });
     }
     let orderId = input.orderId ?? null;
     let externalId: string | null = null;
@@ -302,8 +305,42 @@ export class FinanceAdminService {
       if (!o) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
     }
     const key = `ADJUSTMENT_CREATED:${input.idempotencyKey}`;
-    const fingerprint = { direction: input.direction, amount, paymentId: input.paymentId ?? null, orderId };
+    const fingerprint = { direction: input.direction, amount, paymentId: input.paymentId ?? null, orderId, corrects: input.correctsLedgerEntryId ?? null };
     const result = await this.prisma.$transaction(async (tx) => {
+      // Serialize with every other writer of this payment's ledger (sync path, refunds, other adjustments).
+      if (input.paymentId) await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "id" = ${input.paymentId} FOR UPDATE`;
+      const prior = await tx.financialLedgerEntry.findUnique({ where: { idempotencyKey: key } });
+      if (prior) {
+        const pm = (prior.meta ?? {}) as Record<string, unknown>;
+        const same = prior.direction === fingerprint.direction && money(prior.amount) === amount
+          && (prior.paymentId ?? null) === fingerprint.paymentId && (prior.orderId ?? null) === fingerprint.orderId
+          && ((pm.correctsLedgerEntryId as string | undefined) ?? null) === fingerprint.corrects;
+        if (!same) {
+          throw new ConflictException({ message: 'Idempotency-Key já usada com outro conteúdo', code: 'IDEMPOTENCY_KEY_REUSED' });
+        }
+        return { entry: prior, idempotent: true };
+      }
+      let correction: { correctsLedgerEntryId: string; correctsEntryType: string; correctsIdempotencyKey: string } | null = null;
+      if (input.correctsLedgerEntryId) {
+        const target = await tx.financialLedgerEntry.findUnique({ where: { id: input.correctsLedgerEntryId } });
+        if (!target || target.paymentId !== input.paymentId) {
+          throw new BadRequestException({ message: 'Lançamento a corrigir não encontrado neste pagamento', code: 'CORRECTION_TARGET_NOT_FOUND' });
+        }
+        if (target.entryType === 'ADJUSTMENT_CREATED' || target.direction === 'NONE') {
+          throw new BadRequestException({ message: 'Só lançamentos com efeito de saldo (não-ajuste) podem ser corrigidos', code: 'CORRECTION_TARGET_INVALID' });
+        }
+        if (target.direction === input.direction) {
+          throw new BadRequestException({ message: `Correção deve ter direção oposta ao lançamento (${target.direction})`, code: 'CORRECTION_DIRECTION_INVALID' });
+        }
+        const already = await tx.financialLedgerEntry.aggregate({
+          where: { entryType: 'ADJUSTMENT_CREATED', paymentId: input.paymentId, meta: { path: ['correctsLedgerEntryId'], equals: target.id } },
+          _sum: { amount: true },
+        });
+        if (money(money(already._sum.amount) + amount) > money(target.amount) + 0.001) {
+          throw new ConflictException({ message: `Correção excede o lançamento (R$ ${money(target.amount).toFixed(2)}, já corrigido R$ ${money(already._sum.amount).toFixed(2)})`, code: 'CORRECTION_EXCEEDS_ENTRY' });
+        }
+        correction = { correctsLedgerEntryId: target.id, correctsEntryType: target.entryType, correctsIdempotencyKey: target.idempotencyKey };
+      }
       const inserted = await this.recorder.appendLedger(tx, {
         entryType: 'ADJUSTMENT_CREATED',
         direction: input.direction,
@@ -314,21 +351,20 @@ export class FinanceAdminService {
         orderId,
         externalId,
         actorId: input.actorId,
-        meta: { reason: input.reason.slice(0, 500), manual: true },
+        meta: { reason: input.reason.slice(0, 500), manual: true, ...(correction ?? {}) },
       });
       const entry = await tx.financialLedgerEntry.findUniqueOrThrow({ where: { idempotencyKey: key } });
       if (!inserted) {
+        // Concurrent request with the same key won (order-only adjustments have no row lock).
         const same = entry.direction === fingerprint.direction && money(entry.amount) === amount
           && (entry.paymentId ?? null) === fingerprint.paymentId && (entry.orderId ?? null) === fingerprint.orderId;
-        if (!same) {
-          throw new ConflictException({ message: 'Idempotency-Key já usada com outro conteúdo', code: 'IDEMPOTENCY_KEY_REUSED' });
-        }
+        if (!same) throw new ConflictException({ message: 'Idempotency-Key já usada com outro conteúdo', code: 'IDEMPOTENCY_KEY_REUSED' });
         return { entry, idempotent: true };
       }
       await this.recorder.audit(tx, {
-        action: 'ledger.adjustment_created', origin: 'admin', actorId: input.actorId, actorRole: 'admin',
+        action: 'ledger.adjustment_created', origin: 'admin', actorId: input.actorId, actorRole: input.actorRole ?? 'admin',
         orderId, paymentId: input.paymentId ?? null, amount, reason: input.reason,
-        meta: { ledgerEntryId: entry.id, direction: input.direction },
+        meta: { ledgerEntryId: entry.id, direction: input.direction, ...(correction ?? {}) },
       });
       return { entry, idempotent: false };
     });
