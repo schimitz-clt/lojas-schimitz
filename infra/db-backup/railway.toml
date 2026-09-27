@@ -1,0 +1,11 @@
+# Railway cron service "db-backup" (production). Runs once and exits.
+# 06:15 UTC = 03:15 BRT, low-traffic window. Railway cron schedules are UTC.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+cronSchedule = "15 6 * * *"
+# Railway forces restartPolicyType=NEVER for cron services (observed 2026-09-27): a failed run is
+# NOT retried. It logs BACKUP_FAILED and exits non-zero; the next attempt is the next day.
+restartPolicyType = "NEVER"
