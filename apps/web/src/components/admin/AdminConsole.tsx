@@ -8,6 +8,7 @@ import { AdminAvaliacoesSection } from '@/components/admin/sections/AdminAvaliac
 import { AdminCatalogoSection } from '@/components/admin/sections/AdminCatalogoSection';
 import { AdminClientesSection } from '@/components/admin/sections/AdminClientesSection';
 import { AdminCuponsSection } from '@/components/admin/sections/AdminCuponsSection';
+import { AdminFinanceiroSection } from '@/components/admin/sections/AdminFinanceiroSection';
 import { AdminEquipeSection } from '@/components/admin/sections/AdminEquipeSection';
 import { AdminFreteSection } from '@/components/admin/sections/AdminFreteSection';
 import { AdminMarketplaceSection } from '@/components/admin/sections/AdminMarketplaceSection';
@@ -32,6 +33,7 @@ const SECTION_VIEW = {
   marketplace: AdminMarketplaceSection,
   equipe: AdminEquipeSection,
   notificacoes: AdminNotificacoesSection,
+  financeiro: AdminFinanceiroSection,
 } as const;
 
 /** Same session wipe as Conta (`clearSession` → POST /auth/logout + cookie). */
