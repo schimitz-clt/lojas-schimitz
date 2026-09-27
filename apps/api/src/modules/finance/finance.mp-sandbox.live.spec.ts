@@ -3,6 +3,8 @@
  *   npm run test:sandbox   (NOT part of `test` / `test:finance`)
  *
  * Safety:
+ *  - Card tokens are created with MP_SANDBOX_PUBLIC_KEY (TEST-…) like the storefront Brick; without it the
+ *    access token is used (flaky at MP: tokens may come back live_mode=true → BLOCKED_EXTERNAL).
  *  - Token comes ONLY from MP_SANDBOX_ACCESS_TOKEN and MUST start with "TEST-" (APP_USR-… is refused
  *    before anything boots). Never printed. All other MP env vars are deleted.
  *  - LOCAL Postgres only. APP_ENV=development. No notification_url is sent (PUBLIC_API_URL deleted),
@@ -21,6 +23,11 @@ import { bootHttpApp, compileApi } from './testing/compiled-app';
 const TOKEN = String(process.env.MP_SANDBOX_ACCESS_TOKEN || '');
 if (!TOKEN.startsWith('TEST-')) {
   console.error('RECUSADO: MP_SANDBOX_ACCESS_TOKEN ausente ou não é token de SANDBOX (TEST-…). Nada foi executado.');
+  process.exit(2);
+}
+const PUBLIC_KEY = String(process.env.MP_SANDBOX_PUBLIC_KEY || '');
+if (PUBLIC_KEY && !PUBLIC_KEY.startsWith('TEST-')) {
+  console.error('RECUSADO: MP_SANDBOX_PUBLIC_KEY não é chave pública de SANDBOX (TEST-…). Nada foi executado.');
   process.exit(2);
 }
 const MP = 'https://api.mercadopago.com';
@@ -44,13 +51,20 @@ const TEST_CARDS = [{ number: '5031433215406351', method: 'master' }, { number: 
 async function cardToken(holder: 'APRO' | 'OTHE' | 'CONT', card: (typeof TEST_CARDS)[number]) {
   // Tokenizing with the TEST access token (no TEST public key available) is flaky at MP: at times the token comes back
   // live_mode=true and the sandbox payment then fails with "Card Token not found" (2006). Only sandbox tokens are used.
+  const cardBody = { card_number: card.number, security_code: '123', expiration_month: 11, expiration_year: 2030, cardholder: { name: holder, identification: { type: 'CPF', number: '12345678909' } } };
   for (let i = 0; i < 6; i++) {
-    const r = await sandbox('POST', '/v1/card_tokens', { card_number: card.number, security_code: '123', expiration_month: 11, expiration_year: 2030, cardholder: { name: holder, identification: { type: 'CPF', number: '12345678909' } } });
+    // Preferred: tokenize like the storefront Brick does — with the sandbox PUBLIC key (no bearer).
+    const r = PUBLIC_KEY
+      ? await (async () => {
+          const res = await fetch(`${MP}/v1/card_tokens?public_key=${encodeURIComponent(PUBLIC_KEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cardBody) });
+          return { status: res.status, json: await res.json().catch(() => null) as any };
+        })()
+      : await sandbox('POST', '/v1/card_tokens', cardBody);
     assert.equal(r.status, 201, `card_token ${r.status}`);
     if (r.json.live_mode === false) return String(r.json.id);
     await new Promise((res) => setTimeout(res, 2000));
   }
-  throw new Error('BLOCKED_EXTERNAL: MP sandbox só devolveu card tokens live_mode=true (tokenização com access token TEST-); sem TEST public key');
+  throw new Error(`BLOCKED_EXTERNAL: MP sandbox só devolveu card tokens live_mode=true (${PUBLIC_KEY ? 'public key TEST-' : 'access token TEST-, sem MP_SANDBOX_PUBLIC_KEY'})`);
 }
 
 const results: { id: string; ok: boolean; blocked?: boolean }[] = [];

@@ -155,11 +155,12 @@ da mesma conta). Observado no sandbox real × o que o código assume:
 | `GET /v1/payments/{id}/refunds` | **405** corpo vazio | **corrigido**: fallback para `refunds[]` do pagamento |
 | `payer.email` `cliente@lojas-schimitz.test` (fallback antigo) | 400 "payer.email must be a valid email" | **corrigido**: e-mail ausente/malformado ⇒ `PAYER_EMAIL_INVALID` sem chamar o MP |
 | Refund `amount_refunded_to_payer` | diferente de `amount` no sandbox (ex.: 12,63 para 12,50) | usamos `amount` (valor estornado da transação) |
-| `POST /v1/card_tokens` | aceita o access token `TEST-`; intermitente "Card Token not found" (2006) ao usar o token | só afeta testes (no site o token vem do Brick) |
+| `POST /v1/card_tokens` | com access token `TEST-`: instável (tokens `live_mode=true` ⇒ "Card Token not found" 2006); com a **public key `TEST-`** (como o Brick): `live_mode=false`, estável | o spec usa `MP_SANDBOX_PUBLIC_KEY` |
+| `GET /v1/chargebacks/search?payment_id=` (produção, só leitura, `X-Caller-Id=2954551375`) | 200, `paging.total=0` para pagamentos reais; caso inexistente em `/v1/chargebacks/{id}` ⇒ **400 "Case not found"** (não 404) | erro vira caso `UNKNOWN` (não simulado) |
 
 Testes: `finance.mp-sandbox-contract.spec.ts` (no `test`, sem rede) reexecuta os JSON reais sanitizados
 (`testing/mp-sandbox-fixtures.json`) no adaptador real; `finance.mp-sandbox.live.spec.ts` (`npm run test:sandbox`, opt-in,
-exige `MP_SANDBOX_ACCESS_TOKEN` iniciando com `TEST-`) faz o fluxo HTTP completo contra o sandbox real. A entrega real de
+exige `MP_SANDBOX_ACCESS_TOKEN` e, para cartões, `MP_SANDBOX_PUBLIC_KEY`, ambos `TEST-`) faz o fluxo HTTP completo contra o sandbox real. A entrega real de
 webhook do MP não é possível na máquina de testes (sem URL pública, e não enviamos `notification_url`): a entrega é
 **simulada** com o corpo/headers documentados (`x-signature: ts=…,v1=HMAC`, `x-request-id`, `?data.id=…&type=payment`) para
 ids reais do sandbox; o handler então busca o pagamento real por id (mesmo caminho de produção).
