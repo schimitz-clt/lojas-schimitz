@@ -6,6 +6,7 @@ import {
   authRegisterHref,
   cartCheckoutHref,
   checkoutAuthHref,
+  checkoutServerRedirect,
 } from './checkout-auth';
 import { loginNextPath } from './order-recovery';
 
@@ -67,5 +68,36 @@ assert.ok(conta.includes('authRegisterHref'), 'guest Criar conta opens register-
 
 const dados = readFileSync(join(root, 'app/conta/dados/page.tsx'), 'utf8');
 assert.ok(dados.includes('useSessionUser'), 'dados waits hydrate before /entrar');
+
+
+// Fix 3 (Melhoria 6): server-side redirect of logged-out /checkout.
+{
+  const base = { pathname: '/checkout', search: '', hostname: 'lojasschimitz.com.br', cookieNames: [] as string[] };
+  assert.equal(checkoutServerRedirect(base), '/entrar?next=%2Fcheckout', 'no session cookie → /entrar with next');
+  assert.equal(checkoutServerRedirect({ ...base, pathname: '/checkout/' }), '/entrar?next=%2Fcheckout', 'trailing slash');
+  assert.equal(
+    checkoutServerRedirect({ ...base, search: '?cupom=X1' }),
+    '/entrar?next=%2Fcheckout%3Fcupom%3DX1',
+    'query kept inside next',
+  );
+  assert.equal(checkoutServerRedirect({ ...base, cookieNames: ['sch_refresh'] }), null, 'refresh cookie → render');
+  assert.equal(checkoutServerRedirect({ ...base, cookieNames: ['sch_access'] }), null, 'access cookie → render');
+  assert.equal(
+    checkoutServerRedirect({ ...base, cookieNames: ['_ga', 'sch_user', 'cart'] }),
+    '/entrar?next=%2Fcheckout',
+    'unrelated cookies do not count as session',
+  );
+  assert.equal(checkoutServerRedirect({ ...base, hostname: 'localhost:3000' }), null, 'localhost (memory session) → client check');
+  assert.equal(checkoutServerRedirect({ ...base, hostname: '127.0.0.1' }), null, '127.0.0.1 → client check');
+  assert.equal(checkoutServerRedirect({ ...base, pathname: '/carrinho' }), null, 'other paths untouched');
+  assert.equal(checkoutServerRedirect({ ...base, pathname: '/checkout-promo' }), null, 'prefix paths untouched');
+
+  const mw = readFileSync(join(root, 'middleware.ts'), 'utf8');
+  assert.ok(mw.includes('checkoutServerRedirect'), 'middleware uses the checkout guard');
+  assert.ok(mw.includes('307'), 'checkout redirect is temporary (307)');
+  assert.ok(mw.includes("c.value.trim() !== ''"), 'empty (cleared) cookies are not a session');
+  const checkoutPage = readFileSync(join(root, 'app/checkout/page.tsx'), 'utf8');
+  assert.ok(checkoutPage.includes("router.replace(loginNextPath('/checkout'))"), 'client fallback redirect kept');
+}
 
 console.log('checkout-auth unit + source tests ok');
