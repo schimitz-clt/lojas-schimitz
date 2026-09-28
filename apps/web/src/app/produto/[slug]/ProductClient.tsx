@@ -346,7 +346,7 @@ export default function ProductPage({
           <div className="id-pdp-scene">
             <div className="id-grain" aria-hidden="true" />
             {poster ? <p className="id-poster id-display" aria-hidden="true">{poster}</p> : null}
-            <ProductGallery images={gallery} productName={p.name} />
+            <ProductGallery images={gallery} productName={p.name} categorySlug={p.category?.slug} />
             {sceneImg ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="id-floor-reflect" src={sceneImg} alt="" aria-hidden="true" width={480} height={160} decoding="async" />

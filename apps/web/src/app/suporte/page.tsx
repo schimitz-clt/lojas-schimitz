@@ -57,7 +57,7 @@ export default function SuportePage() {
             Cartão: até {INTEREST_FREE_INSTALLMENTS}x sem juros; até {MAX_INSTALLMENTS}x pelo
             Mercado Pago (acima de {INTEREST_FREE_INSTALLMENTS}x podem incluir juros).
           </li>
-          <li>Frete grátis em Porto Alegre (CEP iniciando em 90).</li>
+          <li>Frete grátis em Porto Alegre (CEP iniciando em 90 ou 91).</li>
           <li>Troca em até 7 dias, conforme as regras da loja.</li>
         </ul>
         <p className="muted" style={{ marginTop: 12 }}>
