@@ -10,6 +10,8 @@ Wrapper nativo **Kotlin + WebView** que abre [https://lojasschimitz.com.br](http
 | Versão (Play closed) | **1.0.12** (`versionCode` 13) |
 | Entrada | `MainActivity` (WebView) |
 
+O módulo `:admin` é **outro aplicativo**, `Schimitz Admin` (`com.lojasschimitz.admin`). Ele abre só `https://lojasschimitz.com.br/admin`, com o mesmo login da equipe. Não substitui o app da loja e ainda não está na Play Store: instale pelo Android Studio (`:admin`).
+
 > **Por que não Capacitor/TWA?** Neste monorepo um WebView Kotlin é mais simples (sem `node_modules` no app), mantém Nest/Next intactos e cobre navegação mesma-origem + WhatsApp/Mercado Pago. Capacitor/TWA podem ser avaliados depois se precisarem de plugins JS.
 
 ## O que o app faz
