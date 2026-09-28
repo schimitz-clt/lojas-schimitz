@@ -13,7 +13,7 @@ export const PIX_DISCOUNT_PCT = 5;
 export const INSTALLMENTS = MAX_INSTALLMENTS;
 export const INTEREST_FREE = INTEREST_FREE_INSTALLMENTS;
 export const INSTALLMENTS_PROVIDER = 'Mercado Pago';
-/** Frete grátis em Porto Alegre (CEP prefixo 90); fora, taxa padrão. */
+/** Frete grátis em Porto Alegre (CEP prefixos 90 e 91); fora, taxa padrão. */
 export const FREE_SHIPPING_REGION = 'Porto Alegre';
 export const DELIVERY_FLOW = 'Separando → Saiu para entrega → Entregue';
 export const CASHBACK_LABEL = 'SCHIMITZ+';
@@ -35,7 +35,7 @@ export function storeFactsBlock() {
     `${STORE_NAME} — ${STORE_CATEGORIES}. Loja em ${STORE_CITY}.`,
     `PIX: ${PIX_DISCOUNT_PCT}% de desconto à vista.`,
     `Cartão: até ${INTEREST_FREE}x sem juros (a loja absorve o financiamento). Parcelas de ${INTEREST_FREE + 1} a ${INSTALLMENTS}x via ${INSTALLMENTS_PROVIDER} podem incluir juros.`,
-    `Frete grátis em ${FREE_SHIPPING_REGION} (CEP iniciando em 90; entrega própria). Fora de Porto Alegre, aplica-se a taxa padrão.`,
+    `Frete grátis em ${FREE_SHIPPING_REGION} (CEP iniciando em 90 ou 91; entrega própria). Fora de Porto Alegre, aplica-se a taxa padrão.`,
     `Acompanhamento do pedido (entrega própria): ${DELIVERY_FLOW}.`,
     `Cupons no checkout + cashback ${CASHBACK_LABEL} (cerca de ${CASHBACK_RATE_PCT}% em compras pagas).`,
     `Troca em ${RETURN_DAYS} dias, conforme regras da loja.`,
@@ -57,7 +57,7 @@ export function storePolicies() {
     interestFreeInstallments: INTEREST_FREE,
     installmentsProvider: INSTALLMENTS_PROVIDER,
     freeShippingRegion: FREE_SHIPPING_REGION,
-    freeShippingCepPrefix: '90',
+    freeShippingCepPrefix: '90,91',
     deliveryFlow: DELIVERY_FLOW,
     cashbackLabel: CASHBACK_LABEL,
     cashbackRatePct: CASHBACK_RATE_PCT,

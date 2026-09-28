@@ -14,13 +14,15 @@ import {
 } from '@/lib/product-gallery';
 import { pdpGalleryTapOpensLightbox, pdpLightboxOpenedTooRecently } from '@/lib/pdp-gallery-layout';
 import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
+import { categoryFallbackImage } from '@/lib/category-fallback-image';
 
 type Props = {
   images: GalleryImage[];
   productName: string;
+  categorySlug?: string | null;
 };
 
-export function ProductGallery({ images, productName }: Props) {
+export function ProductGallery({ images, productName, categorySlug }: Props) {
   const [idx, setIdx] = useState(0);
   const [lightbox, setLightbox] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
@@ -307,6 +309,13 @@ export function ProductGallery({ images, productName }: Props) {
               <span className="pdp-carousel-ph-mark">
                 <SchimitzMonogram size={72} ring />
               </span>
+              <img
+                className="pdp-carousel-ph-cat"
+                src={categoryFallbackImage(categorySlug)}
+                alt=""
+                width={96}
+                height={96}
+              />
               <span className="pdp-carousel-ph-hint">Imagem em breve</span>
             </div>
           )}

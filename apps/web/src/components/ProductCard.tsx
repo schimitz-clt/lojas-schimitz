@@ -12,6 +12,7 @@ import { CompareToggle } from '@/components/compare/CompareToggle';
 import { FavoriteToggle } from '@/components/favorites/FavoriteToggle';
 import { DEMO_SEAL_LABEL, isDemoCatalogProduct } from '@/lib/demo-catalog';
 import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
+import { categoryFallbackImage } from '@/lib/category-fallback-image';
 
 export type Product = {
   id: string;
@@ -157,6 +158,13 @@ export function ProductCard({
             <span className="pcard-ph-mark">
               <SchimitzMonogram size={40} ring />
             </span>
+            <img
+              className="pcard-ph-cat"
+              src={categoryFallbackImage(p.category?.slug)}
+              alt=""
+              width={72}
+              height={72}
+            />
             <span className="pcard-ph-hint">Imagem em breve</span>
           </div>
           <div className="pcard-tags">

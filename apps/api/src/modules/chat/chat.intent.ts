@@ -116,7 +116,7 @@ export function faqReply(message: string): string | null {
   }
   if (ship) {
     bits.push(
-      'Frete grátis em Porto Alegre (CEP iniciando em 90). Fora de POA, cotamos entrega própria no checkout. Status: Separando → Saiu para entrega → Entregue.',
+      'Frete grátis em Porto Alegre (CEP iniciando em 90 ou 91). Fora de POA, cotamos entrega própria no checkout. Status: Separando → Saiu para entrega → Entregue.',
     );
   }
   if (track) {

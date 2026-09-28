@@ -58,7 +58,7 @@ export default function TermosPage() {
         <h2 style={{ fontSize: 18 }}>Frete e entrega</h2>
         <ul style={{ lineHeight: 1.8, paddingLeft: 18 }}>
           <li>
-            Frete é calculado no checkout conforme o CEP. Em Porto Alegre (CEP iniciando em 90)
+            Frete é calculado no checkout conforme o CEP. Em Porto Alegre (CEP iniciando em 90 ou 91)
             costuma haver frete grátis, conforme a regra vigente na loja.
           </li>
           <li>

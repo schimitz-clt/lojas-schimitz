@@ -214,7 +214,7 @@ export class ChatService {
     if (intent === 'shipping') {
       const ship = toolResults.find((t) => t.name === 'getShippingEstimate');
       if (ship?.code === 'NEED_CEP') {
-        return 'Frete grátis em Porto Alegre (CEP iniciando em 90). Fora de POA, cotamos no checkout. Informe um CEP de 8 dígitos se quiser uma estimativa agora.';
+        return 'Frete grátis em Porto Alegre (CEP iniciando em 90 ou 91). Fora de POA, cotamos no checkout. Informe um CEP de 8 dígitos se quiser uma estimativa agora.';
       }
       if (ship?.ok && ship.data && typeof ship.data === 'object') {
         const q = ship.data as { price?: number; days?: number; label?: string | null };
