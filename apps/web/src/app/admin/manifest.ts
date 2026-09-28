@@ -1,0 +1,30 @@
+import type { MetadataRoute } from 'next';
+
+/** Atalho instalado a partir de /admin abre a administração, não a vitrine. */
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Schimitz Admin',
+    short_name: 'Admin',
+    description: 'Administração da Lojas Schimitz.',
+    start_url: '/admin',
+    scope: '/admin',
+    display: 'standalone',
+    background_color: '#090909',
+    theme_color: '#090909',
+    lang: 'pt-BR',
+    icons: [
+      {
+        src: '/android-chrome-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/android-chrome-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+    ],
+  };
+}
