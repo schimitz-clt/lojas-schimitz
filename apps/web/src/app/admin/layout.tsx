@@ -3,7 +3,11 @@ import { AdminConsole } from '@/components/admin/AdminConsole';
 import { AdminBrandMark } from '@/components/admin/AdminShell';
 import '@/components/admin/admin-theme.css';
 
-export const metadata = { title: 'Admin' };
+export const metadata = {
+  title: 'Admin',
+  manifest: '/admin/manifest.webmanifest',
+  appleWebApp: { title: 'Schimitz Admin' },
+};
 
 function AdminBootFallback() {
   return (
