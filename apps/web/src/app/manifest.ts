@@ -5,6 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Lojas Schimitz',
     short_name: 'Schimitz',
+    id: '/',
     description:
       'Tudo o que você precisa. No padrão das grandes. Eletro, celulares e casa em Porto Alegre.',
     start_url: '/',

@@ -1,6 +1,7 @@
 {
   "name": "Schimitz Admin",
   "short_name": "Admin",
+  "id": "/admin",
   "description": "Administração da Lojas Schimitz.",
   "start_url": "/admin",
   "scope": "/admin",
