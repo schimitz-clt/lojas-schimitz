@@ -103,6 +103,7 @@ assert.equal(isPhotoQueueHash('photos'), true);
 assert.equal(isPhotoQueueHash('#nope'), false);
 
 assert.equal(legacyAdminRedirect({ pathname: '/admin' }), null);
+assert.equal(legacyAdminRedirect({ pathname: '/admin/manifest.webmanifest' }), null);
 assert.equal(legacyAdminRedirect({ pathname: '/admin/pedidos' }), null);
 assert.equal(legacyAdminRedirect({ pathname: '/admin', search: '?section=pedidos' }), '/admin/pedidos');
 assert.equal(
