@@ -28,8 +28,16 @@ function AdminBootFallback() {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={<AdminBootFallback />}>
-      <AdminConsole>{children}</AdminConsole>
-    </Suspense>
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            '(function(){var h="/admin/manifest.webmanifest";document.querySelectorAll(\'link[rel="manifest"]\').forEach(function(n){n.setAttribute("href",h);});})();',
+        }}
+      />
+      <Suspense fallback={<AdminBootFallback />}>
+        <AdminConsole>{children}</AdminConsole>
+      </Suspense>
+    </>
   );
 }
