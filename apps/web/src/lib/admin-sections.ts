@@ -299,6 +299,7 @@ export function legacyAdminRedirect(input: {
   hash?: string | null;
 }): string | null {
   const pathname = normalizePathname(input.pathname);
+  if (pathname === '/admin/manifest.webmanifest') return null;
   if (pathname !== ADMIN_BASE_PATH && !pathname.startsWith(`${ADMIN_BASE_PATH}/`)) {
     return null;
   }
