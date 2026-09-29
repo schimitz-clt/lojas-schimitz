@@ -12,6 +12,7 @@ import {
   pickOfferProducts,
   shelvesFromCatalog,
   visibleHomeShelves,
+  dedupeHomeShelves,
 } from './home-shelves';
 
 type P = {
@@ -111,6 +112,34 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
     'x',
   ]);
   console.log('web home-shelves: parse + hide empty — PASSOU');
+}
+
+{
+  const duped = dedupeHomeShelves([
+    {
+      id: 'offers',
+      title: 'Ofertas',
+      subtitle: '',
+      href: '/departamento/ofertas',
+      linkLabel: 'Ver',
+      metric: 'deal',
+      items: [p({ id: 'same', price: 80, compareAtPrice: 100 }), p({ id: 'only-offer', price: 70, compareAtPrice: 90 })],
+    },
+    {
+      id: 'newest',
+      title: 'Novidades',
+      subtitle: '',
+      href: '/produtos?sort=newest',
+      linkLabel: 'Ver',
+      metric: 'createdAt',
+      items: [p({ id: 'same', price: 80, compareAtPrice: 100 }), p({ id: 'fresh', price: 40 })],
+    },
+  ]);
+  assert.deepEqual(
+    duped.map((s) => s.items.map((i) => i.id)),
+    [['same', 'only-offer'], ['fresh']],
+  );
+  console.log('web home-shelves: dedupe across rails — PASSOU');
 }
 
 {
