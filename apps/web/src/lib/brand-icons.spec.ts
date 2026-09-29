@@ -53,8 +53,8 @@ assert.ok(layout.includes("url: '/android-chrome-192x192.png'"), 'layout wires 1
 assert.ok(layout.includes("url: '/android-chrome-512x512.png'"), 'layout wires 512');
 assert.ok(layout.includes("manifest: '/manifest.webmanifest'"), 'layout points at PWA manifest');
 assert.ok(layout.includes('themeColor:'), 'theme color on viewport');
-assert.ok(layout.includes('maximumScale: 1'), 'viewport locks maximum page scale');
-assert.ok(layout.includes('userScalable: false'), 'viewport disables page pinch zoom');
+assert.ok(layout.includes('maximumScale: 5'), 'viewport allows page scale');
+assert.ok(layout.includes('userScalable: true'), 'viewport allows pinch zoom');
 assert.ok(layout.includes("viewportFit: 'cover'"), 'viewport-fit=cover enables safe-area insets');
 
 const manifest = readFileSync(join(srcRoot, 'app/manifest.ts'), 'utf8');

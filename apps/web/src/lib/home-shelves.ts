@@ -48,12 +48,11 @@ function createdAtMs(value: Date | string | null | undefined): number {
   return 0;
 }
 
-/** Real deal: compare-at above list, or an admin/catalog badge. */
+/** Real deal: compare-at strictly above list. A catalog badge alone is not an offer. */
 export function isOfferProduct(p: HomeShelfProductLike): boolean {
   const price = toNumber(p.price);
   const cmp = toNumber(p.compareAtPrice);
-  if (price > 0 && cmp > price) return true;
-  return String(p.badge || '').trim().length > 0;
+  return price > 0 && cmp > price;
 }
 
 export function offerDiscountRatio(p: HomeShelfProductLike): number {
@@ -139,7 +138,7 @@ export function offersShelfCopy(metric: OfferMetric): Omit<HomeShelfView, 'items
     return {
       id: 'offers',
       title: 'Ofertas',
-      subtitle: 'Preço menor que o de → ou selo do catálogo',
+      subtitle: 'Preço atual menor que o preço anterior',
       href: '/departamento/ofertas',
       linkLabel: 'Ver todas',
       metric: 'deal',
@@ -206,11 +205,11 @@ export function shelvesFromCatalog<T extends HomeShelfProductLike>(
   const offers = pickOfferProducts(list, limit);
   const newest = pickNewestProducts(list, limit);
   const featured = pickFeaturedFromCatalog(list, limit);
-  return [
+  return dedupeHomeShelves([
     { ...offersShelfCopy(offers.metric), items: offers.items },
     { ...newestShelfCopy(), items: newest },
     { ...featuredShelfCopy(featured.metric), items: featured.items },
-  ];
+  ]);
 }
 
 export function parseHomeShelvesPayload<T extends HomeShelfProductLike>(data: unknown): HomeShelfView<T>[] | null {
@@ -258,6 +257,26 @@ function fallbackMetric(id: HomeShelfId): HomeShelfView['metric'] {
 
 export function visibleHomeShelves<T extends { items: unknown[] }>(shelves: T[] | null | undefined): T[] {
   return (shelves || []).filter((s) => Array.isArray(s.items) && s.items.length > 0);
+}
+
+/**
+ * Keep the first occurrence of a product across rails.
+ * Offers stay first; Novidades / Destaque do not repeat the same card.
+ */
+export function dedupeHomeShelves<T extends HomeShelfView<HomeShelfProductLike>>(
+  shelves: T[],
+): T[] {
+  const seen = new Set<string>();
+  return shelves.map((shelf) => {
+    const items = (shelf.items || []).filter((item) => {
+      const id = asId(item?.id);
+      if (!id) return false;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }) as T['items'];
+    return { ...shelf, items };
+  });
 }
 
 export function homeShelfNavPrevLabel(): string {

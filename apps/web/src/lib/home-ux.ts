@@ -114,6 +114,11 @@ export function deliveryBarCopy(input: {
   };
 }
 
+/** Visible home proposition (not the sr-only H1). No invented store address. */
+export function homeMarketLede(): string {
+  return 'Eletro, celulares e casa em Porto Alegre. PIX 5% off, até 3x sem juros e frete grátis na capital.';
+}
+
 /** Customer-facing home catalog failure. No operator/seed instructions. */
 export const HOME_CATALOG_LOAD_ERROR = 'Não foi possível carregar os produtos agora.';
 

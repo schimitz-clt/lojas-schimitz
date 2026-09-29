@@ -5,10 +5,15 @@ import { EditorialStage } from '@/components/RetailHome';
 import type { Product } from '@/components/ProductCard';
 import { resolveProductImageUrl } from '@/lib/product-media';
 import { IMAGE_WIDTHS, STAGE_IMG_SIZES, responsiveImageProps } from '@/lib/responsive-image';
-import { sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
+import { homeShowsEditorialStage, sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
 
 /** Homepage only. Other routes set their own canonical so they do not inherit `/`. */
 export const metadata: Metadata = {
+  title: {
+    absolute: 'Lojas Schimitz — eletro, celulares e casa em Porto Alegre',
+  },
+  description:
+    'Lojas Schimitz em Porto Alegre: eletro, celulares e casa. Frete grátis na capital, PIX 5% off e até 3x sem juros.',
   alternates: { canonical: '/' },
 };
 
@@ -31,15 +36,17 @@ async function loadSellablePreview(): Promise<{ products: Product[]; retail: boo
     );
     const products = items.slice(0, 5);
     if (!products.length) return null;
-    const img = resolveProductImageUrl(products[0]);
-    if (img) {
-      // Must match the <img> in EditorialStage (same srcSet/sizes) or the phone downloads the photo twice.
-      const r = responsiveImageProps(img, IMAGE_WIDTHS.stage);
-      preload(r.src, {
-        as: 'image',
-        fetchPriority: 'high',
-        ...(r.srcSet ? { imageSrcSet: r.srcSet, imageSizes: STAGE_IMG_SIZES } : {}),
-      });
+    if (retail) {
+      const img = resolveProductImageUrl(products[0]);
+      if (img) {
+        // Must match the <img> in EditorialStage (same srcSet/sizes) or the phone downloads the photo twice.
+        const r = responsiveImageProps(img, IMAGE_WIDTHS.stage);
+        preload(r.src, {
+          as: 'image',
+          fetchPriority: 'high',
+          ...(r.srcSet ? { imageSrcSet: r.srcSet, imageSizes: STAGE_IMG_SIZES } : {}),
+        });
+      }
     }
     return { products, retail };
   } catch {
@@ -55,10 +62,11 @@ export default async function Page({
   const q = (await searchParams)?.q || '';
   const preview = q ? null : await loadSellablePreview();
   const products = preview?.products ?? null;
+  const retail = homeShowsEditorialStage(!!preview?.retail, products?.length || 0);
   return (
     <>
-      {products?.length ? <EditorialStage products={products} /> : null}
-      <HomePage initialRetail={preview?.retail ? products : null} suppressStage={!!products?.length} />
+      {retail && products?.length ? <EditorialStage products={products} /> : null}
+      <HomePage initialRetail={retail ? products : null} suppressStage={retail} />
     </>
   );
 }

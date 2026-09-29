@@ -47,21 +47,16 @@ for (const item of MARKETPLACE_V1_NOT_BUILT) {
 
 const page = readFileSync(join(__dirname, '..', 'app/marketplace/page.tsx'), 'utf8');
 assert.ok(page.includes('fetchPublicSellers'), 'hub lists real sellers from API');
-assert.ok(page.includes('MARKETPLACE_V1_NOT_BUILT'), 'hub lists what v1 does not do');
-assert.ok(page.includes('checkout único') || page.includes('unificados'), 'hub says checkout is unified');
+assert.ok(page.includes('checkout único') || page.includes('unificados') || page.includes('ficam juntos'), 'hub says checkout is unified');
 assert.ok(!/split automático do Mercado Pago já/.test(page), 'must not claim live MP split');
-assert.ok(page.includes('PIX manual'), 'hub says payouts are manual PIX');
-assert.ok(page.includes('MARKETPLACE_PHASE1_NOTE') || page.includes('Fase 1'), 'hub mentions Phase 1');
-assert.ok(page.includes('MARKETPLACE_PHASE2_NOTE') || page.includes('Fase 2'), 'hub mentions Phase 2 sandbox');
-assert.ok(page.includes('MARKETPLACE_PHASE3_NOTE') || page.includes('Fase 3'), 'hub mentions Phase 3 live gate');
-assert.ok(MARKETPLACE_PHASE1_NOTE.includes('MP_MARKETPLACE_SPLIT_ENABLED'));
-assert.ok(MARKETPLACE_PHASE2_NOTE.includes('ALLOW_LIVE=false'));
-assert.ok(MARKETPLACE_PHASE2_NOTE.includes('TEST-'));
-assert.ok(!MARKETPLACE_PHASE2_NOTE.includes('ALLOW_LIVE=true'));
-assert.ok(MARKETPLACE_PHASE3_NOTE.includes('ALLOW_LIVE=true'));
-assert.ok(MARKETPLACE_PHASE3_NOTE.includes('ledger_only'));
-assert.ok(MARKETPLACE_PHASE3_NOTE.includes('Rollback'));
-assert.ok(MARKETPLACE_V1_NOT_BUILT.every((item) => !/oauth/i.test(item)));
+assert.ok(!page.includes('MP_MARKETPLACE'), 'public hub hides env flags');
+assert.ok(!page.includes('ALLOW_LIVE'), 'public hub hides live-split flags');
+assert.ok(!page.includes('Railway'), 'public hub hides infrastructure');
+assert.ok(!page.includes('fail-closed'), 'public hub hides engineering jargon');
+assert.ok(!page.includes('application_fee'), 'public hub hides payment-split internals');
+assert.ok(!page.includes('MARKETPLACE_PHASE1_NOTE'), 'phase notes stay off the public page');
+assert.ok(!page.includes('Fase 1:'), 'phase runbooks stay off the public page');
+assert.ok(!page.includes('PIX manual'), 'ledger internals stay off the public page');
 assert.ok(page.includes('portal do vendedor'), 'hub links /vendedor');
 assert.ok(page.includes('Vendido por'), 'hub mentions PDP seller label');
 

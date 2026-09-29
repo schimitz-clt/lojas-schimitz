@@ -15,13 +15,15 @@ import { HOME_CATEGORIES, categoryChipLabelLines, categoryCircleSrc } from '@/li
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { activeProductCountFromCatalog, shouldShowComingSoonShelf } from '@/lib/coming-soon';
 import { sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
-import { HOME_CATALOG_LOAD_ERROR } from '@/lib/home-ux';
+import { HOME_CATALOG_LOAD_ERROR, homeMarketLede } from '@/lib/home-ux';
 import {
   parseHomeShelvesPayload,
   shelvesFromCatalog,
   visibleHomeShelves,
+  dedupeHomeShelves,
   type HomeShelfView,
 } from '@/lib/home-shelves';
+import { searchEmptyCopy } from '@/lib/storefront-pro';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -143,7 +145,7 @@ function HomeInner({
           const payload = await api<unknown>('/store/shelves');
           if (cancelled) return;
           const parsed = parseHomeShelvesPayload<Product>(payload);
-          setShelves(parsed ?? shelvesFromCatalog(items));
+          setShelves(dedupeHomeShelves(parsed ?? shelvesFromCatalog(items)));
         } catch {
           if (cancelled) return;
           setShelves(shelvesFromCatalog(items));
@@ -185,12 +187,13 @@ function HomeInner({
         {loading ? <ProductGridSkeleton count={8} /> : null}
         {!loading && !err && products.length === 0 ? (
           <div className="catalog-empty">
-            <p style={{ margin: 0, fontWeight: 700 }}>Não encontramos resultados para “{q}”.</p>
+            <p style={{ margin: 0, fontWeight: 700 }}>{searchEmptyCopy('', false).title}</p>
             <p className="muted" style={{ margin: '8px 0 12px' }}>
-              Tente outra busca ou confira o <Link href="/produtos">catálogo completo</Link>.
+              {searchEmptyCopy(q, false).body} Confira o{' '}
+              <Link href="/produtos">catálogo completo</Link>.
             </p>
             <Link className="btn ghost" href="/">
-              Limpar busca
+              {searchEmptyCopy(q, false).clearSearchLabel}
             </Link>
           </div>
         ) : null}
@@ -216,6 +219,10 @@ function HomeInner({
 
   return (
     <div className="home sf-pro-home">
+      <header className="home-intro">
+        <h1 className="home-brand-h1">Lojas Schimitz</h1>
+        <p className="home-lede muted">{homeMarketLede()}</p>
+      </header>
       {/* 1. Banner / hero */}
       <HomeBanners products={loading ? [] : products} />
 
@@ -236,10 +243,10 @@ function HomeInner({
 
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty">
-          <p style={{ margin: 0, fontWeight: 700 }}>Nenhuma oferta no momento.</p>
+          <p style={{ margin: 0, fontWeight: 700 }}>{searchEmptyCopy('', false).title}</p>
           <p className="muted" style={{ margin: '8px 0 12px' }}>
-            Confira o <Link href="/produtos">catálogo completo</Link> e os{' '}
-            <Link href="/departamento/ofertas">departamentos</Link>.
+            {searchEmptyCopy('', false).body} Confira o <Link href="/produtos">catálogo</Link> e as{' '}
+            <Link href="/departamento/ofertas">ofertas</Link>.
           </p>
         </div>
       ) : null}
@@ -266,8 +273,7 @@ function HomeInner({
             <p className="home-strip-kicker">Lojas Schimitz</p>
             <h2>Compra fácil, entrega rápida.</h2>
             <p>
-              Estoque e preços da loja física em Porto Alegre — com PIX, parcelamento e frete grátis
-              na capital.
+              Entrega em Porto Alegre com PIX, parcelamento e frete grátis na capital.
             </p>
           </div>
           <div className="home-strip-actions">

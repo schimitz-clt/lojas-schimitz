@@ -25,6 +25,7 @@ export type StorefrontPageSeo = {
   siteName?: string;
   origin?: string;
   image?: ResolvedShareImage;
+  ogType?: 'website' | 'article';
 };
 
 export const PRODUTOS_SEO = {
@@ -44,7 +45,7 @@ export const SUPORTE_SEO = {
 export const MARKETPLACE_SEO = {
   title: 'Marketplace',
   description:
-    'Marketplace Lojas Schimitz — catálogo com Vendido por, checkout unificado e portal do vendedor. Split Mercado Pago só com flags de produção (ops).',
+    'Marketplace da Lojas Schimitz: cada anúncio mostra quem vende. Um carrinho, um frete e um pagamento — PIX ou cartão.',
   path: '/marketplace',
 } as const;
 
@@ -207,7 +208,7 @@ export function storefrontPageMetadata(input: StorefrontPageSeo): Metadata {
       title: input.title,
       description: input.description,
       locale: SEO_LOCALE,
-      type: 'website',
+      type: input.ogType || 'website',
       url,
       siteName,
       images: [shareImageTag(image)],

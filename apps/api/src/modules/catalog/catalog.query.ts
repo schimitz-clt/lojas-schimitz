@@ -20,11 +20,70 @@ export type ProductListQuery = {
   pageSize?: string;
 };
 
+/** Virtual department: products with a real compare-at above list (home "Ofertas"). */
+export const OFFERS_CATEGORY_SLUG = 'ofertas';
+
+export function isOffersCategorySlug(slug?: string | null): boolean {
+  const s = String(slug || '').trim().toLowerCase();
+  return s === OFFERS_CATEGORY_SLUG || s === 'offers';
+}
+
+/** Commercial offer: list price > 0 and compare-at strictly higher. Null/equal/inverted is not an offer. */
+export function isRealOfferDeal(price: unknown, compareAt: unknown): boolean {
+  const p = toNumericPrice(price);
+  const c = toNumericPrice(compareAt);
+  return Number.isFinite(p) && p > 0 && Number.isFinite(c) && c > p;
+}
+
+/**
+ * Prisma where for /departamento/ofertas (portable pre-filter).
+ * Column-to-column compareAtPrice > price is applied via offerDealIdWhere().
+ */
+export function offersCatalogWhere() {
+  return {
+    AND: [{ compareAtPrice: { not: null } }, { price: { gt: 0 } }],
+  };
+}
+
+type RawQueryClient = {
+  $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<Array<{ id: string }>>;
+};
+
+/**
+ * IDs whose compare-at is strictly above list price.
+ * Runs in Postgres so count/pagination see the same set as the vitrine.
+ */
+export async function offerDealIds(prisma: RawQueryClient): Promise<string[]> {
+  const rows = await prisma.$queryRaw`
+    SELECT p.id
+    FROM "Product" p
+    WHERE p.price > 0
+      AND p."compareAtPrice" IS NOT NULL
+      AND p."compareAtPrice" > p.price
+  `;
+  return rows.map((row) => String(row.id));
+}
+
+/** Intersect the list where with real deals. Empty catalog → no rows (not a full table scan). */
+export function offerDealIdWhere(ids: string[]): { id: { in: string[] } } {
+  return { id: { in: ids } };
+}
+
 export type ProductOrderBy =
   | { price: 'asc' | 'desc' }
   | { createdAt: 'desc' }
   | { ratingCount: 'desc' }
   | { id: 'asc' };
+
+/** Shape returned by buildProductWhere — explicit so tsc accepts .category / .AND / .OR in specs. */
+export type PublicProductWhere = {
+  active: true;
+  seller: { status: 'active'; slug?: string };
+  category?: { slug: string };
+  AND?: Array<{ compareAtPrice?: { not: null }; price?: { gt: number } }>;
+  price?: { gte?: number; lte?: number };
+  OR?: Array<Record<string, unknown>>;
+};
 
 export function parsePage(page?: string): number {
   return Math.max(1, Number(page) || 1);
@@ -111,9 +170,10 @@ export function parseSellerSlug(raw?: string): string | undefined {
 }
 
 /** Prisma-compatible where fragment for public catalog list. */
-export function buildProductWhere(input: ProductListQuery) {
+export function buildProductWhere(input: ProductListQuery): PublicProductWhere {
   const q = (input.q || '').trim();
   const category = (input.category || '').trim();
+  const offers = isOffersCategorySlug(category);
   const sellerSlug = parseSellerSlug(input.seller);
   const minPrice = parseMoneyBound(input.minPrice);
   const maxPrice = parseMoneyBound(input.maxPrice);
@@ -129,7 +189,11 @@ export function buildProductWhere(input: ProductListQuery) {
       status: 'active' as const,
       ...(sellerSlug ? { slug: sellerSlug } : {}),
     },
-    ...(category ? { category: { slug: category } } : {}),
+    ...(offers
+      ? offersCatalogWhere()
+      : category
+        ? { category: { slug: category } }
+        : {}),
     ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
     ...(q
       ? {

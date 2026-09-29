@@ -50,7 +50,7 @@ function ProductImage({
         <span className="pcard-ph-mark">
           <SchimitzMonogram size={40} ring />
         </span>
-        <span className="pcard-ph-hint">Imagem em breve</span>
+        <span className="pcard-ph-hint">Foto em preparação</span>
       </div>
     );
   }
@@ -118,16 +118,16 @@ export function ProductCard({
       }
       window.setTimeout(() => setAdded(false), 1800);
     } catch {
-      /* fallback: go to PDP */
       window.location.href = `/produto/${p.slug}`;
     } finally {
       setAdding(false);
     }
   }
 
-  const compare = p.compareAtPrice ? (
-    <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
-  ) : null;
+  const compare =
+    off && p.compareAtPrice != null ? (
+      <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
+    ) : null;
   const listPrice = (
     <span className={shelf ? 'pcard-price pcard-price-secondary' : 'pcard-price'}>
       {shelf ? <span className="pcard-price-or">ou </span> : null}
@@ -165,7 +165,7 @@ export function ProductCard({
               width={72}
               height={72}
             />
-            <span className="pcard-ph-hint">Imagem em breve</span>
+            <span className="pcard-ph-hint">Foto em preparação</span>
           </div>
           <div className="pcard-tags">
             {demo ? <span className="pcard-demo">{DEMO_SEAL_LABEL}</span> : null}

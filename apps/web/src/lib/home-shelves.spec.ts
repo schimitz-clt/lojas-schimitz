@@ -12,6 +12,7 @@ import {
   pickOfferProducts,
   shelvesFromCatalog,
   visibleHomeShelves,
+  dedupeHomeShelves,
 } from './home-shelves';
 
 type P = {
@@ -37,7 +38,8 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
 {
   assert.equal(isOfferProduct(p({ id: '1', price: 80, compareAtPrice: 100 })), true);
   assert.equal(isOfferProduct(p({ id: '2', price: 100, compareAtPrice: 80 })), false);
-  assert.equal(isOfferProduct(p({ id: '3', price: 100, badge: 'Oferta' })), true);
+  assert.equal(isOfferProduct(p({ id: '3', price: 100, badge: 'Oferta' })), false);
+  assert.equal(isOfferProduct(p({ id: '4', price: 100, compareAtPrice: 100 })), false);
   const offers = pickOfferProducts([
     p({ id: 'tv', price: 200, compareAtPrice: 280 }),
     p({ id: 'cheap', price: 20 }),
@@ -46,7 +48,7 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
   assert.equal(offers.metric, 'deal');
   assert.deepEqual(
     offers.items.map((x) => x.id),
-    ['tv', 'badge'],
+    ['tv'],
   );
   const cheap = pickOfferProducts([p({ id: 'b', price: 30 }), p({ id: 'a', price: 10 })]);
   assert.equal(cheap.metric, 'lowest_price');
@@ -111,6 +113,34 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
     'x',
   ]);
   console.log('web home-shelves: parse + hide empty — PASSOU');
+}
+
+{
+  const duped = dedupeHomeShelves([
+    {
+      id: 'offers',
+      title: 'Ofertas',
+      subtitle: '',
+      href: '/departamento/ofertas',
+      linkLabel: 'Ver',
+      metric: 'deal',
+      items: [p({ id: 'same', price: 80, compareAtPrice: 100 }), p({ id: 'only-offer', price: 70, compareAtPrice: 90 })],
+    },
+    {
+      id: 'newest',
+      title: 'Novidades',
+      subtitle: '',
+      href: '/produtos?sort=newest',
+      linkLabel: 'Ver',
+      metric: 'createdAt',
+      items: [p({ id: 'same', price: 80, compareAtPrice: 100 }), p({ id: 'fresh', price: 40 })],
+    },
+  ]);
+  assert.deepEqual(
+    duped.map((s) => s.items.map((i) => i.id)),
+    [['same', 'only-offer'], ['fresh']],
+  );
+  console.log('web home-shelves: dedupe across rails — PASSOU');
 }
 
 {

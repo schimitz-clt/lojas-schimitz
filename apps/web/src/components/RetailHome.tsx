@@ -198,7 +198,10 @@ export function EditorialStage({ products }: { products: ProductType[] }) {
           {` / ${lineupLabel(index + 1, lineup.length).slice(5)}`}
         </span>
       </p>
-      <h1 id="retail-stage-title" className="id-display">
+      <h1 id="retail-stage-title" className="sr-only">
+        Lojas Schimitz — eletro, celulares e casa em Porto Alegre
+      </h1>
+      <p className="id-display" aria-hidden="false">
         {headline.lead}
         {headline.accent ? (
           <>
@@ -206,7 +209,7 @@ export function EditorialStage({ products }: { products: ProductType[] }) {
             <i>{headline.accent}</i>
           </>
         ) : null}
-      </h1>
+      </p>
       <p className="id-cap id-mono">
         <b>{lead.name}</b>
       </p>
