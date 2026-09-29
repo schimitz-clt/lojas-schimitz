@@ -118,16 +118,16 @@ export function ProductCard({
       }
       window.setTimeout(() => setAdded(false), 1800);
     } catch {
-      /* fallback: go to PDP */
       window.location.href = `/produto/${p.slug}`;
     } finally {
       setAdding(false);
     }
   }
 
-  const compare = off ? (
-    <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
-  ) : null;
+  const compare =
+    off && p.compareAtPrice != null ? (
+      <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
+    ) : null;
   const listPrice = (
     <span className={shelf ? 'pcard-price pcard-price-secondary' : 'pcard-price'}>
       {shelf ? <span className="pcard-price-or">ou </span> : null}
