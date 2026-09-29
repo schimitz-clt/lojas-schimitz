@@ -4,6 +4,7 @@ import { MarketingPixels } from '@/components/MarketingPixels';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import '@/components/storefront/identidade.css';
+import '@/components/storefront/schimitz-system.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
 import { ClientErrorReporter } from '@/components/ClientErrorReporter';
