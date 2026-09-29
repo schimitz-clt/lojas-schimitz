@@ -105,9 +105,3 @@
 .pdp-fact dd {
   margin: 0;
 }
-  margin: 0 0 var(--sz-4);
-  max-width: 46ch;
-  color: var(--sf-muted, #5c534c);
-  font-size: 14px;
-  line-height: 1.45;
-}
