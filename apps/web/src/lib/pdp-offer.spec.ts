@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  pdpDecisionFacts,
   pdpDescriptionNeedsCollapse,
   pdpMobileContentOrder,
   pdpOfferPills,
@@ -49,6 +50,14 @@ assert.deepEqual(pdpMobileContentOrder(), [
 assert.equal(pdpDescriptionNeedsCollapse('curto'), false);
 assert.equal(pdpDescriptionNeedsCollapse('x'.repeat(361)), true);
 
+{
+  const facts = pdpDecisionFacts({ stockLabel: 'Em estoque', sellerName: 'Lojas Schimitz' });
+  assert.equal(facts[0].id, 'stock');
+  assert.equal(facts[0].value, 'Em estoque');
+  assert.ok(facts.some((f) => f.id === 'seller' && f.value === 'Lojas Schimitz'));
+  assert.equal(pdpDecisionFacts({ stockLabel: 'Esgotado' }).some((f) => f.id === 'seller'), false);
+}
+
 const srcRoot = join(__dirname, '..');
 const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 'utf8');
 assert.ok(pdp.includes('Vendido por'), 'PDP shows Vendido por');
@@ -68,7 +77,7 @@ assert.ok(
   '404 happens before Product JSON-LD',
 );
 assert.ok(pdpPage.includes('initial='), 'PDP server page passes initial product to client');
-assert.ok(pdp.includes('pdpOfferPills'), 'PDP shows Pix 5% / 3x chips');
+assert.ok(pdp.includes('pdpDecisionFacts'), 'PDP lists availability/pay/ship from existing data');
 assert.ok(pdp.includes('className="pdp-title"'), 'PDP keeps h1.pdp-title');
 assert.ok(pdp.includes('pdp-desc'), 'PDP keeps description block');
 assert.ok(pdp.includes('pdp-desc-toggle'), 'long description can fold with Ver mais');

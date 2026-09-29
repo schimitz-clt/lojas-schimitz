@@ -20,12 +20,31 @@ export type ProductListQuery = {
   pageSize?: string;
 };
 
-/** Virtual department: products with a compare-at price (home "Ofertas"). */
+/** Virtual department: products with a real compare-at above list (home "Ofertas"). */
 export const OFFERS_CATEGORY_SLUG = 'ofertas';
 
 export function isOffersCategorySlug(slug?: string | null): boolean {
   const s = String(slug || '').trim().toLowerCase();
   return s === OFFERS_CATEGORY_SLUG || s === 'offers';
+}
+
+/** Commercial offer: list price > 0 and compare-at strictly higher. Null/equal/inverted is not an offer. */
+export function isRealOfferDeal(price: unknown, compareAt: unknown): boolean {
+  const p = toNumericPrice(price);
+  const c = toNumericPrice(compareAt);
+  return Number.isFinite(p) && p > 0 && Number.isFinite(c) && c > p;
+}
+
+/**
+ * Prisma where for /departamento/ofertas.
+ * Column-to-column (compareAtPrice > price) is applied in the list query via
+ * `offersCompareAtGtPrice` raw predicate when the adapter supports it; the
+ * portable fragment below still excludes missing/zero compare-at.
+ */
+export function offersCatalogWhere() {
+  return {
+    AND: [{ compareAtPrice: { not: null } }, { price: { gt: 0 } }],
+  };
 }
 
 export type ProductOrderBy =
@@ -139,7 +158,7 @@ export function buildProductWhere(input: ProductListQuery) {
       ...(sellerSlug ? { slug: sellerSlug } : {}),
     },
     ...(offers
-      ? { compareAtPrice: { not: null } }
+      ? offersCatalogWhere()
       : category
         ? { category: { slug: category } }
         : {}),

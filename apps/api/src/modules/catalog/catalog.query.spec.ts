@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import {
   buildProductOrderBy,
   buildProductWhere,
+  isRealOfferDeal,
   parseMoneyBound,
   catalogListWindow,
   parsePage,
@@ -69,8 +70,15 @@ import {
 {
   const offers = buildProductWhere({ category: 'ofertas' });
   assert.equal(offers.active, true);
-  assert.deepEqual(offers.compareAtPrice, { not: null });
+  assert.ok(Array.isArray(offers.AND));
+  assert.ok(
+    offers.AND.some((clause) => 'compareAtPrice' in clause && clause.compareAtPrice?.not === null),
+  );
   assert.equal('category' in offers, false);
+  assert.equal(isRealOfferDeal(80, 100), true);
+  assert.equal(isRealOfferDeal(100, 80), false);
+  assert.equal(isRealOfferDeal(100, 100), false);
+  assert.equal(isRealOfferDeal(100, null), false);
   console.log('catalog.query: ofertas is a virtual compare-at department — PASSOU');
 }
 

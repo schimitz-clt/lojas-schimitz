@@ -49,3 +49,23 @@ export const PDP_DESC_PREVIEW_CHARS = 360;
 export function pdpDescriptionNeedsCollapse(text: string): boolean {
   return productDescriptionText(text).length > PDP_DESC_PREVIEW_CHARS;
 }
+
+export type PdpFact = { id: string; label: string; value: string };
+
+/** Buybox answers using only data already on the page. No invented freight day. */
+export function pdpDecisionFacts(input: {
+  stockLabel: string;
+  sellerName?: string | null;
+}): PdpFact[] {
+  const seller = String(input.sellerName || '').trim();
+  return [
+    { id: 'stock', label: 'Disponibilidade', value: input.stockLabel },
+    { id: 'pay', label: 'Pagamento', value: 'PIX 5% off e até 3x sem juros no checkout' },
+    {
+      id: 'ship',
+      label: 'Entrega',
+      value: 'Calcule o CEP nesta página. Frete grátis em Porto Alegre conforme a regra vigente.',
+    },
+    ...(seller ? [{ id: 'seller', label: 'Vendido por', value: seller }] : []),
+  ];
+}

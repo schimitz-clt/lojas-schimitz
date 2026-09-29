@@ -81,8 +81,30 @@
   margin-top: var(--sz-4);
 }
 
-.checkout-lede,
-.cart-lede {
+.pdp-facts {
+  display: grid;
+  gap: var(--sz-2);
+  margin: var(--sz-4) 0 0;
+  padding: 0;
+}
+
+.pdp-fact {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: var(--sz-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pdp-fact dt {
+  margin: 0;
+  color: var(--sf-muted, #5c534c);
+  font-weight: 600;
+}
+
+.pdp-fact dd {
+  margin: 0;
+}
   margin: 0 0 var(--sz-4);
   max-width: 46ch;
   color: var(--sf-muted, #5c534c);

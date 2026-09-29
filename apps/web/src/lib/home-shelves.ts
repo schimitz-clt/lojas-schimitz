@@ -48,12 +48,11 @@ function createdAtMs(value: Date | string | null | undefined): number {
   return 0;
 }
 
-/** Real deal: compare-at above list, or an admin/catalog badge. */
+/** Real deal: compare-at strictly above list. A catalog badge alone is not an offer. */
 export function isOfferProduct(p: HomeShelfProductLike): boolean {
   const price = toNumber(p.price);
   const cmp = toNumber(p.compareAtPrice);
-  if (price > 0 && cmp > price) return true;
-  return String(p.badge || '').trim().length > 0;
+  return price > 0 && cmp > price;
 }
 
 export function offerDiscountRatio(p: HomeShelfProductLike): number {
@@ -139,7 +138,7 @@ export function offersShelfCopy(metric: OfferMetric): Omit<HomeShelfView, 'items
     return {
       id: 'offers',
       title: 'Ofertas',
-      subtitle: 'Preço menor que o de → ou selo do catálogo',
+      subtitle: 'Preço atual menor que o preço anterior',
       href: '/departamento/ofertas',
       linkLabel: 'Ver todas',
       metric: 'deal',

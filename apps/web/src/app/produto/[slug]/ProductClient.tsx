@@ -11,10 +11,10 @@ import {
   MAX_INSTALLMENTS,
   pixPrice,
 } from '@/lib/pricing';
-import { pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
+import { pdpDecisionFacts, pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
 import { pdpSharePixLabel } from '@/lib/pdp-share';
 import { PdpSkeleton } from '@/components/Skeleton';
-import { buyNowLabel, pdpBuyNowHref, pixHighlight } from '@/lib/storefront-pro';
+import { buyNowLabel, discountPercent, pdpBuyNowHref, pixHighlight } from '@/lib/storefront-pro';
 import { buildProductGallery } from '@/lib/product-gallery';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { ProductGallery } from '@/components/ProductGallery';
@@ -328,6 +328,7 @@ export default function ProductPage({
   const price = Number(p.price);
   const pix = pixPrice(price);
   const highlight = pixHighlight(price);
+  const off = discountPercent(price, p.compareAtPrice);
   const sharePix = pdpSharePixLabel(price);
   const outOfStock = stock != null && stock <= 0;
   const buyBlocked = demo || outOfStock;
@@ -337,6 +338,7 @@ export default function ProductPage({
   });
   const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
   const offerPills = pdpOfferPills();
+  const facts = pdpDecisionFacts({ stockLabel, sellerName: p.seller?.name });
   const numerals = specNumerals(p.features, 3);
   const poster = posterToken(p.name);
   const sceneImg = resolveProductImageUrl(p);
@@ -403,6 +405,14 @@ export default function ProductPage({
                 Vendido por <b style={{ color: 'var(--text)' }}>{p.seller.name}</b>
               </p>
             ) : null}
+            <dl className="pdp-facts">
+              {facts.map((fact) => (
+                <div key={fact.id} className="pdp-fact">
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
           <div className="pdp-price-block">
@@ -420,7 +430,7 @@ export default function ProductPage({
             </div>
             <p className="pdp-list-line">
               ou{' '}
-              {p.compareAtPrice ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
+              {off ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
               <span className="pdp-list-price">{brl(price)}</span>
               {' em '}
               {installmentLine(price)}

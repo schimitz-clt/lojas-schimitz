@@ -38,7 +38,8 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
 {
   assert.equal(isOfferProduct(p({ id: '1', price: 80, compareAtPrice: 100 })), true);
   assert.equal(isOfferProduct(p({ id: '2', price: 100, compareAtPrice: 80 })), false);
-  assert.equal(isOfferProduct(p({ id: '3', price: 100, badge: 'Oferta' })), true);
+  assert.equal(isOfferProduct(p({ id: '3', price: 100, badge: 'Oferta' })), false);
+  assert.equal(isOfferProduct(p({ id: '4', price: 100, compareAtPrice: 100 })), false);
   const offers = pickOfferProducts([
     p({ id: 'tv', price: 200, compareAtPrice: 280 }),
     p({ id: 'cheap', price: 20 }),
@@ -47,7 +48,7 @@ function p(partial: Partial<P> & Pick<P, 'id'>): P {
   assert.equal(offers.metric, 'deal');
   assert.deepEqual(
     offers.items.map((x) => x.id),
-    ['tv', 'badge'],
+    ['tv'],
   );
   const cheap = pickOfferProducts([p({ id: 'b', price: 30 }), p({ id: 'a', price: 10 })]);
   assert.equal(cheap.metric, 'lowest_price');

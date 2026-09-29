@@ -125,7 +125,7 @@ export function ProductCard({
     }
   }
 
-  const compare = p.compareAtPrice ? (
+  const compare = off ? (
     <span className="pcard-compare">{brl(p.compareAtPrice)}</span>
   ) : null;
   const listPrice = (
