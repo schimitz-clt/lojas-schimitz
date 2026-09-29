@@ -75,6 +75,16 @@ export type ProductOrderBy =
   | { ratingCount: 'desc' }
   | { id: 'asc' };
 
+/** Shape returned by buildProductWhere — explicit so tsc accepts .category / .AND / .OR in specs. */
+export type PublicProductWhere = {
+  active: true;
+  seller: { status: 'active'; slug?: string };
+  category?: { slug: string };
+  AND?: Array<{ compareAtPrice?: { not: null }; price?: { gt: number } }>;
+  price?: { gte?: number; lte?: number };
+  OR?: Array<Record<string, unknown>>;
+};
+
 export function parsePage(page?: string): number {
   return Math.max(1, Number(page) || 1);
 }
@@ -160,7 +170,7 @@ export function parseSellerSlug(raw?: string): string | undefined {
 }
 
 /** Prisma-compatible where fragment for public catalog list. */
-export function buildProductWhere(input: ProductListQuery) {
+export function buildProductWhere(input: ProductListQuery): PublicProductWhere {
   const q = (input.q || '').trim();
   const category = (input.category || '').trim();
   const offers = isOffersCategorySlug(category);
