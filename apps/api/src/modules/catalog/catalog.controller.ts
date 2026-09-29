@@ -7,6 +7,9 @@ import {
   buildProductOrderBy,
   buildProductWhere,
   catalogListWindow,
+  isOffersCategorySlug,
+  offerDealIds,
+  offerDealIdWhere,
   parseSort,
 } from './catalog.query';
 import { isPublicSellerVisible, publicSellerShape } from '../sellers/sellers.constants';
@@ -52,7 +55,11 @@ export class CatalogController {
     const sortKey = parseSort(sort);
     const baseWhere = buildProductWhere({ q, category, minPrice, maxPrice, seller });
     const sellableOnly = sellable === '1' || sellable === 'true';
-    const where = sellableOnly ? sellableProductWhere(baseWhere) : baseWhere;
+    let where = sellableOnly ? sellableProductWhere(baseWhere) : baseWhere;
+    if (isOffersCategorySlug(category)) {
+      const dealIds = await offerDealIds(this.prisma);
+      where = { ...where, ...offerDealIdWhere(dealIds) };
+    }
     const orderBy = buildProductOrderBy(sortKey);
 
     // total = catálogo de navegação (active, inclui DEMO). sellableTotal = active && !isDemo.

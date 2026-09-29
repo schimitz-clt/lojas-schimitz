@@ -36,15 +36,37 @@ export function isRealOfferDeal(price: unknown, compareAt: unknown): boolean {
 }
 
 /**
- * Prisma where for /departamento/ofertas.
- * Column-to-column (compareAtPrice > price) is applied in the list query via
- * `offersCompareAtGtPrice` raw predicate when the adapter supports it; the
- * portable fragment below still excludes missing/zero compare-at.
+ * Prisma where for /departamento/ofertas (portable pre-filter).
+ * Column-to-column compareAtPrice > price is applied via offerDealIdWhere().
  */
 export function offersCatalogWhere() {
   return {
     AND: [{ compareAtPrice: { not: null } }, { price: { gt: 0 } }],
   };
+}
+
+type RawQueryClient = {
+  $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<Array<{ id: string }>>;
+};
+
+/**
+ * IDs whose compare-at is strictly above list price.
+ * Runs in Postgres so count/pagination see the same set as the vitrine.
+ */
+export async function offerDealIds(prisma: RawQueryClient): Promise<string[]> {
+  const rows = await prisma.$queryRaw`
+    SELECT p.id
+    FROM "Product" p
+    WHERE p.price > 0
+      AND p."compareAtPrice" IS NOT NULL
+      AND p."compareAtPrice" > p.price
+  `;
+  return rows.map((row) => String(row.id));
+}
+
+/** Intersect the list where with real deals. Empty catalog → no rows (not a full table scan). */
+export function offerDealIdWhere(ids: string[]): { id: { in: string[] } } {
+  return { id: { in: ids } };
 }
 
 export type ProductOrderBy =
