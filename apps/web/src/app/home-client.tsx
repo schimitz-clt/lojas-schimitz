@@ -266,8 +266,7 @@ function HomeInner({
             <p className="home-strip-kicker">Lojas Schimitz</p>
             <h2>Compra fácil, entrega rápida.</h2>
             <p>
-              Estoque e preços da loja física em Porto Alegre — com PIX, parcelamento e frete grátis
-              na capital.
+              Entrega em Porto Alegre com PIX, parcelamento e frete grátis na capital.
             </p>
           </div>
           <div className="home-strip-actions">

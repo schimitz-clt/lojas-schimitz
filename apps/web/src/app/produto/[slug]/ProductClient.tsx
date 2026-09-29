@@ -331,7 +331,10 @@ export default function ProductPage({
   const sharePix = pdpSharePixLabel(price);
   const outOfStock = stock != null && stock <= 0;
   const buyBlocked = demo || outOfStock;
-  const description = productDescriptionText(p.description);
+  const description = productDescriptionText(p.description, {
+    name: p.name,
+    categoryName: p.category?.name,
+  });
   const descNeedsCollapse = pdpDescriptionNeedsCollapse(description);
   const offerPills = pdpOfferPills();
   const numerals = specNumerals(p.features, 3);

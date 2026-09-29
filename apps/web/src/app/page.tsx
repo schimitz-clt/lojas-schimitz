@@ -9,6 +9,11 @@ import { sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home
 
 /** Homepage only. Other routes set their own canonical so they do not inherit `/`. */
 export const metadata: Metadata = {
+  title: {
+    absolute: 'Lojas Schimitz — eletro, celulares e casa em Porto Alegre',
+  },
+  description:
+    'Lojas Schimitz em Porto Alegre: eletro, celulares e casa. Frete grátis na capital, PIX 5% off e até 3x sem juros.',
   alternates: { canonical: '/' },
 };
 

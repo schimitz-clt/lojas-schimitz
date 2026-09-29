@@ -8,6 +8,7 @@
 import { rewritePublicUploadUrl, rewritePublicUploadUrls } from '../../common/public-upload-url';
 import { availableQty } from '../inventory/inventory.math';
 import { publicProductStory } from './product-story';
+import { publicProductDescription } from './public-description';
 
 export type InventoryLike = {
   qtyOnHand: number;
@@ -70,9 +71,22 @@ export function serializePublicProduct<T extends Record<string, unknown>>(produc
       : rawSeller;
   const publicInventory = publicInventoryView(inventory);
   const story = publicProductStory(product);
+  const categoryName =
+    product.category && typeof product.category === 'object'
+      ? String((product.category as { name?: unknown }).name || '')
+      : '';
+  const sanitizedDescription =
+    typeof product.description === 'string'
+      ? publicProductDescription({
+          description: product.description,
+          name: typeof product.name === 'string' ? product.name : null,
+          categoryName,
+        })
+      : undefined;
   return {
     ...product,
     ...story,
+    ...(sanitizedDescription !== undefined ? { description: sanitizedDescription } : {}),
     ...(images ? { images } : {}),
     ...(rawSeller !== undefined ? { seller } : {}),
     ...(inventory !== undefined ? { inventory: publicInventory } : {}),

@@ -4,11 +4,21 @@
  */
 
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { publicProductDescription } from '@/lib/public-copy';
 
-/** Trimmed Admin description; empty/whitespace → "" so the block can hide. */
-export function productDescriptionText(raw: unknown): string {
+/** Trimmed Admin description; QA/homologation phrasing is replaced, never invented specs. */
+export function productDescriptionText(
+  raw: unknown,
+  meta?: { name?: string | null; categoryName?: string | null },
+): string {
   if (typeof raw !== 'string') return '';
-  return raw.trim();
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  return publicProductDescription({
+    description: trimmed,
+    name: meta?.name,
+    categoryName: meta?.categoryName,
+  });
 }
 
 export type PdpOfferPill = {

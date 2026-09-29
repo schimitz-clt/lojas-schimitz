@@ -20,6 +20,14 @@ export type ProductListQuery = {
   pageSize?: string;
 };
 
+/** Virtual department: products with a compare-at price (home "Ofertas"). */
+export const OFFERS_CATEGORY_SLUG = 'ofertas';
+
+export function isOffersCategorySlug(slug?: string | null): boolean {
+  const s = String(slug || '').trim().toLowerCase();
+  return s === OFFERS_CATEGORY_SLUG || s === 'offers';
+}
+
 export type ProductOrderBy =
   | { price: 'asc' | 'desc' }
   | { createdAt: 'desc' }
@@ -114,6 +122,7 @@ export function parseSellerSlug(raw?: string): string | undefined {
 export function buildProductWhere(input: ProductListQuery) {
   const q = (input.q || '').trim();
   const category = (input.category || '').trim();
+  const offers = isOffersCategorySlug(category);
   const sellerSlug = parseSellerSlug(input.seller);
   const minPrice = parseMoneyBound(input.minPrice);
   const maxPrice = parseMoneyBound(input.maxPrice);
@@ -129,7 +138,11 @@ export function buildProductWhere(input: ProductListQuery) {
       status: 'active' as const,
       ...(sellerSlug ? { slug: sellerSlug } : {}),
     },
-    ...(category ? { category: { slug: category } } : {}),
+    ...(offers
+      ? { compareAtPrice: { not: null } }
+      : category
+        ? { category: { slug: category } }
+        : {}),
     ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
     ...(q
       ? {

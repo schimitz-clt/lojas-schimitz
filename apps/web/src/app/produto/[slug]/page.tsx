@@ -7,6 +7,7 @@ import { PdpRelatedProducts } from '@/components/PdpRelatedProducts';
 import { buildBreadcrumbList, buildProductJsonLd } from '@/lib/json-ld';
 import { resolveProductShareImage } from '@/lib/og-image';
 import { isMissingPdp, pdpBreadcrumbName } from '@/lib/pdp-missing';
+import { publicProductDescription } from '@/lib/public-copy';
 import { resolveProductSlugRedirect } from '@/lib/product-slug-redirects';
 import { missingPageMetadata, storefrontPageMetadata } from '@/lib/seo-metadata';
 import type { Product } from '@/components/ProductCard';
@@ -32,9 +33,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product) {
     return missingPageMetadata();
   }
+  const description = publicProductDescription({
+    description: product.description,
+    name: product.name,
+    categoryName: product.category?.name,
+  });
   return storefrontPageMetadata({
     title: product.name,
-    description: product.description,
+    description: description || product.name,
     path,
     siteName: store.siteTitle,
     origin: base,
@@ -60,7 +66,11 @@ export default async function Page({ params }: Props) {
     jsonLd.push(
       buildProductJsonLd(origin, {
         name: product.name,
-        description: product.description,
+        description: publicProductDescription({
+          description: product.description,
+          name: product.name,
+          categoryName: product.category?.name,
+        }) || product.name,
         slug: product.slug,
         sku: product.sku,
         price: product.price,

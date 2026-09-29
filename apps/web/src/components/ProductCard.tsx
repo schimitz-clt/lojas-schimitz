@@ -50,7 +50,7 @@ function ProductImage({
         <span className="pcard-ph-mark">
           <SchimitzMonogram size={40} ring />
         </span>
-        <span className="pcard-ph-hint">Imagem em breve</span>
+        <span className="pcard-ph-hint">Foto em preparação</span>
       </div>
     );
   }
@@ -165,7 +165,7 @@ export function ProductCard({
               width={72}
               height={72}
             />
-            <span className="pcard-ph-hint">Imagem em breve</span>
+            <span className="pcard-ph-hint">Foto em preparação</span>
           </div>
           <div className="pcard-tags">
             {demo ? <span className="pcard-demo">{DEMO_SEAL_LABEL}</span> : null}

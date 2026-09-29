@@ -2,10 +2,6 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { interestFreeInstallmentClaim } from '@/lib/pricing';
 import {
-  MARKETPLACE_PHASE1_NOTE,
-  MARKETPLACE_PHASE2_NOTE,
-  MARKETPLACE_PHASE3_NOTE,
-  MARKETPLACE_V1_NOT_BUILT,
   marketplaceIntro,
   marketplaceSellersHeading,
 } from '@/lib/marketplace-copy';
@@ -28,10 +24,10 @@ export default async function MarketplacePage() {
       </p>
 
       <section className="hero" style={{ padding: 22, marginBottom: 18 }} aria-label="Catálogo">
-        <h2 style={{ marginTop: 0, fontSize: 20 }}>Catálogo</h2>
+        <h2 style={{ marginTop: 0, fontSize: 20 }}>Como comprar</h2>
         <p className="muted" style={{ marginBottom: 14 }}>
           Eletro, celulares, informática, eletrodomésticos, casa e esporte. O pedido, o frete e o
-          pagamento (PIX ou cartão) continuam unificados — um carrinho, um pedido.
+          pagamento (PIX ou cartão) ficam juntos — um carrinho, um pedido.
         </p>
         <div className="actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <Link className="btn" href="/produtos">
@@ -68,41 +64,25 @@ export default async function MarketplacePage() {
             </p>
           )}
           <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0 }}>
-            É vendedor e já tem acesso? Entre no{' '}
+            Cada anúncio mostra <strong style={{ color: 'var(--text)' }}>Vendido por</strong>. Já é
+            parceiro? Entre no{' '}
             <Link href="/vendedor" style={{ color: 'var(--primary-dark)' }}>
               portal do vendedor
             </Link>
-            . Novos parceiros entram só pelo admin (criar vendedor + vincular dono) — não criamos
-            vendedores fictícios no catálogo.
+            .
           </p>
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: 18 }} aria-label="O que o marketplace v1 faz">
+      <section className="card" style={{ marginBottom: 18 }} aria-label="Compra unificada">
         <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>O que já funciona (v1)</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>O que você encontra aqui</h2>
           <ul className="muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-            <li>Etiqueta <strong style={{ color: 'var(--text)' }}>Vendido por</strong> no catálogo e na página do produto</li>
-            <li>Admin: criar / listar / ativar / suspender vendedores e vincular dono</li>
-            <li>Portal /vendedor: meus produtos, pedidos e comissões (só os seus)</li>
-            <li>Ledger de comissão no pedido pago + repasse PIX manual (aprovar / marcar pago / CSV)</li>
-            <li>Checkout com um vendedor por pedido (carrinho misto bloqueado)</li>
+            <li>Quem vende aparece no catálogo e na página do produto</li>
+            <li>Um checkout para PIX ou cartão</li>
+            <li>Frete calculado no pedido, com regra de Porto Alegre</li>
+            <li>Pedidos e atendimento pela Lojas Schimitz</li>
           </ul>
-        </div>
-      </section>
-
-      <section className="card" style={{ marginBottom: 18 }} aria-label="O que o v1 não faz">
-        <div className="body">
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>O que o v1 não faz</h2>
-          <ul className="muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-            {MARKETPLACE_V1_NOT_BUILT.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <p className="muted" style={{ lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>
-            {MARKETPLACE_PHASE1_NOTE} {MARKETPLACE_PHASE2_NOTE} {MARKETPLACE_PHASE3_NOTE} O
-            repasse v1 (PIX manual) continua para linhas sem application_fee.
-          </p>
         </div>
       </section>
 

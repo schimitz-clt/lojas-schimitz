@@ -305,7 +305,7 @@ export function ProductGallery({ images, productName, categorySlug }: Props) {
               </div>
             ))
           ) : (
-            <div className="pdp-carousel-slide pdp-carousel-empty pdp-carousel-ph" aria-label="Imagem em breve">
+            <div className="pdp-carousel-slide pdp-carousel-empty pdp-carousel-ph" aria-label="Foto em preparação">
               <span className="pdp-carousel-ph-mark">
                 <SchimitzMonogram size={72} ring />
               </span>
@@ -316,7 +316,7 @@ export function ProductGallery({ images, productName, categorySlug }: Props) {
                 width={96}
                 height={96}
               />
-              <span className="pdp-carousel-ph-hint">Imagem em breve</span>
+              <span className="pdp-carousel-ph-hint">Foto em preparação</span>
             </div>
           )}
         </div>

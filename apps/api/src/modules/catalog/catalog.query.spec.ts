@@ -67,6 +67,14 @@ import {
 }
 
 {
+  const offers = buildProductWhere({ category: 'ofertas' });
+  assert.equal(offers.active, true);
+  assert.deepEqual(offers.compareAtPrice, { not: null });
+  assert.equal('category' in offers, false);
+  console.log('catalog.query: ofertas is a virtual compare-at department — PASSOU');
+}
+
+{
   const bare = buildProductWhere({});
   assert.equal(bare.active, true);
   assert.deepEqual(bare.seller, { status: 'active' });
