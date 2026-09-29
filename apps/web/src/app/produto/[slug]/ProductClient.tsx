@@ -156,7 +156,6 @@ export default function ProductPage({
   initial?: ProductDetail | null;
   related?: Product[] | null;
   relatedKind?: RelatedKind | null;
-  /** Streamed related shelf. When set, it replaces the inline rail so the product is not blocked on that fetch. */
   relatedSlot?: ReactNode;
 }) {
   const { slug } = useParams<{ slug: string }>();
@@ -244,7 +243,6 @@ export default function ProductPage({
       cancelled = true;
       cancelSchedule?.();
     };
-    // initial is read once per slug; a new object for the same product must not reset the buy box.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, loadReviews, loadEligibility]);
 
@@ -430,7 +428,7 @@ export default function ProductPage({
             </div>
             <p className="pdp-list-line">
               ou{' '}
-              {off ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
+              {off && p.compareAtPrice != null ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
               <span className="pdp-list-price">{brl(price)}</span>
               {' em '}
               {installmentLine(price)}
