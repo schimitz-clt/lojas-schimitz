@@ -53,6 +53,11 @@ export function shouldUseRetailHome(sellableTotal: number | null | undefined): b
   return sellableTotal >= 1 && sellableTotal <= RETAIL_HOME_MAX_PRODUCTS;
 }
 
+/** Boutique abertura only when the retail home is active. Large catalogs keep the market hero. */
+export function homeShowsEditorialStage(retail: boolean, productCount: number): boolean {
+  return retail === true && productCount > 0;
+}
+
 export function isRealOffer(price: unknown, compareAt: unknown): boolean {
   const p = Number(price);
   const cmp = Number(compareAt);

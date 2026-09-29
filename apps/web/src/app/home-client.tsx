@@ -219,9 +219,12 @@ function HomeInner({
 
   return (
     <div className="home sf-pro-home">
+      <header className="home-intro">
+        <h1 className="home-brand-h1">Lojas Schimitz</h1>
+        <p className="home-lede muted">{homeMarketLede()}</p>
+      </header>
       {/* 1. Banner / hero */}
       <HomeBanners products={loading ? [] : products} />
-      <p className="home-lede muted">{homeMarketLede()}</p>
 
       {/* Shortcuts sit above Categorias — the photo strip stays. */}
       <HomeShortcuts />
