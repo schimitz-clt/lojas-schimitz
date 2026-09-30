@@ -1,0 +1,45 @@
+name: restore-order-page
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restore-order-page.yml'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore full order page
+        run: |
+          set -e
+          git show 69b1c6f66ead1a8f8603d1ef8547b439e49772d2:'apps/web/src/app/pedidos/[publicId]/page.tsx' > 'apps/web/src/app/pedidos/[publicId]/page.tsx'
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/web/src/app/pedidos/[publicId]/page.tsx')
+          text = p.read_text()
+          old_imp = "import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/payment-simulate';\nimport Link from 'next/link';"
+          new_imp = "import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/payment-simulate';\nimport { useOrderLiveReload } from '@/lib/use-order-live-reload';\nimport Link from 'next/link';"
+          if old_imp not in text:
+              raise SystemExit('import block missing')
+          text = text.replace(old_imp, new_imp, 1)
+          old = '''  // Enquanto PIX/pedido aguardam confirma\u00e7\u00e3o, atualiza sozinho (webhook \u2192 paid).\n  useEffect(() => {\n    if (!o) return;\n    const awaiting = o.status === 'awaiting_payment' || o.status === 'draft';\n    const payPending = intent?.payment?.status === 'pending';\n    if (!awaiting && !payPending) return;\n    const id = window.setInterval(() => {\n      reload().catch(() => undefined);\n    }, 4000);\n    return () => window.clearInterval(id);\n  }, [o?.status, intent?.payment?.status, reload]);\n'''
+          new = '  useOrderLiveReload(o?.status, intent?.payment?.status, reload);\n'
+          if old not in text:
+              raise SystemExit('effect block missing')
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          print('patched', p.stat().st_size)
+          PY
+          git config user.name "schimitz-clt"
+          git config user.email "schimitzclaiton@gmail.com"
+          git add 'apps/web/src/app/pedidos/[publicId]/page.tsx'
+          if git diff --cached --quiet; then
+            echo 'no page change'
+          else
+            git commit -m 'Restaura página completa do pedido com PIX, cartão e status ao vivo'
+            git push
+          fi
