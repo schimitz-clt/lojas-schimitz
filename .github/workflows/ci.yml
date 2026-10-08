@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22' # mesmo major do Dockerfile da API (node:22-bookworm-slim)
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  web:
+    name: Web (apps/web) — typecheck, build, testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build
+        run: npm run build
+      - name: Testes
+        run: npm test
+
+  api:
+    name: API (apps/api) — build e testes com Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: schimitz
+          POSTGRES_PASSWORD: schimitz
+          POSTGRES_DB: lojas_schimitz_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U schimitz -d lojas_schimitz_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Valores fictícios, só para CI. Nenhum segredo real.
+      DATABASE_URL: postgresql://schimitz:schimitz@127.0.0.1:5432/lojas_schimitz_ci?schema=public
+      # Cotação de frete aponta para o servidor falso local (.github/ci/fake-melhor-envio.mjs).
+      MELHOR_ENVIO_TOKEN: fake-local-ci
+      MELHOR_ENVIO_BASE_URL: http://127.0.0.1:45999
+      MELHOR_ENVIO_ORIGIN_CEP: '90010000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/api/package-lock.json
+      - name: Instalar (raiz + apps/api)
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --no-audit --no-fund --prefix apps/api
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npm run prisma:generate
+      - name: Build
+        working-directory: apps/api
+        run: npm run build
+      - name: Migrations + seed (Postgres do CI)
+        working-directory: apps/api
+        run: |
+          npx prisma migrate deploy --schema=../../prisma/schema.prisma
+          npm run prisma:seed
+      - name: Subir Melhor Envio falso
+        run: |
+          node .github/ci/fake-melhor-envio.mjs > /tmp/fake-me.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf -X POST http://127.0.0.1:45999/api/v2/me/shipment/calculate -d '{}' > /dev/null && exit 0
+            sleep 0.5
+          done
+          cat /tmp/fake-me.log; exit 1
+      - name: Testes (npm test — unitários + *.db.spec)
+        working-directory: apps/api
+        run: npm test
+      - name: Testes financeiros (test:finance)
+        working-directory: apps/api
+        run: npm run test:finance
+      - name: Testes de segurança (test:security)
+        working-directory: apps/api
+        run: npm run test:security
+      - name: Testes de pagamentos (test:sch003)
+        working-directory: apps/api
+        run: npm run test:sch003

@@ -80,6 +80,11 @@ Os specs `*.db.spec.ts` e `payment.integration.spec.ts` precisam de **Postgres l
 (`DATABASE_URL=postgresql://…@127.0.0.1:5432/…`). Eles recusam URL que não seja local (nunca apontar para o Railway).
 Os specs de finanças fazem checkout real, então também precisam de cotação de frete:
 `MELHOR_ENVIO_TOKEN` + `MELHOR_ENVIO_BASE_URL` (token de sandbox ou um servidor falso local).
+Servidor falso pronto: `node .github/ci/fake-melhor-envio.mjs &` e depois
+`MELHOR_ENVIO_TOKEN=fake-local MELHOR_ENVIO_BASE_URL=http://127.0.0.1:45999`.
+
+CI: `.github/workflows/ci.yml` roda tudo isso (web + API com Postgres de serviço) em cada PR e push no `main`,
+sem nenhum segredo.
 
 Suítes por tema: `npm run test:security`, `test:finance`, `test:sch003` … `test:sch006` (ver `apps/api/package.json`).
 `npm run test:sandbox` chama o sandbox real do Mercado Pago (credenciais de teste) — não roda por padrão.
