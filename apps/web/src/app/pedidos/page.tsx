@@ -43,7 +43,11 @@ export default function PedidosPage() {
       return;
     }
     setLastPublicId(readLastOrderPublicId(window.localStorage));
-    api<OrderListRow[]>('/orders').then(setOrders).catch((e) => setErr(e.message));
+    const load = () =>
+      api<OrderListRow[]>('/orders').then(setOrders).catch((e) => setErr(e.message));
+    load();
+    const id = window.setInterval(load, 8000);
+    return () => window.clearInterval(id);
   }, [ready, user]);
 
   const lastStillListed = lastPublicId && orders.some((o) => o.publicId === lastPublicId);

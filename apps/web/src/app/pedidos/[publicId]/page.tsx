@@ -28,6 +28,7 @@ import {
 import { orderItemDisplayName, orderItemImageUrl } from '@/lib/order-card-ui';
 import MercadoPagoCardBrick from '@/components/MercadoPagoCardBrick';
 import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/payment-simulate';
+import { useOrderLiveReload } from '@/lib/use-order-live-reload';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -309,17 +310,7 @@ export default function PedidoPage() {
     });
   }, [reload, publicId, ready, user]);
 
-  // Enquanto PIX/pedido aguardam confirmação, atualiza sozinho (webhook → paid).
-  useEffect(() => {
-    if (!o) return;
-    const awaiting = o.status === 'awaiting_payment' || o.status === 'draft';
-    const payPending = intent?.payment?.status === 'pending';
-    if (!awaiting && !payPending) return;
-    const id = window.setInterval(() => {
-      reload().catch(() => undefined);
-    }, 4000);
-    return () => window.clearInterval(id);
-  }, [o?.status, intent?.payment?.status, reload]);
+  useOrderLiveReload(o?.status, intent?.payment?.status, reload);
 
   // Gate QR payload at the source so approved payments never keep showing pay UI
   // even if Mercado Pago payload still contains qrCode / qrCodeBase64.
