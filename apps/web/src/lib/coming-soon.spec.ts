@@ -73,7 +73,7 @@ assert.ok(page.includes('shouldShowComingSoonShelf'), 'home hides the teaser fro
 assert.ok(page.includes('HomeShortcuts'), 'shortcuts stay');
 assert.ok(page.includes('HomeShelves'), 'product shelves stay');
 assert.ok(page.includes('HomeBanners'), 'hero stays');
-assert.ok(page.includes('Nenhuma oferta no momento'), 'empty catalog copy stays');
+assert.ok(page.includes('searchEmptyCopy'), 'empty catalog uses shared empty copy');
 // #123 wired StorefrontEmpty / catalogEmpty into the home client and mobile
 // showed Next's "Application error" after hydration (SSR still 200 + skeletons).
 // That crash did not reproduce here; client empty UX stays on the #122 path.
