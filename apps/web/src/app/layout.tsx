@@ -4,6 +4,7 @@ import { MarketingPixels } from '@/components/MarketingPixels';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
 import '@/components/storefront/identidade.css';
+import '@/components/storefront/schimitz-system.css';
 import { StorefrontChrome } from '@/components/StorefrontChrome';
 import { SessionHydrator } from '@/components/SessionHydrator';
 import { ClientErrorReporter } from '@/components/ClientErrorReporter';
@@ -35,13 +36,12 @@ const mono = Geist_Mono({
   weight: ['400', '500'],
 });
 
-/** Page/layout zoom locked like Magalu-style storefronts (pinch + double-tap).
- *  PDP photo enlarge remains the lightbox ("Ampliar"), not browser zoom. */
+/** Accessible viewport: pinch-zoom allowed. Safe-area + keyboard still apply. */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   /* Lets env(safe-area-inset-*) report the status bar / notch. Without this,
      notched phones and edge-to-edge WebViews draw the promo under the clock. */
   viewportFit: 'cover',

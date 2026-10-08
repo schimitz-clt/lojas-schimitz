@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { HOME_CATALOG_LOAD_ERROR, deliveryAddressHref, deliveryBarCopy, homeQuickShortcuts } from './home-ux';
+import { HOME_CATALOG_LOAD_ERROR, deliveryAddressHref, deliveryBarCopy, homeMarketLede, homeQuickShortcuts } from './home-ux';
 
 {
   const guest = homeQuickShortcuts(null);
@@ -82,6 +82,11 @@ assert.ok(page.includes('Categorias'), 'category section stays');
 assert.ok(page.includes('variant="shelf"'), 'home search cards use shelf density');
 assert.equal(HOME_CATALOG_LOAD_ERROR, 'Não foi possível carregar os produtos agora.');
 assert.ok(page.includes('HOME_CATALOG_LOAD_ERROR'), 'home shows the customer catalog error');
+assert.ok(page.includes('homeMarketLede'), 'market home shows the store proposition');
+assert.ok(page.includes('dedupeHomeShelves'), 'market home dedupes shelf SKUs');
+assert.ok(page.includes('searchEmptyCopy'), 'empty catalog uses shared empty copy');
+assert.equal(homeMarketLede().includes('Porto Alegre'), true);
+assert.equal(homeMarketLede().includes('loja física'), false);
 assert.equal(page.includes('Suba a API e rode o seed'), false, 'home does not tell shoppers to seed');
 
 const shelves = readFileSync(join(srcRoot, 'components/HomeShelves.tsx'), 'utf8');

@@ -1,0 +1,107 @@
+/**
+ * Schimitz system — canonical scale on top of --sf / --id.
+ * Do not invent a second palette. Space, control and focus live here.
+ */
+
+:root {
+  --sz-1: 4px;
+  --sz-2: 8px;
+  --sz-3: 12px;
+  --sz-4: 16px;
+  --sz-5: 24px;
+  --sz-6: 32px;
+  --sz-7: 48px;
+  --control-h: 44px;
+  --control-h-lg: 48px;
+  --focus-ring: 0 0 0 3px rgba(7, 18, 42, 0.32);
+  --page-max: 1120px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--id-navy, #07122a);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.home-intro {
+  margin: var(--sz-3) 0 var(--sz-4);
+  max-width: 36rem;
+}
+
+.home-brand-h1 {
+  margin: 0 0 var(--sz-2);
+  font-family: var(--font-display), "Instrument Serif", Georgia, serif;
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--id-navy, #07122a);
+}
+
+.home-lede {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.sf-state {
+  margin: var(--sz-5) 0;
+  padding: var(--sz-5);
+  border: 1px solid var(--sf-line, #e6d8c6);
+  border-radius: var(--sf-radius, 16px);
+  background: var(--sf-surface, #fffbf5);
+}
+
+.sf-state h2,
+.sf-state p {
+  margin: 0;
+}
+
+.sf-state h2 {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.sf-state p {
+  margin-top: var(--sz-2);
+  color: var(--sf-muted, #5c534c);
+  line-height: 1.45;
+}
+
+.sf-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sz-2);
+  margin-top: var(--sz-4);
+}
+
+.pdp-facts {
+  display: grid;
+  gap: var(--sz-2);
+  margin: var(--sz-4) 0 0;
+  padding: 0;
+}
+
+.pdp-fact {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: var(--sz-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pdp-fact dt {
+  margin: 0;
+  color: var(--sf-muted, #5c534c);
+  font-weight: 600;
+}
+
+.pdp-fact dd {
+  margin: 0;
+}

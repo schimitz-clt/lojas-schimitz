@@ -2,6 +2,7 @@ import { Controller, Get, Res, ServiceUnavailableException } from '@nestjs/commo
 import type { Response } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ok } from '../../common/http';
+import { isProdLikeEnv } from '../../common/prod-like-env';
 import { PrismaService } from '../../prisma.service';
 import { mailConfiguredFromEnvPresence } from '../mail/mail.config';
 import { firebaseConfiguredFromEnvPresence } from '../push/push-fcm.config';
@@ -21,11 +22,15 @@ export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Liveness healthcheck (no DB)' })
   check() {
+    const time = new Date().toISOString();
+    if (isProdLikeEnv()) {
+      return ok({ ok: true, time });
+    }
     const uploadsDir = resolveUploadsDir(process.env.UPLOADS_DIR);
     return ok({
       service: 'lojas-schimitz-api',
       env: process.env.APP_ENV || 'development',
-      time: new Date().toISOString(),
+      time,
       /** Env names only (MAIL_FROM + RESEND_API_KEY|SMTP_HOST) — never secret values. */
       mailConfigured: mailConfiguredFromEnvPresence(),
       /** Env names only (FIREBASE_SERVICE_ACCOUNT_JSON|BASE64 or ADC path) — never secret values. */
@@ -41,6 +46,9 @@ export class HealthController {
     const time = new Date().toISOString();
     try {
       await this.prisma.$queryRaw`SELECT 1`;
+      if (isProdLikeEnv()) {
+        return ok({ ok: true, ready: true, time });
+      }
       const uploadsDir = resolveUploadsDir(process.env.UPLOADS_DIR);
       return ok({
         service: 'lojas-schimitz-api',

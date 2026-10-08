@@ -131,7 +131,7 @@ export default function CompararClient() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.image} alt="" width={120} height={120} />
                         ) : (
-                          <span className="compare-head-ph">Imagem em breve</span>
+                          <span className="compare-head-ph">Foto em preparação</span>
                         )}
                         <span className="compare-head-name">{item.name}</span>
                       </Link>

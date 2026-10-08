@@ -16,6 +16,7 @@ import { mixedCartBlockMessagePt, isMixedSellerCart } from '@/lib/mixed-cart';
 import { CartCouponField } from '@/components/CartCouponField';
 import { cartDiscountAmount, cartPayableTotal } from '@/lib/cart-coupon';
 import { cartEmptyCopy, cartFreightNote, cartLinePriceView } from '@/lib/cart-ux';
+import { cartJourneyLede } from '@/lib/storefront-states';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
 import { IdentitySteps } from '@/components/identidade/IdentitySteps';
 import { SchimitzMonogram } from '@/components/brand/SchimitzMark';
@@ -267,6 +268,7 @@ export default function CartPage() {
         {hasItems ? <span className="cart-heading-count"> ({cart.itemCount})</span> : null}
       </h1>
       <IdentitySteps current={1} />
+      <p className="cart-lede">{cartJourneyLede()}</p>
       {actionErr ? <div className="alert" style={{ marginBottom: 12 }}>{actionErr}</div> : null}
       {mixedCart ? (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>

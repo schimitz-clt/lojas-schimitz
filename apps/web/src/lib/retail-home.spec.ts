@@ -7,6 +7,7 @@ import {
   resolveRetailTrust,
   sellableCountFromCatalog,
   shouldUseRetailHome,
+  homeShowsEditorialStage,
   visibleCatalogBadge,
 } from './retail-home';
 
@@ -17,6 +18,9 @@ assert.equal(shouldUseRetailHome(0), false);
 assert.equal(shouldUseRetailHome(1), true);
 assert.equal(shouldUseRetailHome(5), true);
 assert.equal(shouldUseRetailHome(6), false);
+assert.equal(homeShowsEditorialStage(true, 3), true);
+assert.equal(homeShowsEditorialStage(false, 5), false);
+assert.equal(homeShowsEditorialStage(true, 0), false);
 
 {
   const ids = bestsellerIdsFromShelves({

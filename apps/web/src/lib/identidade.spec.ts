@@ -91,7 +91,8 @@ assert.ok(campaign.includes('formatWhatsAppDisplay'), 'campaign shows the store 
 
 const page = readFileSync(join(src, 'app/page.tsx'), 'utf8');
 assert.ok(page.includes('shouldUseRetailHome'), 'boutique home still uses the 1–5 catalog gate');
-assert.ok(page.includes('EditorialStage'), 'abertura renders the sellable preview');
+assert.ok(page.includes('homeShowsEditorialStage'), 'abertura is gated to the retail home');
+assert.ok(page.includes('EditorialStage'), 'abertura still exists for the 1–5 catalog');
 
 const home = readFileSync(join(src, 'components/RetailHome.tsx'), 'utf8');
 assert.ok(home.includes('pixPrice'), 'home price is the PIX helper');
