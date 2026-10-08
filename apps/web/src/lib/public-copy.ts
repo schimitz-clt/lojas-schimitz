@@ -4,7 +4,7 @@
  */
 
 const QA_PHRASE =
-  /ideal para testar|experi[eê]ncia de compra da loja|testar a experi[eê]ncia|produto do cat[aá]logo lojas schimitz|homologa[cç][aã]o|vitrine de teste|seed de cat[aá]logo|apenas para testar/i;
+  /ideal para testar|experi[eê]ncia de compra da loja|testar a experi[eê]ncia|produto do cat[aá]logo lojas schimitz|produto de homologa[cç][aã]o|vitrine de teste|seed de cat[aá]logo|apenas para testar/i;
 
 export function isQaCatalogCopy(text: string | null | undefined): boolean {
   const t = typeof text === 'string' ? text.trim() : '';
