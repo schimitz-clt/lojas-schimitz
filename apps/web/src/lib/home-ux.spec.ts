@@ -169,11 +169,11 @@ assert.ok(css.includes('.bottom-nav-ico svg'), 'bottom nav SVGs are optically si
 assert.ok(shortcuts.includes('HomeShortcutGlyph'), 'home shortcuts share the storefront icon set');
 assert.equal(css.includes('.site-chrome-head.is-compact'), false, 'compact collapse CSS removed');
 assert.ok(
-  /\.site-chrome\s*\{[^}]*position:\s*sticky/s.test(css),
+  /\.site-chrome\s*\{[^}]*position:\s*sticky/.test(css),
   'sticky lives on site-chrome so yellow, search, and address share one track',
 );
 assert.equal(
-  /\.site-chrome-head\s*\{[^}]*position:\s*sticky/s.test(css),
+  /\.site-chrome-head\s*\{[^}]*position:\s*sticky/.test(css),
   false,
   'black header is not sticky on its own (that let the yellow scroll away)',
 );
