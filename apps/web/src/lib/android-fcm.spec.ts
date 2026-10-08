@@ -84,7 +84,16 @@ assert.ok(kotlin.includes('pushDeviceId'), 'WebView can read the device id');
 assert.ok(pushReg.includes('sch_push_device'), 'device id cookie for PDP views');
 assert.ok(pushReg.includes('KEY_DEVICE_ID'), 'persists API device id');
 assert.ok(!pushReg.includes('sch_push_device=$token') && !pushReg.includes('sch_push_device=${token}'), 'cookie is not the FCM token');
-assert.ok(gradle.includes('versionCode = 11'), 'version bump so Play closed testing picks up FCM retry');
-assert.ok(gradle.includes('versionName = "1.0.10"'), 'patch version for the registration fix');
+// A correção do retry de registro FCM saiu no versionCode 11 / 1.0.10. Versões posteriores
+// (ex.: 13 / 1.0.12, ícones N5) continuam válidas — o teste só exige que não haja regressão.
+const versionCode = Number(/versionCode\s*=\s*(\d+)/.exec(gradle)?.[1] ?? NaN);
+const versionName = /versionName\s*=\s*"(\d+)\.(\d+)\.(\d+)"/.exec(gradle);
+assert.ok(versionCode >= 11, `versionCode >= 11 (FCM retry shipped in 11); got ${versionCode}`);
+assert.ok(versionName, 'versionName semver');
+const [maj, min, patch] = versionName!.slice(1).map(Number);
+assert.ok(
+  maj > 1 || (maj === 1 && (min > 0 || patch >= 10)),
+  `versionName >= 1.0.10 (registration fix); got ${versionName![0]}`,
+);
 
 console.log('android-fcm tests ok');
