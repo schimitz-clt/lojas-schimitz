@@ -119,7 +119,7 @@ assert.equal(merged.categoryName, 'Eletro');
 
 assert.ok(compareCell(a, 'price').includes('1.000'));
 assert.ok(compareCell(a, 'pix').includes('950'));
-assert.ok(/3x/.test(compareCell(a, 'installments')));
+assert.ok(/12x/.test(compareCell(a, 'installments')));
 assert.equal(compareCell(a, 'seller'), 'Lojas Schimitz');
 assert.equal(compareCell(a, 'category'), 'TVs e Áudio');
 assert.equal(compareCell(a, 'stock'), 'Em estoque (8)');

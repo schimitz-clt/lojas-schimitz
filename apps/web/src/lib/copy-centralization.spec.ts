@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import {
   CARD_INSTALLMENTS_HIGHLIGHT,
+  MAX_INSTALLMENTS,
   cardInstallmentClaim,
   cardInstallmentPhrase,
   cardInstallmentShort,
@@ -10,10 +11,11 @@ import {
 import { departmentEmptyCopy, homeEmptyCopy, searchEmptyCopy } from './storefront-pro';
 
 // ---- parcelamento no cartão: uma fonte só (pricing.ts); NÃO promete "sem juros" ----
-assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 3);
-assert.equal(cardInstallmentShort(), '3x no cartão');
-assert.equal(cardInstallmentPhrase(), 'parcele em até 3x no cartão');
-assert.equal(cardInstallmentClaim(), 'Parcele em até 3x no cartão');
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 12);
+assert.equal(cardInstallmentShort(), '12x no cartão');
+assert.equal(cardInstallmentPhrase(), 'parcele em até 12x no cartão');
+assert.equal(cardInstallmentClaim(), 'Parcele em até 12x no cartão');
 
 const src = join(__dirname, '..');
 function walk(dir: string): string[] {

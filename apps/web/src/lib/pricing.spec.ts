@@ -40,8 +40,8 @@ const sum = Math.round((pixPrice(base) + pixSavings(base)) * 100) / 100;
 assert.equal(sum, Math.round(base * 100) / 100);
 
 assert.equal(MAX_INSTALLMENTS, 12);
-assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 3);
-assert.ok(CARD_INSTALLMENTS_HIGHLIGHT < MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, MAX_INSTALLMENTS, 'o destaque é o mesmo maxInstallments do Card Brick');
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 12);
 
 assert.equal(clampInstallments(0), 1);
 assert.equal(clampInstallments(99), MAX_INSTALLMENTS);
@@ -58,20 +58,19 @@ assert.equal(installmentValue(120, 12), 10);
 
 // Acima de 1x a linha NÃO mostra valor de parcela (a real inclui juros do cartão) nem "sem juros".
 const line = installmentLine(120);
-assert.equal(line, 'Parcele em até 3x no cartão');
-assert.equal(installmentLine(120, 12), 'Parcele em até 12x no cartão');
+assert.equal(line, 'Parcele em até 12x no cartão');
+assert.equal(installmentLine(120, 3), 'Parcele em até 3x no cartão');
 
 const oneShot = installmentLine(120, 1);
 assert.ok(oneShot.startsWith('1x de '));
 assert.ok(oneShot.includes('à vista'));
 
-assert.equal(cardInstallmentClaim(), 'Parcele em até 3x no cartão');
+assert.equal(cardInstallmentClaim(), 'Parcele em até 12x no cartão');
 const note = installmentTableNote();
-assert.ok(note.includes('até 3x no cartão'));
-assert.ok(note.includes('12x'));
+assert.ok(note.includes('até 12x no cartão'));
 assert.ok(/Mercado Pago/.test(note));
 assert.ok(note.includes(INSTALLMENT_INTEREST_NOTE));
-assert.ok(/juros/.test(INSTALLMENT_INTEREST_NOTE) && !/sem juros/i.test(INSTALLMENT_INTEREST_NOTE));
+assert.ok(/juros/i.test(INSTALLMENT_INTEREST_NOTE) && !/sem juros/i.test(INSTALLMENT_INTEREST_NOTE));
 for (const t of [line, oneShot, note, cardInstallmentClaim()]) {
   assert.ok(!/sem juros|s\/ juros|sem acr[eé]scimo/i.test(t), `não pode prometer sem juros: ${t}`);
 }
@@ -96,7 +95,7 @@ const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 
 assert.ok(pdp.includes('installmentSuffix'), 'PDP table uses honest suffix');
 assert.ok(pdp.includes('installmentTableNote'), 'PDP table explains 4–12x may include interest');
 assert.ok(pdp.includes('MAX_INSTALLMENTS'), 'PDP still lists 1–12 options');
-assert.ok(pdp.includes('installmentLine'), 'PDP headline uses installmentLine (3x default)');
+assert.ok(pdp.includes('installmentLine'), 'PDP headline uses installmentLine (12x default)');
 
 const brickUi = readFileSync(join(srcRoot, 'lib/card-payment-ui.ts'), 'utf8');
 assert.ok(brickUi.includes('maxInstallments: MAX_INSTALLMENTS'), 'Brick still max 12');
@@ -106,3 +105,10 @@ assert.ok(checkout.includes('isPixPromoCollidingCouponCode'), 'checkout skips st
 assert.ok(!/placeholder="Ex\.: PIX5"/.test(checkout), 'checkout must not advertise retired PIX5');
 
 console.log('pricing display helpers ok');
+
+// Honestidade: onde o cartão é anunciado (produto, checkout, termos, suporte) o aviso de juros vem junto.
+for (const f of ['app/produto/[slug]/ProductClient.tsx', 'app/checkout/page.tsx', 'app/termos/page.tsx', 'app/suporte/page.tsx']) {
+  const code = readFileSync(join(srcRoot, f), 'utf8');
+  assert.ok(code.includes('INSTALLMENT_INTEREST_NOTE'), `${f} mostra o aviso de juros do cartão`);
+}
+assert.equal(INSTALLMENT_INTEREST_NOTE, 'Juros conforme o cartão, informados no checkout.');

@@ -22,7 +22,7 @@ A Lojas Schimitz agora está no seu celular. Compre eletro, celulares, informát
 
 POR QUE COMPRAR PELO APP
 • PIX com desconto: pague no PIX e ganhe 5% de desconto na hora.
-• Parcele no cartão em até 3x (juros conforme o Mercado Pago), com pagamento processado pelo Mercado Pago.
+• Parcele em até 12x no cartão (juros conforme o cartão, informados no checkout), com pagamento processado pelo Mercado Pago.
 • Frete grátis em Porto Alegre, de acordo com as condições da loja. Para outras cidades, informe o CEP e veja o prazo e o valor antes de fechar o pedido.
 • Ofertas e cupons: acompanhe as promoções da semana e os cupons ativos.
 • Notificações (opcionais): avisos de ofertas e novidades. Você pode desligar quando quiser nas configurações do Android.
@@ -45,14 +45,14 @@ A Lojas Schimitz é uma loja de Porto Alegre (RS) focada em eletro, celulares e 
 Dúvidas, trocas e privacidade: fale com a gente pelo WhatsApp. Para excluir sua conta: lojasschimitz.com.br/excluir-conta.
 ```
 
-> **PENDENTE DO HECTOR:** confirme as condições comerciais que a descrição cita (PIX 5%, parcelamento em até 3x no cartão, frete grátis em POA, trocas). Elas foram copiadas da faixa da home em 09/10/2026. Se mudarem, a ficha precisa mudar junto, porque a Google pune descrição enganosa.
+> **PENDENTE DO HECTOR:** confirme as condições comerciais que a descrição cita (PIX 5%, parcelamento em até 12x no cartão, frete grátis em POA, trocas). Elas foram copiadas da faixa da home em 09/10/2026. Se mudarem, a ficha precisa mudar junto, porque a Google pune descrição enganosa.
 
 ### Notas da versão (≤ 500; atual: 311) · versão 1.0.12 · versionCode 13
 
 ```
 Primeira versão pública da Lojas Schimitz:
 • Loja completa: busca, categorias, ofertas, favoritos e carrinho.
-• Pagamento por PIX (com desconto) ou cartão em até 3x, via Mercado Pago.
+• Pagamento por PIX (com desconto) ou cartão em até 12x, via Mercado Pago.
 • Acompanhamento de pedidos e atendimento pelo WhatsApp.
 • Notificações opcionais de ofertas.
 • Nova identidade visual e ícone.

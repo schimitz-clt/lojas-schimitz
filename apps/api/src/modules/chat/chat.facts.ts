@@ -13,7 +13,7 @@ export const PIX_DISCOUNT_PCT = 5;
 export const INSTALLMENTS = MAX_INSTALLMENTS;
 export const CARD_HIGHLIGHT = CARD_INSTALLMENTS_HIGHLIGHT;
 /** Frase única de parcelamento (sem prometer isenção de juros). */
-export const CARD_INSTALLMENT_FACT = `Parcele no cartão em até ${CARD_HIGHLIGHT}x (e até ${MAX_INSTALLMENTS}x) pelo Mercado Pago; os juros, se houver, dependem do cartão e aparecem antes de você confirmar o pagamento.`;
+export const CARD_INSTALLMENT_FACT = `Parcele em até ${CARD_HIGHLIGHT}x no cartão pelo Mercado Pago. Juros conforme o cartão, informados no checkout.`;
 export const INSTALLMENTS_PROVIDER = 'Mercado Pago';
 /** Frete grátis em Porto Alegre (CEP prefixos 90 e 91); fora, taxa padrão. */
 export const FREE_SHIPPING_REGION = 'Porto Alegre';

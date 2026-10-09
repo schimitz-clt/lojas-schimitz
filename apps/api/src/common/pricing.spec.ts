@@ -20,8 +20,8 @@ import {
 
 assert.equal(PIX_DISCOUNT_RATE, 0.05);
 assert.equal(MAX_INSTALLMENTS, 12);
-assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 3);
-assert.ok(CARD_INSTALLMENTS_HIGHLIGHT < MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 12);
 assert.equal(pixChargeAmount(100), 95);
 assert.equal(pixDiscountAmount(100), 5);
 assert.equal(pixChargeAmount(19.9), 18.9);

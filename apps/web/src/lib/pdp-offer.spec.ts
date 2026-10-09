@@ -33,10 +33,8 @@ assert.equal(pills.length, 2);
 assert.equal(pills[0].id, 'pix');
 assert.ok(/pix\s*5%/i.test(pills[0].label));
 assert.equal(pills[1].label, cardInstallmentClaim());
-assert.ok(/até 3x no cartão/i.test(pills[1].label));
+assert.ok(/até 12x no cartão/i.test(pills[1].label));
 assert.ok(!/sem juros/i.test(pills[1].label));
-assert.ok(!/12x/.test(pills.map((p) => p.label).join(' ')));
-
 assert.deepEqual(pdpMobileContentOrder(), [
   'gallery',
   'title',

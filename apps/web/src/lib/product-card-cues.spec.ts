@@ -9,9 +9,8 @@ assert.deepEqual(
 );
 assert.ok(cues.every((c) => c.label && c.tone));
 assert.ok(/PIX/i.test(cues[0].label));
-assert.ok(/3x/.test(cues[1].label));
+assert.ok(/12x/.test(cues[1].label));
 assert.ok(/Frete/i.test(cues[2].label));
-assert.ok(!/12x/.test(cues.map((c) => c.label).join(' ')));
 
 assert.equal(productCardKicker('Celulares', 'Loja'), 'Celulares');
 assert.equal(productCardKicker('  ', 'Schimitz'), 'Schimitz');

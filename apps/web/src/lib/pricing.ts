@@ -18,12 +18,12 @@ export function isPixPromoCollidingCouponCode(code: string | null | undefined): 
 /** Card Brick / checkout max installment options — not the interest-free marketing claim. */
 export const MAX_INSTALLMENTS = 12;
 /**
- * Quantas parcelas a loja destaca no marketing (“parcele em até 3x no cartão”).
+ * Quantas parcelas a loja destaca no marketing (“parcele em até 12x no cartão”, igual ao maxInstallments do Card Brick).
  * NÃO é promessa de parcelamento sem juros: os juros de cada parcelamento são definidos pelo
  * Mercado Pago conforme o cartão (consulta de 09/10/2026: 2x = 9,64%, 3x = 11,23%).
  * Só volte a falar em “sem juros” depois de confirmar no painel do Mercado Pago (e atualizar o spec).
  */
-export const CARD_INSTALLMENTS_HIGHLIGHT = 3;
+export const CARD_INSTALLMENTS_HIGHLIGHT = MAX_INSTALLMENTS;
 
 export function toNumber(n: number | string | null | undefined): number {
   const v = Number(n);
@@ -45,9 +45,8 @@ export function clampInstallments(n: number): number {
   return Math.max(1, Math.min(MAX_INSTALLMENTS, Math.floor(n) || 1));
 }
 
-/** Aviso único sobre juros (usado em termos, suporte, tabela de parcelas e chat). */
-export const INSTALLMENT_INTEREST_NOTE =
-  'Os juros, se houver, são definidos pelo Mercado Pago conforme o cartão e aparecem antes de você confirmar o pagamento.';
+/** Aviso curto e único sobre juros (produto, checkout, termos, suporte, tabela de parcelas). */
+export const INSTALLMENT_INTEREST_NOTE = 'Juros conforme o cartão, informados no checkout.';
 
 /**
  * PT-BR suffix after “Nx de R$ …”. 1x = à vista; acima disso o valor é só a divisão do preço
@@ -63,24 +62,24 @@ export function installmentSuffix(n: number): string {
  * The ONLY place the card-installment marketing phrase is written. Every storefront text must use
  * these helpers (or CARD_INSTALLMENTS_HIGHLIGHT) — see installment-claim.spec.ts.
  */
-/** “3x no cartão” (no “até”), for chips/lists that already set the context. */
+/** “12x no cartão” (no “até”), for chips/lists that already set the context. */
 export function cardInstallmentShort(): string {
   return `${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
-/** “parcele em até 3x no cartão”, lower case, for use inside sentences. */
+/** “parcele em até 12x no cartão”, lower case, for use inside sentences. */
 export function cardInstallmentPhrase(): string {
   return `parcele em até ${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
-/** Short marketing claim used on home/header/trust badges: “Parcele em até 3x no cartão”. */
+/** Short marketing claim used on home/header/trust badges: “Parcele em até 12x no cartão”. */
 export function cardInstallmentClaim(): string {
   return `Parcele em até ${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
 /** Honest footnote for the 1–MAX installment table. */
 export function installmentTableNote(): string {
-  return `${cardInstallmentClaim()}, ou em até ${MAX_INSTALLMENTS}x pelo Mercado Pago. ${INSTALLMENT_INTEREST_NOTE}`;
+  return `${cardInstallmentClaim()} pelo Mercado Pago. ${INSTALLMENT_INTEREST_NOTE}`;
 }
 
 export function installmentValue(price: number | string, n = MAX_INSTALLMENTS): number {
