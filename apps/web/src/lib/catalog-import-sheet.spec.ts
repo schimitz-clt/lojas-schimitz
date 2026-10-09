@@ -4,6 +4,7 @@
  */
 import assert from 'assert';
 import { readFileSync } from 'fs';
+import { inflateRawSync } from 'zlib';
 import { join } from 'path';
 import {
   decodeCsvBytes,
@@ -24,6 +25,26 @@ import {
 import { buildTemplateCsv, buildTemplateXlsx } from '../../scripts/gerar-modelo-importacao';
 
 const root = join(__dirname, '..', '..');
+/** Conteúdo descompactado de cada arquivo do zip (o deflate muda conforme a versão do zlib). */
+function unzipEntries(buf: Buffer): Record<string, string> {
+  const out: Record<string, string> = {};
+  let eocd = buf.length - 22;
+  while (eocd >= 0 && buf.readUInt32LE(eocd) !== 0x06054b50) eocd--;
+  let p = buf.readUInt32LE(eocd + 16);
+  for (let i = 0; i < buf.readUInt16LE(eocd + 10); i++) {
+    const method = buf.readUInt16LE(p + 10);
+    const comp = buf.readUInt32LE(p + 20);
+    const nameLen = buf.readUInt16LE(p + 28);
+    const name = buf.subarray(p + 46, p + 46 + nameLen).toString('utf8');
+    const off = buf.readUInt32LE(p + 42);
+    const start = off + 30 + buf.readUInt16LE(off + 26) + buf.readUInt16LE(off + 28);
+    const raw = buf.subarray(start, start + comp);
+    out[name] = (method === 8 ? inflateRawSync(raw) : raw).toString('utf8');
+    p += 46 + nameLen + buf.readUInt16LE(p + 30) + buf.readUInt16LE(p + 32);
+  }
+  return out;
+}
+
 const fixture = (name: string) => new Uint8Array(readFileSync(join(__dirname, '__fixtures__', name)));
 
 async function main() {
@@ -40,7 +61,7 @@ async function main() {
   {
     // Modelos commitados = saída do gerador (ninguém editou o binário à mão).
     const xlsx = readFileSync(join(root, 'public', 'modelos', 'modelo-importacao-produtos.xlsx'));
-    assert.ok(Buffer.compare(xlsx, buildTemplateXlsx()) === 0, 'rode scripts/gerar-modelo-importacao.ts');
+    assert.deepEqual(unzipEntries(xlsx), unzipEntries(buildTemplateXlsx()), 'rode scripts/gerar-modelo-importacao.ts');
     const csv = readFileSync(join(root, 'public', 'modelos', 'modelo-importacao-produtos.csv'), 'utf8');
     assert.equal(csv, buildTemplateCsv());
     const rows = await readXlsxMatrix(new Uint8Array(xlsx));
