@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   SEARCH_OPEN_CLASS,
   SEARCH_RESULTS_CLASS,
+  chromeNeedsVvHeight,
   chromeStackHeight,
   chromeVisualTop,
   filterBarStickyTop,
@@ -65,5 +66,19 @@ assert.match(
   'mobile filter bar uses the chrome offset',
 );
 assert.ok(layout.includes("interactiveWidget: 'resizes-content'"), 'keyboard resizes layout instead of pushing the bar');
+
+// Rolagem no celular: a barra de endereço muda innerHeight e visualViewport.height juntos → NÃO grava --vv-height.
+assert.equal(chromeNeedsVvHeight(844, 844), false);
+assert.equal(chromeNeedsVvHeight(900, 844), false, 'barra de endereço (56px) não conta como teclado');
+assert.equal(chromeNeedsVvHeight(844, 520), true, 'teclado aberto encolhe só a viewport visual');
+assert.equal(chromeNeedsVvHeight(undefined, 500), false);
+assert.equal(chromeNeedsVvHeight(800, 0), false);
+
+// O Header só escreve na raiz quando o valor muda, no máximo 1x por frame, e remove a variável sem teclado.
+const headerSrc = readFileSync(join(__dirname, '../components/Header.tsx'), 'utf8');
+assert.ok(headerSrc.includes('requestAnimationFrame(apply)'), 'vv listener coalesced per frame');
+assert.ok(headerSrc.includes('lastHeight') && headerSrc.includes('lastTop'), 'vv writes skip unchanged values');
+assert.ok(headerSrc.includes("removeProperty('--vv-height')"), 'vv-height removed when no keyboard');
+assert.ok(!/vv\.addEventListener\('(scroll|resize)', apply\)/.test(headerSrc), 'no direct per-event root write');
 
 console.log('search-chrome unit tests ok');

@@ -25,7 +25,7 @@ import {
   catalogSearchBackHref,
   isCatalogSearchResults,
 } from '@/lib/storefront-pro';
-import { chromeStackHeight, chromeVisualTop, SEARCH_RESULTS_CLASS } from '@/lib/search-chrome';
+import { chromeNeedsVvHeight, chromeStackHeight, chromeVisualTop, SEARCH_RESULTS_CLASS } from '@/lib/search-chrome';
 import { configuredPromoLines } from '@/lib/retail-home';
 
 /**
@@ -91,18 +91,38 @@ export function Header() {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
+    const root = document.documentElement;
+    let raf = 0;
+    let lastTop = Number.NaN;
+    let lastHeight = Number.NaN;
+    // Só escreve na raiz quando o valor MUDA e no máximo 1x por frame: setProperty em :root invalida o
+    // estilo da página toda, e a barra de endereço do celular dispara resize/scroll do visualViewport
+    // a cada frame durante a rolagem.
     const apply = () => {
+      raf = 0;
       const top = chromeVisualTop(vv.offsetTop);
-      document.documentElement.style.setProperty('--vv-top', `${top}px`);
-      const height = chromeStackHeight(vv.height);
-      if (height > 0) document.documentElement.style.setProperty('--vv-height', `${height}px`);
+      if (top !== lastTop) {
+        lastTop = top;
+        if (top > 0) root.style.setProperty('--vv-top', `${top}px`);
+        else root.style.removeProperty('--vv-top');
+      }
+      const height = chromeNeedsVvHeight(window.innerHeight, vv.height) ? chromeStackHeight(vv.height) : 0;
+      if (height !== lastHeight) {
+        lastHeight = height;
+        if (height > 0) root.style.setProperty('--vv-height', `${height}px`);
+        else root.style.removeProperty('--vv-height');
+      }
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
     };
     apply();
-    vv.addEventListener('scroll', apply);
-    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', schedule);
+    vv.addEventListener('resize', schedule);
     return () => {
-      vv.removeEventListener('scroll', apply);
-      vv.removeEventListener('resize', apply);
+      if (raf) cancelAnimationFrame(raf);
+      vv.removeEventListener('scroll', schedule);
+      vv.removeEventListener('resize', schedule);
     };
   }, []);
 

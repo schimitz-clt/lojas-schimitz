@@ -15,6 +15,20 @@ export function chromeVisualTop(offsetTop: number | null | undefined): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * `--vv-height` só é necessário quando o teclado encolhe a viewport VISUAL sem encolher a de layout
+ * (suggestões da busca). Durante a rolagem no celular a barra de endereço recolhe e `innerHeight` e
+ * `visualViewport.height` mudam JUNTOS a cada frame: gravar a variável na raiz nesse caso invalida o
+ * estilo da página inteira por frame (medido: UpdateLayoutTree 1,9 s → 0,3 s). Sem teclado, usa o
+ * fallback `100dvh` do CSS.
+ */
+export function chromeNeedsVvHeight(innerHeight: number | null | undefined, vvHeight: number | null | undefined): boolean {
+  const a = typeof innerHeight === 'number' ? innerHeight : Number.NaN;
+  const b = typeof vvHeight === 'number' ? vvHeight : Number.NaN;
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return false;
+  return a - b > 80;
+}
+
 export function chromeStackHeight(height: number | null | undefined): number {
   const n = typeof height === 'number' ? height : Number.NaN;
   if (!Number.isFinite(n) || n <= 0) return 0;
