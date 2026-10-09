@@ -17,6 +17,7 @@ import {
   toggleSkuSelection,
   type CatalogPreviewRow,
 } from '@/lib/catalog-import-ui';
+import { shippingDataStatusText, shippingDataTone, type ShippingDataSummary } from '@/lib/admin-shipping-data';
 import { matrixToCsv, parseCsvMatrix, readSpreadsheetFile, type Matrix } from '@/lib/spreadsheet-read';
 
 type ImportMode = 'upsert' | 'create_only';
@@ -87,6 +88,36 @@ export function AdminCatalogImportPanel() {
   const [importBusy, setImportBusy] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [importErr, setImportErr] = useState('');
+
+  const [shipData, setShipData] = useState<ShippingDataSummary | null>(null);
+  const [shipBusy, setShipBusy] = useState(false);
+  const [shipErr, setShipErr] = useState('');
+
+  async function checkShippingData(download: boolean) {
+    setShipBusy(true);
+    setShipErr('');
+    try {
+      const data = await api<{ filename: string; summary: ShippingDataSummary; csv: string }>(
+        '/admin/ops/products-missing-shipping-data',
+      );
+      setShipData(data.summary);
+      if (download && data.summary.missingCount > 0) {
+        const blob = new Blob([`\uFEFF${data.csv || ''}`], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.filename || 'produtos-sem-peso-medidas.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e: any) {
+      setShipErr(e?.message || 'Não foi possível conferir peso e medidas.');
+    } finally {
+      setShipBusy(false);
+    }
+  }
 
   const [q, setQ] = useState('');
   const [active, setActive] = useState<'all' | 'true' | 'false'>('all');
@@ -322,6 +353,30 @@ export function AdminCatalogImportPanel() {
           <a className="btn ghost admin-btn-ghost-pro" href={CATALOG_TEMPLATE_CSV_URL} download>
             Baixar modelo (CSV)
           </a>
+        </div>
+
+        <div className="admin-import-shipping" data-testid="admin-shipping-data">
+          <h3 style={{ marginTop: 12 }}>Peso e medidas (frete)</h3>
+          <div className="admin-import-actions">
+            <button type="button" className="btn ghost admin-btn-ghost-pro" disabled={shipBusy} onClick={() => void checkShippingData(false)}>
+              {shipBusy ? 'Conferindo…' : 'Conferir produtos sem peso/medidas'}
+            </button>
+            {shipData && shipData.missingCount > 0 ? (
+              <button type="button" className="btn ghost admin-btn-ghost-pro" disabled={shipBusy} onClick={() => void checkShippingData(true)}>
+                Baixar lista (CSV)
+              </button>
+            ) : null}
+          </div>
+          {shipData ? (
+            <p className={shippingDataTone(shipData) === 'warn' ? 'admin-catalog-alert' : 'muted'} role="status">
+              {shippingDataStatusText(shipData)}
+            </p>
+          ) : null}
+          {shipErr ? (
+            <p role="alert" className="admin-catalog-alert admin-catalog-alert--danger">
+              {shipErr}
+            </p>
+          ) : null}
         </div>
 
         <div className="admin-import-actions">
