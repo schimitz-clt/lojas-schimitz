@@ -36,19 +36,19 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "helmet": "^8.0.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.4.0",
     "firebase-admin": "^13.5.0",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^10.0.16",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^11.0.5"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/multer": "^1.4.13",
     "@types/node": "^22.13.1",
-    "@types/nodemailer": "^6.4.24",
+    "@types/nodemailer": "^8.0.2",
     "@types/swagger-ui-express": "^4.1.8",
     "prisma": "^6.3.1",
     "tsx": "^4.19.2",
@@ -57,5 +57,17 @@
   "prisma": {
     "schema": "../../prisma/schema.prisma",
     "seed": "tsx ../../prisma/seed.ts"
+  },
+  "overrides": {
+    "express": "^4.22.3",
+    "body-parser": "^1.20.8",
+    "proxy-addr": "^2.0.8",
+    "qs": "^6.16.0",
+    "multer": "$multer",
+    "file-type": "^21.3.4",
+    "js-yaml": "^4.3.2",
+    "lodash": "^4.18.1",
+    "deepmerge-ts": "^8.0.2",
+    "uuid": "$uuid"
   }
 }

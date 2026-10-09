@@ -27,6 +27,8 @@ function resetEnv() {
   for (const k of [
     'APP_ENV',
     'NODE_ENV',
+    'RAILWAY_ENVIRONMENT',
+    'RAILWAY_ENVIRONMENT_NAME',
     'REFRESH_COOKIE_ENABLED',
     'REFRESH_COOKIE_SECURE',
     'REFRESH_COOKIE_SAMESITE',
@@ -150,9 +152,31 @@ try {
   setRefreshCookie(resOff, 'x');
   assert.equal(resOff.getHeader('Set-Cookie'), undefined);
 
-  // JSON omit deprecation path (opt-in only). Default MUST stay true (Phase A: no prod flip).
+  // Unset default: cookie-only JSON in prod/staging (web + WebView are cookie-first),
+  // dual (JSON refresh kept) in dev/test for localhost web:3000 → api:3001.
   delete process.env.REFRESH_JSON_TOKEN_ENABLED;
   process.env.REFRESH_COOKIE_ENABLED = 'true';
+  for (const prodLike of [
+    { APP_ENV: 'production' },
+    { NODE_ENV: 'production' },
+    { APP_ENV: 'staging' },
+    { RAILWAY_ENVIRONMENT: 'production' },
+    { RAILWAY_ENVIRONMENT_NAME: 'staging' },
+    { NODE_ENV: 'production', REFRESH_JSON_TOKEN_ENABLED: '' },
+  ]) {
+    assert.equal(refreshJsonTokenEnabled(prodLike), false, `prod-like default off: ${JSON.stringify(prodLike)}`);
+  }
+  for (const devLike of [{}, { APP_ENV: 'development' }, { NODE_ENV: 'test' }]) {
+    assert.equal(refreshJsonTokenEnabled(devLike), true, `dev default on: ${JSON.stringify(devLike)}`);
+  }
+  // Explicit env always wins (rollback = REFRESH_JSON_TOKEN_ENABLED=true on Railway API).
+  assert.equal(refreshJsonTokenEnabled({ NODE_ENV: 'production', REFRESH_JSON_TOKEN_ENABLED: 'true' }), true);
+  assert.equal(refreshJsonTokenEnabled({ APP_ENV: 'development', REFRESH_JSON_TOKEN_ENABLED: 'false' }), false);
+
+  delete process.env.APP_ENV;
+  delete process.env.NODE_ENV;
+  delete process.env.RAILWAY_ENVIRONMENT;
+  delete process.env.RAILWAY_ENVIRONMENT_NAME;
   assert.equal(refreshJsonTokenEnabled(), true);
   assert.equal(shouldOmitRefreshTokenInJson(), false);
   const full = shapeAuthSessionPayload({

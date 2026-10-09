@@ -129,7 +129,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Renovar access token',
     description:
-      'Aceita refresh no cookie HttpOnly `sch_refresh` **ou** no body (`refreshToken`). Cookie tem precedência; body é fallback (localhost/legado). JSON inclui `refreshToken` por default; com REFRESH_COOKIE_ENABLED + REFRESH_JSON_TOKEN_ENABLED=false a resposta omite o campo (cookie-only). Merge de código não flipa prod — ver checklist em docs/SECURITY.md.',
+      'Aceita refresh no cookie HttpOnly `sch_refresh` **ou** no body (`refreshToken`). Cookie tem precedência; body é fallback (localhost/legado). Em prod/staging a resposta omite `refreshToken` (cookie-only) salvo REFRESH_JSON_TOKEN_ENABLED=true; em dev/test o JSON inclui o campo. Ver docs/SECURITY.md.',
   })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async refresh(
