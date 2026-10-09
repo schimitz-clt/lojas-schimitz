@@ -17,6 +17,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
+import android.widget.FrameLayout
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
@@ -60,7 +63,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var webView: WebView
+    private lateinit var webViewContainer: FrameLayout
     private lateinit var swipeRefresh: SwipeRefreshLayout
+    private var rendererDeaths: List<Long> = emptyList()
     private lateinit var progressBar: ProgressBar
     private var showingOffline = false
     private var lastRequestedUrl: String = HOME_URL
@@ -97,7 +102,10 @@ class MainActivity : AppCompatActivity() {
         applyDarkGoldSystemBars()
 
         webView = findViewById(R.id.webView)
+        webViewContainer = findViewById(R.id.webViewContainer)
         swipeRefresh = findViewById(R.id.swipeRefresh)
+        // The direct child is a container now: ask the current WebView whether it can scroll up.
+        swipeRefresh.setOnChildScrollUpCallback { _, _ -> webView.canScrollVertically(-1) }
         progressBar = findViewById(R.id.progressBar)
 
         swipeRefresh.setColorSchemeColors(Color.parseColor("#D4AF37"))
@@ -306,6 +314,22 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?,
+            ): Boolean {
+                val crashed = if (Build.VERSION.SDK_INT >= 26) detail?.didCrash() == true else true
+                Log.w("SchimitzWebView", "renderer gone crashed=$crashed; recreating WebView")
+                if (view !== webView) {
+                    (view?.parent as? ViewGroup)?.removeView(view)
+                    view?.destroy()
+                    return true
+                }
+                recreateWebViewAfterRendererGone()
+                // true = handled: the app keeps running instead of being killed with the renderer.
+                return true
+            }
+
             override fun onReceivedSslError(
                 view: WebView?,
                 handler: SslErrorHandler?,
@@ -317,6 +341,27 @@ class MainActivity : AppCompatActivity() {
                     showOfflinePage()
                 }
             }
+        }
+    }
+
+    private fun recreateWebViewAfterRendererGone() {
+        val dead = webView
+        webViewContainer.removeView(dead)
+        dead.destroy()
+        webView = WebView(this).apply {
+            id = R.id.webView
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+        webViewContainer.addView(webView)
+        configureWebView()
+        rendererDeaths = RenderRecoveryPolicy.record(rendererDeaths, System.currentTimeMillis())
+        if (RenderRecoveryPolicy.shouldReload(rendererDeaths)) {
+            retryLoad()
+        } else {
+            showOfflinePage()
         }
     }
 
