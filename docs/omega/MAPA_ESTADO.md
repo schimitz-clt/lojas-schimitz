@@ -1,6 +1,6 @@
 # Lojas Schimitz: mapa do estado real (Fase Zero da diretiva OMEGA)
 
-**Data:** 09/10/2026, por volta de 00:50 UTC (21:50 BRT de 08/10). **Última atualização: 09/10/2026 ~17:20 UTC (seção 8). Main = 8accc39.**
+**Data:** 09/10/2026, por volta de 00:50 UTC (21:50 BRT de 08/10). **Última atualização: 09/10/2026 ~17:20 UTC (seção 8). Main = 56c925a (código = 8accc39). Seção 9 = rodada final.**
 **Base:** `origin/main` = `f842843` (merge do PR #172), inspecionada num worktree separado (`/workspace/ls-omega-mapa`)
 **Método:** leitura do código, logs do CI, Railway (somente leitura) e GETs públicos na produção. Também usei duas cotações de frete públicas, que não gravam nada nem cobram. Não houve escrita em produção, cobrança, pedido nem conta nova.
 
@@ -263,3 +263,16 @@ O checkout do ME debita a carteira. Variáveis a criar só quando o Hector decid
 - Logs do API e do web sem erros.
 
 **Contagem de produtos sem peso/medidas:** não dá para ver de fora. A API pública não expõe peso e eu não acesso o banco de produção. O número aparece para o Hector em **Admin → Importação/Lote → "Conferir produtos sem peso/medidas"** e no alerta do painel de operações.
+
+## 9. Rodada final (09/10/2026 ~17:30–18:00 UTC)
+
+Revalidação: main `56c925a`, API `80b65ac6` e web `d1f02fc6` SUCCESS (o #196 só tem docs: deploys SKIPPED), `/api/v1/health` 200.
+
+| Tema | Resultado | Documento |
+|---|---|---|
+| Queda da API a cada deploy | Causa confirmada na documentação do Railway: o serviço da API tem **volume** (`/data/uploads`) e, com volume, o Railway não roda duas versões juntas. Healthcheck e timeout já estão certos; o overlap não funciona. O volume só guarda uploads do admin (hoje 4 banners; os 100 produtos não têm foto). Plano: uploads para bucket, depois desanexar o volume. **Não implementado** (infra precisa de aprovação). Sem PR de código: nada no código elimina a janela. | `QUEDA_API_DEPLOY.md` |
+| Teste real de cartão 3DS + estorno | Roteiro pronto para o Hector, com checklist para autorizar o #177. | `ROTEIRO_TESTE_CARTAO.md` |
+| Android 1.0.13 | Repo: `versionName 1.0.13`, `versionCode 14` (conferido). Sem keystore no box (nenhum `.jks` nem `keystore.properties`), então **AAB de release não gerado**. `RELEASE.md` revisado. | `play-store/RELEASE.md` |
+| Peso e medidas | Modelo CSV com os 100 produtos ativos (SKU + nome, medidas vazias); o importador aceita (100 linhas, 0 erros). Pela API pública: **100 de 100 produtos ativos sem peso e sem medidas**. | `pesos-medidas-modelo.csv`, `pesos-medidas-LEIAME.md` |
+| Variáveis do Railway | Lista completa, sem valores. Nomes conferidos: `STORE_NOTIFY_EMAIL` e `REFRESH_JSON_TOKEN_ENABLED` existem na API; `NEXT_PUBLIC_STORE_*` não existem no web. | `VARIAVEIS_RAILWAY.md` |
+| "3x sem juros" | Consulta só leitura à API de parcelas do MP com a chave pública do site: 2x = 9,64% e 3x = 11,23% de juros para Mastercard/Visa com parcelamento. **Forte indício de que a frase do site não é verdadeira hoje.** Decisão do Hector (ativar no MP ou trocar o texto). | `PARCELAS_MERCADO_PAGO.md` |
