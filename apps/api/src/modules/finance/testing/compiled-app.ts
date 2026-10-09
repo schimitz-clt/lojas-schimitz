@@ -17,7 +17,7 @@ export function compileApi(): void {
 }
 
 /** Boots the compiled AppModule over real HTTP on 127.0.0.1:<random>. Mirrors src/main.ts. */
-export async function bootHttpApp(): Promise<{ app: any; base: string; get: <T = any>(token: string, file: string) => T; close: () => Promise<void> }> {
+export async function bootHttpApp(port = 0): Promise<{ app: any; base: string; get: <T = any>(token: string, file: string) => T; close: () => Promise<void> }> {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { NestFactory } = require('@nestjs/core');
   const { ValidationPipe } = require('@nestjs/common');
@@ -30,7 +30,7 @@ export async function bootHttpApp(): Promise<{ app: any; base: string; get: <T =
   app.enableCors({ origin: ['http://localhost:3000'], credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.set('trust proxy', 1);
-  await app.listen(0, '127.0.0.1');
+  await app.listen(port, '127.0.0.1');
   const url: string = await app.getUrl();
   return {
     app,
