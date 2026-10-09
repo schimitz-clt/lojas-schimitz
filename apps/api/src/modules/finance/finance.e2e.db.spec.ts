@@ -427,6 +427,74 @@ async function main() {
     return `fetch 500 → HTTP ${w1.status}, processing_failures +1 (health recent15m +1), retry → paid`;
   });
 
+  await scenario('E12', 'Cartão aprovado na hora (HTTP) → PAID, 1 baixa e 1 captura; webhook repetido não duplica', async () => {
+    const b = await user('customer');
+    const p = await product(2);
+    const order = await httpCheckout(b, p.id);
+    fake.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
+    const pay = await httpIntent(b.cookie, orderId(order), 'card');
+    assert.equal(pay.status, 'approved');
+    const body = fake.createBodies[fake.createBodies.length - 1] as Record<string, unknown>;
+    assert.equal(body.token, 'TEST-FAKE-CARD-TOKEN-E2E', 'token do cartão vai ao provedor');
+    assert.equal(body.payment_method_id, 'visa');
+    assert.equal((await postWebhook(pay.externalId)).status, 200);
+    assert.equal((await postWebhook(pay.externalId)).status, 200);
+    const o = await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } });
+    assert.equal(o.status, 'paid');
+    const row = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
+    assert.equal(row.method, 'card');
+    assert.equal(row.financialState, 'PAID');
+    assert.equal((await inv(p.id)).qtyOnHand, 1);
+    assert.equal((await inv(p.id)).qtyReserved, 0);
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: orderId(order), kind: 'COMMIT' } }), 1);
+    assert.equal(await prisma.financialLedgerEntry.count({ where: { paymentId: pay.id, entryType: 'PAYMENT_CAPTURED' } }), 1);
+    return `order paid na resposta; 2 webhooks → 1 commit, 1 captura`;
+  });
+
+  await scenario('E13', 'Cartão com desafio 3DS pendente → fica pendente (sem baixa); emissor aprova → webhook → PAID', async () => {
+    const b = await user('customer');
+    const p = await product(2);
+    const order = await httpCheckout(b, p.id);
+    fake.nextCardStatus = { status: 'pending', status_detail: 'pending_challenge' };
+    const pay = await httpIntent(b.cookie, orderId(order), 'card');
+    fake.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
+    assert.equal(pay.status, 'pending');
+    let o = await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } });
+    assert.notEqual(o.status, 'paid', 'desafio pendente não marca pago');
+    assert.equal((await inv(p.id)).qtyOnHand, 2);
+    assert.equal((await inv(p.id)).qtyReserved, 1, 'estoque segue reservado durante o desafio');
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: orderId(order), kind: 'COMMIT' } }), 0);
+    assert.equal(await prisma.financialLedgerEntry.count({ where: { paymentId: pay.id, entryType: 'PAYMENT_CAPTURED' } }), 0);
+    fake.setPayment(pay.externalId, { status: 'approved', status_detail: 'accredited' });
+    assert.equal((await postWebhook(pay.externalId)).status, 200);
+    o = await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } });
+    assert.equal(o.status, 'paid');
+    assert.equal((await inv(p.id)).qtyOnHand, 1);
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: orderId(order), kind: 'COMMIT' } }), 1);
+    return 'pending_challenge → pendente/reservado; aprovado via webhook → paid, 1 commit';
+  });
+
+  await scenario('E14', 'Cartão com desafio 3DS que falha → recusado via webhook, sem baixa nem captura', async () => {
+    const b = await user('customer');
+    const p = await product(2);
+    const order = await httpCheckout(b, p.id);
+    fake.nextCardStatus = { status: 'pending', status_detail: 'pending_challenge' };
+    const pay = await httpIntent(b.cookie, orderId(order), 'card');
+    fake.nextCardStatus = { status: 'approved', status_detail: 'accredited' };
+    assert.equal(pay.status, 'pending');
+    fake.setPayment(pay.externalId, { status: 'rejected', status_detail: 'cc_rejected_3ds_challenge' });
+    assert.equal((await postWebhook(pay.externalId)).status, 200);
+    const row = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
+    assert.equal(row.status, 'refused');
+    assert.equal(row.financialState, 'FAILED');
+    const o = await prisma.order.findUniqueOrThrow({ where: { id: orderId(order) } });
+    assert.notEqual(o.status, 'paid');
+    assert.equal((await inv(p.id)).qtyOnHand, 2);
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: orderId(order), kind: 'COMMIT' } }), 0);
+    assert.equal(await prisma.financialLedgerEntry.count({ where: { paymentId: pay.id, entryType: 'PAYMENT_CAPTURED' } }), 0);
+    return `cc_rejected_3ds_challenge → refused/FAILED, order ${o.status}, onHand intacto`;
+  });
+
   await prisma.product.updateMany({ where: { sku: { startsWith: 'OMEGA-E2E-' } }, data: { active: false } });
   await srv.close();
   await prisma.$disconnect();
