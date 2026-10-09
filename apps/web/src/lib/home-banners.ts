@@ -1,5 +1,5 @@
 /**
- * Home hero carousel — up to 5 banners, one snap at a time.
+ * Home hero carousel — up to 11 banners, one snap at a time.
  * Swipe lives on the inner track; the page must not gain horizontal overflow
  * (same contract as the PDP gallery). 2+ slides loop via clones so the last
  * banner is never a dead-end, and CSS snap stays light (stop: normal).
@@ -11,7 +11,7 @@ import type { HomeBanner } from '@/lib/storefront';
 
 export type { HomeBanner };
 
-export const MAX_HOME_BANNERS = 5;
+export const MAX_HOME_BANNERS = 11;
 export const HOME_BANNER_AUTO_MS = 5500;
 export const HOME_BANNER_RESUME_MS = 8000;
 export const HOME_BANNER_SETTLE_MS = 120;
@@ -43,9 +43,16 @@ export function takeUsableHomeBanners(list: HomeBanner[] | null | undefined): Ho
   return rows.filter(isUsableHomeBanner).slice(0, MAX_HOME_BANNERS);
 }
 
-/** Total HomeBanner rows (active + inactive). Create limit is 5 total, not 5 active. */
-export function homeBannerRowCount(banners: { length?: number } | null | undefined): number {
-  const n = banners && typeof banners.length === 'number' ? banners.length : 0;
+/**
+ * HomeBanner rows that count toward the cap: the ACTIVE ones (the home only shows active banners).
+ * Deactivated banners are kept (reversible) and do not block creating new ones.
+ */
+export function homeBannerRowCount(
+  banners: ReadonlyArray<{ active?: boolean }> | { length?: number } | null | undefined,
+): number {
+  if (!banners || typeof banners.length !== 'number') return 0;
+  const list = banners as ReadonlyArray<{ active?: boolean }>;
+  const n = list.filter((b) => b == null || typeof b !== 'object' || b.active !== false).length;
   return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
 }
 
@@ -55,7 +62,7 @@ export function canCreateHomeBanner(existingCount: number): boolean {
 }
 
 export function homeBannerLimitMessage(): string {
-  return `Limite de ${MAX_HOME_BANNERS} banners na home. Edite ou exclua um existente.`;
+  return `Limite de ${MAX_HOME_BANNERS} banners ativos na home. Desative, edite ou exclua um existente.`;
 }
 
 export function homeBannerSlotCounter(count: number): string {
@@ -86,9 +93,9 @@ export function homeBannerCountHint(count: number): string {
     return `Até ${MAX_HOME_BANNERS} banners. Só os ativos aparecem na home, um por vez (swipe).`;
   }
   if (n >= MAX_HOME_BANNERS) {
-    return `${MAX_HOME_BANNERS} de ${MAX_HOME_BANNERS} banners. Exclua ou edite um para trocar.`;
+    return `${MAX_HOME_BANNERS} de ${MAX_HOME_BANNERS} banners ativos. Desative, edite ou exclua um para trocar.`;
   }
-  return `${n} de ${MAX_HOME_BANNERS} banners. A home mostra um por vez, com swipe.`;
+  return `${n} de ${MAX_HOME_BANNERS} banners ativos. A home mostra um por vez, com swipe.`;
 }
 
 export function shouldShowBannerChrome(total: number): boolean {

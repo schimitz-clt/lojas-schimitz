@@ -1,6 +1,6 @@
-/** Home banner carousel — at most 5 slides on the vitrine. */
+/** Home banner carousel — at most 11 active slides on the vitrine. */
 
-export const MAX_HOME_BANNERS = 5;
+export const MAX_HOME_BANNERS = 11;
 
 export function takeHomeBanners<T>(rows: T[] | null | undefined): T[] {
   if (!Array.isArray(rows)) return [];
@@ -13,5 +13,5 @@ export function canCreateHomeBanner(existingCount: number): boolean {
 }
 
 export function homeBannerLimitMessage(): string {
-  return `Limite de ${MAX_HOME_BANNERS} banners na home. Edite ou exclua um existente.`;
+  return `Limite de ${MAX_HOME_BANNERS} banners ativos na home. Desative, edite ou exclua um existente.`;
 }
