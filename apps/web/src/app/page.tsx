@@ -6,7 +6,7 @@ import type { Product } from '@/components/ProductCard';
 import { resolveProductImageUrl } from '@/lib/product-media';
 import { IMAGE_WIDTHS, STAGE_IMG_SIZES, responsiveImageProps } from '@/lib/responsive-image';
 import { homeShowsEditorialStage, sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
-import { interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { cardInstallmentPhrase } from '@/lib/pricing';
 import { resolveApiProxyTarget } from '@/lib/api-proxy';
 import {
   HOME_MARKET_CATALOG_PATH,
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     absolute: 'Lojas Schimitz — eletro, celulares e casa em Porto Alegre',
   },
   description:
-    `Lojas Schimitz em Porto Alegre: eletro, celulares e casa. Frete grátis na capital, PIX 5% off e ${interestFreeInstallmentPhrase()}.`,
+    `Lojas Schimitz em Porto Alegre: eletro, celulares e casa. Frete grátis na capital, PIX 5% off e ${cardInstallmentPhrase()}.`,
   alternates: { canonical: '/' },
 };
 

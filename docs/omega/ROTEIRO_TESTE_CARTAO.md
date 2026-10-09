@@ -59,4 +59,4 @@ Marque (ou me diga) cada item:
 
 ## O que este teste NÃO prova
 - Cartões de outros bancos (cada emissor tem o seu 3DS).
-- Parcelamento em 2x ou 3x. Para isso, veja o item "3x sem juros" em `VARIAVEIS_RAILWAY.md` / relatório.
+- Parcelamento em 2x ou 3x. O site já não promete "sem juros": os juros de 2x/3x são os do Mercado Pago (ver `PARCELAS_MERCADO_PAGO.md`).

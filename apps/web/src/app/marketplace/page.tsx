@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { cardInstallmentClaim } from '@/lib/pricing';
 import {
   marketplaceIntro,
   marketplaceSellersHeading,
@@ -19,7 +19,7 @@ export default async function MarketplacePage() {
     <div style={{ padding: '22px 0', maxWidth: 760 }}>
       <h1>Marketplace</h1>
       <p className="muted" style={{ marginBottom: 18 }}>
-        {intro} PIX 5% off e {interestFreeInstallmentClaim().toLowerCase()} no checkout único da
+        {intro} PIX 5% off e {cardInstallmentClaim().toLowerCase()} no checkout único da
         loja.
       </p>
 

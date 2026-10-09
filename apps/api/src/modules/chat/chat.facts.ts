@@ -2,16 +2,18 @@
  * Fatos oficiais da loja — única fonte de políticas do assistente.
  * Não inventar produtos, preços ou regras fora daqui + catálogo.
  */
-import { INTEREST_FREE_INSTALLMENTS, MAX_INSTALLMENTS } from '../../common/pricing';
+import { CARD_INSTALLMENTS_HIGHLIGHT, MAX_INSTALLMENTS } from '../../common/pricing';
 import { storeWhatsAppDigits, waMeUrl } from '../../common/whatsapp';
 
 export const STORE_NAME = 'Lojas Schimitz';
 export const STORE_CITY = 'Porto Alegre';
 export const STORE_CATEGORIES = 'eletro, celulares, informática, eletrodomésticos e casa';
 export const PIX_DISCOUNT_PCT = 5;
-/** Max card installments offered via Mercado Pago (Brick). Not the “sem juros” cap. */
+/** Max card installments offered via Mercado Pago (Brick). Not a promise about interest. */
 export const INSTALLMENTS = MAX_INSTALLMENTS;
-export const INTEREST_FREE = INTEREST_FREE_INSTALLMENTS;
+export const CARD_HIGHLIGHT = CARD_INSTALLMENTS_HIGHLIGHT;
+/** Frase única de parcelamento (sem prometer isenção de juros). */
+export const CARD_INSTALLMENT_FACT = `Parcele no cartão em até ${CARD_HIGHLIGHT}x (e até ${MAX_INSTALLMENTS}x) pelo Mercado Pago; os juros, se houver, dependem do cartão e aparecem antes de você confirmar o pagamento.`;
 export const INSTALLMENTS_PROVIDER = 'Mercado Pago';
 /** Frete grátis em Porto Alegre (CEP prefixos 90 e 91); fora, taxa padrão. */
 export const FREE_SHIPPING_REGION = 'Porto Alegre';
@@ -34,7 +36,7 @@ export function storeFactsBlock() {
   return [
     `${STORE_NAME} — ${STORE_CATEGORIES}. Loja em ${STORE_CITY}.`,
     `PIX: ${PIX_DISCOUNT_PCT}% de desconto à vista.`,
-    `Cartão: até ${INTEREST_FREE}x sem juros (a loja absorve o financiamento). Parcelas de ${INTEREST_FREE + 1} a ${INSTALLMENTS}x via ${INSTALLMENTS_PROVIDER} podem incluir juros.`,
+    `Cartão: ${CARD_INSTALLMENT_FACT} Não afirme que o parcelamento é livre de juros nem invente condições que não estejam aqui.`,
     `Frete grátis em ${FREE_SHIPPING_REGION} (CEP iniciando em 90 ou 91; entrega própria). Fora de Porto Alegre, aplica-se a taxa padrão.`,
     `Acompanhamento do pedido (entrega própria): ${DELIVERY_FLOW}.`,
     `Cupons no checkout + cashback ${CASHBACK_LABEL} (cerca de ${CASHBACK_RATE_PCT}% em compras pagas).`,
@@ -54,7 +56,7 @@ export function storePolicies() {
     categories: STORE_CATEGORIES,
     pixDiscountPct: PIX_DISCOUNT_PCT,
     installments: INSTALLMENTS,
-    interestFreeInstallments: INTEREST_FREE,
+    cardInstallmentsHighlight: CARD_HIGHLIGHT,
     installmentsProvider: INSTALLMENTS_PROVIDER,
     freeShippingRegion: FREE_SHIPPING_REGION,
     freeShippingCepPrefix: '90,91',

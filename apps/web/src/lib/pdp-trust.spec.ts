@@ -337,7 +337,7 @@ import {
   assert.ok(pdp.includes('pdpCompactTrustChips'), 'PDP trust is a compact chip strip');
   assert.ok(pdp.includes('no PIX'), 'PIX price leads the offer');
   assert.ok(pdp.includes('highlight.tag'), 'PIX keeps the 5% OFF chip');
-  assert.ok(pdp.includes("' em '"), 'list price and parcelas share one ou line');
+  assert.ok(pdp.includes("' · '") && pdp.includes('installmentLine(price)'), 'list price and parcelas share one ou line');
   assert.ok(pdp.includes('pdp-list-price'), 'list price stays scannable under PIX');
   assert.ok(pdp.includes('className="pdp-seller'), 'seller line stays under the title');
   assert.ok(pdp.includes('Falar com a loja'), 'WhatsApp store contact stays');

@@ -9,13 +9,13 @@ import {
   isPixPromoCollidingCouponCode,
   toNumber,
   MAX_INSTALLMENTS,
-  INTEREST_FREE_INSTALLMENTS,
+  CARD_INSTALLMENTS_HIGHLIGHT,
+  INSTALLMENT_INTEREST_NOTE,
   clampInstallments,
-  isInterestFreeInstallment,
   installmentSuffix,
   installmentValue,
   installmentLine,
-  interestFreeInstallmentClaim,
+  cardInstallmentClaim,
   installmentTableNote,
 } from './pricing';
 
@@ -40,45 +40,41 @@ const sum = Math.round((pixPrice(base) + pixSavings(base)) * 100) / 100;
 assert.equal(sum, Math.round(base * 100) / 100);
 
 assert.equal(MAX_INSTALLMENTS, 12);
-assert.equal(INTEREST_FREE_INSTALLMENTS, 3);
-assert.ok(INTEREST_FREE_INSTALLMENTS < MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 3);
+assert.ok(CARD_INSTALLMENTS_HIGHLIGHT < MAX_INSTALLMENTS);
 
 assert.equal(clampInstallments(0), 1);
 assert.equal(clampInstallments(99), MAX_INSTALLMENTS);
-assert.equal(isInterestFreeInstallment(1), true);
-assert.equal(isInterestFreeInstallment(INTEREST_FREE_INSTALLMENTS), true);
-assert.equal(isInterestFreeInstallment(INTEREST_FREE_INSTALLMENTS + 1), false);
-assert.equal(isInterestFreeInstallment(MAX_INSTALLMENTS), false);
 
 assert.equal(installmentSuffix(1), ' à vista');
-assert.equal(installmentSuffix(2), ' sem juros');
-assert.equal(installmentSuffix(3), ' sem juros');
-assert.equal(installmentSuffix(4), ' (podem incluir juros)');
-assert.equal(installmentSuffix(12), ' (podem incluir juros)');
+for (const n of [2, 3, 4, 12]) {
+  const sfx = installmentSuffix(n);
+  assert.ok(/juros conforme o cartão/.test(sfx), `suffix ${n}x avisa que há juros: ${sfx}`);
+  assert.ok(!/sem juros/i.test(sfx));
+}
 
 assert.equal(installmentValue(120, 3), 40);
 assert.equal(installmentValue(120, 12), 10);
 
+// Acima de 1x a linha NÃO mostra valor de parcela (a real inclui juros do cartão) nem "sem juros".
 const line = installmentLine(120);
-assert.ok(line.startsWith('3x de '), `default installmentLine must advertise 3x, got: ${line}`);
-assert.ok(line.includes('sem juros'), `default line must claim sem juros: ${line}`);
-assert.ok(!line.startsWith('12x'), `must not advertise 12x sem juros: ${line}`);
-assert.ok(!/podem incluir juros/.test(line));
-
-const withInterest = installmentLine(120, 12);
-assert.ok(withInterest.startsWith('12x de '), `12x line amount: ${withInterest}`);
-assert.ok(/podem incluir juros/.test(withInterest), `12x must not claim sem juros: ${withInterest}`);
-assert.ok(!/sem juros/.test(withInterest));
+assert.equal(line, 'Parcele em até 3x no cartão');
+assert.equal(installmentLine(120, 12), 'Parcele em até 12x no cartão');
 
 const oneShot = installmentLine(120, 1);
 assert.ok(oneShot.startsWith('1x de '));
 assert.ok(oneShot.includes('à vista'));
-assert.ok(!/sem juros/.test(oneShot));
 
-assert.equal(interestFreeInstallmentClaim(), 'Até 3x sem juros');
-assert.ok(installmentTableNote().includes('3x sem juros'));
-assert.ok(installmentTableNote().includes('4 a 12x'));
-assert.ok(/Mercado Pago/.test(installmentTableNote()));
+assert.equal(cardInstallmentClaim(), 'Parcele em até 3x no cartão');
+const note = installmentTableNote();
+assert.ok(note.includes('até 3x no cartão'));
+assert.ok(note.includes('12x'));
+assert.ok(/Mercado Pago/.test(note));
+assert.ok(note.includes(INSTALLMENT_INTEREST_NOTE));
+assert.ok(/juros/.test(INSTALLMENT_INTEREST_NOTE) && !/sem juros/i.test(INSTALLMENT_INTEREST_NOTE));
+for (const t of [line, oneShot, note, cardInstallmentClaim()]) {
+  assert.ok(!/sem juros|s\/ juros|sem acr[eé]scimo/i.test(t), `não pode prometer sem juros: ${t}`);
+}
 
 const srcRoot = join(__dirname, '..');
 const marketingFiles = [
@@ -93,7 +89,7 @@ const marketingFiles = [
 ];
 for (const f of marketingFiles) {
   const src = readFileSync(join(srcRoot, f), 'utf8');
-  assert.ok(!/12x\s*sem juros/i.test(src), `${f} must not claim 12x sem juros`);
+  assert.ok(!/sem juros|s\/ juros/i.test(src), `${f} não pode prometer sem juros`);
 }
 
 const pdp = readFileSync(join(srcRoot, 'app/produto/[slug]/ProductClient.tsx'), 'utf8');

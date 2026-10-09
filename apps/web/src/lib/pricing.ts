@@ -17,8 +17,13 @@ export function isPixPromoCollidingCouponCode(code: string | null | undefined): 
 }
 /** Card Brick / checkout max installment options — not the interest-free marketing claim. */
 export const MAX_INSTALLMENTS = 12;
-/** Seller-absorbed Mercado Pago “Parcelado vendedor”. Only this many may be advertised as “sem juros”. */
-export const INTEREST_FREE_INSTALLMENTS = 3;
+/**
+ * Quantas parcelas a loja destaca no marketing (“parcele em até 3x no cartão”).
+ * NÃO é promessa de parcelamento sem juros: os juros de cada parcelamento são definidos pelo
+ * Mercado Pago conforme o cartão (consulta de 09/10/2026: 2x = 9,64%, 3x = 11,23%).
+ * Só volte a falar em “sem juros” depois de confirmar no painel do Mercado Pago (e atualizar o spec).
+ */
+export const CARD_INSTALLMENTS_HIGHLIGHT = 3;
 
 export function toNumber(n: number | string | null | undefined): number {
   const v = Number(n);
@@ -40,46 +45,42 @@ export function clampInstallments(n: number): number {
   return Math.max(1, Math.min(MAX_INSTALLMENTS, Math.floor(n) || 1));
 }
 
-export function isInterestFreeInstallment(n: number): boolean {
-  return clampInstallments(n) <= INTEREST_FREE_INSTALLMENTS;
-}
+/** Aviso único sobre juros (usado em termos, suporte, tabela de parcelas e chat). */
+export const INSTALLMENT_INTEREST_NOTE =
+  'Os juros, se houver, são definidos pelo Mercado Pago conforme o cartão e aparecem antes de você confirmar o pagamento.';
 
 /**
- * PT-BR suffix after “Nx de R$ …”.
- * 1x = à vista; 2–INTEREST_FREE = sem juros; above that may include buyer interest.
+ * PT-BR suffix after “Nx de R$ …”. 1x = à vista; acima disso o valor é só a divisão do preço
+ * (valor base): o total real depende do cartão.
  */
 export function installmentSuffix(n: number): string {
   const times = clampInstallments(n);
   if (times <= 1) return ' à vista';
-  if (times <= INTEREST_FREE_INSTALLMENTS) return ` ${INTEREST_FREE_SUFFIX}`;
-  return ' (podem incluir juros)';
+  return ' (valor base; juros conforme o cartão)';
 }
 
 /**
- * The ONLY place the interest-free phrase is written. Every storefront text must use these helpers
- * (or INTEREST_FREE_INSTALLMENTS) — see installment-claim.spec.ts. If the Mercado Pago account
- * stops absorbing the installments, change INTEREST_FREE_INSTALLMENTS / this phrase here only.
+ * The ONLY place the card-installment marketing phrase is written. Every storefront text must use
+ * these helpers (or CARD_INSTALLMENTS_HIGHLIGHT) — see installment-claim.spec.ts.
  */
-export const INTEREST_FREE_SUFFIX = 'sem juros';
-
-/** “3x sem juros” (no “até”), for badges that already set the context. */
-export function interestFreeInstallmentShort(): string {
-  return `${INTEREST_FREE_INSTALLMENTS}x ${INTEREST_FREE_SUFFIX}`;
+/** “3x no cartão” (no “até”), for chips/lists that already set the context. */
+export function cardInstallmentShort(): string {
+  return `${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
-/** “até 3x sem juros”, lower case, for use inside sentences. */
-export function interestFreeInstallmentPhrase(): string {
-  return `até ${interestFreeInstallmentShort()}`;
+/** “parcele em até 3x no cartão”, lower case, for use inside sentences. */
+export function cardInstallmentPhrase(): string {
+  return `parcele em até ${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
-/** Short marketing claim used on home/header/trust badges: “Até 3x sem juros”. */
-export function interestFreeInstallmentClaim(): string {
-  return `Até ${interestFreeInstallmentShort()}`;
+/** Short marketing claim used on home/header/trust badges: “Parcele em até 3x no cartão”. */
+export function cardInstallmentClaim(): string {
+  return `Parcele em até ${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`;
 }
 
 /** Honest footnote for the 1–MAX installment table. */
 export function installmentTableNote(): string {
-  return `${interestFreeInstallmentClaim()} (a loja absorve o financiamento). De ${INTEREST_FREE_INSTALLMENTS + 1} a ${MAX_INSTALLMENTS}x, as parcelas podem incluir juros do Mercado Pago.`;
+  return `${cardInstallmentClaim()}, ou em até ${MAX_INSTALLMENTS}x pelo Mercado Pago. ${INSTALLMENT_INTEREST_NOTE}`;
 }
 
 export function installmentValue(price: number | string, n = MAX_INSTALLMENTS): number {
@@ -87,10 +88,16 @@ export function installmentValue(price: number | string, n = MAX_INSTALLMENTS): 
   return Math.round((toNumber(price) / times) * 100) / 100;
 }
 
-export function installmentLine(price: number | string, n = INTEREST_FREE_INSTALLMENTS): string {
+/**
+ * Linha curta de parcelamento (cards, PDP, carrinho). Acima de 1x NÃO mostra valor de parcela:
+ * a parcela real inclui os juros do cartão, que só o Mercado Pago sabe.
+ */
+export function installmentLine(price: number | string, n = CARD_INSTALLMENTS_HIGHLIGHT): string {
   const times = clampInstallments(n);
-  const each = installmentValue(price, times);
-  return `${times}x de ${each.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}${installmentSuffix(times)}`;
+  if (times <= 1) {
+    return `1x de ${installmentValue(price, 1).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}${installmentSuffix(1)}`;
+  }
+  return `Parcele em até ${times}x no cartão`;
 }
 
 export type StockTone = 'ok' | 'low' | 'out' | 'unknown';

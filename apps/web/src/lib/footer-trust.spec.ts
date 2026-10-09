@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FOOTER_TRUST_WHATSAPP_FALLBACK, footerTrustItems } from './footer-trust';
 import { formatWhatsAppDisplay } from './whatsapp';
-import { INTEREST_FREE_INSTALLMENTS } from './pricing';
+import { CARD_INSTALLMENTS_HIGHLIGHT } from './pricing';
 
 {
   const items = footerTrustItems();
@@ -14,7 +14,7 @@ import { INTEREST_FREE_INSTALLMENTS } from './pricing';
   );
   assert.ok(/PIX/i.test(items[0].title) && /cart[aã]o/i.test(items[0].title));
   assert.ok(/PIX 5%/.test(items[0].body));
-  assert.ok(items[0].body.includes(`${INTEREST_FREE_INSTALLMENTS}x sem juros`));
+  assert.ok(items[0].body.includes(`${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`));
   assert.ok(!/12x/.test(items[0].body));
 
   assert.equal(items[1].title, 'WhatsApp atendimento');
