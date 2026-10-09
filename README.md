@@ -136,5 +136,6 @@ Guias: `docs/DEPLOY.md`, `docs/BACKUP_RESTORE.md`, `docs/OBSERVABILITY.md`, `doc
 - Segurança: `docs/SECURITY.md`, `docs/SECURITY-HARDENING-2026-09-18.md`, `docs/SECURITY-CSP-2026-09-19.md`
 - Pagamentos e finanças: `docs/FINANCIAL_ARCHITECTURE.md`, `docs/FINANCIAL_OPERATIONS.md`, `docs/PIX-DISCOUNT.md`
 - Marketplace: `docs/MARKETPLACE.md`, `docs/MARKETPLACE-MP-SPLIT-PLAN.md`
+- Cadastro de produtos por planilha (passo a passo): `docs/IMPORTACAO_PRODUTOS.md`
 - Operação: `docs/DEPLOY.md`, `docs/BACKUP_RESTORE.md`, `docs/OBSERVABILITY.md`, `docs/PUSH-FCM.md`, `docs/WHATSAPP.md`, `docs/CHAT.md`
 - Histórico das fases (SCH-00x, MEGA-PHASE-xx, auditorias): demais arquivos em `docs/` — registro do que foi feito em cada etapa, não necessariamente o estado atual.

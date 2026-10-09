@@ -491,13 +491,22 @@ export class AdminController {
   }
 
   @Post('products/import')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @ApiOperation({ summary: 'Importar CSV de catálogo (upsert por SKU, sem apagar)' })
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ApiOperation({
+    summary:
+      'Importar planilha de catálogo (CSV). dryRun=true só pré-visualiza; gravação em uma transação, upsert por SKU, sem apagar',
+  })
   async importProducts(
     @Body() dto: AdminImportProductsDto,
     @CurrentUser() user: { sub?: string },
   ) {
-    return ok(await this.productsService.importCsv(dto.csv, user?.sub));
+    return ok(
+      await this.productsService.importCsv(dto.csv, user?.sub, {
+        dryRun: dto.dryRun,
+        mode: dto.mode,
+        skipInvalid: dto.skipInvalid,
+      }),
+    );
   }
 
   @Post('products/batch')

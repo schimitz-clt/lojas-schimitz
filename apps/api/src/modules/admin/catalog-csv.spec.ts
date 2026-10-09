@@ -8,6 +8,11 @@ import { join } from 'path';
 import {
   CATALOG_CSV_MAX_ROWS,
   CATALOG_CSV_TEMPLATE,
+  CATALOG_TEMPLATE_COLUMNS,
+  CATALOG_WARN_COMPARE_NOT_HIGHER,
+  CATALOG_WARN_NO_PHOTO,
+  CATALOG_WARN_NO_SHIPPING,
+  catalogRowWarnings,
   matchCategory,
   parseCatalogMoney,
   planCatalogUpserts,
@@ -204,6 +209,77 @@ const FIXTURE = [
   assert.equal(plan.actions[0]?.kind, 'create');
   assert.equal(JSON.stringify(plan).includes('"isDemo"'), false);
   console.log('catalog-csv: coluna isDemo ignorada — PASSOU');
+}
+
+{
+  // Modelo: colunas em português, todas reconhecidas pelo importador.
+  assert.equal(CATALOG_CSV_TEMPLATE, `${CATALOG_TEMPLATE_COLUMNS.join(';')}\n`);
+  const header = CATALOG_TEMPLATE_COLUMNS.join(';');
+  const full = validateCatalogCsv(
+    `${header}\nREAL-1;Geladeira Frost Free 375 L;Duplex, 220 V;eletrodomesticos;3.499,00;3999,90;4;sim;62,5;70;180;72;https://cdn.example/g1.jpg|https://cdn.example/g2.jpg\n`,
+  );
+  assert.equal(full.fileError, null);
+  assert.equal(full.errors.length, 0, JSON.stringify(full.errors));
+  const r = full.rows[0];
+  assert.equal(r.price, 3499);
+  assert.equal(r.compareAtPrice, 3999.9);
+  assert.equal(r.weightKg, 62.5);
+  assert.equal(r.heightCm, 180);
+  assert.equal(r.category, 'eletrodomesticos');
+  assert.deepEqual(r.imageUrls, ['https://cdn.example/g1.jpg', 'https://cdn.example/g2.jpg']);
+  assert.deepEqual(catalogRowWarnings(r, 'create'), []);
+  console.log('catalog-csv: modelo completo sem erros nem avisos — PASSOU');
+}
+
+{
+  // Linhas de exemplo do modelo nunca são gravadas.
+  const parsed = validateCatalogCsv('sku;nome;preco\nEXEMPLO-001;Produto exemplo;10\nexemplo-2;Outro;5\nREAL-2;Real;7\n');
+  assert.equal(parsed.rows.length, 1);
+  assert.equal(parsed.rows[0].sku, 'REAL-2');
+  assert.equal(parsed.errors.length, 2);
+  assert.match(parsed.errors[0].message, /Linha de exemplo/);
+  console.log('catalog-csv: linhas EXEMPLO recusadas — PASSOU');
+}
+
+{
+  // Modo "só criar novos": SKU existente vira erro, nada é atualizado.
+  const parsed = validateCatalogCsv('sku;nome;preco\nFICT-001;Lanterna;10\nFICT-NEW;Nova;5\n');
+  const upsert = planCatalogUpserts(parsed.rows, new Set(['FICT-001']));
+  assert.deepEqual(upsert.actions.map((a) => a.kind), ['update', 'create']);
+  const createOnly = planCatalogUpserts(parsed.rows, new Set(['FICT-001']), 'create_only');
+  assert.deepEqual(createOnly.actions.map((a) => a.kind), ['create']);
+  assert.equal(createOnly.errors.length, 1);
+  assert.match(createOnly.errors[0].message, /já cadastrado/);
+  console.log('catalog-csv: modo create_only — PASSOU');
+}
+
+{
+  // Slug repetido na mesma planilha.
+  const parsed = validateCatalogCsv('sku;nome;preco;slug\nS-1;Produto A;1;mesmo-slug\nS-2;Produto B;2;mesmo-slug\n');
+  assert.equal(parsed.rows.length, 1);
+  assert.match(parsed.errors[0].message, /Slug repetido/);
+  console.log('catalog-csv: slug repetido no arquivo — PASSOU');
+}
+
+{
+  // Nome de arquivo de foto sem link: mensagem clara.
+  const parsed = validateCatalogCsv('sku;nome;preco;fotos\nF-1;Foto;1;geladeira-frente.jpg\n');
+  assert.equal(parsed.rows.length, 0);
+  assert.match(parsed.errors[0].message, /não é um link/);
+  assert.match(parsed.errors[0].message, /Enviar fotos/);
+  console.log('catalog-csv: foto sem link — PASSOU');
+}
+
+{
+  // Avisos não bloqueiam: sem peso/medidas, sem foto, preço "de" menor.
+  const parsed = validateCatalogCsv('sku;nome;preco;preco_de;estoque;categoria\nW-1;Ventilador;199,90;150;2;eletro\n');
+  const warns = catalogRowWarnings(parsed.rows[0], 'create');
+  assert.ok(warns.includes(CATALOG_WARN_NO_SHIPPING));
+  assert.ok(warns.includes(CATALOG_WARN_NO_PHOTO));
+  assert.ok(warns.includes(CATALOG_WARN_COMPARE_NOT_HIGHER));
+  const onlyStock = validateCatalogCsv('sku;estoque\nW-1;5\n');
+  assert.deepEqual(catalogRowWarnings(onlyStock.rows[0], 'update'), []);
+  console.log('catalog-csv: avisos de pré-visualização — PASSOU');
 }
 
 console.log('catalog-csv.spec ok');

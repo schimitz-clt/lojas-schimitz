@@ -14,8 +14,38 @@ export const CATALOG_CSV_MAX_CHARS = 450_000;
 export const CATALOG_CSV_MAX_ROWS = 500;
 export const CATALOG_CSV_MAX_ERROR_REPORT = 100;
 
-export const CATALOG_CSV_TEMPLATE =
-  'sku;nome;descricao;preco;preco_de;estoque;ativo;categoria;peso_kg;largura_cm;altura_cm;comprimento_cm;imagens\n';
+/** Ordem das colunas do modelo (CSV e Excel). Cabeçalhos em português, sem acento. */
+export const CATALOG_TEMPLATE_COLUMNS = [
+  'sku',
+  'nome',
+  'descricao',
+  'categoria',
+  'preco',
+  'preco_de',
+  'estoque',
+  'ativo',
+  'peso_kg',
+  'largura_cm',
+  'altura_cm',
+  'comprimento_cm',
+  'fotos',
+] as const;
+
+export const CATALOG_CSV_TEMPLATE = `${CATALOG_TEMPLATE_COLUMNS.join(';')}\n`;
+
+/** Linhas de exemplo do modelo começam com este SKU e nunca são gravadas. */
+export const CATALOG_EXAMPLE_SKU_PREFIX = 'EXEMPLO';
+
+export type CatalogImportMode = 'upsert' | 'create_only';
+
+/** Frete usa 0,3 kg e 16×11×11 cm quando faltam peso/medidas (melhor-envio.quote.ts). */
+export const CATALOG_WARN_NO_SHIPPING =
+  'Sem peso ou medidas: o frete vai usar o padrão de 0,3 kg e 16×11×11 cm (pode sair barato demais).';
+export const CATALOG_WARN_NO_PHOTO = 'Sem foto: o produto aparece com “Foto em preparação”.';
+export const CATALOG_WARN_COMPARE_NOT_HIGHER =
+  'Preço “de” não é maior que o preço: o produto não aparece em Ofertas.';
+export const CATALOG_WARN_NO_STOCK = 'Estoque não informado: o produto entra com estoque 0 (não dá para comprar).';
+export const CATALOG_WARN_NO_CATEGORY = 'Sem categoria: o produto não aparece em nenhum departamento.';
 
 const DANGEROUS_HEADERS = new Set([
   'delete',
@@ -245,6 +275,7 @@ export function validateCatalogCsv(text: string): CatalogCsvValidation {
   const rows: ValidatedCatalogRow[] = [];
   const errors: CatalogRowError[] = [];
   const seen = new Set<string>();
+  const seenSlugs = new Set<string>();
 
   dataRecords.forEach((record, index) => {
     const line = index + 2;
@@ -264,6 +295,14 @@ export function validateCatalogCsv(text: string): CatalogCsvValidation {
       errors.push({ line, sku: skuRaw.slice(0, 64), message: 'SKU inválido (2 a 64 caracteres, sem quebra de linha).' });
       return;
     }
+    if (skuRaw.toUpperCase().startsWith(CATALOG_EXAMPLE_SKU_PREFIX)) {
+      errors.push({
+        line,
+        sku: skuRaw,
+        message: 'Linha de exemplo do modelo. Apague esta linha antes de importar.',
+      });
+      return;
+    }
     if (seen.has(skuRaw)) {
       errors.push({ line, sku: skuRaw, message: 'SKU repetido neste arquivo. A primeira ocorrência foi mantida.' });
       return;
@@ -274,6 +313,13 @@ export function validateCatalogCsv(text: string): CatalogCsvValidation {
     if ('message' in built) {
       errors.push({ line, sku: skuRaw, message: built.message });
       return;
+    }
+    if (built.slug) {
+      if (seenSlugs.has(built.slug)) {
+        errors.push({ line, sku: skuRaw, message: 'Slug repetido neste arquivo.' });
+        return;
+      }
+      seenSlugs.add(built.slug);
     }
     rows.push(built);
   });
@@ -288,11 +334,20 @@ export function validateCatalogCsv(text: string): CatalogCsvValidation {
 export function planCatalogUpserts(
   rows: ValidatedCatalogRow[],
   existingSkus: ReadonlySet<string>,
+  mode: CatalogImportMode = 'upsert',
 ): CatalogUpsertPlan {
   const actions: CatalogUpsertAction[] = [];
   const errors: CatalogRowError[] = [];
   for (const row of rows) {
     const exists = existingSkus.has(row.sku);
+    if (exists && mode === 'create_only') {
+      errors.push({
+        line: row.line,
+        sku: row.sku,
+        message: 'SKU já cadastrado. No modo “só criar produtos novos” ele não é alterado.',
+      });
+      continue;
+    }
     if (!exists) {
       if (!row.name) {
         errors.push({ line: row.line, sku: row.sku, message: 'Nome obrigatório para produto novo.' });
@@ -317,6 +372,26 @@ export function planCatalogUpserts(
 export function capCatalogErrors<T>(errors: T[], max = CATALOG_CSV_MAX_ERROR_REPORT): { errors: T[]; truncated: boolean } {
   if (errors.length <= max) return { errors, truncated: false };
   return { errors: errors.slice(0, max), truncated: true };
+}
+
+/**
+ * Avisos que não impedem a gravação (aparecem na pré-visualização).
+ * `kind` = create usa os valores da linha; update só avisa sobre o que a linha muda.
+ */
+export function catalogRowWarnings(row: ValidatedCatalogRow, kind: 'create' | 'update'): string[] {
+  const out: string[] = [];
+  if (kind === 'create') {
+    if (row.weightKg == null || row.widthCm == null || row.heightCm == null || row.lengthCm == null) {
+      out.push(CATALOG_WARN_NO_SHIPPING);
+    }
+    if (!row.imageUrls?.length) out.push(CATALOG_WARN_NO_PHOTO);
+    if (row.stock == null) out.push(CATALOG_WARN_NO_STOCK);
+    if (!row.category) out.push(CATALOG_WARN_NO_CATEGORY);
+  }
+  if (row.compareAtPrice != null && row.price != null && row.compareAtPrice <= row.price) {
+    out.push(CATALOG_WARN_COMPARE_NOT_HIGHER);
+  }
+  return out;
 }
 
 function rowHasUpdate(row: ValidatedCatalogRow): boolean {
@@ -413,7 +488,11 @@ function buildRow(
       return { message: `Limite de ${CREATE_IMAGE_URL_MAX} fotos por produto.` };
     }
     for (const url of urls) {
-      if (!/^https?:\/\//i.test(url)) return { message: 'URL de imagem precisa começar com http:// ou https://.' };
+      if (!/^https?:\/\//i.test(url)) {
+        return {
+          message: `Foto “${url.slice(0, 80)}” não é um link. Envie o arquivo em “Enviar fotos” antes de conferir (o nome vira link) ou use um link https://.`,
+        };
+      }
       const placeholder = placeholderProductImageUrlError(url);
       if (placeholder) return { message: placeholder };
     }

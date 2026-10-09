@@ -1,25 +1,50 @@
 'use client';
 
-import { useState } from 'react';
-import { api, brl } from '@/lib/api';
+import { useRef, useState } from 'react';
+import { api, apiUpload, brl } from '@/lib/api';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 import {
-  CATALOG_IMPORT_TEMPLATE,
+  CATALOG_TEMPLATE_CSV_URL,
+  CATALOG_TEMPLATE_XLSX_URL,
+  PHOTO_UPLOAD_MAX_FILES,
+  PHOTO_UPLOAD_SPACING_MS,
   batchSelectionError,
+  buildPhotoMap,
   catalogImportFileError,
+  importSummaryText,
+  previewActionLabel,
+  resolvePhotoNames,
   toggleSkuSelection,
+  type CatalogPreviewRow,
 } from '@/lib/catalog-import-ui';
+import { matrixToCsv, parseCsvMatrix, readSpreadsheetFile, type Matrix } from '@/lib/spreadsheet-read';
+
+type ImportMode = 'upsert' | 'create_only';
 
 type ImportReport = {
+  dryRun: boolean;
+  mode: ImportMode;
   applied: boolean;
   created: number;
   updated: number;
   failed: number;
+  toCreate: number;
+  toUpdate: number;
   errors: { line: number; sku?: string; message: string }[];
   errorsTruncated: boolean;
   fileError: string | null;
   deleted: number;
+  preview: CatalogPreviewRow[];
 };
+
+type UploadedPhoto = { name: string; size: number; url: string };
+
+const PHOTO_MAX_BYTES = 15 * 1024 * 1024;
+const PHOTO_EXT = /\.(jpe?g|png|webp)$/i;
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type BatchReport = {
   updated: number;
@@ -47,7 +72,18 @@ type SearchPage = {
 
 export function AdminCatalogImportPanel() {
   const { load } = useAdminConsole();
-  const [csvText, setCsvText] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [sheet, setSheet] = useState<Matrix | null>(null);
+  const [pasted, setPasted] = useState('');
+  const [mode, setMode] = useState<ImportMode>('upsert');
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState<{ done: number; total: number; failed: string[] } | null>(null);
+  const photoCancel = useRef(false);
+  const [preview, setPreview] = useState<ImportReport | null>(null);
+  const [previewCsv, setPreviewCsv] = useState('');
+  const [missingPhotos, setMissingPhotos] = useState<string[]>([]);
+  const [skipInvalid, setSkipInvalid] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [importErr, setImportErr] = useState('');
@@ -66,57 +102,143 @@ export function AdminCatalogImportPanel() {
   const [stockMode, setStockMode] = useState<'set' | 'delta'>('set');
   const [stockValue, setStockValue] = useState('');
 
+  function resetPreview() {
+    setPreview(null);
+    setPreviewCsv('');
+    setMissingPhotos([]);
+    setSkipInvalid(false);
+  }
+
   async function onFile(file: File | null) {
     setImportErr('');
     setImportReport(null);
+    resetPreview();
+    setSheet(null);
+    setFileName('');
     if (!file) return;
-    const text = await file.text();
-    const problem = catalogImportFileError(text);
-    if (problem) {
-      setImportErr(problem);
-      setCsvText('');
-      return;
+    try {
+      const rows = await readSpreadsheetFile(file);
+      if (rows.length < 2) {
+        setImportErr('A planilha não tem produtos (só o cabeçalho ou nada). Nada foi enviado.');
+        return;
+      }
+      setSheet(rows);
+      setFileName(file.name);
+    } catch (e) {
+      setImportErr(e instanceof Error ? e.message : 'Não consegui abrir a planilha.');
     }
-    setCsvText(text);
   }
 
-  async function submitImport() {
-    const problem = catalogImportFileError(csvText);
-    if (problem) {
-      setImportErr(problem);
+  async function onPhotos(list: FileList | null) {
+    const files = Array.from(list || []);
+    if (!files.length) return;
+    setImportErr('');
+    if (files.length > PHOTO_UPLOAD_MAX_FILES) {
+      setImportErr(`Escolha no máximo ${PHOTO_UPLOAD_MAX_FILES} fotos por vez.`);
       return;
     }
-    if (
-      !window.confirm(
-        'Importar este CSV? Produtos existentes são atualizados pelo SKU. Linhas inválidas são ignoradas. Nenhum produto é apagado.',
-      )
-    ) {
+    const failed: string[] = [];
+    const todo = files.filter((f) => {
+      if (!PHOTO_EXT.test(f.name)) {
+        failed.push(`${f.name} (use JPG, PNG ou WEBP)`);
+        return false;
+      }
+      if (f.size > PHOTO_MAX_BYTES) {
+        failed.push(`${f.name} (maior que 15 MB)`);
+        return false;
+      }
+      return !photos.some((p) => p.name === f.name && p.size === f.size);
+    });
+    resetPreview();
+    photoCancel.current = false;
+    setPhotoBusy(true);
+    setPhotoProgress({ done: 0, total: todo.length, failed: [...failed] });
+    const sent: UploadedPhoto[] = [];
+    for (let i = 0; i < todo.length; i++) {
+      if (photoCancel.current) break;
+      const f = todo[i];
+      if (i > 0) await wait(PHOTO_UPLOAD_SPACING_MS);
+      try {
+        const fd = new FormData();
+        fd.append('file', f);
+        const res = await apiUpload<{ url: string }>('/admin/uploads', fd);
+        const item = { name: f.name, size: f.size, url: res.url };
+        sent.push(item);
+        setPhotos((prev) => [...prev.filter((p) => p.name.toLowerCase() !== f.name.toLowerCase()), item]);
+      } catch (e) {
+        failed.push(`${f.name} (${e instanceof Error ? e.message : 'falhou'})`);
+      }
+      setPhotoProgress({ done: i + 1, total: todo.length, failed: [...failed] });
+    }
+    setPhotoBusy(false);
+  }
+
+  function currentRows(): Matrix | null {
+    if (sheet) return sheet;
+    if (pasted.trim()) return parseCsvMatrix(pasted);
+    return null;
+  }
+
+  async function checkSheet() {
+    setImportErr('');
+    setImportReport(null);
+    resetPreview();
+    const rows = currentRows();
+    if (!rows || rows.length < 2) {
+      setImportErr('Escolha a planilha primeiro (botão “Importar planilha”).');
+      return;
+    }
+    const resolved = resolvePhotoNames(rows, buildPhotoMap(photos));
+    const csv = matrixToCsv(resolved.rows);
+    const problem = catalogImportFileError(csv);
+    if (problem) {
+      setImportErr(problem);
       return;
     }
     setImportBusy(true);
-    setImportErr('');
-    setImportReport(null);
     try {
       const report = await api<ImportReport>('/admin/products/import', {
         method: 'POST',
-        body: JSON.stringify({ csv: csvText }),
+        body: JSON.stringify({ csv, dryRun: true, mode }),
       });
-      setImportReport(report);
-      if (report.created + report.updated > 0) await load();
+      setPreview(report);
+      setPreviewCsv(csv);
+      setMissingPhotos(resolved.missing);
     } catch (e) {
-      setImportErr(e instanceof Error ? e.message : 'Falha na importação. Nada foi confirmado.');
+      setImportErr(e instanceof Error ? e.message : 'Falha ao conferir. Nada foi gravado.');
     } finally {
       setImportBusy(false);
     }
   }
 
-  function downloadTemplate() {
-    const blob = new Blob([CATALOG_IMPORT_TEMPLATE], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'modelo-importacao-catalogo.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  async function applyImport() {
+    if (!preview || !previewCsv) return;
+    const total = preview.toCreate + preview.toUpdate;
+    if (!total) return;
+    const hasErrors = preview.failed > 0;
+    if (hasErrors && !skipInvalid) return;
+    const msg =
+      `Gravar agora? ${importSummaryText(preview)}.` +
+      (hasErrors ? ' As linhas com erro ficam de fora.' : '') +
+      ' Nenhum produto é apagado. Se algo falhar no meio, nada é gravado.';
+    if (!window.confirm(msg)) return;
+    setImportBusy(true);
+    setImportErr('');
+    try {
+      const report = await api<ImportReport>('/admin/products/import', {
+        method: 'POST',
+        body: JSON.stringify({ csv: previewCsv, dryRun: false, mode, skipInvalid: hasErrors }),
+      });
+      setImportReport(report);
+      if (report.applied && report.created + report.updated > 0) {
+        resetPreview();
+        await load();
+      }
+    } catch (e) {
+      setImportErr(e instanceof Error ? e.message : 'Falha na importação. Nada foi gravado.');
+    } finally {
+      setImportBusy(false);
+    }
   }
 
   async function runSearch(nextPage = 1, opts?: { keepReport?: boolean }) {
@@ -182,22 +304,32 @@ export function AdminCatalogImportPanel() {
     <section id="admin-import-lote" className="admin-card-pro admin-catalog-panel" aria-labelledby="admin-import-title">
       <div className="body">
         <h2 id="admin-import-title">Importação / Lote</h2>
+        <h3 style={{ marginTop: 4 }}>Importar planilha de produtos</h3>
+        <ol className="muted admin-import-help" style={{ paddingLeft: 18 }}>
+          <li>Baixe o modelo, preencha uma linha por produto e salve (Excel .xlsx ou CSV).</li>
+          <li>Se a planilha usa nomes de arquivo na coluna “fotos”, envie as fotos em “Enviar fotos”.</li>
+          <li>Clique em “Conferir planilha”. Nada é gravado nesta etapa: você vê cada linha e os erros.</li>
+          <li>Se estiver tudo certo, clique em “Gravar”. Nenhum produto é apagado; células vazias não apagam o que já existe.</li>
+        </ol>
         <p className="muted admin-import-help">
-          Painel separado do formulário de produto. O CSV cria ou atualiza pelo SKU (preço, estoque, ativo).
-          Células vazias não apagam o que já está salvo. Fotos só entram se a planilha trouxer URL real —
-          placeholder é recusado e nenhuma foto existente é removida. Máximo de 500 linhas por envio.
-          O catálogo de produção não é preenchido por este painel sozinho.
+          Passo a passo completo: docs/IMPORTACAO_PRODUTOS.md. Máximo de 500 produtos por planilha.
         </p>
 
         <div className="admin-import-actions">
-          <button type="button" className="btn ghost admin-btn-ghost-pro" onClick={downloadTemplate}>
-            Baixar modelo (só cabeçalho)
-          </button>
-          <label className="btn ghost admin-btn-ghost-pro" style={{ cursor: 'pointer' }}>
-            Escolher CSV
+          <a className="btn ghost admin-btn-ghost-pro" href={CATALOG_TEMPLATE_XLSX_URL} download>
+            Baixar modelo (Excel)
+          </a>
+          <a className="btn ghost admin-btn-ghost-pro" href={CATALOG_TEMPLATE_CSV_URL} download>
+            Baixar modelo (CSV)
+          </a>
+        </div>
+
+        <div className="admin-import-actions">
+          <label className="btn" style={{ cursor: 'pointer' }}>
+            Importar planilha
             <input
               type="file"
-              accept=".csv,text/csv,text/plain"
+              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain"
               style={{ display: 'none' }}
               onChange={(e) => {
                 void onFile(e.target.files?.[0] || null);
@@ -205,35 +337,222 @@ export function AdminCatalogImportPanel() {
               }}
             />
           </label>
-          <button type="button" className="btn" disabled={importBusy || !csvText.trim()} onClick={() => void submitImport()}>
-            {importBusy ? 'Importando…' : 'Importar CSV'}
+          <label className="btn ghost admin-btn-ghost-pro" style={{ cursor: photoBusy ? 'wait' : 'pointer' }}>
+            Enviar fotos (opcional)
+            <input
+              type="file"
+              multiple
+              disabled={photoBusy}
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                void onPhotos(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {photoBusy ? (
+            <button type="button" className="btn ghost" onClick={() => (photoCancel.current = true)}>
+              Parar envio de fotos
+            </button>
+          ) : null}
+        </div>
+
+        {fileName ? (
+          <p className="muted" style={{ fontSize: 13 }}>
+            Planilha: <strong>{fileName}</strong> · {(sheet?.length || 1) - 1} linha(s) de produto
+          </p>
+        ) : null}
+        {photoProgress ? (
+          <p className="muted" style={{ fontSize: 13 }} role="status">
+            {photoBusy
+              ? `Enviando fotos: ${photoProgress.done} de ${photoProgress.total} (uma a cada ${PHOTO_UPLOAD_SPACING_MS / 1000} s)…`
+              : `Fotos enviadas nesta tela: ${photos.length}.`}
+            {photoProgress.failed.length ? ` Não enviadas: ${photoProgress.failed.join('; ')}.` : ''}
+          </p>
+        ) : null}
+        {photos.length && !photoBusy ? (
+          <details>
+            <summary className="muted" style={{ fontSize: 13 }}>
+              Ver nomes das {photos.length} foto(s) enviadas
+            </summary>
+            <p className="muted" style={{ fontSize: 12 }}>{photos.map((p) => p.name).join(', ')}</p>
+          </details>
+        ) : null}
+
+        <fieldset style={{ border: 0, padding: 0, margin: '8px 0' }}>
+          <legend style={{ fontWeight: 600 }}>Se o SKU já existir na loja</legend>
+          <label style={{ display: 'block' }}>
+            <input
+              type="radio"
+              name="import-mode"
+              checked={mode === 'upsert'}
+              onChange={() => {
+                setMode('upsert');
+                resetPreview();
+              }}
+            />{' '}
+            Atualizar o produto existente (recomendado; não duplica)
+          </label>
+          <label style={{ display: 'block' }}>
+            <input
+              type="radio"
+              name="import-mode"
+              checked={mode === 'create_only'}
+              onChange={() => {
+                setMode('create_only');
+                resetPreview();
+              }}
+            />{' '}
+            Só criar produtos novos (SKU que já existe vira erro e não é alterado)
+          </label>
+        </fieldset>
+
+        <div className="admin-import-actions">
+          <button
+            type="button"
+            className="btn"
+            disabled={importBusy || photoBusy || (!sheet && !pasted.trim())}
+            onClick={() => void checkSheet()}
+          >
+            {importBusy && !preview ? 'Conferindo…' : 'Conferir planilha'}
           </button>
         </div>
-        <label>
-          Ou cole o CSV
-          <textarea
-            rows={6}
-            value={csvText}
-            onChange={(e) => {
-              setCsvText(e.target.value);
-              setImportErr('');
-            }}
-            placeholder="sku;nome;preco;estoque;ativo"
-            spellCheck={false}
-          />
-        </label>
+
+        <details style={{ marginTop: 6 }}>
+          <summary className="muted" style={{ fontSize: 13 }}>
+            Avançado: colar CSV em vez de escolher arquivo
+          </summary>
+          <label>
+            CSV (separado por ; ou ,)
+            <textarea
+              rows={6}
+              value={pasted}
+              onChange={(e) => {
+                setPasted(e.target.value);
+                setSheet(null);
+                setFileName('');
+                setImportErr('');
+                resetPreview();
+              }}
+              placeholder="sku;nome;categoria;preco;estoque"
+              spellCheck={false}
+            />
+          </label>
+        </details>
+
         {importErr ? (
           <p role="alert" className="alert admin-catalog-alert--danger">
             {importErr}
           </p>
         ) : null}
+
+        {preview ? (
+          <div className="admin-import-report" role="status">
+            <p>
+              <strong>Conferência (nada foi gravado ainda):</strong> {importSummaryText(preview)}
+            </p>
+            {preview.fileError && !preview.preview.length ? <p>{preview.fileError}</p> : null}
+            {missingPhotos.length ? (
+              <p>
+                Fotos citadas na planilha que ainda não foram enviadas: {missingPhotos.slice(0, 20).join(', ')}
+                {missingPhotos.length > 20 ? '…' : ''}. Envie em “Enviar fotos” e confira de novo.
+              </p>
+            ) : null}
+            {preview.preview.length ? (
+              <div style={{ overflowX: 'auto', maxHeight: 480, overflowY: 'auto' }}>
+                <table className="admin-import-table">
+                  <thead>
+                    <tr>
+                      <th>Linha</th>
+                      <th>SKU</th>
+                      <th>Ação</th>
+                      <th>Nome</th>
+                      <th>Preço</th>
+                      <th>Preço “de”</th>
+                      <th>Estoque</th>
+                      <th>Categoria</th>
+                      <th>Fotos</th>
+                      <th>Observações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.preview.map((row) => (
+                      <tr
+                        key={`${row.line}-${row.sku || ''}`}
+                        style={row.action === 'error' ? { background: 'rgba(220, 38, 38, 0.08)' } : undefined}
+                      >
+                        <td>{row.line}</td>
+                        <td>{row.sku || '—'}</td>
+                        <td>
+                          <strong>{previewActionLabel(row.action)}</strong>
+                        </td>
+                        <td>{row.name || '—'}</td>
+                        <td>{row.price != null ? brl(row.price) : '—'}</td>
+                        <td>{row.compareAtPrice != null ? brl(row.compareAtPrice) : '—'}</td>
+                        <td>{row.stock ?? '—'}</td>
+                        <td>{row.category || '—'}</td>
+                        <td>{row.photos || '—'}</td>
+                        <td style={{ minWidth: 220 }}>
+                          {row.message ? <div style={{ color: '#b91c1c' }}>{row.message}</div> : null}
+                          {row.warnings.map((w) => (
+                            <div key={w} className="muted" style={{ fontSize: 12 }}>
+                              Atenção: {w}
+                            </div>
+                          ))}
+                          {row.active === false ? (
+                            <div className="muted" style={{ fontSize: 12 }}>
+                              Fica desativado (não aparece na loja).
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+            {preview.errorsTruncated ? <p>Muitos erros: a lista foi cortada. Corrija os primeiros e confira de novo.</p> : null}
+            {preview.failed > 0 && preview.toCreate + preview.toUpdate > 0 ? (
+              <label style={{ display: 'block', marginTop: 8 }}>
+                <input type="checkbox" checked={skipInvalid} onChange={(e) => setSkipInvalid(e.target.checked)} /> Gravar só
+                as linhas sem erro (as {preview.failed} com erro ficam de fora)
+              </label>
+            ) : null}
+            {preview.toCreate + preview.toUpdate > 0 ? (
+              <div className="admin-import-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={importBusy || (preview.failed > 0 && !skipInvalid)}
+                  onClick={() => void applyImport()}
+                >
+                  {importBusy ? 'Gravando…' : `Gravar ${preview.toCreate + preview.toUpdate} produto(s)`}
+                </button>
+                {preview.failed > 0 && !skipInvalid ? (
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    Corrija a planilha e confira de novo, ou marque “Gravar só as linhas sem erro”.
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <p>Nenhuma linha pronta para gravar. Corrija a planilha e confira de novo.</p>
+            )}
+          </div>
+        ) : null}
+
         {importReport ? (
           <div className="admin-import-report" role="status">
-            {importReport.fileError ? <p>{importReport.fileError}</p> : null}
-            <p>
-              Criados: {importReport.created} · Atualizados: {importReport.updated} · Erros:{' '}
-              {importReport.failed} · Apagados: {importReport.deleted}
-            </p>
+            {importReport.applied ? (
+              <p>
+                <strong>Gravado.</strong> Criados: {importReport.created} · Atualizados: {importReport.updated} · Linhas
+                ignoradas por erro: {importReport.failed} · Apagados: {importReport.deleted}
+              </p>
+            ) : (
+              <p>
+                <strong>Nada foi gravado.</strong> {importReport.fileError || ''}
+              </p>
+            )}
             {importReport.errors.length ? (
               <ul className="admin-import-errors">
                 {importReport.errors.map((err, i) => (
