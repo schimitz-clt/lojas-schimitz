@@ -5,7 +5,12 @@ import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
-import { INTEREST_FREE_INSTALLMENTS, interestFreeInstallmentClaim, pixPrice } from '@/lib/pricing';
+import {
+  INTEREST_FREE_INSTALLMENTS,
+  INTEREST_FREE_SUFFIX,
+  interestFreeInstallmentClaim,
+  pixPrice,
+} from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
 import {
   pickFeaturedHeroProduct,
@@ -108,7 +113,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
               <strong>PIX</strong> 5% off
             </li>
             <li>
-              <strong>{INTEREST_FREE_INSTALLMENTS}x</strong> sem juros
+              <strong>{INTEREST_FREE_INSTALLMENTS}x</strong> {INTEREST_FREE_SUFFIX}
             </li>
             <li>
               <strong>Frete</strong> grátis POA

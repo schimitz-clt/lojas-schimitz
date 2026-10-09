@@ -3,7 +3,7 @@
  * PIX 5% and 3x sem juros stay in @/lib/pricing (do not invent payment math).
  */
 
-import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { interestFreeInstallmentClaim, interestFreeInstallmentPhrase } from '@/lib/pricing';
 import { publicProductDescription } from '@/lib/public-copy';
 
 /** Trimmed Admin description; QA/homologation phrasing is replaced, never invented specs. */
@@ -60,7 +60,7 @@ export function pdpDecisionFacts(input: {
   const seller = String(input.sellerName || '').trim();
   return [
     { id: 'stock', label: 'Disponibilidade', value: input.stockLabel },
-    { id: 'pay', label: 'Pagamento', value: 'PIX 5% off e até 3x sem juros no checkout' },
+    { id: 'pay', label: 'Pagamento', value: `PIX 5% off e ${interestFreeInstallmentPhrase()} no checkout` },
     {
       id: 'ship',
       label: 'Entrega',

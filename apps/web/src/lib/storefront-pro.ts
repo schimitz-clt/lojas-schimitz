@@ -225,6 +225,22 @@ export function searchEmptyCopy(q: string, hasFilters: boolean): SearchEmptyCopy
   };
 }
 
+/** Department grid with zero products and no extra filter (filters use searchEmptyCopy). */
+export function departmentEmptyCopy(): { title: string; body: string } {
+  return {
+    title: 'Nenhum produto neste departamento.',
+    body: 'Veja todos os produtos ou explore outro departamento.',
+  };
+}
+
+/**
+ * Home grid with zero products and no search. Not searchEmptyCopy('', false): its body says
+ * "Volte ao início", which makes no sense on the home itself, and the home appends its own links.
+ */
+export function homeEmptyCopy(): { title: string } {
+  return { title: searchEmptyCopy('', false).title };
+}
+
 export type FilterChip = {
   id: string;
   label: string;

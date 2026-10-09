@@ -8,8 +8,9 @@ Header de visitante no carrinho: `x-guest-token: <uuid>`
 
 | Método | Rota | Acesso |
 |---|---|---|
-| GET | `/health` | público — liveness (`mailConfigured`, `fcmConfigured` boolean — presença de env, sem segredos) |
-| GET | `/health/ready` | público — readiness (DB `SELECT 1`) |
+| GET | `/health` | público — liveness, sem DB. Produção/staging (prod-like): só `{ ok: true, time }`. Dev: `{ service, env, time, mailConfigured, fcmConfigured, uploadsPersistent }` (booleans = presença de env, sem segredos) |
+| GET | `/health/ready` | público — readiness (DB `SELECT 1`). Prod-like: `{ ok: true, ready: true, time }`; dev acrescenta `service, db, env, mailConfigured, fcmConfigured, uploadsPersistent`. DB fora → 503 `NOT_READY` |
+| GET | `/health/payments` | público — saúde de pagamentos para monitor de uptime. **200** `status: "ok"` / **503** `status: "down"`, `Cache-Control: no-store`. Corpo: `{ service, status, provider, reasons[], checks: { configured, providerReachable, providerHttpStatus, providerCheckedAt, providerLatencyMs }, recent15m: { providerErrors, webhookFailures, webhookProcessingFailures, paymentsFailed, paymentsPaid }, time }`. Ping read-only no MP com cache de 5 min; `reasons` ∈ `provider_not_configured`, `provider_<unauthorized\|http_error\|timeout_or_network>`, `provider_errors_burst`. Nunca devolve tokens, valores ou dados de cliente |
 | GET | `/admin/ops` | admin — command center: inventory + placeholders + `payments.pendingCount` + `reconciliations.{openCount,recent[]}` + `mail.{configured,storeNotifyConfigured,providerOffWithStoreNotify,lastStoreNotifyFailure,storeNotifyFailureCount}` + `orders.{byStatus,buckets,total}` + `sales.{today,last30d}` + `alerts[]` (open_reconciliations first; store_notify_mail_failed when a real send/skip event exists) |
 | GET | `/admin/payments/reconciliations` | admin — open PaymentReconciliation rows (Jwt+admin; no secrets) |
 | GET | `/admin/ops/products-needing-photos` | admin — CSV `{ filename, csv }` colunas `id,name,imageUrl` (sem gerar fotos) |

@@ -41,4 +41,4 @@ local fica longe da API; o que vale é a comparação antes→depois no mesmo am
 - Menos JS na primeira carga: o chat e o comparador podem ser carregados depois.
 - Home: parte do conteúdo é buscada no navegador (`/products`, `/store/shelves`); dá para renderizar no servidor.
 - Checkout deslogado: redirecionar para `/entrar` antes do JS. Precisa desenho cuidadoso por causa da sessão em memória.
-- `next start` com `output: 'standalone'`: só um aviso no log, sem efeito na velocidade. Trocar o comando de start mexe no deploy.
+- `output: 'standalone'` foi removido (PR fix/web-start-sem-standalone): o Railway roda `next start`, que serve `.next/` direto; o aviso do deploy sumiu.

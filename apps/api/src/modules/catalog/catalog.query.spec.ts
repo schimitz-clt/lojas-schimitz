@@ -72,7 +72,10 @@ import {
   assert.equal(offers.active, true);
   assert.ok(Array.isArray(offers.AND));
   assert.ok(
-    offers.AND.some((clause) => 'compareAtPrice' in clause && clause.compareAtPrice?.not === null),
+    offers.AND.some(
+      (clause) =>
+        clause.compareAtPrice != null && 'not' in clause.compareAtPrice && clause.compareAtPrice.not === null,
+    ),
   );
   assert.equal('category' in offers, false);
   assert.equal(isRealOfferDeal(80, 100), true);

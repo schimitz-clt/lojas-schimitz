@@ -3,7 +3,7 @@
  * Facts already used on the vitrine. No invented seals or viewer counts.
  */
 
-import { INTEREST_FREE_INSTALLMENTS, PIX_DISCOUNT } from '@/lib/pricing';
+import { PIX_DISCOUNT, interestFreeInstallmentPhrase } from '@/lib/pricing';
 
 export type FooterTrustItemId = 'pay' | 'whatsapp' | 'delivery';
 
@@ -29,7 +29,7 @@ export function footerTrustItems(opts?: {
     {
       id: 'pay',
       title: 'PIX e cartão',
-      body: `PIX ${pixPct}% off · até ${INTEREST_FREE_INSTALLMENTS}x sem juros`,
+      body: `PIX ${pixPct}% off · ${interestFreeInstallmentPhrase()}`,
     },
     {
       id: 'whatsapp',

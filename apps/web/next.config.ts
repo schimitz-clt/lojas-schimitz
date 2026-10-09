@@ -14,7 +14,9 @@ if (strippedPublicDevFlags.length > 0) {
 
 /** Phase 8 baseline + Phase B CSP (enforce gradual + Report-Only probe). */
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // No `output: 'standalone'`: Railway runs `next start` (railway.toml / package.json), which
+  // serves `.next/` directly. Standalone only produced an unused bundle and the deploy warning
+  // '"next start" does not work with "output: standalone"'. See web-start-config.spec.ts.
   poweredByHeader: false,
   images: {
     // The optimizer only ever receives our own uploads (see src/lib/responsive-image.ts, which
