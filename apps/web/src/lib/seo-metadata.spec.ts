@@ -67,9 +67,13 @@ assert.equal(robots.includes("'/produtos'"), false, 'robots does not block the c
 assert.ok(robots.includes("'/conta'"));
 
 const sitemap = readFileSync(join(src, 'app/sitemap.ts'), 'utf8');
-assert.ok(sitemap.includes('sitemapAcceptsProduct'), 'demo and inactive products stay out of the sitemap');
+// Catalog entries are built in lib/catalog-sitemap.ts (collectCatalogSitemap); the route only composes.
+const sitemapLib = readFileSync(join(src, 'lib/catalog-sitemap.ts'), 'utf8');
+const collectBody = sitemapLib.slice(sitemapLib.indexOf('export async function collectCatalogSitemap'));
+assert.ok(sitemap.includes('collectCatalogSitemap'), 'route uses the catalog collector');
+assert.ok(collectBody.includes('sitemapAcceptsProduct('), 'demo and inactive products stay out of the sitemap');
 assert.ok(sitemap.includes('sitemapStaticEntries'));
-assert.ok(sitemap.includes('sitemapLastModified'));
+assert.ok(collectBody.includes('sitemapLastModified('));
 assert.equal(sitemap.includes("'/entrar'"), false);
 assert.equal(sitemap.includes("'/cadastro'"), false);
 
@@ -79,7 +83,10 @@ assert.ok(productPage.includes('missingPageMetadata'), 'missing product does not
 assert.ok(productPage.includes('notFound()'), 'missing product still 404s from the page');
 
 const department = readFileSync(join(src, 'app/departamento/[slug]/page.tsx'), 'utf8');
-assert.ok(department.includes('!cat.listed'), 'unknown department is not an indexable page');
+// The listed/404 decision lives in lib/department-page.ts (departmentSeo, unit-tested there).
+const departmentLib = readFileSync(join(src, 'lib/department-page.ts'), 'utf8');
+assert.ok(departmentLib.includes('!cat.listed'), 'unknown department is not an indexable page');
+assert.ok(/seo\.notFound\) return missingPageMetadata\(\)/.test(department), 'unlisted department metadata is noindex');
 assert.ok(department.includes('notFound()'), 'unknown department 404s');
 
 console.log('seo-metadata unit tests ok');

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 /**
  * Pure helpers for public GET /products query params.
  * Kept free of Nest/Prisma client so unit tests stay fast.
@@ -35,38 +36,26 @@ export function isRealOfferDeal(price: unknown, compareAt: unknown): boolean {
   return Number.isFinite(p) && p > 0 && Number.isFinite(c) && c > p;
 }
 
+/** Prisma field reference for `Product.price` (`prisma.product.fields.price`). Type-only import. */
+export type ProductPriceFieldRef = Prisma.FieldRef<'Product', 'Decimal'>;
+
 /**
- * Prisma where for /departamento/ofertas (portable pre-filter).
- * Column-to-column compareAtPrice > price is applied via offerDealIdWhere().
+ * Prisma where for /departamento/ofertas: price > 0 AND compareAtPrice > price, in one query.
+ *
+ * With `priceRef` the column-to-column comparison runs in Postgres via a Prisma field reference,
+ * so list, count and pagination share one WHERE. Before (until 09/10/2026) the controller first ran
+ * `offerDealIds()` (raw SELECT over the whole Product table, active or not) and then filtered by
+ * `id IN (<every deal id>)`: an extra round trip plus an unbounded IN list.
+ * Without `priceRef` (pure unit tests) only the portable pre-filter is returned.
  */
-export function offersCatalogWhere() {
+export function offersCatalogWhere(priceRef?: ProductPriceFieldRef) {
   return {
-    AND: [{ compareAtPrice: { not: null } }, { price: { gt: 0 } }],
+    AND: [
+      { compareAtPrice: { not: null } },
+      { price: { gt: 0 } },
+      ...(priceRef ? [{ compareAtPrice: { gt: priceRef } }] : []),
+    ],
   };
-}
-
-type RawQueryClient = {
-  $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<Array<{ id: string }>>;
-};
-
-/**
- * IDs whose compare-at is strictly above list price.
- * Runs in Postgres so count/pagination see the same set as the vitrine.
- */
-export async function offerDealIds(prisma: RawQueryClient): Promise<string[]> {
-  const rows = await prisma.$queryRaw`
-    SELECT p.id
-    FROM "Product" p
-    WHERE p.price > 0
-      AND p."compareAtPrice" IS NOT NULL
-      AND p."compareAtPrice" > p.price
-  `;
-  return rows.map((row) => String(row.id));
-}
-
-/** Intersect the list where with real deals. Empty catalog → no rows (not a full table scan). */
-export function offerDealIdWhere(ids: string[]): { id: { in: string[] } } {
-  return { id: { in: ids } };
 }
 
 export type ProductOrderBy =
@@ -80,7 +69,7 @@ export type PublicProductWhere = {
   active: true;
   seller: { status: 'active'; slug?: string };
   category?: { slug: string };
-  AND?: Array<{ compareAtPrice?: { not: null }; price?: { gt: number } }>;
+  AND?: Array<{ compareAtPrice?: { not: null } | { gt: ProductPriceFieldRef }; price?: { gt: number } }>;
   price?: { gte?: number; lte?: number };
   OR?: Array<Record<string, unknown>>;
 };
@@ -170,7 +159,10 @@ export function parseSellerSlug(raw?: string): string | undefined {
 }
 
 /** Prisma-compatible where fragment for public catalog list. */
-export function buildProductWhere(input: ProductListQuery): PublicProductWhere {
+export function buildProductWhere(
+  input: ProductListQuery,
+  opts: { priceRef?: ProductPriceFieldRef } = {},
+): PublicProductWhere {
   const q = (input.q || '').trim();
   const category = (input.category || '').trim();
   const offers = isOffersCategorySlug(category);
@@ -190,7 +182,7 @@ export function buildProductWhere(input: ProductListQuery): PublicProductWhere {
       ...(sellerSlug ? { slug: sellerSlug } : {}),
     },
     ...(offers
-      ? offersCatalogWhere()
+      ? offersCatalogWhere(opts.priceRef)
       : category
         ? { category: { slug: category } }
         : {}),

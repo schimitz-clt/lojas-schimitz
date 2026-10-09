@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -16,16 +16,28 @@ import {
   isExternalSearchShortcut,
   parseCatalogSort,
   searchEmptyCopy,
+  departmentEmptyCopy,
   type FilterChip,
 } from '@/lib/storefront-pro';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
 import { CatalogPager } from '@/components/storefront/CatalogPager';
 import { CATALOG_PAGE_SIZE, catalogPageSearch, parseCatalogPage } from '@/lib/catalog-pagination';
+import {
+  OFFERS_DEPARTMENT_TITLE,
+  departmentQueryPath,
+  isOffersDepartment,
+  type DepartmentInitialList,
+} from '@/lib/department-page';
 
 type Category = { id: string; name: string; slug: string };
 type ListResponse = { items: Product[]; total?: number };
 
-export default function DepartamentoClient() {
+export default function DepartamentoClient({
+  initial = null,
+}: {
+  /** First page rendered on the server (SEO + first paint). Used only while the URL matches it. */
+  initial?: DepartmentInitialList<Product> | null;
+}) {
   const { slug } = useParams<{ slug: string }>();
   const sp = useSearchParams();
   const router = useRouter();
@@ -35,11 +47,19 @@ export default function DepartamentoClient() {
   const sort = parseCatalogSort(sp.get('sort') || 'newest');
   const page = parseCatalogPage(sp.get('page'));
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [total, setTotal] = useState(0);
+  const initialPath = useMemo(
+    () => departmentQueryPath({ slug, minPrice, maxPrice, sort, page: String(page) }),
+    // Only the first render decides whether the server list applies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const serverList = initial && initial.path === initialPath ? initial : null;
+  const [products, setProducts] = useState<Product[]>(serverList?.items ?? []);
+  const [total, setTotal] = useState(serverList?.total ?? 0);
+  const skipFetchFor = useRef<string | null>(serverList?.path ?? null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!serverList);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draftMin, setDraftMin] = useState(minPrice);
   const [draftMax, setDraftMax] = useState(maxPrice);
@@ -61,20 +81,20 @@ export default function DepartamentoClient() {
     () => categories.find((c) => c.slug === slug)?.name || null,
     [categories, slug],
   );
-  const title = departmentTitle(slug, apiName);
+  const title = departmentTitle(slug, apiName || (isOffersDepartment(slug) ? OFFERS_DEPARTMENT_TITLE : null));
 
-  const queryPath = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set('category', slug);
-    if (minPrice) params.set('minPrice', minPrice);
-    if (maxPrice) params.set('maxPrice', maxPrice);
-    if (sort) params.set('sort', sort);
-    params.set('page', String(page));
-    params.set('pageSize', String(CATALOG_PAGE_SIZE));
-    return `/products?${params.toString()}`;
-  }, [slug, minPrice, maxPrice, sort, page]);
+  const queryPath = useMemo(
+    () => departmentQueryPath({ slug, minPrice, maxPrice, sort, page: String(page) }),
+    [slug, minPrice, maxPrice, sort, page],
+  );
 
   useEffect(() => {
+    if (skipFetchFor.current === queryPath) {
+      // Server already rendered this exact list; refetch only when filters/page change.
+      skipFetchFor.current = null;
+      return;
+    }
+    skipFetchFor.current = null;
     setLoading(true);
     setErr('');
     api<Product[] | ListResponse>(queryPath)
@@ -161,6 +181,7 @@ export default function DepartamentoClient() {
   });
   const hasExtra = Boolean(minPrice || maxPrice || (sort && sort !== 'newest'));
   const empty = searchEmptyCopy('', hasExtra);
+  const departmentEmpty = departmentEmptyCopy();
   const siblingNav = HOME_CATEGORIES.filter((c) => c.slug !== 'marketplace');
 
   useEffect(() => {
@@ -272,12 +293,10 @@ export default function DepartamentoClient() {
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty sf-catalog-empty">
           <p className="sf-catalog-empty-title">
-            {hasExtra ? empty.title : 'Nenhum produto neste departamento.'}
+            {hasExtra ? empty.title : departmentEmpty.title}
           </p>
           <p className="muted sf-catalog-empty-body">
-            {hasExtra
-              ? empty.body
-              : 'Veja todos os produtos ou explore outro departamento.'}
+            {hasExtra ? empty.body : departmentEmpty.body}
           </p>
           <div className="sf-catalog-empty-actions">
             {hasExtra ? (

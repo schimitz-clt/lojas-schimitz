@@ -12,7 +12,7 @@ import { CompareProvider } from '@/components/compare/CompareProvider';
 import { CompareBar } from '@/components/compare/CompareBar';
 import { FavoritesProvider } from '@/components/favorites/FavoritesProvider';
 import { StorefrontToast } from '@/components/StorefrontToast';
-import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
+import { interestFreeInstallmentShort } from '@/lib/pricing';
 import { FooterTrustStrip } from '@/components/FooterTrustStrip';
 
 /**
@@ -122,7 +122,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
                 <li>Frete grátis em Porto Alegre</li>
                 <li>Troca em 7 dias</li>
                 <li>PIX 5% off</li>
-                <li>{INTEREST_FREE_INSTALLMENTS}x sem juros</li>
+                <li>{interestFreeInstallmentShort()}</li>
               </ul>
             </div>
           </div>
