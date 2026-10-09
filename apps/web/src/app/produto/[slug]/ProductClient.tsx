@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, brl, currentUser, getGuestToken, waLink } from '@/lib/api';
 import {
+  INSTALLMENT_INTEREST_NOTE,
   installmentLine,
   installmentSuffix,
   installmentTableNote,
@@ -432,6 +433,9 @@ export default function ProductPage({
               <span className="pdp-list-price">{brl(price)}</span>
               {' · '}
               {installmentLine(price)}
+              <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+                {INSTALLMENT_INTEREST_NOTE}
+              </span>
             </p>
             <PdpFreightCep
               subtotal={price}

@@ -40,7 +40,7 @@ assert.equal(visibleCatalogBadge('Mais vendido', false), null);
 assert.equal(visibleCatalogBadge('Mais vendido', true), 'Mais vendido');
 assert.equal(visibleCatalogBadge('Oferta relâmpago', false), 'Oferta relâmpago');
 
-assert.deepEqual(defaultPromoStripLines(), ['Frete grátis em POA', '5% OFF no PIX', 'Parcele em até 3x no cartão']);
+assert.deepEqual(defaultPromoStripLines(), ['Frete grátis em POA', '5% OFF no PIX', 'Parcele em até 12x no cartão']);
 assert.equal(configuredPromoLines(null), null);
 assert.deepEqual(configuredPromoLines(['  Frete grátis em POA  ']), ['Frete grátis em POA']);
 

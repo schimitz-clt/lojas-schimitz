@@ -13,7 +13,7 @@ export function promisesNoInterest(text: string | null | undefined): boolean {
 }
 
 /** Descrição pública padrão quando a salva no banco promete "sem juros". */
-export const SAFE_SITE_DESCRIPTION = `Lojas Schimitz — frete grátis em Porto Alegre, PIX 5% off e parcelamento no cartão em até ${CARD_INSTALLMENTS_HIGHLIGHT}x.`;
+export const SAFE_SITE_DESCRIPTION = `Lojas Schimitz — frete grátis em Porto Alegre, PIX 5% off e parcele em até ${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão.`;
 
 export const NO_INTEREST_CLAIM_ERROR =
-  'Não use "sem juros" (ou equivalente): o parcelamento no cartão tem os juros do Mercado Pago. Escreva, por exemplo, "parcelamento no cartão em até 3x".';
+  'Não use "sem juros" (ou equivalente): o parcelamento no cartão tem os juros do Mercado Pago. Escreva, por exemplo, "parcele em até 12x no cartão".';

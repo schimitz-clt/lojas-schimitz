@@ -30,7 +30,7 @@ export type CardBrickSubmit = {
 
 /**
  * Card Payment Brick `customization.paymentMethods` — max options (12).
- * Vitrine copy uses CARD_INSTALLMENTS_HIGHLIGHT (3); do not
+ * Vitrine copy uses CARD_INSTALLMENTS_HIGHLIGHT (= MAX_INSTALLMENTS); do not
  * treat this max as a claim about interest. Actual options still depend on
  * the card + Mercado Pago account installment settings.
  */

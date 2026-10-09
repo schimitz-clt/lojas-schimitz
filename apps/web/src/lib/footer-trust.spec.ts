@@ -15,7 +15,6 @@ import { CARD_INSTALLMENTS_HIGHLIGHT } from './pricing';
   assert.ok(/PIX/i.test(items[0].title) && /cart[aã]o/i.test(items[0].title));
   assert.ok(/PIX 5%/.test(items[0].body));
   assert.ok(items[0].body.includes(`${CARD_INSTALLMENTS_HIGHLIGHT}x no cartão`));
-  assert.ok(!/12x/.test(items[0].body));
 
   assert.equal(items[1].title, 'WhatsApp atendimento');
   assert.equal(items[1].body, FOOTER_TRUST_WHATSAPP_FALLBACK);

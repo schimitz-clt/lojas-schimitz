@@ -20,7 +20,8 @@ assert.ok(BANNED.test('3x s/ juros'));
 assert.ok(BANNED.test('parcele sem acréscimo'));
 assert.ok(BANNED.test('juros zero'));
 assert.ok(BANNED.test('0% de juros'));
-assert.ok(!BANNED.test('Parcele em até 3x no cartão'));
+assert.ok(!BANNED.test('Parcele em até 12x no cartão'));
+assert.ok(!BANNED.test('Juros conforme o cartão, informados no checkout.'));
 assert.ok(!BANNED.test('Os juros, se houver, são definidos pelo Mercado Pago'));
 assert.ok(!BANNED.test('valor base; juros conforme o cartão'));
 

@@ -11,11 +11,11 @@ const base = { id: 'default', siteTitle: 'Lojas Schimitz', ogImageUrl: null, upd
 for (const t of ['3x sem juros', 'Até 3x s/ juros', 'sem acréscimo', 'juros zero', '0% de juros', 'SEM  JUROS']) {
   assert.equal(promisesNoInterest(t), true, t);
 }
-for (const t of ['Parcele em até 3x no cartão', 'juros conforme o cartão', 'Os juros, se houver, aparecem antes de pagar', '', null, undefined]) {
+for (const t of ['Parcele em até 12x no cartão', 'juros conforme o cartão', 'Os juros, se houver, aparecem antes de pagar', '', null, undefined]) {
   assert.equal(promisesNoInterest(t), false, String(t));
 }
 assert.ok(!NO_INTEREST_CLAIM_RE.test(SAFE_SITE_DESCRIPTION), 'descrição segura não promete sem juros');
-assert.ok(SAFE_SITE_DESCRIPTION.includes('PIX 5%') && SAFE_SITE_DESCRIPTION.includes('3x'));
+assert.ok(SAFE_SITE_DESCRIPTION.includes('PIX 5%') && SAFE_SITE_DESCRIPTION.includes('12x'));
 
 // Descrição antiga do banco é trocada na saída pública.
 const old = serializeSettings({

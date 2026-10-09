@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { api, brl, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
 import { loginNextPath, persistLastOrderPublicId } from '@/lib/order-recovery';
-import { pixPrice, pixSavings, isPixPromoCollidingCouponCode } from '@/lib/pricing';
+import {
+  INSTALLMENT_INTEREST_NOTE,
+  cardInstallmentClaim,
+  isPixPromoCollidingCouponCode,
+  pixPrice,
+  pixSavings,
+} from '@/lib/pricing';
 import { isMissingOrPlaceholderImage } from '@/lib/placeholder-image';
 import { rewritePublicUploadUrl } from '@/lib/public-upload-url';
 import {
@@ -535,8 +541,8 @@ export default function CheckoutPage() {
           </div>
 
           <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-            No pagamento você escolhe PIX ou cartão. Parcelas do cartão aparecem na etapa seguinte,
-            conforme o Mercado Pago.
+            No pagamento você escolhe PIX ou cartão. {cardInstallmentClaim()} pelo Mercado Pago.{' '}
+            {INSTALLMENT_INTEREST_NOTE}
           </p>
         </div>
       </section>

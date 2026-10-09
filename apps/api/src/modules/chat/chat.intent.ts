@@ -1,6 +1,6 @@
 /** Detecção de intenção e FAQ (puro, sem I/O). */
 
-import { INSTALLMENTS, CARD_HIGHLIGHT, CARD_INSTALLMENT_FACT, INSTALLMENTS_PROVIDER } from './chat.facts';
+import { CARD_HIGHLIGHT, CARD_INSTALLMENT_FACT, INSTALLMENTS_PROVIDER } from './chat.facts';
 
 const HANDOFF_RE = new RegExp(
   [
@@ -101,7 +101,7 @@ export function faqReply(message: string): string | null {
   const bits: string[] = [];
   if (greet) {
     bits.push(
-      `Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcelamento no cartão em até ${CARD_HIGHLIGHT}x, troca em 7 dias e produtos do catálogo.`,
+      `Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcele em até ${CARD_HIGHLIGHT}x no cartão, troca em 7 dias e produtos do catálogo.`,
     );
   }
   if (pix) bits.push('No PIX você tem 5% de desconto à vista.');
@@ -111,7 +111,7 @@ export function faqReply(message: string): string | null {
     );
   if (pay && !pix && !card) {
     bits.push(
-      `Aceitamos PIX (5% off à vista) e cartão em até ${CARD_HIGHLIGHT}x (até ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER}; os juros, se houver, dependem do cartão).`,
+      `Aceitamos PIX (5% off à vista) e cartão em até ${CARD_HIGHLIGHT}x pelo ${INSTALLMENTS_PROVIDER} (juros conforme o cartão, informados no checkout).`,
     );
   }
   if (ship) {
@@ -155,7 +155,7 @@ export function noLlmFallbackReply(opts: { faq: string | null; hasProducts: bool
     return 'Encontrei estes itens no catálogo atual. Os preços são os da loja — não invento produto que não esteja listado. Quer que eu detalhe algum, ou prefere falar no WhatsApp (51) 99625-3766?';
   }
   return [
-    `Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, parcelamento no cartão em até ${CARD_HIGHLIGHT}x no ${INSTALLMENTS_PROVIDER} (até ${INSTALLMENTS}x; juros conforme o cartão), troca em 7 dias e SCHIMITZ+.`,
+    `Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, parcele em até ${CARD_HIGHLIGHT}x no cartão pelo ${INSTALLMENTS_PROVIDER} (juros conforme o cartão, informados no checkout), troca em 7 dias e SCHIMITZ+.`,
     'Para atendimento humano ou horários, use /suporte ou o WhatsApp (51) 99625-3766.',
     'Se estiver buscando um produto, diga o nome ou modelo que eu consulto o catálogo.',
   ].join(' ');

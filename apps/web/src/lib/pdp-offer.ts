@@ -27,7 +27,7 @@ export type PdpOfferPill = {
   tone: 'pix' | 'install';
 };
 
-/** Visible buybox chips (Pix 5% + parcele em até 3x no cartão). */
+/** Visible buybox chips (Pix 5% + parcele em até 12x no cartão). */
 export function pdpOfferPills(): PdpOfferPill[] {
   return [
     { id: 'pix', label: 'Pix 5%', tone: 'pix' },
