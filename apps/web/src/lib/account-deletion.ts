@@ -37,7 +37,7 @@ export const ACCOUNT_DELETION_DELETED = [
 export const ACCOUNT_DELETION_KEPT = [
   `Pedidos, pagamentos, estornos e o endereço de entrega usado em cada pedido: guardados por ${ACCOUNT_DELETION_ORDER_RETENTION} para cumprir obrigações legais, fiscais e de defesa do consumidor (art. 16 da LGPD). Ficam ligados a uma conta anonimizada.`,
   'Histórico de cashback (SCHIMITZ+) e registros de auditoria das operações financeiras, pelo mesmo prazo. Saldo de cashback não usado é perdido com a exclusão.',
-  'Registros técnicos de acesso (IP, data e hora): pelo prazo de retenção do provedor de hospedagem e, quando a lei exigir, por pelo menos 6 meses.',
+  'Registros técnicos de acesso (IP, data e hora): não ficam no banco da loja; o provedor de hospedagem (Railway) apaga automaticamente no prazo do plano (7 a 30 dias).',
 ];
 
 export const ACCOUNT_DELETION_NOTES = [
