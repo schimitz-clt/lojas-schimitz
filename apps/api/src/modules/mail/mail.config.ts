@@ -12,6 +12,7 @@ export type MailSendKind =
   | 'admin_order_paid'
   | 'order_ready'
   | 'order_shipped'
+  | 'order_tracking'
   | 'order_delivered'
   | 'order_status'
   | 'payment_refused'
@@ -81,7 +82,7 @@ export function buildMailIdempotencyKey(opts: {
   }
   const publicId = String(opts.publicId || '').trim();
   if (!publicId) return null;
-  if (opts.kind === 'order_status') {
+  if (opts.kind === 'order_status' || opts.kind === 'order_tracking') {
     const label = String(opts.statusLabel || '').trim() || 'status';
     return `${opts.kind}:${publicId}:${label}:${to}`;
   }
