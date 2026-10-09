@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { UsersModule } from './modules/users/users.module';
+import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
@@ -43,6 +44,7 @@ import { FinanceModule } from './modules/finance/finance.module';
     CatalogModule,
     AdminModule,
     UsersModule,
+    AccountDeletionModule,
     AddressesModule,
     CartModule,
     OrdersModule,
