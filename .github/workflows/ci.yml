@@ -40,6 +40,72 @@ jobs:
       - name: Testes
         run: npm test
 
+  e2e:
+    name: E2E navegador — carrinho → checkout → PIX (MP falso, Postgres local)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: schimitz
+          POSTGRES_PASSWORD: schimitz
+          POSTGRES_DB: lojas_schimitz_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U schimitz -d lojas_schimitz_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Valores fictícios, só para CI. Nenhum segredo real; MP é um servidor falso local.
+      DATABASE_URL: postgresql://schimitz:schimitz@127.0.0.1:5432/lojas_schimitz_e2e?schema=public
+      MELHOR_ENVIO_TOKEN: fake-local-ci
+      MELHOR_ENVIO_BASE_URL: http://127.0.0.1:45999
+      MELHOR_ENVIO_ORIGIN_CEP: '90010000'
+      CHROME_PATH: /usr/bin/google-chrome
+      E2E_ARTIFACTS_DIR: /tmp/storefront-e2e
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+      - name: Instalar (raiz + api + web)
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --no-audit --no-fund --prefix apps/api
+          npm ci --no-audit --no-fund --prefix apps/web
+      - name: Prisma generate + migrations + seed
+        working-directory: apps/api
+        run: |
+          npm run prisma:generate
+          npx prisma migrate deploy --schema=../../prisma/schema.prisma
+          npm run prisma:seed
+      - name: Build web (NEXT_PUBLIC_API_URL padrão = http://localhost:3001/api/v1)
+        working-directory: apps/web
+        run: npm run build
+      - name: playwright-core (só driver; usa o Chrome do runner, sem baixar navegador)
+        run: npm install --no-save --no-package-lock --prefix /tmp/pw playwright-core@1.64.0
+      - name: Subir Melhor Envio falso
+        run: |
+          node .github/ci/fake-melhor-envio.mjs > /tmp/fake-me.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf -X POST http://127.0.0.1:45999/api/v2/me/shipment/calculate -d '{}' > /dev/null && exit 0
+            sleep 0.5
+          done
+          cat /tmp/fake-me.log; exit 1
+      - name: E2E carrinho → checkout → PIX → webhook → pago
+        working-directory: apps/api
+        env:
+          NODE_PATH: /tmp/pw/node_modules
+        run: npm run test:e2e:browser
+
   api:
     name: API (apps/api) — build e testes com Postgres
     runs-on: ubuntu-latest
