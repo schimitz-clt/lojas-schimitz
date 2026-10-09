@@ -44,13 +44,38 @@ function productStoryColumns(dto: {
 }
 import {
   capCatalogErrors,
+  catalogRowWarnings,
   matchCategory,
   planCatalogUpserts,
   slugifyProductName,
   validateCatalogCsv,
+  type CatalogImportMode,
   type CatalogRowError,
+  type CatalogUpsertAction,
   type ValidatedCatalogRow,
 } from './catalog-csv';
+
+export type CatalogImportOptions = {
+  dryRun?: boolean;
+  mode?: CatalogImportMode;
+  skipInvalid?: boolean;
+};
+
+/** Uma linha da pré-visualização (ordem da planilha). */
+export type CatalogPreviewRow = {
+  line: number;
+  sku: string | null;
+  action: 'create' | 'update' | 'error';
+  name: string | null;
+  price: number | null;
+  compareAtPrice: number | null;
+  stock: number | null;
+  category: string | null;
+  photos: number;
+  active: boolean | null;
+  message: string | null;
+  warnings: string[];
+};
 import {
   adminProductListWindow,
   buildAdminProductSearchWhere,
@@ -139,78 +164,155 @@ export class AdminProductsService {
    * A bad row is skipped; other rows continue in their own transaction.
    * Never deletes products or image rows. Empty cells do not clear stored values.
    */
-  async importCsv(csv: string, actorId?: string) {
+  /**
+   * Importação por planilha (CSV já convertido no navegador se veio de .xlsx).
+   * - `dryRun`: só confere e devolve a pré-visualização linha a linha. Nada é gravado.
+   * - `mode`: `upsert` (padrão) atualiza pelo SKU; `create_only` recusa SKU existente.
+   * - `skipInvalid`: com erros, grava só as linhas válidas; sem ele, nada é gravado.
+   * Todas as gravações ficam numa única transação: se uma linha falhar no banco,
+   * a importação inteira é desfeita. Nunca apaga produto nem foto.
+   */
+  async importCsv(csv: string, actorId?: string, opts: CatalogImportOptions = {}) {
+    const dryRun = opts.dryRun === true;
+    const mode: CatalogImportMode = opts.mode === 'create_only' ? 'create_only' : 'upsert';
+    const skipInvalid = opts.skipInvalid !== false;
+    const base = {
+      dryRun,
+      mode,
+      applied: false,
+      created: 0,
+      updated: 0,
+      failed: 0,
+      toCreate: 0,
+      toUpdate: 0,
+      errors: [] as CatalogRowError[],
+      errorsTruncated: false,
+      fileError: null as string | null,
+      deleted: 0,
+      preview: [] as CatalogPreviewRow[],
+    };
+
     const validated = validateCatalogCsv(csv);
-    if (validated.fileError) {
-      return {
-        applied: false,
-        created: 0,
-        updated: 0,
-        failed: 0,
-        errors: [] as CatalogRowError[],
-        errorsTruncated: false,
-        fileError: validated.fileError,
-        deleted: 0,
-      };
-    }
+    if (validated.fileError) return { ...base, fileError: validated.fileError };
+
     const existing = await this.findSkus(validated.rows.map((r) => r.sku));
-    const plan = planCatalogUpserts(validated.rows, new Set(existing.keys()));
+    const plan = planCatalogUpserts(validated.rows, new Set(existing.keys()), mode);
     const errors: CatalogRowError[] = [...validated.errors, ...plan.errors];
-    if (!plan.actions.length) {
-      const capped = capCatalogErrors(errors);
-      return {
-        applied: false,
-        created: 0,
-        updated: 0,
-        failed: errors.length,
-        errors: capped.errors,
-        errorsTruncated: capped.truncated,
-        fileError: 'Nenhuma linha válida para gravar. Nada foi gravado.',
-        deleted: 0,
-      };
-    }
 
     const categories = await this.prisma.category.findMany({
       select: { id: true, slug: true, name: true },
     });
-    const needsCreate = plan.actions.some((a) => a.kind === 'create');
-    const sellerId = needsCreate ? await this.sellers.resolveActiveSellerId(undefined) : null;
+    const takenSlugs = await this.findTakenSlugs(
+      plan.actions.filter((a) => a.kind === 'create' && a.row.slug).map((a) => a.row.slug!),
+    );
 
-    let created = 0;
-    let updated = 0;
+    const actions: CatalogUpsertAction[] = [];
+    const preview: CatalogPreviewRow[] = [];
     for (const action of plan.actions) {
-      try {
-        if (action.kind === 'create') {
-          await this.importCreate(action.row, categories, sellerId!);
-          created += 1;
-        } else {
-          await this.importUpdate(action.row, categories);
-          updated += 1;
+      const row = action.row;
+      const hit = existing.get(row.sku);
+      const category = matchCategory(row.category, categories);
+      let problem: string | null = null;
+      if (category.kind === 'error') problem = category.message;
+      else if (action.kind === 'create' && row.slug && takenSlugs.has(row.slug)) problem = 'Slug já cadastrado';
+      else if (action.kind === 'update' && row.stock != null && hit && row.stock < hit.qtyReserved) {
+        problem = `Estoque não pode ser menor que a reserva atual (${hit.qtyReserved})`;
+      } else if (action.kind === 'update' && row.imageUrls?.length && hit) {
+        const add = row.imageUrls.filter((u) => !hit.imageUrls.has(u)).length;
+        if (hit.imageUrls.size + add > MAX_PRODUCT_IMAGES) {
+          problem = `Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`;
         }
-      } catch (e) {
-        errors.push({
-          line: action.row.line,
-          sku: action.row.sku,
-          message: this.rowErrorMessage(e),
-        });
       }
+      if (problem) {
+        errors.push({ line: row.line, sku: row.sku, message: problem });
+        continue;
+      }
+      actions.push(action);
+      preview.push({
+        line: row.line,
+        sku: row.sku,
+        action: action.kind,
+        name: row.name ?? hit?.name ?? null,
+        price: row.price ?? null,
+        compareAtPrice: row.compareAtPrice ?? null,
+        stock: row.stock ?? null,
+        category: category.kind === 'id' ? categories.find((c) => c.id === category.id)?.name ?? null : null,
+        photos: row.imageUrls?.length ?? 0,
+        active: row.active ?? (action.kind === 'create' ? true : null),
+        message: null,
+        warnings: catalogRowWarnings(row, action.kind),
+      });
     }
+    for (const err of errors) {
+      preview.push({
+        line: err.line,
+        sku: err.sku ?? null,
+        action: 'error',
+        name: null,
+        price: null,
+        compareAtPrice: null,
+        stock: null,
+        category: null,
+        photos: 0,
+        active: null,
+        message: err.message,
+        warnings: [],
+      });
+    }
+    preview.sort((a, b) => a.line - b.line);
+    errors.sort((a, b) => a.line - b.line);
     const capped = capCatalogErrors(errors);
+    const toCreate = actions.filter((a) => a.kind === 'create').length;
+    const toUpdate = actions.length - toCreate;
+    const summary = {
+      ...base,
+      failed: errors.length,
+      toCreate,
+      toUpdate,
+      errors: capped.errors,
+      errorsTruncated: capped.truncated,
+      preview,
+    };
+
+    if (!actions.length) {
+      return { ...summary, fileError: 'Nenhuma linha válida para gravar. Nada foi gravado.' };
+    }
+    if (dryRun) return summary;
+    if (errors.length && !skipInvalid) {
+      return {
+        ...summary,
+        fileError: `${errors.length} linha(s) com erro. Corrija a planilha ou escolha gravar só as linhas sem erro. Nada foi gravado.`,
+      };
+    }
+
+    const sellerId = toCreate ? await this.sellers.resolveActiveSellerId(undefined) : null;
+    let current: ValidatedCatalogRow | null = null;
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          for (const action of actions) {
+            current = action.row;
+            if (action.kind === 'create') await this.importCreate(tx, action.row, categories, sellerId!);
+            else await this.importUpdate(tx, action.row, categories);
+          }
+        },
+        { maxWait: 15_000, timeout: 120_000 },
+      );
+    } catch (e) {
+      const row = current as ValidatedCatalogRow | null;
+      const where = row ? `Linha ${row.line} (${row.sku}): ` : '';
+      return {
+        ...summary,
+        fileError: `${where}${this.rowErrorMessage(e)}. A importação inteira foi desfeita. Nada foi gravado.`,
+      };
+    }
+
     await this.audit?.log('catalog.import', {
       actorId,
       entity: 'Product',
-      meta: { created, updated, failed: errors.length, deleted: 0 },
+      meta: { created: toCreate, updated: toUpdate, failed: errors.length, deleted: 0, mode },
     });
-    return {
-      applied: created + updated > 0,
-      created,
-      updated,
-      failed: errors.length,
-      errors: capped.errors,
-      errorsTruncated: capped.truncated,
-      fileError: null as string | null,
-      deleted: 0,
-    };
+    return { ...summary, applied: true, created: toCreate, updated: toUpdate };
   }
 
   /**
@@ -530,6 +632,7 @@ export class AdminProductsService {
   }
 
   private async importCreate(
+    tx: Prisma.TransactionClient,
     row: ValidatedCatalogRow,
     categories: { id: string; slug: string; name: string }[],
     sellerId: string,
@@ -540,44 +643,42 @@ export class AdminProductsService {
     assertNoPlaceholderProductImageUrls(imageUrls);
     const base = row.slug || slugifyProductName(row.name || row.sku);
     if (row.slug) {
-      const taken = await this.prisma.product.findUnique({ where: { slug: row.slug } });
+      const taken = await tx.product.findUnique({ where: { slug: row.slug } });
       if (taken) throw new ConflictException('Slug já cadastrado');
     }
-    const slug = row.slug || (await this.uniqueSlug(base));
+    const slug = row.slug || (await this.uniqueSlug(base, undefined, tx));
     const name = row.name!.trim();
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.product.create({
-          data: {
-            sku: row.sku,
-            name,
-            slug,
-            description: row.description ?? '',
-            sellerId,
-            categoryId: category.kind === 'id' ? category.id : null,
-            price: new Prisma.Decimal(row.price!.toFixed(2)),
-            compareAtPrice:
-              row.compareAtPrice == null ? null : new Prisma.Decimal(row.compareAtPrice.toFixed(2)),
-            active: row.active ?? true,
-            isDemo: false,
-            weightKg: row.weightKg == null ? null : new Prisma.Decimal(row.weightKg.toFixed(3)),
-            widthCm: row.widthCm == null ? null : new Prisma.Decimal(row.widthCm.toFixed(2)),
-            heightCm: row.heightCm == null ? null : new Prisma.Decimal(row.heightCm.toFixed(2)),
-            lengthCm: row.lengthCm == null ? null : new Prisma.Decimal(row.lengthCm.toFixed(2)),
-            inventory: { create: { qtyOnHand: row.stock ?? 0, qtyReserved: 0 } },
-            ...(imageUrls.length
-              ? {
-                  images: {
-                    create: imageUrls.map((url, position) => ({
-                      url,
-                      alt: position === 0 ? name : `${name} — foto ${position + 1}`,
-                      position,
-                    })),
-                  },
-                }
-              : {}),
-          },
-        });
+      await tx.product.create({
+        data: {
+          sku: row.sku,
+          name,
+          slug,
+          description: row.description ?? '',
+          sellerId,
+          categoryId: category.kind === 'id' ? category.id : null,
+          price: new Prisma.Decimal(row.price!.toFixed(2)),
+          compareAtPrice:
+            row.compareAtPrice == null ? null : new Prisma.Decimal(row.compareAtPrice.toFixed(2)),
+          active: row.active ?? true,
+          isDemo: false,
+          weightKg: row.weightKg == null ? null : new Prisma.Decimal(row.weightKg.toFixed(3)),
+          widthCm: row.widthCm == null ? null : new Prisma.Decimal(row.widthCm.toFixed(2)),
+          heightCm: row.heightCm == null ? null : new Prisma.Decimal(row.heightCm.toFixed(2)),
+          lengthCm: row.lengthCm == null ? null : new Prisma.Decimal(row.lengthCm.toFixed(2)),
+          inventory: { create: { qtyOnHand: row.stock ?? 0, qtyReserved: 0 } },
+          ...(imageUrls.length
+            ? {
+                images: {
+                  create: imageUrls.map((url, position) => ({
+                    url,
+                    alt: position === 0 ? name : `${name} — foto ${position + 1}`,
+                    position,
+                  })),
+                },
+              }
+            : {}),
+        },
       });
     } catch (e) {
       this.rethrowUnique(e, 'SKU ou slug já cadastrado');
@@ -585,6 +686,7 @@ export class AdminProductsService {
   }
 
   private async importUpdate(
+    tx: Prisma.TransactionClient,
     row: ValidatedCatalogRow,
     categories: { id: string; slug: string; name: string }[],
   ) {
@@ -595,70 +697,94 @@ export class AdminProductsService {
       : [];
     assertNoPlaceholderProductImageUrls(imageUrls);
 
-    await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.product.findUnique({
-        where: { sku: row.sku },
-        include: { images: { orderBy: { position: 'asc' } } },
-      });
-      if (!existing) throw new NotFoundException('SKU não encontrado');
-      const data: Prisma.ProductUpdateInput = {};
-      if (row.name !== undefined) data.name = row.name;
-      if (row.description !== undefined) data.description = row.description;
-      if (row.price !== undefined) data.price = new Prisma.Decimal(row.price.toFixed(2));
-      if (row.compareAtPrice !== undefined) {
-        data.compareAtPrice = new Prisma.Decimal(row.compareAtPrice.toFixed(2));
-      }
-      if (row.active !== undefined) data.active = row.active;
-      if (row.weightKg !== undefined) data.weightKg = new Prisma.Decimal(row.weightKg.toFixed(3));
-      if (row.widthCm !== undefined) data.widthCm = new Prisma.Decimal(row.widthCm.toFixed(2));
-      if (row.heightCm !== undefined) data.heightCm = new Prisma.Decimal(row.heightCm.toFixed(2));
-      if (row.lengthCm !== undefined) data.lengthCm = new Prisma.Decimal(row.lengthCm.toFixed(2));
-      if (category.kind === 'id') data.category = { connect: { id: category.id } };
-      // Slug stays. Renaming must not invent a new PDP URL.
-
-      if (imageUrls.length) {
-        const have = new Set(existing.images.map((img) => img.url));
-        const toAdd = imageUrls.filter((url) => !have.has(url));
-        if (existing.images.length + toAdd.length > MAX_PRODUCT_IMAGES) {
-          throw new BadRequestException(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`);
-        }
-        let position =
-          existing.images.length === 0
-            ? 0
-            : Math.max(...existing.images.map((img) => img.position)) + 1;
-        for (const url of toAdd) {
-          await tx.productImage.create({
-            data: {
-              productId: existing.id,
-              url,
-              alt: `${(row.name ?? existing.name).trim()} — foto ${position + 1}`.slice(0, 160),
-              position,
-            },
-          });
-          position += 1;
-        }
-      }
-
-      if (row.stock !== undefined) {
-        await this.inventory.setOnHandCas(tx, existing.id, row.stock);
-      }
-      if (Object.keys(data).length) {
-        await tx.product.update({ where: { id: existing.id }, data });
-      }
+    const existing = await tx.product.findUnique({
+      where: { sku: row.sku },
+      include: { images: { orderBy: { position: 'asc' } } },
     });
+    if (!existing) throw new NotFoundException('SKU não encontrado');
+    const data: Prisma.ProductUpdateInput = {};
+    if (row.name !== undefined) data.name = row.name;
+    if (row.description !== undefined) data.description = row.description;
+    if (row.price !== undefined) data.price = new Prisma.Decimal(row.price.toFixed(2));
+    if (row.compareAtPrice !== undefined) {
+      data.compareAtPrice = new Prisma.Decimal(row.compareAtPrice.toFixed(2));
+    }
+    if (row.active !== undefined) data.active = row.active;
+    if (row.weightKg !== undefined) data.weightKg = new Prisma.Decimal(row.weightKg.toFixed(3));
+    if (row.widthCm !== undefined) data.widthCm = new Prisma.Decimal(row.widthCm.toFixed(2));
+    if (row.heightCm !== undefined) data.heightCm = new Prisma.Decimal(row.heightCm.toFixed(2));
+    if (row.lengthCm !== undefined) data.lengthCm = new Prisma.Decimal(row.lengthCm.toFixed(2));
+    if (category.kind === 'id') data.category = { connect: { id: category.id } };
+    // Slug stays. Renaming must not invent a new PDP URL.
+
+    if (imageUrls.length) {
+      const have = new Set(existing.images.map((img) => img.url));
+      const toAdd = imageUrls.filter((url) => !have.has(url));
+      if (existing.images.length + toAdd.length > MAX_PRODUCT_IMAGES) {
+        throw new BadRequestException(`Limite de ${MAX_PRODUCT_IMAGES} fotos por produto`);
+      }
+      let position =
+        existing.images.length === 0
+          ? 0
+          : Math.max(...existing.images.map((img) => img.position)) + 1;
+      for (const url of toAdd) {
+        await tx.productImage.create({
+          data: {
+            productId: existing.id,
+            url,
+            alt: `${(row.name ?? existing.name).trim()} — foto ${position + 1}`.slice(0, 160),
+            position,
+          },
+        });
+        position += 1;
+      }
+    }
+
+    if (row.stock !== undefined) {
+      await this.inventory.setOnHandCas(tx, existing.id, row.stock);
+    }
+    if (Object.keys(data).length) {
+      await tx.product.update({ where: { id: existing.id }, data });
+    }
+  }
+
+  private async findTakenSlugs(slugs: string[]): Promise<Set<string>> {
+    if (!slugs.length) return new Set();
+    const rows = await this.prisma.product.findMany({
+      where: { slug: { in: slugs } },
+      select: { slug: true },
+    });
+    return new Set(rows.map((r) => r.slug));
   }
 
   private async findSkus(skus: string[]) {
-    const map = new Map<string, { id: string; sku: string }>();
+    const map = new Map<
+      string,
+      { id: string; sku: string; name: string; qtyReserved: number; imageUrls: Set<string> }
+    >();
     const size = 200;
     for (let i = 0; i < skus.length; i += size) {
       const chunk = skus.slice(i, i + size);
       if (!chunk.length) continue;
       const rows = await this.prisma.product.findMany({
         where: { sku: { in: chunk } },
-        select: { id: true, sku: true },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          inventory: { select: { qtyReserved: true } },
+          images: { select: { url: true } },
+        },
       });
-      for (const row of rows) map.set(row.sku, row);
+      for (const row of rows) {
+        map.set(row.sku, {
+          id: row.id,
+          sku: row.sku,
+          name: row.name,
+          qtyReserved: row.inventory?.qtyReserved ?? 0,
+          imageUrls: new Set(row.images.map((img) => img.url)),
+        });
+      }
     }
     return map;
   }
@@ -684,11 +810,11 @@ export class AdminProductsService {
     return slugifyProductName(name);
   }
 
-  private async uniqueSlug(base: string, excludeId?: string) {
+  private async uniqueSlug(base: string, excludeId?: string, db: Prisma.TransactionClient = this.prisma) {
     let slug = base;
     let n = 2;
     for (;;) {
-      const found = await this.prisma.product.findUnique({ where: { slug } });
+      const found = await db.product.findUnique({ where: { slug } });
       if (!found || found.id === excludeId) return slug;
       slug = `${base}-${n}`.slice(0, 90);
       n += 1;

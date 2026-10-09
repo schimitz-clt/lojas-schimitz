@@ -333,6 +333,21 @@ export class AdminImportProductsDto {
   @MinLength(1, { message: 'CSV vazio. Nada foi gravado.' })
   @MaxLength(450_000, { message: 'CSV grande demais. Divida o arquivo. Nada foi gravado.' })
   csv!: string;
+
+  /** true = só confere e devolve a pré-visualização. Nada é gravado. */
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean;
+
+  /** upsert (padrão) atualiza pelo SKU; create_only recusa SKU que já existe. */
+  @IsOptional()
+  @IsIn(['upsert', 'create_only'])
+  mode?: 'upsert' | 'create_only';
+
+  /** Com linhas com erro: true grava só as válidas; false não grava nada. Padrão true. */
+  @IsOptional()
+  @IsBoolean()
+  skipInvalid?: boolean;
 }
 
 /** Lote explícito por SKU. Sem lista, nada é alterado. */

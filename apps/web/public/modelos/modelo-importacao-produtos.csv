@@ -1,0 +1,3 @@
+﻿sku;nome;descricao;categoria;preco;preco_de;estoque;ativo;peso_kg;largura_cm;altura_cm;comprimento_cm;fotos
+EXEMPLO-001;Geladeira Frost Free 375 L Inox;Geladeira duplex frost free, 375 litros, 220 V. Garantia de 1 ano do fabricante.;eletrodomesticos;3499,9;3999,9;4;sim;62,5;70;180;72;geladeira-frente.jpg|geladeira-aberta.jpg
+EXEMPLO-002;Smartphone 128 GB Preto;"Tela de 6,5"", 128 GB, câmera dupla. Acompanha carregador.";celulares;1299;;10;sim;0,4;12;6;18;https://exemplo-do-fornecedor.com.br/fotos/smartphone-preto.jpg
