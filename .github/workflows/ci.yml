@@ -109,3 +109,25 @@ jobs:
       - name: Testes de pagamentos (test:sch003)
         working-directory: apps/api
         run: npm run test:sch003
+
+  android:
+    name: Android (apps/mobile) — build debug e testes JVM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      # Sem google-services.json / keystore no CI: build debug sem FCM nem assinatura de release.
+      - name: Build debug (app + admin) e testes unitários JVM
+        run: ./gradlew --no-daemon :app:assembleDebug :admin:assembleDebug :app:testDebugUnitTest
+      - name: Resultado dos testes
+        if: always()
+        run: ls app/build/test-results/testDebugUnitTest/ || true
