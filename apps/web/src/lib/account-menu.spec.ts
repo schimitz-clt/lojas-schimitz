@@ -74,6 +74,7 @@ assert.equal(guest[1].items.find((i) => i.id === 'favorites')?.label, 'Salvos');
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.href, wa);
 assert.equal(guest[2].items.find((i) => i.id === 'whatsapp')?.external, true);
 assert.equal(guest[2].items.find((i) => i.id === 'support')?.href, '/suporte');
+assert.equal(guest[2].items.find((i) => i.id === 'delete-account')?.href, '/excluir-conta');
 function assertCustomerOnlyMenu(sections: ReturnType<typeof accountMenuSections>) {
   const items = sections.flatMap((s) => s.items);
   assert.ok(!items.some((i) => i.id === 'admin' || i.id === 'seller'));

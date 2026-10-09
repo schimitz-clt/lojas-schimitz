@@ -23,6 +23,7 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminAccountDeletionPanel } from './AdminAccountDeletionPanel';
 
 const ANCHOR: Record<string, string> = {
   customers_inactive: 'admin-clientes-list',
@@ -309,6 +310,7 @@ export function AdminClientesSection() {
           )}
         </div>
       </div>
+      <AdminAccountDeletionPanel />
     </>
   );
 }
