@@ -120,10 +120,14 @@ function reportDirectives(): string[] {
 export function buildStorefrontCsp(opts: CspBuildOptions = {}): string {
   const production = opts.production ?? isStorefrontCspProduction();
   const report = opts.report !== false;
+  // Phase C (draft, 09/10/2026): production enforce drops 'unsafe-eval'. Evidence: Card Brick +
+  // MP fingerprint and the Next production runtime ran with 0 violations without it
+  // (docs/SECURITY-CSP-2026-10-09.md). `next dev` (React Refresh) still needs eval → dev keeps it.
+  // DO NOT MERGE before the real card payment test (3DS/issuer iframes were not exercised).
   const scriptSrc = join([
     "'self'",
     "'unsafe-inline'",
-    "'unsafe-eval'",
+    ...(production ? [] : ["'unsafe-eval'"]),
     "'wasm-unsafe-eval'",
     ...CSP_SCRIPT_HOSTS,
   ]);

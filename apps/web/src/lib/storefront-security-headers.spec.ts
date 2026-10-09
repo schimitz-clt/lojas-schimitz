@@ -80,7 +80,8 @@ const csp = prodHeaders.find((h) => h.key === 'Content-Security-Policy')?.value 
 assert.equal(csp, buildStorefrontCsp({ production: true }));
 assert.ok(csp.includes("default-src 'self'"), csp);
 assert.ok(csp.includes("object-src 'none'"), csp);
-assert.ok(csp.includes("script-src 'self' 'unsafe-inline' 'unsafe-eval'"), 'Next inline/runtime');
+assert.ok(csp.includes("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"), 'Next inline + Brick wasm');
+assert.ok(!/script-src[^;]*'unsafe-eval'/.test(csp), 'prod enforce sem unsafe-eval (Phase C)');
 assert.ok(csp.includes('https://sdk.mercadopago.com'), 'MP SDK v2');
 assert.ok(csp.includes('https://js.mercadopago.com'), 'legacy MP JS / security.js');
 assert.ok(csp.includes('https://http2.mlstatic.com'), 'Brick chunks / issuer assets');
@@ -102,6 +103,7 @@ assert.ok(!/\bscript-src[^;]*\bhttps:\s*(;|$)/.test(csp), 'script-src must not b
 const devCsp = buildStorefrontCsp({ production: false });
 assert.ok(devCsp.includes('http://localhost:3001'), 'local API connect in dev');
 assert.ok(!devCsp.includes('upgrade-insecure-requests'), 'dev stays HTTP-friendly');
+assert.ok(/script-src[^;]*'unsafe-eval'/.test(devCsp), 'next dev (React Refresh) precisa de eval');
 for (const host of CSP_DEV_CONNECT_HOSTS) {
   assert.ok(devCsp.includes(host), `dev connect ${host}`);
 }
