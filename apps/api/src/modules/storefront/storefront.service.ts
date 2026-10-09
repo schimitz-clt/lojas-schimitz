@@ -28,6 +28,7 @@ import {
   trustItemsForPublic,
   type StoreTrustItem,
 } from './store-settings';
+import { NO_INTEREST_CLAIM_ERROR, SAFE_SITE_DESCRIPTION, promisesNoInterest } from '../../common/no-interest-claim';
 
 const DEFAULT_TITLE = 'Lojas Schimitz';
 const DEFAULT_DESCRIPTION =
@@ -54,7 +55,7 @@ export type CreateBannerInput = {
 
 export type UpdateBannerInput = Partial<CreateBannerInput>;
 
-function serializeSettings(s: {
+export function serializeSettings(s: {
   id: string;
   siteTitle: string;
   siteDescription: string;
@@ -66,12 +67,16 @@ function serializeSettings(s: {
   updatedAt: Date;
 }) {
   const cnpj = normalizeCnpj(s.cnpj);
-  const promoLines = parsePromoLines(s.promoLines);
-  const trustItems = trustItemsForPublic(parseTrustItems(s.trustItems), cnpj);
+  // Texto salvo no banco nunca promete "sem juros" (ver common/no-interest-claim.ts).
+  const promoLines = parsePromoLines(s.promoLines).filter((line) => !promisesNoInterest(line));
+  const trustKept = trustItemsForPublic(parseTrustItems(s.trustItems), cnpj)?.filter(
+    (item) => !promisesNoInterest(`${item.title} ${item.body}`),
+  );
+  const trustItems = trustKept?.length ? trustKept : null;
   return {
     id: s.id,
     siteTitle: s.siteTitle,
-    siteDescription: s.siteDescription,
+    siteDescription: promisesNoInterest(s.siteDescription) ? SAFE_SITE_DESCRIPTION : s.siteDescription,
     ogImageUrl: rewritePublicUploadUrl(s.ogImageUrl) ?? s.ogImageUrl,
     cnpj,
     promoEndsAt: s.promoEndsAt ? s.promoEndsAt.toISOString() : null,
@@ -153,6 +158,8 @@ export class StorefrontService {
     const description = input.siteDescription.trim();
     if (title.length < 2) throw new BadRequestException('Título do site muito curto');
     if (description.length < 10) throw new BadRequestException('Descrição SEO muito curta');
+    const typed = [title, description, ...(input.promoLines ?? []).map(String), ...(input.trustItems ?? []).map((t) => `${t?.title} ${t?.body}`)];
+    if (typed.some((t) => promisesNoInterest(t))) throw new BadRequestException(NO_INTEREST_CLAIM_ERROR);
     let og: string | null = null;
     if (input.ogImageUrl != null && String(input.ogImageUrl).trim()) {
       og = assertImageUrl(String(input.ogImageUrl));

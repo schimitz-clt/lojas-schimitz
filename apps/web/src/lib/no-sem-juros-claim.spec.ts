@@ -34,9 +34,13 @@ function walk(dir: string, exts: RegExp): string[] {
     return exts.test(name) && !/\.spec\.[tj]sx?$/.test(name) && !/Test\.kt$/.test(name) ? [p] : [];
   });
 }
+// Único arquivo que pode citar a frase: é a regra que a bloqueia (mensagem de erro do admin).
+const ALLOWED = new Set([join(repo, 'apps/api/src/common/no-interest-claim.ts')]);
+
 function offenders(files: string[]): string[] {
   const out: string[] = [];
   for (const f of files) {
+    if (ALLOWED.has(f)) continue;
     readFileSync(f, 'utf8')
       .split('\n')
       .forEach((line, i) => {
