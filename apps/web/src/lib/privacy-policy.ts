@@ -45,8 +45,8 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       },
       {
         data: 'Notificações no app Android: identificador do aparelho para notificações (token do Firebase Cloud Messaging), versão do app e um código interno do aparelho',
-        why: 'Enviar avisos de pedidos e ofertas. O token só é enviado à loja quando as notificações do app estão permitidas no Android (no Android 13 ou mais novo o sistema pergunta; em versões anteriores elas vêm ligadas por padrão). Você pode desligar a qualquer momento nas configurações do celular.',
-        basis: 'Consentimento (art. 7º, I), dado pela permissão de notificações do Android',
+        why: 'Enviar avisos de pedidos e ofertas. O token só é enviado à loja quando as notificações do app estão permitidas no Android (no Android 13 ou mais novo o sistema pergunta; no Android 12 ou anterior, a partir da versão 1.0.13 do app, o próprio app pergunta antes e só envia o token se você aceitar. Até a versão 1.0.12 o token era enviado sem essa pergunta; quem disser "não" na nova versão tem o token desativado na loja). Você pode desligar a qualquer momento nas configurações do celular.',
+        basis: 'Consentimento (art. 7º, I), dado pela permissão de notificações do Android ou, no Android 12 ou anterior, pela pergunta do app',
       },
       {
         data: 'Produtos vistos: no app Android com notificações registradas, quais produtos foram abertos e quando, ligados ao código do aparelho (e à sua conta, se estiver logado)',

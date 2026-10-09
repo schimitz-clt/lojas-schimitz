@@ -57,7 +57,22 @@ assert.ok(pushReg.includes('PushRegisterPolicy.MAX_ATTEMPTS'), 'retry budget');
 assert.ok(pushReg.includes('backoffBeforeAttempt'), 'backoff between attempts');
 assert.ok(pushReg.includes('KEY_LAST_TOKEN'), 'throttle is per token');
 assert.ok(pushReg.includes('shouldEnqueue'), 'duplicate posts are skipped');
-assert.ok(pushReg.includes('.put("enabled", true)'), 'granted device stays enabled for campaigns');
+// Registro normal sempre envia enabled=true; enabled=false só no "não" do Android 12- (1.0.13).
+assert.ok(pushReg.includes('private fun postOnce(token: String, enabled: Boolean = true)'), 'granted device stays enabled for campaigns');
+assert.ok(pushReg.includes('.put("enabled", enabled)'), 'body carries the enabled flag');
+assert.ok(/val result = postOnce\(token\)\n/.test(pushReg), 'register path posts with the default enabled=true');
+const disableIdx = pushReg.indexOf('postOnce(lastToken, enabled = false)');
+const disableGuard = pushReg.indexOf('PushConsentPolicy.shouldDisableOnServer');
+assert.ok(disableGuard >= 0 && disableIdx > disableGuard, 'enabled=false only after an explicit decline (shouldDisableOnServer)');
+assert.equal(pushReg.split('enabled = false').length - 1, 1, 'single disable call site');
+
+// Android 12-: o app pergunta antes de enviar o token (o sistema não pergunta abaixo da API 33).
+assert.ok(pushReg.includes('PushConsentPolicy.mayRegister'), 'notificationsAllowed uses the consent policy');
+assert.ok(kotlin.includes('showLegacyPushConsentDialog'), 'in-app consent dialog on Android 12-');
+const legacyIdx = kotlin.indexOf('PushRegistration.needsInAppPrompt(this)');
+const runtimeIdx = kotlin.indexOf('val needsRuntimePermission');
+assert.ok(legacyIdx >= 0 && runtimeIdx > legacyIdx, 'legacy consent is checked before any registration');
+assert.ok(fcm.includes('if (!PushRegistration.notificationsAllowed(applicationContext)) return'), 'no foreground notification without consent');
 assert.ok(pushReg.includes('rememberToken'), 'token is kept locally before the upsert');
 const successIdx = pushReg.indexOf('if (result.ok)');
 const lastSeenWrite = pushReg.indexOf('putLong(KEY_LAST_MS');

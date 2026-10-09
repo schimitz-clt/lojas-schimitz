@@ -34,6 +34,7 @@ import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -532,6 +533,12 @@ class MainActivity : AppCompatActivity() {
      * during the prompt does not drop it. Upsert waits until the permission is granted.
      */
     private fun ensurePushRegistration(requestPermission: Boolean, force: Boolean) {
+        if (PushRegistration.needsInAppPrompt(this)) {
+            // Android 12-: o sistema não pergunta; o token fica só no aparelho até o "sim".
+            obtainFcmToken(force = false)
+            if (requestPermission) showLegacyPushConsentDialog()
+            return
+        }
         val needsRuntimePermission =
             Build.VERSION.SDK_INT >= 33 && !PushRegistration.notificationsAllowed(this)
         if (needsRuntimePermission) {
@@ -545,6 +552,28 @@ class MainActivity : AppCompatActivity() {
             PushRegistration.registerSaved(this, force = false)
         }
         obtainFcmToken(force)
+    }
+
+    private var legacyConsentDialog: AlertDialog? = null
+
+    /** Pergunta única no Android 12 ou anterior (equivalente ao pedido do sistema no 13+). */
+    private fun showLegacyPushConsentDialog() {
+        if (isFinishing || isDestroyed || legacyConsentDialog?.isShowing == true) return
+        legacyConsentDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.push_consent_title)
+            .setMessage(R.string.push_consent_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.push_consent_yes) { _, _ ->
+                PushRegistration.saveConsent(this, granted = true)
+                Log.i(PUSH_LOG, "legacy push consent granted=true")
+                ensurePushRegistration(requestPermission = false, force = true)
+            }
+            .setNegativeButton(R.string.push_consent_no) { _, _ ->
+                PushRegistration.saveConsent(this, granted = false)
+                Log.i(PUSH_LOG, "legacy push consent granted=false")
+                PushRegistration.disableOnServerIfNeeded(applicationContext)
+            }
+            .show()
     }
 
     private fun obtainFcmToken(force: Boolean, attempt: Int = 1) {

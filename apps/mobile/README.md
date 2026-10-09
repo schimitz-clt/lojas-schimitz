@@ -31,6 +31,7 @@ O módulo `:admin` é **outro aplicativo**, `Schimitz Admin` (`com.lojasschimitz
 - `<input type=file>` (Admin fotos de produto/banner) via `WebChromeClient.onShowFileChooser` + Activity Result (SAF/`GET_CONTENT`). Sem `allowFileAccess`; só mesma origem.
 - Mixed content bloqueado; cleartext HTTP recusado; http da allowlist faz upgrade para https.
 - **Push FCM (1.0.10):** pede `POST_NOTIFICATIONS` (Android 13+), guarda o token FCM mesmo se o diálogo ainda não fechou, e faz upsert em `POST /api/v1/push/tokens` (cookies `CookieManager`) quando a permissão já está concedida — no grant, no start/resume (no máximo a cada 15 min para o mesmo token) e no `onNewToken`. Falha de rede tenta de novo 3 vezes (0s / 2s / 4s). Toque abre rota da loja no WebView. Canal `lojas_schimitz_promos` inalterado. Sem `google-services.json` o app **continua** (WebView/cookies/MP/file chooser intactos); envio live exige Firebase do dono — `docs/PUSH-FCM.md`. Aparelhos na Play só recebem isso depois de um AAB `versionCode` 11.
+- **Consentimento no Android 12- (1.0.13):** o sistema não pede permissão abaixo da API 33, então o app pergunta uma vez ("Receber notificações?") antes de enviar o token. "Não" desativa (`enabled:false`) o token que versões anteriores tinham cadastrado e não mostra notificação em primeiro plano. Regras puras em `PushConsentPolicy` (teste JVM `PushConsentPolicyTest`).
 
 ## Pré-requisitos (no seu computador)
 
