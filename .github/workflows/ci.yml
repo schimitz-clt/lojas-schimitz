@@ -20,7 +20,7 @@ env:
 jobs:
   web:
     name: Web (apps/web) — typecheck, build, testes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     defaults:
       run:
@@ -108,7 +108,7 @@ jobs:
 
   api:
     name: API (apps/api) — build e testes com Postgres
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
       postgres:

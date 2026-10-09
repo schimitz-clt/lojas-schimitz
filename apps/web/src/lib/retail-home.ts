@@ -4,7 +4,7 @@
  */
 
 import { parseHomeShelvesPayload } from '@/lib/home-shelves';
-import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
+import { interestFreeInstallmentClaim } from '@/lib/pricing';
 
 export const RETAIL_HOME_MAX_PRODUCTS = 5;
 
@@ -86,7 +86,7 @@ export function visibleCatalogBadge(badge: string | null | undefined, isBestsell
 }
 
 export function defaultPromoStripLines(): [string, string, string] {
-  return ['Frete grátis em POA', '5% OFF no PIX', `Até ${INTEREST_FREE_INSTALLMENTS}x sem juros`];
+  return ['Frete grátis em POA', '5% OFF no PIX', interestFreeInstallmentClaim()];
 }
 
 /** Non-empty admin lines replace the default strip. Empty keeps the truthful defaults. */

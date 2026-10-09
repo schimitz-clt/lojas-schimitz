@@ -51,18 +51,35 @@ export function isInterestFreeInstallment(n: number): boolean {
 export function installmentSuffix(n: number): string {
   const times = clampInstallments(n);
   if (times <= 1) return ' à vista';
-  if (times <= INTEREST_FREE_INSTALLMENTS) return ' sem juros';
+  if (times <= INTEREST_FREE_INSTALLMENTS) return ` ${INTEREST_FREE_SUFFIX}`;
   return ' (podem incluir juros)';
 }
 
-/** Short marketing claim used on home/header/trust badges. */
+/**
+ * The ONLY place the interest-free phrase is written. Every storefront text must use these helpers
+ * (or INTEREST_FREE_INSTALLMENTS) — see installment-claim.spec.ts. If the Mercado Pago account
+ * stops absorbing the installments, change INTEREST_FREE_INSTALLMENTS / this phrase here only.
+ */
+export const INTEREST_FREE_SUFFIX = 'sem juros';
+
+/** “3x sem juros” (no “até”), for badges that already set the context. */
+export function interestFreeInstallmentShort(): string {
+  return `${INTEREST_FREE_INSTALLMENTS}x ${INTEREST_FREE_SUFFIX}`;
+}
+
+/** “até 3x sem juros”, lower case, for use inside sentences. */
+export function interestFreeInstallmentPhrase(): string {
+  return `até ${interestFreeInstallmentShort()}`;
+}
+
+/** Short marketing claim used on home/header/trust badges: “Até 3x sem juros”. */
 export function interestFreeInstallmentClaim(): string {
-  return `Até ${INTEREST_FREE_INSTALLMENTS}x sem juros`;
+  return `Até ${interestFreeInstallmentShort()}`;
 }
 
 /** Honest footnote for the 1–MAX installment table. */
 export function installmentTableNote(): string {
-  return `Até ${INTEREST_FREE_INSTALLMENTS}x sem juros (a loja absorve o financiamento). De ${INTEREST_FREE_INSTALLMENTS + 1} a ${MAX_INSTALLMENTS}x, as parcelas podem incluir juros do Mercado Pago.`;
+  return `${interestFreeInstallmentClaim()} (a loja absorve o financiamento). De ${INTEREST_FREE_INSTALLMENTS + 1} a ${MAX_INSTALLMENTS}x, as parcelas podem incluir juros do Mercado Pago.`;
 }
 
 export function installmentValue(price: number | string, n = MAX_INSTALLMENTS): number {

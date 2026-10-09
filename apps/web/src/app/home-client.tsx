@@ -23,7 +23,7 @@ import {
   dedupeHomeShelves,
   type HomeShelfView,
 } from '@/lib/home-shelves';
-import { searchEmptyCopy } from '@/lib/storefront-pro';
+import { homeEmptyCopy, searchEmptyCopy } from '@/lib/storefront-pro';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -93,6 +93,7 @@ function HomeInner({
   suppressStage?: boolean;
 }) {
   const q = useSearchParams().get('q') || '';
+  const searchEmpty = searchEmptyCopy(q, false);
   const seededRetail =
     !q && Array.isArray(initialRetail) && initialRetail.length > 0 && initialRetail.length <= 5;
   const [products, setProducts] = useState<Product[]>([]);
@@ -187,13 +188,13 @@ function HomeInner({
         {loading ? <ProductGridSkeleton count={8} /> : null}
         {!loading && !err && products.length === 0 ? (
           <div className="catalog-empty">
-            <p style={{ margin: 0, fontWeight: 700 }}>{searchEmptyCopy('', false).title}</p>
+            {/* Busca sem resultado: o título cita o termo; o cabeçalho já linka o catálogo com filtros. */}
+            <p style={{ margin: 0, fontWeight: 700 }}>{searchEmpty.title}</p>
             <p className="muted" style={{ margin: '8px 0 12px' }}>
-              {searchEmptyCopy(q, false).body} Confira o{' '}
-              <Link href="/produtos">catálogo completo</Link>.
+              {searchEmpty.body}
             </p>
             <Link className="btn ghost" href="/">
-              {searchEmptyCopy(q, false).clearSearchLabel}
+              {searchEmpty.clearSearchLabel}
             </Link>
           </div>
         ) : null}
@@ -243,10 +244,10 @@ function HomeInner({
 
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty">
-          <p style={{ margin: 0, fontWeight: 700 }}>{searchEmptyCopy('', false).title}</p>
+          <p style={{ margin: 0, fontWeight: 700 }}>{homeEmptyCopy().title}</p>
           <p className="muted" style={{ margin: '8px 0 12px' }}>
-            {searchEmptyCopy('', false).body} Confira o <Link href="/produtos">catálogo</Link> e as{' '}
-            <Link href="/departamento/ofertas">ofertas</Link>.
+            Confira o <Link href="/produtos">catálogo</Link> e as{' '}
+            <Link href="/departamento/ofertas">ofertas</Link>, ou fale no WhatsApp.
           </p>
         </div>
       ) : null}
