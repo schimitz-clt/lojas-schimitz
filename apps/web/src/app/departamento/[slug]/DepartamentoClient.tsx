@@ -16,6 +16,7 @@ import {
   isExternalSearchShortcut,
   parseCatalogSort,
   searchEmptyCopy,
+  departmentEmptyCopy,
   type FilterChip,
 } from '@/lib/storefront-pro';
 import { RecentlyViewedStrip } from '@/components/RecentlyViewedStrip';
@@ -161,6 +162,7 @@ export default function DepartamentoClient() {
   });
   const hasExtra = Boolean(minPrice || maxPrice || (sort && sort !== 'newest'));
   const empty = searchEmptyCopy('', hasExtra);
+  const departmentEmpty = departmentEmptyCopy();
   const siblingNav = HOME_CATEGORIES.filter((c) => c.slug !== 'marketplace');
 
   useEffect(() => {
@@ -272,12 +274,10 @@ export default function DepartamentoClient() {
       {!loading && !err && products.length === 0 ? (
         <div className="catalog-empty sf-catalog-empty">
           <p className="sf-catalog-empty-title">
-            {hasExtra ? empty.title : 'Nenhum produto neste departamento.'}
+            {hasExtra ? empty.title : departmentEmpty.title}
           </p>
           <p className="muted sf-catalog-empty-body">
-            {hasExtra
-              ? empty.body
-              : 'Veja todos os produtos ou explore outro departamento.'}
+            {hasExtra ? empty.body : departmentEmpty.body}
           </p>
           <div className="sf-catalog-empty-actions">
             {hasExtra ? (
