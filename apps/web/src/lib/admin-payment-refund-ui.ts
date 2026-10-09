@@ -115,16 +115,43 @@ export function paymentRefundConfirmCopy(input: {
   };
 }
 
+/** Reason is required in the admin UI (audited in finance trail); API still accepts `{}` for old clients. */
+export const REFUND_REASON_MIN = 5;
+export const REFUND_REASON_MAX = 500;
+
+export function normalizeRefundReason(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, REFUND_REASON_MAX) : '';
+}
+
+export function isRefundReasonValid(value: unknown): boolean {
+  return normalizeRefundReason(value).length >= REFUND_REASON_MIN;
+}
+
+export const REFUND_REASON_HINT = `Motivo do estorno (obrigatório, mín. ${REFUND_REASON_MIN} caracteres). Fica na auditoria financeira.`;
+
+/** Body sent to POST /admin/payments/:id/refund. */
+export function paymentRefundBody(reason: unknown): string {
+  return JSON.stringify({ reason: normalizeRefundReason(reason) });
+}
+
 export function paymentRefundSuccessMessage(input: {
   publicId?: string | null;
   idempotent?: boolean | null;
+  outcome?: string | null;
 }): string {
   const publicId = textOrDash(input.publicId);
+  if (input.outcome === 'processing') {
+    return `Estorno de ${publicId} em processamento no Mercado Pago. Confirme em instantes (atualize o pedido). Clicar de novo é seguro: o mesmo estorno nunca é feito duas vezes.`;
+  }
   if (input.idempotent === true) {
     return `Pagamento de ${publicId} já estava estornado. Nada novo foi enviado ao Mercado Pago.`;
   }
   return `Estorno confirmado para ${publicId}. Pagamento e pedido ficaram reembolsados.`;
 }
+
+/** Unknown outcome (timeout, 5xx, rede): the refund may have happened at MP. */
+export const PAYMENT_REFUND_UNCERTAIN =
+  'Não deu para confirmar o estorno agora (o Mercado Pago pode ter processado). Atualize o pedido em instantes antes de tentar de novo; repetir o clique não estorna em dobro.';
 
 const REFUND_ERROR_COPY: Record<string, string> = {
   PAYMENT_NOT_FOUND: 'Pagamento não encontrado. Nada foi estornado.',
@@ -133,6 +160,9 @@ const REFUND_ERROR_COPY: Record<string, string> = {
   PAYMENT_NO_EXTERNAL_ID: 'Pagamento sem externalId. Nada foi enviado ao Mercado Pago.',
   PROVIDER_REFUND_PENDING:
     'O Mercado Pago não confirmou o estorno. O pedido local não foi marcado como reembolsado.',
+  PROVIDER_REFUND_REJECTED:
+    'O Mercado Pago recusou o estorno. Nada foi devolvido; confira o pagamento no painel do Mercado Pago.',
+  INTERNAL_ERROR: PAYMENT_REFUND_UNCERTAIN,
 };
 
 export function readApiErrorCode(err: unknown): string {
@@ -145,6 +175,9 @@ export function readApiErrorCode(err: unknown): string {
 
 export function paymentRefundErrorText(code: unknown, message: unknown): string {
   const known = typeof code === 'string' ? code.trim() : '';
+  if (known === 'PROVIDER_REFUND_REJECTED' && typeof message === 'string' && message.trim()) {
+    return `${known}: ${message.trim()}`;
+  }
   const mapped = known ? REFUND_ERROR_COPY[known] : undefined;
   if (mapped) return `${known}: ${mapped}`;
   const text = typeof message === 'string' ? message.trim() : '';

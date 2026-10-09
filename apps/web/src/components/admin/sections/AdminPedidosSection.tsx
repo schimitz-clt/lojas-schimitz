@@ -139,6 +139,7 @@ export function AdminPedidosSection() {
   const ready = ops != null;
   const [confirmAdvance, setConfirmAdvance] = useState(false);
   const [refundPaymentId, setRefundPaymentId] = useState<string | null>(null);
+  const [refundReasonDraft, setRefundReasonDraft] = useState('');
   const [trackingDraft, setTrackingDraft] = useState('');
   const [carrierDraft, setCarrierDraft] = useState('');
   const openOrder = orders.find((order) => order.id === openOrderId) || null;
@@ -168,6 +169,7 @@ export function AdminPedidosSection() {
 
   function askRefund(paymentId: string) {
     setConfirmAdvance(false);
+    setRefundReasonDraft('');
     setRefundPaymentId(paymentId);
   }
 
@@ -179,8 +181,11 @@ export function AdminPedidosSection() {
 
   async function confirmRefundNow(paymentId: string) {
     if (!openOrder) return;
-    const ok = await refundPayment(openOrder, paymentId);
-    if (ok) setRefundPaymentId(null);
+    const ok = await refundPayment(openOrder, paymentId, refundReasonDraft);
+    if (ok) {
+      setRefundPaymentId(null);
+      setRefundReasonDraft('');
+    }
   }
   const counts = pedidosCommandCounts(ops, ready);
   const sectionAlerts = partitionSectionAlerts(ops?.alerts, 'pedidos');
@@ -795,6 +800,8 @@ export function AdminPedidosSection() {
           onConfirmAdvance={() => void confirmAdvanceNow()}
           onCancelAdvance={() => setConfirmAdvance(false)}
           refundingPaymentId={refundPaymentId}
+          refundReasonDraft={refundReasonDraft}
+          onRefundReasonDraft={setRefundReasonDraft}
           onAskRefund={(paymentId) => askRefund(paymentId)}
           onConfirmRefund={(paymentId) => void confirmRefundNow(paymentId)}
           onCancelRefund={() => setRefundPaymentId(null)}

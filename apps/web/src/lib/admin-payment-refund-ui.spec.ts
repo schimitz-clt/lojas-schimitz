@@ -12,6 +12,11 @@ import {
   paymentRefundRefreshFailureText,
   paymentRefundRowLine,
   paymentRefundSuccessMessage,
+  PAYMENT_REFUND_UNCERTAIN,
+  REFUND_REASON_MAX,
+  isRefundReasonValid,
+  normalizeRefundReason,
+  paymentRefundBody,
   readApiErrorCode,
   REFUND_ALLOWED_ORDER_STATUSES,
 } from './admin-payment-refund-ui';
@@ -131,12 +136,40 @@ assert.equal(dossier.includes('fetch('), false, 'dossier does not call the netwo
 assert.equal(dossier.includes('/admin/payments/'), false, 'POST path stays in the console state');
 
 assert.ok(pedidos.includes('setRefundPaymentId(paymentId)'), 'ask stores the id and does not POST');
-assert.ok(pedidos.includes('refundPayment(openOrder, paymentId)'), 'only confirm calls the refund helper');
+assert.ok(pedidos.includes('refundPayment(openOrder, paymentId, refundReasonDraft)'), 'only confirm calls the refund helper (with the reason)');
 assert.ok(state.includes('`/admin/payments/${id}/refund`'), 'confirm posts the existing refund endpoint');
 assert.ok(state.includes('paymentRefundErrorText'), 'API codes stay visible');
 assert.ok(apiSrc.includes('err.code = code'), 'admin fetch keeps the API error code');
 
 assert.equal(ops.includes('/refund'), false, 'reconciliations do not gain a refund call');
+
+// Incident 09/10/2026: reason required in the UI, processing/uncertain outcomes explained in PT-BR.
+assert.ok(state.includes('paymentRefundBody(reason)'), 'refund POST sends the reason');
+const refundFn = state.slice(state.indexOf('async function refundPayment('), state.indexOf('async function advance('));
+assert.ok(refundFn.length > 100, 'refundPayment found');
+assert.equal(refundFn.includes('JSON.stringify({})'), false, 'refund no longer posts an empty body');
+assert.ok(state.includes('isRefundReasonValid(reason)'), 'no POST without a reason');
+assert.ok(dossier.includes('!isRefundReasonValid(refundReasonDraft)'), 'confirm button disabled until a reason is typed');
+assert.ok(dossier.includes('onRefundReasonDraft'), 'reason textarea is wired');
+assert.equal(isRefundReasonValid(''), false);
+assert.equal(isRefundReasonValid('   ok  '), false);
+assert.equal(isRefundReasonValid('cliente desistiu'), true);
+assert.equal(normalizeRefundReason('  cliente \n desistiu  '), 'cliente desistiu');
+assert.equal(normalizeRefundReason('x'.repeat(900)).length, REFUND_REASON_MAX);
+assert.equal(normalizeRefundReason(42), '');
+assert.deepEqual(JSON.parse(paymentRefundBody('  cliente desistiu ')), { reason: 'cliente desistiu' });
+const processing = paymentRefundSuccessMessage({ publicId: 'SCH-9', idempotent: false, outcome: 'processing' });
+assert.ok(processing.includes('em processamento'));
+assert.ok(processing.includes('Confirme em instantes'));
+assert.ok(processing.includes('nunca é feito duas vezes'));
+assert.ok(paymentRefundSuccessMessage({ publicId: 'SCH-9', outcome: 'completed' }).includes('Estorno confirmado'));
+assert.ok(paymentRefundErrorText('INTERNAL_ERROR', 'Mercado Pago HTTP 500').includes('repetir o clique não estorna em dobro'));
+assert.ok(paymentRefundErrorText('INTERNAL_ERROR', '').includes(PAYMENT_REFUND_UNCERTAIN));
+assert.equal(
+  paymentRefundErrorText('PROVIDER_REFUND_REJECTED', 'O Mercado Pago recusou o estorno (x). Nada foi devolvido.'),
+  'PROVIDER_REFUND_REJECTED: O Mercado Pago recusou o estorno (x). Nada foi devolvido.',
+);
+assert.ok(paymentRefundErrorText('PROVIDER_REFUND_REJECTED', '').includes('Nada foi devolvido'));
 assert.ok(ops.includes('Não executar estorno'), 'orphan review stays manual');
 
 console.log('admin-payment-refund-ui spec ok');

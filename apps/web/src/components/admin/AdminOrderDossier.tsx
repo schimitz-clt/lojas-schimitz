@@ -14,6 +14,9 @@ import { customerVerClienteLabel } from '@/lib/admin-customers-ui';
 import {
   paymentRefundAttentionCopy,
   paymentRefundConfirmCopy,
+  REFUND_REASON_HINT,
+  REFUND_REASON_MAX,
+  isRefundReasonValid,
   paymentRefundOffer,
   paymentRefundRowLine,
 } from '@/lib/admin-payment-refund-ui';
@@ -40,6 +43,8 @@ type Props = {
   onConfirmAdvance: () => void;
   onCancelAdvance: () => void;
   refundingPaymentId: string | null;
+  refundReasonDraft: string;
+  onRefundReasonDraft: (value: string) => void;
   onAskRefund: (paymentId: string) => void;
   onConfirmRefund: (paymentId: string) => void;
   onCancelRefund: () => void;
@@ -77,6 +82,8 @@ export function AdminOrderDossier({
   onConfirmAdvance,
   onCancelAdvance,
   refundingPaymentId,
+  refundReasonDraft,
+  onRefundReasonDraft,
   onAskRefund,
   onConfirmRefund,
   onCancelRefund,
@@ -191,11 +198,25 @@ export function AdminOrderDossier({
                     <div className="admin-ent-confirm admin-ent-confirm--danger" role="region" aria-label="Confirmar estorno">
                       <p className="admin-ent-confirm__title">{refundCopy.title}</p>
                       <p className="admin-ent-confirm__detail">{refundCopy.detail}</p>
+                      <div className="admin-ent-confirm__fields">
+                        <label>
+                          {REFUND_REASON_HINT}
+                          <textarea
+                            value={refundReasonDraft}
+                            onChange={(event) => onRefundReasonDraft(event.target.value)}
+                            maxLength={REFUND_REASON_MAX}
+                            rows={2}
+                            required
+                            placeholder="Ex.: cliente desistiu da compra"
+                            disabled={busy || bulkBusy}
+                          />
+                        </label>
+                      </div>
                       <div className="admin-ent-actions">
                         <button
                           type="button"
                           className="btn admin-btn-danger"
-                          disabled={busy || bulkBusy}
+                          disabled={busy || bulkBusy || !isRefundReasonValid(refundReasonDraft)}
                           onClick={() => onConfirmRefund(id)}
                         >
                           {busy ? 'Estornando…' : 'Confirmar estorno'}
