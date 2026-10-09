@@ -17,6 +17,14 @@ import {
   shouldRetryPixWithoutApplicationFee,
   type PaymentSplitModeValue,
 } from './pix-application-fee-fallback';
+import { legacyRefundIdempotencyKey } from './refund-outcome';
+
+/** MP HTTP timeout (ms). MP_HTTP_TIMEOUT_MS overrides; default 20 s, clamped to [1 s, 60 s]. */
+export function mercadoPagoHttpTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.MP_HTTP_TIMEOUT_MS);
+  if (!Number.isFinite(n) || n <= 0) return 20_000;
+  return Math.min(60_000, Math.max(1_000, Math.floor(n)));
+}
 
 export { isProdLikeEnv };
 
@@ -397,7 +405,10 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
     if (init.idempotencyKey) headers['X-Idempotency-Key'] = init.idempotencyKey;
     assertNotRealMercadoPagoInTests(this.baseUrl);
-    const res = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
+    // Explicit timeout (incident 09/10/2026: a hung MP call ended as a raw 500 after ~10 s).
+    // Callers treat timeout/network as UNCERTAIN and reconcile — never as "not done".
+    const signal = init.signal ?? AbortSignal.timeout(mercadoPagoHttpTimeoutMs());
+    const res = await fetch(`${this.baseUrl}${path}`, { ...init, headers, signal });
     const text = await res.text();
     let json: any = {};
     try {
@@ -603,7 +614,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     const json = await this.mpFetch(`/v1/payments/${encodeURIComponent(externalId)}/refunds`, {
       method: 'POST',
       body: JSON.stringify(body),
-      idempotencyKey: `sch-refund-${externalId}`,
+      idempotencyKey: legacyRefundIdempotencyKey(externalId),
       accessToken: opts?.accessToken,
     });
     // Reconsulta para status definitivo

@@ -13,6 +13,9 @@ import {
 import { orderMutationErrorText } from '@/lib/admin-enterprise-ui';
 import {
   isRefundPaymentId,
+  REFUND_REASON_HINT,
+  isRefundReasonValid,
+  paymentRefundBody,
   paymentRefundErrorText,
   paymentRefundOffer,
   paymentRefundRefreshFailureText,
@@ -1412,10 +1415,15 @@ export function useAdminConsoleState() {
     }
   }
 
-  async function refundPayment(order: AdminOrder, paymentId: string): Promise<boolean> {
+  async function refundPayment(order: AdminOrder, paymentId: string, reason: string): Promise<boolean> {
     const id = paymentId.trim();
     if (!isRefundPaymentId(id) || !paymentRefundOffer(order).some((payment) => String(payment.id || '').trim() === id)) {
       setErr('Este pedido não tem pagamento approved elegível a estorno. Nada foi enviado ao Mercado Pago.');
+      setMsg('');
+      return false;
+    }
+    if (!isRefundReasonValid(reason)) {
+      setErr(`${REFUND_REASON_HINT} Nada foi enviado ao Mercado Pago.`);
       setMsg('');
       return false;
     }
@@ -1423,13 +1431,14 @@ export function useAdminConsoleState() {
     setErr('');
     setMsg('');
     try {
-      const data = await api<{ idempotent?: boolean }>(`/admin/payments/${id}/refund`, {
+      const data = await api<{ idempotent?: boolean; outcome?: string }>(`/admin/payments/${id}/refund`, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: paymentRefundBody(reason),
       });
       const text = paymentRefundSuccessMessage({
         publicId: order.publicId,
         idempotent: data?.idempotent === true,
+        outcome: data?.outcome,
       });
       const refreshed = await load();
       void loadOps();

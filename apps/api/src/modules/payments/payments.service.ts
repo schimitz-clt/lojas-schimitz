@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
@@ -63,11 +64,27 @@ import { financeMetrics } from '../finance/finance-metrics';
 import { KeyedMutex } from '../finance/keyed-mutex';
 import { currentPaymentState } from '../finance/payment-state-machine';
 import { isIgnoredWebhookTopic } from '../finance/webhook-topics';
+import {
+  REFUND_PROCESSING_MESSAGE,
+  classifyProviderRefundError,
+  providerErrorKind,
+  refundRejectedMessage,
+} from './refund-outcome';
 
 const MVP_METHODS = new Set(['pix', 'card']);
 
 /** Serializes webhook/reconciliation apply for the same payment inside this replica (COMANDO OMEGA). */
 export const paymentApplyMutex = new KeyedMutex();
+/** Serializes the legacy admin refund per payment (double click / two tabs) inside this replica. */
+export const legacyRefundMutex = new KeyedMutex();
+
+export type AdminRefundResult = {
+  payment: Record<string, unknown>;
+  idempotent: boolean;
+  /** completed = refunded at MP and here; processing = not confirmed yet (HTTP 202). */
+  outcome: 'completed' | 'processing';
+  message: string;
+};
 
 @Injectable()
 export class PaymentsService {
@@ -1550,9 +1567,20 @@ export class PaymentsService {
     };
   }
 
-  async adminRefund(adminId: string, paymentId: string, reason?: string | null) {
-    // Legacy endpoint: reason is optional for backward compatibility (existing admin UI posts {}).
-    // It is always audited; its absence is logged so ops can migrate to /admin/finance refunds.
+  /**
+   * Legacy full refund (admin "Estornar"). Safe to click twice and safe under a slow/failing Mercado Pago:
+   *  - one refund at a time per payment in this replica (mutex) + stable X-Idempotency-Key per payment
+   *    (`sch-refund-<externalId>`) ⇒ MP returns the SAME refund on any retry, never a second one;
+   *  - provider timeout/network/5xx ⇒ re-read the payment at MP: refunded there ⇒ finalize here;
+   *    otherwise answer "processing" (HTTP 202, PT-BR message) — never a raw 500;
+   *  - clear 4xx ⇒ 422 PROVIDER_REFUND_REJECTED with a PT-BR message.
+   */
+  async adminRefund(adminId: string, paymentId: string, reason?: string | null): Promise<AdminRefundResult> {
+    return legacyRefundMutex.run(paymentId, () => this.adminRefundOnce(adminId, paymentId, reason));
+  }
+
+  private async adminRefundOnce(adminId: string, paymentId: string, reason?: string | null): Promise<AdminRefundResult> {
+    // Reason is optional for backward compatibility; the admin UI now always sends one.
     const legacyReason = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 500) : null;
     if (!legacyReason) {
       structuredLog('warn', 'LEGACY_REFUND_WITHOUT_REASON', { paymentId, actorId: adminId });
@@ -1564,7 +1592,7 @@ export class PaymentsService {
     if (!payment) throw new NotFoundException({ message: 'Pagamento não encontrado', code: 'PAYMENT_NOT_FOUND' });
 
     if (payment.status === 'refunded') {
-      return { payment: this.serializePayment(payment), idempotent: true };
+      return { payment: this.serializePayment(payment), idempotent: true, outcome: 'completed', message: 'Pagamento já estornado.' };
     }
     if (payment.status !== 'approved') {
       throw new BadRequestException({
@@ -1581,41 +1609,94 @@ export class PaymentsService {
     if (!payment.externalId) {
       throw new BadRequestException({ message: 'Pagamento sem externalId', code: 'PAYMENT_NO_EXTERNAL_ID' });
     }
+    const externalId = payment.externalId;
 
-    // I/O remoto fora do lock (#10/#12) — seller collector token when sandbox split
+    // I/O remoto fora do lock de banco (#10/#12) — seller collector token when sandbox split
     const collectorToken = await this.collectorAccessTokenForPayment(payment);
-    const remote = await this.provider.refund(payment.externalId, undefined, {
-      accessToken: collectorToken,
-    });
-    if (remote.status !== 'refunded') {
-      // Reconsulta
-      const fetched = await this.provider.fetchPayment(payment.externalId, {
-        accessToken: collectorToken,
+    let confirmed = false;
+    let providerError: unknown = null;
+    try {
+      const remote = await this.provider.refund(externalId, undefined, { accessToken: collectorToken });
+      confirmed = remote.status === 'refunded';
+    } catch (e) {
+      providerError = e;
+      financeMetrics.inc('provider_errors');
+      structuredLog('warn', 'LEGACY_REFUND_PROVIDER_ERROR', {
+        paymentId,
+        kind: providerErrorKind(e),
+        class: classifyProviderRefundError(e),
       });
-      if (fetched.status !== 'refunded') {
-        throw new BadRequestException({
-          message: 'Provedor não confirmou estorno',
-          code: 'PROVIDER_REFUND_PENDING',
+    }
+    if (!confirmed) {
+      // Source of truth = the payment at MP (the refund may have gone through even if our call failed).
+      try {
+        const fetched = await this.provider.fetchPayment(externalId, { accessToken: collectorToken });
+        confirmed = fetched.status === 'refunded';
+      } catch (e) {
+        structuredLog('warn', 'LEGACY_REFUND_RECHECK_FAILED', { paymentId, kind: providerErrorKind(e) });
+      }
+    }
+
+    if (!confirmed) {
+      if (providerError && classifyProviderRefundError(providerError) === 'rejected') {
+        const detail = String((providerError as { message?: unknown })?.message || '');
+        await this.auditLegacyRefund(adminId, payment, legacyReason, 'approved', 'rejected', providerErrorKind(providerError));
+        throw new UnprocessableEntityException({
+          message: refundRejectedMessage(detail),
+          code: 'PROVIDER_REFUND_REJECTED',
         });
       }
+      // Unknown or still processing at MP: the webhook (or the next click, same key) settles it.
+      structuredLog('warn', 'LEGACY_REFUND_PROCESSING', {
+        paymentId,
+        kind: providerError ? providerErrorKind(providerError) : 'not_refunded_yet',
+      });
+      await this.auditLegacyRefund(adminId, payment, legacyReason, 'approved', 'processing',
+        providerError ? providerErrorKind(providerError) : 'not_refunded_yet');
+      const current = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
+      if (current.status === 'refunded') {
+        return { payment: this.serializePayment(current), idempotent: false, outcome: 'completed', message: 'Estorno confirmado.' };
+      }
+      return { payment: this.serializePayment(current), idempotent: false, outcome: 'processing', message: REFUND_PROCESSING_MESSAGE };
     }
 
     await this.finalizeRefundLocal(paymentId, adminId);
     const updated = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
+    await this.auditLegacyRefund(adminId, payment, legacyReason, updated.status, 'completed',
+      providerError ? `recovered_after_${providerErrorKind(providerError)}` : null);
+    structuredLog('info', 'LEGACY_REFUND_COMPLETED', {
+      paymentId,
+      recoveredAfterError: providerError ? providerErrorKind(providerError) : null,
+    });
+    return { payment: this.serializePayment(updated), idempotent: false, outcome: 'completed', message: 'Estorno confirmado.' };
+  }
+
+  private async auditLegacyRefund(
+    adminId: string,
+    payment: { id: string; orderId: string; amount: Prisma.Decimal },
+    reason: string | null,
+    newState: string,
+    outcome: 'completed' | 'processing' | 'rejected',
+    providerError: string | null,
+  ) {
     await this.finance.auditSafe({
       action: 'payment.legacy_refund_requested',
       origin: 'admin',
       actorId: adminId,
       actorRole: 'admin',
       orderId: payment.orderId,
-      paymentId,
+      paymentId: payment.id,
       amount: Number(payment.amount),
       oldState: 'approved',
-      newState: updated.status,
-      reason: legacyReason,
-      meta: { endpoint: 'POST /admin/payments/:id/refund', reasonProvided: Boolean(legacyReason) },
+      newState,
+      reason,
+      meta: {
+        endpoint: 'POST /admin/payments/:id/refund',
+        reasonProvided: Boolean(reason),
+        outcome,
+        ...(providerError ? { providerError } : {}),
+      },
     });
-    return { payment: this.serializePayment(updated), idempotent: false };
   }
 
   /** Local refund finalization (payment+order refunded, restock). Public for the refund engine. */
