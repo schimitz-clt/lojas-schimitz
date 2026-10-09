@@ -74,7 +74,7 @@ import { StorefrontService } from '../storefront/storefront.service';
 import { SellersService } from '../sellers/sellers.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { rewritePublicUploadUrl } from '../../common/public-upload-url';
-import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, PAID_STUCK_HOURS, summarizeOps, summarizePaidAwaitingOrg, summarizeReconciliations, summarizeSalesWindow, summarizeUploadsDurability } from './admin-ops';
+import { DEFAULT_OPS_LOW_STOCK_THRESHOLD, shippingDataMissingCsv, summarizeShippingData, listPlaceholderProducts, placeholderProductsCsv, OPS_RECONCILIATIONS_RECENT_CAP, PAID_STUCK_HOURS, summarizeOps, summarizePaidAwaitingOrg, summarizeReconciliations, summarizeSalesWindow, summarizeUploadsDurability } from './admin-ops';
 import { RECONCILIATION_STATUS_OPEN } from '../payments/reconciliation';
 import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin-sales-report';
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
@@ -85,6 +85,16 @@ import {
   resolveAdminOrdersTake,
 } from './admin-orders-search';
 
+const SHIPPING_DATA_SELECT = {
+  id: true,
+  sku: true,
+  name: true,
+  weightKg: true,
+  widthCm: true,
+  heightCm: true,
+  lengthCm: true,
+} as const;
+
 @ApiTags('admin')
 @ApiBearerAuth('access-token')
 @Controller('admin')
@@ -94,7 +104,7 @@ export class AdminController {
   private readonly log = new Logger(AdminController.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(OrdersService) private readonly orders: OrdersService,
     private readonly productsService: AdminProductsService,
     private readonly uploads: UploadsService,
@@ -131,6 +141,7 @@ export class AdminController {
       orderStatusGroups,
       salesTodayAgg,
       salesLast30Agg,
+      shippingRows,
     ] = await Promise.all([
       this.prisma.inventory.count({
         where: { qtyOnHand: { lte: threshold }, product: { isDemo: false } },
@@ -166,6 +177,11 @@ export class AdminController {
         },
         _count: { _all: true },
         _sum: { total: true },
+      }),
+      this.prisma.product.findMany({
+        where: { active: true, isDemo: false },
+        select: SHIPPING_DATA_SELECT,
+        orderBy: { name: 'asc' },
       }),
     ]);
 
@@ -278,8 +294,27 @@ export class AdminController {
         paidAwaitingOrg,
         uploads,
         storeNotifyMail: peekStoreNotifyMailSnapshot(),
+        shippingData: summarizeShippingData(shippingRows),
       }),
     );
+  }
+
+  @Get('ops/products-missing-shipping-data')
+  @ApiOperation({
+    summary:
+      'Produtos ativos sem peso/medidas: resumo + CSV (;) com as colunas da planilha de importação. Nunca inventa valores.',
+  })
+  async productsMissingShippingData() {
+    const rows = await this.prisma.product.findMany({
+      where: { active: true, isDemo: false },
+      select: SHIPPING_DATA_SELECT,
+      orderBy: { name: 'asc' },
+    });
+    return ok({
+      filename: 'produtos-sem-peso-medidas.csv',
+      summary: summarizeShippingData(rows),
+      csv: shippingDataMissingCsv(rows),
+    });
   }
 
 

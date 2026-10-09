@@ -509,6 +509,8 @@ export function deriveOpsAlerts(input: {
   uploadsDir?: string;
   /** Last process-local store-notify mail failure (real event; omit/empty = no alert). */
   storeNotifyMail?: OpsStoreNotifyMailSummary;
+  /** Produtos ativos sem peso/medidas (frete usa pacote padrão). */
+  productsMissingShippingData?: number;
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -610,6 +612,18 @@ export function deriveOpsAlerts(input: {
       message: `${terminalHistory} pedido(s) cancelado(s)/reembolsado(s) (histórico — não é fila crítica)`,
       count: terminalHistory,
       queueBucket: 'problems',
+    });
+  }
+  const missingShipping = Math.max(0, Number(input.productsMissingShippingData) || 0);
+  if (missingShipping > 0) {
+    alerts.push({
+      code: 'products_missing_shipping_data',
+      severity: 'warn',
+      message: `${missingShipping} produto(s) ativo(s) sem peso ou medidas: o frete usa o padrão de 0,3 kg e 16×11×11 cm`,
+      count: missingShipping,
+      section: 'catalog',
+      recommendedAction:
+        'Baixar a lista (Admin → Catálogo → Importar → "Produtos sem peso/medidas") e preencher peso_kg, largura_cm, altura_cm e comprimento_cm reais na planilha. Não inventar valores.',
     });
   }
   if (placeholders > 0) {
@@ -738,6 +752,8 @@ export function summarizeOps(input: {
   uploads?: UploadsDurabilitySummary;
   /** Process-local last store-notify mail failure (real events only). */
   storeNotifyMail?: OpsStoreNotifyMailSummary;
+  /** Produtos ativos e seus dados de frete (real DB rows). */
+  shippingData?: ShippingDataSummary;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -773,12 +789,15 @@ export function summarizeOps(input: {
     uploadsPersistent: uploads ? uploads.persistent : undefined,
     uploadsDir: uploads?.dir,
     storeNotifyMail,
+    productsMissingShippingData: input.shippingData?.missingCount,
   });
   return {
     ...base,
     catalog: {
       placeholderProductCount: input.placeholderProductCount,
       placeholderProducts,
+      /** null quando o chamador não consultou (sem número inventado). */
+      shippingData: input.shippingData ?? null,
     },
     payments: {
       pendingCount: input.pendingPaymentCount,
@@ -803,4 +822,81 @@ export function summarizeOps(input: {
     },
     alerts,
   };
+}
+
+
+/** Produto ativo (não demo) com dados de frete — linhas reais do banco. */
+export type ShippingDataRow = {
+  id: string;
+  sku: string;
+  name: string;
+  weightKg: unknown;
+  widthCm: unknown;
+  heightCm: unknown;
+  lengthCm: unknown;
+};
+
+export type ShippingDataSummary = {
+  activeCount: number;
+  missingCount: number;
+  missingWeightCount: number;
+  missingDimensionsCount: number;
+  /** Primeiros SKUs sem dado (amostra para o painel; lista completa no CSV). */
+  sample: { id: string; sku: string; name: string; missing: string[] }[];
+};
+
+export const SHIPPING_DATA_SAMPLE_CAP = 20;
+
+function positive(v: unknown): boolean {
+  const n = Number(v);
+  return v !== null && v !== undefined && Number.isFinite(n) && n > 0;
+}
+
+/** Quais campos de frete faltam (peso_kg, largura_cm, altura_cm, comprimento_cm). Nunca inventa valor. */
+export function missingShippingFields(row: Omit<ShippingDataRow, 'id' | 'sku' | 'name'>): string[] {
+  const out: string[] = [];
+  if (!positive(row.weightKg)) out.push('peso_kg');
+  if (!positive(row.widthCm)) out.push('largura_cm');
+  if (!positive(row.heightCm)) out.push('altura_cm');
+  if (!positive(row.lengthCm)) out.push('comprimento_cm');
+  return out;
+}
+
+export function summarizeShippingData(rows: ShippingDataRow[]): ShippingDataSummary {
+  let missingCount = 0;
+  let missingWeightCount = 0;
+  let missingDimensionsCount = 0;
+  const sample: ShippingDataSummary['sample'] = [];
+  for (const r of rows) {
+    const missing = missingShippingFields(r);
+    if (!missing.length) continue;
+    missingCount++;
+    if (missing.includes('peso_kg')) missingWeightCount++;
+    if (missing.some((m) => m !== 'peso_kg')) missingDimensionsCount++;
+    if (sample.length < SHIPPING_DATA_SAMPLE_CAP) sample.push({ id: r.id, sku: r.sku, name: r.name, missing });
+  }
+  return { activeCount: rows.length, missingCount, missingWeightCount, missingDimensionsCount, sample };
+}
+
+function csvCell(v: unknown): string {
+  const t = v === null || v === undefined ? '' : String(v);
+  const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t;
+  return /[;"\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/** CSV (;) com os produtos ativos sem peso/medidas — colunas iguais às da planilha de importação. Vazio = falta preencher. */
+export function shippingDataMissingCsv(rows: ShippingDataRow[]): string {
+  // `nome_referencia` e `faltando` não são colunas do importador: na reimportação são ignoradas,
+  // então devolver esta planilha preenchida só grava peso/medidas (células vazias não apagam nada).
+  const header = ['sku', 'nome_referencia', 'peso_kg', 'largura_cm', 'altura_cm', 'comprimento_cm', 'faltando'];
+  const lines = [header.join(';')];
+  for (const r of rows) {
+    const missing = missingShippingFields(r);
+    if (!missing.length) continue;
+    const val = (v: unknown) => (positive(v) ? String(Number(v)) : '');
+    lines.push(
+      [r.sku, r.name, val(r.weightKg), val(r.widthCm), val(r.heightCm), val(r.lengthCm), missing.join(' ')].map(csvCell).join(';'),
+    );
+  }
+  return `${lines.join('\n')}\n`;
 }
