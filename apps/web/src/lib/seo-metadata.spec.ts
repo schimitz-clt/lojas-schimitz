@@ -67,9 +67,13 @@ assert.equal(robots.includes("'/produtos'"), false, 'robots does not block the c
 assert.ok(robots.includes("'/conta'"));
 
 const sitemap = readFileSync(join(src, 'app/sitemap.ts'), 'utf8');
-assert.ok(sitemap.includes('sitemapAcceptsProduct'), 'demo and inactive products stay out of the sitemap');
+// Catalog entries are built in lib/catalog-sitemap.ts (collectCatalogSitemap); the route only composes.
+const sitemapLib = readFileSync(join(src, 'lib/catalog-sitemap.ts'), 'utf8');
+const collectBody = sitemapLib.slice(sitemapLib.indexOf('export async function collectCatalogSitemap'));
+assert.ok(sitemap.includes('collectCatalogSitemap'), 'route uses the catalog collector');
+assert.ok(collectBody.includes('sitemapAcceptsProduct('), 'demo and inactive products stay out of the sitemap');
 assert.ok(sitemap.includes('sitemapStaticEntries'));
-assert.ok(sitemap.includes('sitemapLastModified'));
+assert.ok(collectBody.includes('sitemapLastModified('));
 assert.equal(sitemap.includes("'/entrar'"), false);
 assert.equal(sitemap.includes("'/cadastro'"), false);
 
