@@ -3,11 +3,12 @@
  *
  * MEGA Phase 9 + cookie-only JSON omit (opt-in via env, default inalterado):
  * - Prefer cookie quando presente; body permanece fallback (localhost / legado / mobile).
- * - JSON ainda inclui `refreshToken` por default (compat). Cookie-only JSON =
- *   REFRESH_COOKIE_ENABLED (default true) AND REFRESH_JSON_TOKEN_ENABLED=false
- *   → login/refresh omitem `refreshToken` mas ainda emitem Set-Cookie.
- * - Default de REFRESH_JSON_TOKEN_ENABLED permanece **true** (unset = compat).
- *   Ativar em prod é passo Railway explícito — merge de código NÃO flipa sozinho.
+ * - Cookie-only JSON = REFRESH_COOKIE_ENABLED (default true) AND JSON refresh desligado
+ *   → login/register/refresh omitem `refreshToken` mas ainda emitem Set-Cookie.
+ * - Default de REFRESH_JSON_TOKEN_ENABLED (unset/vazio): **false** em prod/staging
+ *   (web e Android WebView são cookie-first e não leem o campo) e **true** em dev/test
+ *   (localhost web:3000 → api:3001 usa o refresh do body, em memória).
+ *   Valor explícito no ambiente sempre vence; rollback = REFRESH_JSON_TOKEN_ENABLED=true.
  * - Web same-origin / Android WebView: credentials include + cookies; não persistir
  *   refresh **nem access** em localStorage/sessionStorage.
  * - Access JWT: cookie HttpOnly `sch_access` (TTL curto) além do Bearer. Guards lêem
@@ -25,6 +26,7 @@
  */
 
 import type { Request, Response } from 'express';
+import { isProdLikeEnv, type EnvLike } from '../../common/prod-like-env';
 
 export const REFRESH_COOKIE_NAME = () =>
   (process.env.REFRESH_COOKIE_NAME || 'sch_refresh').trim() || 'sch_refresh';
@@ -40,13 +42,15 @@ export function refreshCookieEnabled(): boolean {
 
 /**
  * When false AND cookie mode is on, login/register/refresh JSON omits `refreshToken`
- * (clients must use Set-Cookie). Default true — unset/empty stays compat so rollback
- * is instant (unset or `true` on Railway). Flip only via API service env after merge.
+ * (clients must use Set-Cookie). Explicit env wins (`true|1|on` / `false|0|off`).
+ * Unset/empty: off in prod-like envs (cookie-first web + WebView), on in dev/test.
+ * Rollback in prod = set REFRESH_JSON_TOKEN_ENABLED=true on the API service.
  */
-export function refreshJsonTokenEnabled(): boolean {
-  const flag = String(process.env.REFRESH_JSON_TOKEN_ENABLED || 'true').toLowerCase().trim();
+export function refreshJsonTokenEnabled(env: EnvLike = process.env): boolean {
+  const flag = String(env.REFRESH_JSON_TOKEN_ENABLED ?? '').toLowerCase().trim();
   if (flag === 'false' || flag === '0' || flag === 'off') return false;
-  return true;
+  if (flag) return true;
+  return !isProdLikeEnv(env);
 }
 
 export function shouldOmitRefreshTokenInJson(): boolean {

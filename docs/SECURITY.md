@@ -37,13 +37,13 @@
 ## SCH-006 — Sessão (refresh cookie) + jobs multi-réplica
 
 ### Refresh token
-- **Modo dual (default no código):** a API devolve `refreshToken` no JSON **enquanto**
-  `REFRESH_JSON_TOKEN_ENABLED` estiver unset/`true` (compat localhost, clientes que ainda
-  leem o body). Em paralelo seta cookie HttpOnly `sch_refresh`
+- **Cookie-only JSON (default em prod/staging):** com `REFRESH_COOKIE_ENABLED` (default true)
+  e `REFRESH_JSON_TOKEN_ENABLED` unset, login/register/refresh **omitem** `refreshToken` no
+  JSON em prod/staging; o cookie HttpOnly `sch_refresh` continua
   (`Path=/`, `SameSite` configurável, `Secure` em prod/staging).
-- **Cookie-only JSON (opt-in Railway):** `REFRESH_COOKIE_ENABLED` (default true) **e**
-  `REFRESH_JSON_TOKEN_ENABLED=false` → login/register/refresh **omitem** `refreshToken` no
-  JSON; `Set-Cookie` continua. Merge de código **não** ativa isso em prod.
+- **Modo dual:** em dev/test (unset) ou com `REFRESH_JSON_TOKEN_ENABLED=true` explícito, a API
+  também devolve `refreshToken` no JSON (localhost web:3000 → api:3001). Rollback em prod =
+  setar `REFRESH_JSON_TOKEN_ENABLED=true` no serviço API.
 - `POST /auth/refresh` aceita cookie HttpOnly **ou** body (cookie tem precedência; body é
   fallback no servidor — não removido).
 - `POST /auth/logout` limpa o cookie e revoga o refresh; access JWT é opcional (se expirado, ainda revoga via cookie/body).
@@ -57,7 +57,7 @@
   host da loja (`REFRESH_COOKIE_DOMAIN` no Nest é opcional; o proxy remove `Domain`).
 - Env: `REFRESH_COOKIE_ENABLED` (default true), `REFRESH_COOKIE_NAME`, `REFRESH_COOKIE_SECURE`,
   `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_DOMAIN`, `REFRESH_COOKIE_MAX_AGE_SEC`,
-  `REFRESH_JSON_TOKEN_ENABLED` (default **true**).
+  `REFRESH_JSON_TOKEN_ENABLED` (unset = **false** em prod/staging, **true** em dev/test).
 
 ### expireReservations multi-réplica
 - Job ainda é `setInterval` in-process (cada réplica agenda).

@@ -135,8 +135,9 @@ Sem `FIREBASE_SERVICE_ACCOUNT_JSON` o envio é **NÃO EXECUTADO** (status failed
 - `POST /auth/register` — conta nova devolve a mesma sessão do login (`accessToken`, `user`, Set-Cookie `sch_refresh` + `sch_access`). CPF já cadastrado: 409 `Este CPF já possui conta. Entre ou use outro CPF.` E-mail já cadastrado: 409 `Este e-mail já possui conta. Faça login.` CPF inválido ou menor de 18: 400. Carrinho guest é mesclado como no login.
 - Clientes web devem usar `credentials: 'include'` (CORS já `credentials: true`).
 - Access token: cookie HttpOnly `sch_access` **ou** header `Authorization: Bearer` (Bearer tem precedência).
-- JSON inclui `refreshToken` **por default** (`REFRESH_JSON_TOKEN_ENABLED` unset/true).
-  Com cookie enabled + `REFRESH_JSON_TOKEN_ENABLED=false` o campo é **omitido** (cookie-only).
+- Com cookie enabled, o JSON **omite** `refreshToken` em prod/staging quando
+  `REFRESH_JSON_TOKEN_ENABLED` está unset (cookie-only) e o inclui em dev/test.
+  `REFRESH_JSON_TOKEN_ENABLED=true|false` explícito sempre vence.
   Body `{ refreshToken }` ainda é aceito no refresh/logout como fallback (cookie tem precedência).
 
 
