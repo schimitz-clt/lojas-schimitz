@@ -1,0 +1,16 @@
+{"tag":"antes","path":"/","vvEvents":83,"RunTask":{"ms":6624,"n":10543},"UpdateLayoutTree":{"ms":4087,"n":166},"Layout":{"ms":119,"n":166},"Paint":{"ms":235,"n":84}}
+{"tag":"depois","path":"/","vvEvents":83,"RunTask":{"ms":1644,"n":8796},"UpdateLayoutTree":{"ms":241,"n":83},"Layout":{"ms":82,"n":166},"Paint":{"ms":137,"n":83}}
+{"tag":"antes","path":"/","vvEvents":83,"RunTask":{"ms":3629,"n":9443},"UpdateLayoutTree":{"ms":1849,"n":170},"Layout":{"ms":74,"n":169},"Paint":{"ms":127,"n":87}}
+{"tag":"depois","path":"/","vvEvents":83,"RunTask":{"ms":1582,"n":8805},"UpdateLayoutTree":{"ms":239,"n":83},"Layout":{"ms":77,"n":166},"Paint":{"ms":141,"n":83}}
+{"tag":"antes","path":"/produtos","vvEvents":83,"RunTask":{"ms":3556,"n":8941},"UpdateLayoutTree":{"ms":1704,"n":166},"Layout":{"ms":70,"n":166},"Paint":{"ms":113,"n":83}}
+{"tag":"depois","path":"/produtos","vvEvents":83,"RunTask":{"ms":1358,"n":8487},"UpdateLayoutTree":{"ms":73,"n":83},"Layout":{"ms":49,"n":166},"Paint":{"ms":73,"n":83}}
+{"tag":"antes","path":"/produtos","vvEvents":83,"RunTask":{"ms":3571,"n":8792},"UpdateLayoutTree":{"ms":1707,"n":166},"Layout":{"ms":72,"n":166},"Paint":{"ms":107,"n":83}}
+{"tag":"depois","path":"/produtos","vvEvents":83,"RunTask":{"ms":1369,"n":8473},"UpdateLayoutTree":{"ms":74,"n":83},"Layout":{"ms":50,"n":166},"Paint":{"ms":69,"n":83}}
+{"tag":"antes","path":"/departamento/celulares","vvEvents":83,"RunTask":{"ms":2714,"n":8924},"UpdateLayoutTree":{"ms":1103,"n":166},"Layout":{"ms":57,"n":166},"Paint":{"ms":121,"n":166}}
+{"tag":"depois","path":"/departamento/celulares","vvEvents":83,"RunTask":{"ms":1414,"n":8699},"UpdateLayoutTree":{"ms":86,"n":83},"Layout":{"ms":62,"n":166},"Paint":{"ms":81,"n":83}}
+{"tag":"antes","path":"/departamento/celulares","vvEvents":83,"RunTask":{"ms":2640,"n":9138},"UpdateLayoutTree":{"ms":1035,"n":166},"Layout":{"ms":50,"n":166},"Paint":{"ms":110,"n":166}}
+{"tag":"depois","path":"/departamento/celulares","vvEvents":83,"RunTask":{"ms":1527,"n":8531},"UpdateLayoutTree":{"ms":99,"n":83},"Layout":{"ms":59,"n":166},"Paint":{"ms":102,"n":83}}
+{"tag":"antes","path":"/produto/alarme-residencial-sem-fio","vvEvents":83,"RunTask":{"ms":3568,"n":8989},"UpdateLayoutTree":{"ms":1330,"n":166},"Layout":{"ms":118,"n":249},"Paint":{"ms":110,"n":83}}
+{"tag":"depois","path":"/produto/alarme-residencial-sem-fio","vvEvents":83,"RunTask":{"ms":1878,"n":8467},"UpdateLayoutTree":{"ms":163,"n":83},"Layout":{"ms":56,"n":166},"Paint":{"ms":136,"n":83}}
+{"tag":"antes","path":"/produto/alarme-residencial-sem-fio","vvEvents":83,"RunTask":{"ms":3474,"n":8863},"UpdateLayoutTree":{"ms":1339,"n":166},"Layout":{"ms":114,"n":249},"Paint":{"ms":108,"n":83}}
+{"tag":"depois","path":"/produto/alarme-residencial-sem-fio","vvEvents":83,"RunTask":{"ms":1853,"n":8548},"UpdateLayoutTree":{"ms":164,"n":83},"Layout":{"ms":64,"n":166},"Paint":{"ms":124,"n":83}}

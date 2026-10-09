@@ -276,3 +276,14 @@ Revalidação: main `56c925a`, API `80b65ac6` e web `d1f02fc6` SUCCESS (o #196 s
 | Peso e medidas | Modelo CSV com os 100 produtos ativos (SKU + nome, medidas vazias); o importador aceita (100 linhas, 0 erros). Pela API pública: **100 de 100 produtos ativos sem peso e sem medidas**. | `pesos-medidas-modelo.csv`, `pesos-medidas-LEIAME.md` |
 | Variáveis do Railway | Lista completa, sem valores. Nomes conferidos: `STORE_NOTIFY_EMAIL` e `REFRESH_JSON_TOKEN_ENABLED` existem na API; `NEXT_PUBLIC_STORE_*` não existem no web. | `VARIAVEIS_RAILWAY.md` |
 | "3x sem juros" | Consulta só leitura à API de parcelas do MP com a chave pública do site: 2x = 9,64% e 3x = 11,23% de juros para Mastercard/Visa com parcelamento. **Forte indício de que a frase do site não é verdadeira hoje.** Decisão do Hector (ativar no MP ou trocar o texto). | `PARCELAS_MERCADO_PAGO.md` |
+
+## 10. Rodada "rolagem pesada" e banners (09/10/2026, ~19:30–20:10 UTC)
+
+**Causa da rolagem pesada (medida):** o `Header` gravava `--vv-top`/`--vv-height` em `:root` a cada evento `resize`/`scroll` do `visualViewport`. No celular a barra de endereço recolhe durante a rolagem e dispara esses eventos todo frame; cada escrita em `:root` recalcula o estilo da página toda.
+- Medição: Chrome headless, 390×844, CPU 4x, rolagem por toque + barra de endereço simulada (83 eventos). `UpdateLayoutTree`: home 1,8–4,1 s → 0,24–0,27 s; /produtos 1,7 s → 0,07–0,12 s; /departamento 1,0–1,1 s → 0,09 s; /produto 1,3 s → 0,16 s. Tempo total de tarefas na home 3,6–6,6 s → 1,6–2,0 s. Reproduzida em produção depois do deploy (home 0,27 s, /produtos 0,12 s).
+- Correção: PR #200 (commit 8009104): 1 escrita por frame, só quando o valor muda, `--vv-height` só com teclado aberto.
+- Não eram a causa (medido): animações infinitas (nenhuma rodando), listeners de scroll da página (nenhum), blur/filtros (0 filtros; 1 backdrop só no botão do PDP), long tasks durante a rolagem (0). Lighthouse (carga, mobile): TBT 190–330 ms, LCP ~4,3 s (lento por CPU 4x), CLS 0; sem mudança por este PR.
+- Limite do que foi provado: medimos em laboratório (emulação). Falta confirmar em celular real; roteiro e scripts em `docs/omega/perf/`.
+- Ideias futuras (não feitas, sem prova de ganho): `content-visibility:auto` em mais seções da home, reduzir JS da hidratação (chunk 1255, ~390 ms de script em CPU 4x).
+
+**Banners:** PR #201 (commit 819a066): teto de 11 banners ATIVOS (API e web; desativados não contam). 11 JPGs 2400×800 (~155 KB) + `banners.md` com ordem, links, alt e passo a passo em `docs/omega/banners/`. Publicação pelo admin pelo Hector (nada publicado por mim, banners antigos intactos).
