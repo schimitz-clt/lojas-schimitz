@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -24,6 +24,7 @@ import {
   type HomeShelfView,
 } from '@/lib/home-shelves';
 import { homeEmptyCopy, searchEmptyCopy } from '@/lib/storefront-pro';
+import { HOME_MARKET_CATALOG_PATH, type HomeMarketSeed } from '@/lib/home-market';
 
 type ListResponse = { items: Product[]; total?: number };
 
@@ -87,24 +88,36 @@ function CategoryStrip({ products }: { products: Product[] }) {
 
 function HomeInner({
   initialRetail,
+  initialMarket,
   suppressStage,
 }: {
   initialRetail?: Product[] | null;
+  initialMarket?: HomeMarketSeed<Product> | null;
   suppressStage?: boolean;
 }) {
   const q = useSearchParams().get('q') || '';
   const searchEmpty = searchEmptyCopy(q, false);
   const seededRetail =
     !q && Array.isArray(initialRetail) && initialRetail.length > 0 && initialRetail.length <= 5;
-  const [products, setProducts] = useState<Product[]>([]);
+  // Market home rendered on the server: start with its data and skip the first client fetch.
+  const seededMarket = !q && !seededRetail && initialMarket ? initialMarket : null;
+  const [products, setProducts] = useState<Product[]>(seededMarket?.products ?? []);
   const [retailProducts, setRetailProducts] = useState<Product[] | null>(seededRetail ? initialRetail : null);
-  const [homeMode, setHomeMode] = useState<'pending' | 'retail' | 'market'>(seededRetail ? 'retail' : 'pending');
-  const [activeCount, setActiveCount] = useState<number | null>(null);
-  const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(null);
+  const [homeMode, setHomeMode] = useState<'pending' | 'retail' | 'market'>(
+    seededRetail ? 'retail' : seededMarket ? 'market' : 'pending',
+  );
+  const [activeCount, setActiveCount] = useState<number | null>(seededMarket?.activeCount ?? null);
+  const [shelves, setShelves] = useState<HomeShelfView<Product>[] | null>(seededMarket?.shelves ?? null);
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(!seededRetail);
+  const [loading, setLoading] = useState(!seededRetail && !seededMarket);
+  const skipMarketFetch = useRef(Boolean(seededMarket));
 
   useEffect(() => {
+    if (!q && skipMarketFetch.current) {
+      skipMarketFetch.current = false;
+      return;
+    }
+    skipMarketFetch.current = false;
     setLoading(true);
     setErr('');
     setActiveCount(null);
@@ -112,7 +125,7 @@ function HomeInner({
       setHomeMode('pending');
       setRetailProducts(null);
     }
-    const path = q ? `/products?q=${encodeURIComponent(q)}` : '/products?sort=newest&pageSize=48';
+    const path = q ? `/products?q=${encodeURIComponent(q)}` : HOME_MARKET_CATALOG_PATH;
     let cancelled = false;
     (async () => {
       try {
@@ -293,14 +306,16 @@ function HomeInner({
 
 export default function Page({
   initialRetail,
+  initialMarket,
   suppressStage,
 }: {
   initialRetail?: Product[] | null;
+  initialMarket?: HomeMarketSeed<Product> | null;
   suppressStage?: boolean;
 }) {
   return (
     <Suspense fallback={<ProductGridSkeleton count={8} />}>
-      <HomeInner initialRetail={initialRetail} suppressStage={suppressStage} />
+      <HomeInner initialRetail={initialRetail} initialMarket={initialMarket} suppressStage={suppressStage} />
     </Suspense>
   );
 }

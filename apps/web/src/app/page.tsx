@@ -7,6 +7,14 @@ import { resolveProductImageUrl } from '@/lib/product-media';
 import { IMAGE_WIDTHS, STAGE_IMG_SIZES, responsiveImageProps } from '@/lib/responsive-image';
 import { homeShowsEditorialStage, sellableCountFromCatalog, shouldUseRetailHome } from '@/lib/retail-home';
 import { interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { resolveApiProxyTarget } from '@/lib/api-proxy';
+import {
+  HOME_MARKET_CATALOG_PATH,
+  HOME_MARKET_SHELVES_PATH,
+  buildHomeMarketSeed,
+  unwrapApiData,
+  type HomeMarketSeed,
+} from '@/lib/home-market';
 
 /** Homepage only. Other routes set their own canonical so they do not inherit `/`. */
 export const metadata: Metadata = {
@@ -55,6 +63,31 @@ async function loadSellablePreview(): Promise<{ products: Product[]; retail: boo
   }
 }
 
+async function fetchApiData(path: string): Promise<unknown | null> {
+  try {
+    const res = await fetch(`${resolveApiProxyTarget()}/api/v1${path}`, {
+      next: { revalidate: 60 },
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    return unwrapApiData(await res.json());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Market home (catalog > 5): products + shelves in the server HTML (SEO / first paint).
+ * Failure → null and the client fetches as before.
+ */
+async function loadMarketSeed(): Promise<HomeMarketSeed<Product> | null> {
+  const [catalog, shelves] = await Promise.all([
+    fetchApiData(HOME_MARKET_CATALOG_PATH),
+    fetchApiData(HOME_MARKET_SHELVES_PATH),
+  ]);
+  return buildHomeMarketSeed<Product>(catalog, shelves);
+}
+
 export default async function Page({
   searchParams,
 }: {
@@ -64,10 +97,11 @@ export default async function Page({
   const preview = q ? null : await loadSellablePreview();
   const products = preview?.products ?? null;
   const retail = homeShowsEditorialStage(!!preview?.retail, products?.length || 0);
+  const market = q || retail ? null : await loadMarketSeed();
   return (
     <>
       {retail && products?.length ? <EditorialStage products={products} /> : null}
-      <HomePage initialRetail={retail ? products : null} suppressStage={retail} />
+      <HomePage initialRetail={retail ? products : null} initialMarket={market} suppressStage={retail} />
     </>
   );
 }
