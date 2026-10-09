@@ -29,6 +29,8 @@ class SchimitzFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        // Sem consentimento (13+: permissão; 12-: "sim" no app) não mostra nada em primeiro plano.
+        if (!PushRegistration.notificationsAllowed(applicationContext)) return
         val data = message.data
         val title = message.notification?.title
             ?: data["title"]

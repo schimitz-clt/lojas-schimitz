@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.webkit.CookieManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -18,7 +19,8 @@ import java.util.concurrent.Executors
  * (`sch_access` / `sch_refresh` via CookieManager). Does not read JWTs from JS storage.
  *
  * Upsert is idempotent on the token string and refreshes `lastSeenAt`.
- * The POST runs only when notifications are allowed (Android 13+ grant, or older APIs).
+ * The POST runs only when notifications are allowed (Android 13+ grant, or the in-app
+ * "sim" on Android 12 and below — see [PushConsentPolicy]).
  * Until then the token is kept in prefs so a later grant still upserts.
  */
 object PushRegistration {
@@ -28,6 +30,7 @@ object PushRegistration {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_LAST_MS = "last_register_ms"
     private const val KEY_LAST_TOKEN = "last_register_token"
+    private const val KEY_CONSENT = "push_consent"
     private const val API_PATH = "/api/v1/push/tokens"
     private const val DEVICE_COOKIE = "sch_push_device"
     private val DEVICE_ID = Regex(
@@ -53,13 +56,54 @@ object PushRegistration {
         return id.takeIf { DEVICE_ID.matches(it) }
     }
 
-    /** Android 13+ requires POST_NOTIFICATIONS. Older APIs may post without a runtime grant. */
+    /** Resposta à pergunta do app (só usada no Android 12 ou anterior). */
+    fun consent(context: Context): PushConsentPolicy.Consent =
+        PushConsentPolicy.Consent.fromStored(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CONSENT, null),
+        )
+
+    fun saveConsent(context: Context, granted: Boolean) {
+        val value = if (granted) PushConsentPolicy.Consent.GRANTED else PushConsentPolicy.Consent.DENIED
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CONSENT, value.stored)
+            .apply()
+    }
+
+    fun needsInAppPrompt(context: Context): Boolean =
+        PushConsentPolicy.needsInAppPrompt(Build.VERSION.SDK_INT, consent(context))
+
+    /**
+     * Android 13+: POST_NOTIFICATIONS concedida. Android 12-: "sim" na pergunta do app
+     * e notificações ligadas no sistema. Sem isso o token não vai para o servidor.
+     */
     fun notificationsAllowed(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < 33) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+        val sdk = Build.VERSION.SDK_INT
+        val runtimeGranted = sdk >= PushConsentPolicy.RUNTIME_PERMISSION_SDK &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+        val systemEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        return PushConsentPolicy.mayRegister(sdk, runtimeGranted, systemEnabled, consent(context))
+    }
+
+    /**
+     * Depois de um "não" no Android 12-: desativa (enabled=false) o token que uma versão
+     * anterior do app já tinha cadastrado sem perguntar. Uma tentativa por recusa.
+     */
+    fun disableOnServerIfNeeded(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val lastToken = prefs.getString(KEY_LAST_TOKEN, null)?.trim().orEmpty()
+        val everRegistered = lastToken.isNotEmpty()
+        if (!PushConsentPolicy.shouldDisableOnServer(Build.VERSION.SDK_INT, consent(context), everRegistered)) return
+        io.execute {
+            val result = postOnce(lastToken, enabled = false)
+            Log.i(TAG, "disable after decline http=${result.httpCode} ok=${result.ok} fp=${PushRegisterPolicy.fingerprint(lastToken)}")
+            if (result.ok) {
+                prefs.edit().remove(KEY_LAST_TOKEN).remove(KEY_LAST_MS).apply()
+            }
+        }
     }
 
     /**
@@ -181,7 +225,7 @@ object PushRegistration {
         val deviceId: String?,
     )
 
-    private fun postOnce(token: String): PostResult {
+    private fun postOnce(token: String, enabled: Boolean = true): PostResult {
         var conn: HttpURLConnection? = null
         return try {
             val url = URL(PushDeepLink.STORE_ORIGIN + API_PATH)
@@ -200,7 +244,7 @@ object PushRegistration {
             val body = JSONObject()
                 .put("token", token)
                 .put("platform", "android")
-                .put("enabled", true)
+                .put("enabled", enabled)
                 .put("appVersion", BuildConfig.VERSION_NAME)
                 .toString()
             conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }

@@ -4,4 +4,8 @@
     <string name="push_channel_name">Promoções</string>
     <string name="push_channel_desc">Ofertas e novidades da Lojas Schimitz</string>
     <string name="push_default_body">Tem novidade pra você na loja.</string>
+    <string name="push_consent_title">Receber notificações?</string>
+    <string name="push_consent_message">Podemos avisar sobre o andamento dos seus pedidos, ofertas e produtos que você viu. Você pode desligar quando quiser nas configurações do Android.</string>
+    <string name="push_consent_yes">Sim, quero</string>
+    <string name="push_consent_no">Não, obrigado</string>
 </resources>
