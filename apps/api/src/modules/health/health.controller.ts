@@ -10,7 +10,7 @@ import {
   isUploadsDirPersistent,
   resolveUploadsDir,
 } from '../uploads/uploads-durability';
-import { PaymentsHealthChecker } from './payments-health';
+import { PaymentsHealthChecker, publicPaymentsHealth } from './payments-health';
 
 @ApiTags('health')
 @Controller('health')
@@ -79,6 +79,6 @@ export class HealthController {
     const h = await this.payments.check();
     res.setHeader('Cache-Control', 'no-store');
     if (h.status !== 'ok') res.status(503);
-    return ok(h);
+    return ok(publicPaymentsHealth(h, isProdLikeEnv()));
   }
 }

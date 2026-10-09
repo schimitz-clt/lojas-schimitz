@@ -46,8 +46,9 @@ Filtros úteis no Railway (caixa de busca dos logs): `HTTP_5XX`, `@level:error`,
 responde a uma chamada **só de leitura** (`GET /v1/payment_methods` — não cria cobrança); ou houve ≥ 5
 falhas ao criar pagamento nos últimos 15 min (`PAYMENTS_HEALTH_MAX_PROVIDER_ERRORS`). A consulta ao MP
 fica em cache por 5 min (`PAYMENTS_HEALTH_PING_TTL_SECONDS`), então o endpoint público não "martela" o MP.
-O corpo mostra `reasons` (ex. `provider_unauthorized`) e contadores dos últimos 15 min — sem valores,
-clientes ou segredos. Obs.: `/api/health` (sem `v1`) não existe — o prefixo da API é `/api/v1`.
+O corpo mostra `reasons` (ex. `provider_unauthorized`) e o resultado do ping — sem valores, clientes ou
+segredos. Os contadores dos últimos 15 min (`recent15m`) só aparecem fora de produção; em produção ficam
+no admin autenticado (`GET /admin/finance/health`), para não expor o volume de vendas. Obs.: `/api/health` (sem `v1`) não existe — o prefixo da API é `/api/v1`.
 
 ## 3. Alertas por e-mail de dentro da API (grátis, opcional)
 
@@ -78,7 +79,7 @@ Contadores (`/admin/finance/health` → `process`/`persisted`):
 `webhook_unsigned_ipn` (IPN ignorado) · `webhook_unsigned_rejected` (sem assinatura e sem formato de IPN → 401) ·
 `webhook_failures` (assinatura presente porém inválida, segredo ausente, evento ilegível **ou** falha de processamento) ·
 `webhook_processing_failures` (só fetch/aplicar/chargeback — é o que dispara o alerta e aparece em
-`/health/payments` → `recent15m.webhookProcessingFailures`).
+`/health/payments` → `recent15m.webhookProcessingFailures` (fora de produção; em produção, no admin)).
 
 ## 4. Monitor externo "site/API/pagamentos fora do ar"
 
