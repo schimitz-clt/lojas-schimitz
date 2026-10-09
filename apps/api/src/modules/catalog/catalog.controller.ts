@@ -7,9 +7,6 @@ import {
   buildProductOrderBy,
   buildProductWhere,
   catalogListWindow,
-  isOffersCategorySlug,
-  offerDealIds,
-  offerDealIdWhere,
   parseSort,
 } from './catalog.query';
 import { isPublicSellerVisible, publicSellerShape } from '../sellers/sellers.constants';
@@ -53,13 +50,13 @@ export class CatalogController {
     const pageNum = listWindow.page;
     const skip = listWindow.skip;
     const sortKey = parseSort(sort);
-    const baseWhere = buildProductWhere({ q, category, minPrice, maxPrice, seller });
+    // Ofertas: compareAtPrice > price direto no WHERE (field reference), sem query extra nem IN list.
+    const baseWhere = buildProductWhere(
+      { q, category, minPrice, maxPrice, seller },
+      { priceRef: this.prisma.product.fields.price },
+    );
     const sellableOnly = sellable === '1' || sellable === 'true';
-    let where = sellableOnly ? sellableProductWhere(baseWhere) : baseWhere;
-    if (isOffersCategorySlug(category)) {
-      const dealIds = await offerDealIds(this.prisma);
-      where = { ...where, ...offerDealIdWhere(dealIds) };
-    }
+    const where = sellableOnly ? sellableProductWhere(baseWhere) : baseWhere;
     const orderBy = buildProductOrderBy(sortKey);
 
     // total = catálogo de navegação (active, inclui DEMO). sellableTotal = active && !isDemo.
