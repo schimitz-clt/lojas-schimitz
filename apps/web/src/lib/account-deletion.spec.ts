@@ -29,6 +29,7 @@ const kept = ACCOUNT_DELETION_KEPT.join(' ');
 assert.match(kept, /Pedidos, pagamentos/);
 assert.match(kept, /5 anos/);
 assert.match(kept, /cashback/i);
+assert.ok(!/6 meses/.test(kept), 'sem promessa de 6 meses de logs');
 assert.ok(ACCOUNT_DELETION_STEPS.some((s) => s.includes(`${ACCOUNT_DELETION_SLA_DAYS} dias`)));
 
 // WhatsApp do site (sem inventar contato).

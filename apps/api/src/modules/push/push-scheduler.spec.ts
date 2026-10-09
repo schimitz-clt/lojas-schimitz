@@ -11,4 +11,6 @@ assert.ok(lockSrc.includes('SchedulerLock'), 'reuses existing SchedulerLock tabl
 assert.ok(jobSrc.includes('dispatchDue'), 'ticks scheduled campaigns');
 assert.ok(jobSrc.includes('processDue'), 'ticks abandoned product views');
 
+assert.ok(jobSrc.includes('purgeExpiredProductViews'), 'job applies 90-day product-view retention');
+
 console.log('push-scheduler.spec ok');

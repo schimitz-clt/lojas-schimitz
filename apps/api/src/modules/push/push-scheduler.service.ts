@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma.service';
 import { releaseSchedulerLock, tryAcquireSchedulerLock } from '../orders/scheduler-lock';
 import { PushCampaignsService } from './push-campaigns.service';
 import { AbandonedViewService } from './abandoned-view.service';
+import { productViewRetentionDue, purgeExpiredProductViews } from './product-view-retention';
 
 const INTERVAL_MS = 30_000;
 const LOCK_ID = 'pushCampaignDispatch';
@@ -18,6 +19,7 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(PushSchedulerService.name);
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private lastRetentionAt: number | null = null;
   private readonly holder = `pid-${process.pid}-${randomUUID().slice(0, 8)}`;
 
   constructor(
@@ -41,6 +43,23 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
     void releaseSchedulerLock(this.prisma, LOCK_ID, this.holder).catch(() => undefined);
   }
 
+  /** LGPD: produtos vistos > 90 dias. Falha aqui nunca derruba o job de push. */
+  private async runRetentionIfDue() {
+    const now = Date.now();
+    if (!productViewRetentionDue(this.lastRetentionAt, now)) return null;
+    this.lastRetentionAt = now;
+    try {
+      const r = await purgeExpiredProductViews(this.prisma, new Date(now));
+      if (r.views || r.pushes) {
+        this.log.log(`Retenção produtos vistos: views=${r.views} pushes=${r.pushes} (antes de ${r.cutoff})`);
+      }
+      return r;
+    } catch (e) {
+      this.log.error('Falha na limpeza de produtos vistos', e instanceof Error ? e.stack : String(e));
+      return null;
+    }
+  }
+
   async tick() {
     if (this.running) return { skipped: true, processed: 0, reason: 'in_process' };
     this.running = true;
@@ -55,7 +74,8 @@ export class PushSchedulerService implements OnModuleInit, OnModuleDestroy {
         this.log.log(`Push agendado: processed=${result.processed}`);
       }
       const abandoned = await this.abandoned.processDue();
-      return { skipped: false, ...result, abandoned };
+      const retention = await this.runRetentionIfDue();
+      return { skipped: false, ...result, abandoned, retention };
     } catch (e) {
       this.log.error('Falha no job de push agendado', e instanceof Error ? e.stack : String(e));
       return { skipped: false, processed: 0, error: true };
