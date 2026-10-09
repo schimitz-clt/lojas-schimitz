@@ -68,8 +68,19 @@ export class AccountDeletionService {
     return { ...publicState(state), openOrders: await this.openOrders(userId) };
   }
 
+  /**
+   * Pedido recebido fora do site (ex.: WhatsApp de quem não consegue entrar).
+   * A loja confirma a identidade antes; aqui só abre o pedido para processar depois.
+   */
+  async requestOnBehalf(actorId: string, rawEmail: string, rawReason?: unknown) {
+    const email = String(rawEmail || '').trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (!user) throw new NotFoundException('Nenhuma conta com este e-mail.');
+    return this.request(user.id, rawReason, { actorId, source: 'store_on_behalf' });
+  }
+
   /** Idempotente: um pedido aberto por usuário. Não apaga nada; só registra para a loja processar. */
-  async request(userId: string, rawReason?: unknown) {
+  async request(userId: string, rawReason?: unknown, opts: { actorId?: string; source?: string } = {}) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
     if (!user) throw new NotFoundException('Usuário não encontrado');
     if (user.role !== 'customer') {
@@ -82,14 +93,14 @@ export class AccountDeletionService {
     await this.prisma.auditLog.create({
       data: {
         action: DELETION_REQUESTED,
-        actorId: userId,
+        actorId: opts.actorId ?? userId,
         entity: 'User',
         entityId: userId,
-        meta: { reason: cleanDeletionReason(rawReason), source: 'self_service' } as Prisma.InputJsonValue,
+        meta: { reason: cleanDeletionReason(rawReason), source: opts.source ?? 'self_service' } as Prisma.InputJsonValue,
         createdAt: await this.nextAt(userId),
       },
     });
-    void this.notifyStore().catch((e) => this.log.warn(`aviso de exclusão não enviado: ${String(e?.message || e)}`));
+    if (!opts.actorId) void this.notifyStore().catch((e) => this.log.warn(`aviso de exclusão não enviado: ${String(e?.message || e)}`));
     return { ...(await this.status(userId)), created: true };
   }
 

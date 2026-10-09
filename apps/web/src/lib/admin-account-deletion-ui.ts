@@ -16,6 +16,9 @@ export type AdminAccountDeletionRequest = {
 export const ADMIN_ACCOUNT_DELETION_LEDE =
   'Clientes que pediram a exclusão pelo site/app. O prazo informado ao cliente é de 15 dias. "Excluir dados" apaga endereços, favoritos, carrinho, notificações, sessões, aparelhos de push, produtos vistos e avaliações, e anonimiza nome, e-mail, telefone, CPF e nascimento. Pedidos, pagamentos, cashback e auditoria são mantidos.';
 
+export const ADMIN_ACCOUNT_DELETION_ON_BEHALF_LABEL =
+  'Pedido pelo WhatsApp (identidade já confirmada): e-mail do cadastro';
+
 export const ADMIN_ACCOUNT_DELETION_CONFIRM = (email: string) =>
   `Excluir os dados pessoais de ${email}? Não dá para desfazer. Pedidos e pagamentos ficam guardados.`;
 

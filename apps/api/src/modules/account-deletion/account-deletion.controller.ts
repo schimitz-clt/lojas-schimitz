@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ok } from '../../common/http';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,6 +11,17 @@ import { AccountDeletionService } from './account-deletion.service';
 import { DELETION_REASON_MAX } from './account-deletion.rules';
 
 export class RequestAccountDeletionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(DELETION_REASON_MAX)
+  reason?: string;
+}
+
+export class AdminOpenAccountDeletionDto {
+  @IsEmail()
+  @MaxLength(200)
+  email!: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(DELETION_REASON_MAX)
@@ -57,6 +68,12 @@ export class AdminAccountDeletionController {
   @ApiOperation({ summary: 'Pedidos de exclusão de conta pendentes' })
   async list() {
     return ok(await this.deletion.listPending());
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Abrir pedido de exclusão em nome do cliente (ex.: pedido pelo WhatsApp, identidade já confirmada)' })
+  async open(@CurrentUser('sub') actorId: string, @Body() dto: AdminOpenAccountDeletionDto) {
+    return ok(await this.deletion.requestOnBehalf(actorId, dto.email, dto.reason));
   }
 
   @Post(':userId/process')

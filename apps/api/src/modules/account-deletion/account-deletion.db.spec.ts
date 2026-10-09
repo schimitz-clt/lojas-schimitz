@@ -4,7 +4,7 @@
  */
 import assert from 'assert';
 import { randomUUID } from 'crypto';
-import { ConflictException, INestApplicationContext } from '@nestjs/common';
+import { ConflictException, INestApplicationContext, NotFoundException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma.service';
@@ -28,6 +28,16 @@ async function rejects409(p: Promise<unknown>, code?: string) {
     return;
   }
   assert.fail('esperava 409');
+}
+
+async function rejects404(p: Promise<unknown>) {
+  try {
+    await p;
+  } catch (e) {
+    assert.ok(e instanceof NotFoundException, `esperava 404, veio ${String(e)}`);
+    return;
+  }
+  assert.fail('esperava 404');
 }
 
 async function main() {
@@ -145,6 +155,15 @@ async function main() {
     // cancelar e pedir de novo
     assert.equal((await svc.cancel(user.id)).status, 'none');
     assert.equal((await svc.request(user.id, 'não uso mais')).status, 'pending');
+
+    // pedido aberto pela loja em nome de outro cliente (WhatsApp)
+    await rejects404(svc.requestOnBehalf(admin.id, 'ninguem-' + tag + '@lojas-schimitz.test'));
+    const onBehalf = await svc.requestOnBehalf(admin.id, ` DEL-${tag}-B@lojas-schimitz.test `, 'pediu no WhatsApp');
+    assert.equal(onBehalf.status, 'pending');
+    const obLog = await prisma.auditLog.findFirstOrThrow({ where: { entityId: other.id, action: DELETION_REQUESTED } });
+    assert.equal(obLog.actorId, admin.id);
+    assert.equal((obLog.meta as { source?: string }).source, 'store_on_behalf');
+    assert.equal((await svc.cancel(other.id)).status, 'none');
 
     // fila do admin
     const pending = await svc.listPending();
