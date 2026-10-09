@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeTrackingDraft, trackingDraftError, trackingSavedMessage } from '@/lib/admin-tracking-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api, apiUpload, brl, clearSession, currentUser, ensureHydratedSession, isUnauthorizedError } from '@/lib/api';
@@ -1494,6 +1495,37 @@ export function useAdminConsoleState() {
     }
   }
 
+  /** Rastreio manual depois do envio. Avisa o cliente só quando o código muda (regra da API). */
+  async function updateTracking(order: AdminOrder, trackingCode: string, carrier: string): Promise<boolean> {
+    const err = trackingDraftError(trackingCode);
+    if (err) {
+      setErr(err);
+      setMsg('');
+      return false;
+    }
+    setBusyId(order.id);
+    setErr('');
+    setMsg('');
+    try {
+      const r = await api<{ changed: boolean; notified: boolean }>(`/admin/orders/${order.id}/tracking`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          trackingCode: normalizeTrackingDraft(trackingCode),
+          ...(carrier.trim() ? { carrier: carrier.trim() } : {}),
+        }),
+      });
+      setMsg(trackingSavedMessage(order.publicId, r));
+      await load();
+      return true;
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '';
+      setErr(orderMutationErrorText(message));
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function runBulkFulfillment(mode: 'separar' | 'advance') {
     const selected = filteredOrders.filter((o) => selectedOrderIds.includes(o.id));
     const part = mode === 'separar' ? partitionBulkSeparar(selected) : partitionBulkAdvance(selected);
@@ -2340,6 +2372,7 @@ export function useAdminConsoleState() {
     setReviewStatus,
     deleteReview,
     advance,
+    updateTracking,
     refundPayment,
     runBulkFulfillment,
     pickListPhoto,

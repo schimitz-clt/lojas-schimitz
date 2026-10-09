@@ -63,3 +63,15 @@ export class AdminUpdateOrderStatusDto {
   @MaxLength(80)
   carrier?: string | null;
 }
+
+/** Admin: rastreio manual depois do envio (etiqueta comprada fora do sistema). */
+export class AdminUpdateTrackingDto {
+  @IsString()
+  @MaxLength(60)
+  trackingCode!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  carrier?: string | null;
+}

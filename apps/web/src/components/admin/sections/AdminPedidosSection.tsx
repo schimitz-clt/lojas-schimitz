@@ -135,6 +135,7 @@ export function AdminPedidosSection() {
     msg,
     opsSnapshot,
     opsBusy,
+    updateTracking,
   } = useAdminConsole();
   const ready = ops != null;
   const [confirmAdvance, setConfirmAdvance] = useState(false);
@@ -808,6 +809,7 @@ export function AdminPedidosSection() {
           onResend={() => void resendStorePaidNotify(openOrder)}
           onCopyPublicId={() => void copyOrderField('publicId', openOrder.publicId)}
           onCopyTracking={() => void copyOrderField('tracking', openOrder.trackingCode || '')}
+          onSaveTracking={() => void updateTracking(openOrder, trackingDraft, carrierDraft)}
           onOpenCustomer={
             openOrder.user?.id ? () => void openCustomer(openOrder.user!.id) : undefined
           }

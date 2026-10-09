@@ -3,7 +3,27 @@ export type OrderMailContext = {
   publicId: string;
   total: number;
   statusLabel?: string;
+  /** Código de rastreio manual (opcional). */
+  trackingCode?: string | null;
+  /** Nome amigável da transportadora (opcional). */
+  carrierLabel?: string | null;
 };
+
+function esc(v: string) {
+  return v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+}
+
+function trackingText(ctx: OrderMailContext): string {
+  const code = (ctx.trackingCode || '').trim();
+  if (!code) return '';
+  const carrier = (ctx.carrierLabel || '').trim();
+  return carrier ? `Código de rastreio (${carrier}): ${code}` : `Código de rastreio: ${code}`;
+}
+
+function trackingHtml(ctx: OrderMailContext): string {
+  const t = trackingText(ctx);
+  return t ? `<p><strong>${esc(t)}</strong></p>` : '';
+}
 
 function formatBRL(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -151,7 +171,7 @@ export function orderShippedEmail(ctx: OrderMailContext) {
   const text = `${greeting(ctx.customerName)}
 
 Seu pedido ${ctx.publicId} saiu para entrega (em trânsito).
-
+${trackingText(ctx) ? `\n${trackingText(ctx)}\n` : ''}
 Total: ${total}
 
 Em breve ele chegará até você.
@@ -161,8 +181,30 @@ Lojas Schimitz
     'Saiu para entrega',
     `<p>${greeting(ctx.customerName)}</p>
      <p>Seu pedido <strong>${ctx.publicId}</strong> <strong>saiu para entrega</strong> (em trânsito).</p>
+     ${trackingHtml(ctx)}
      <p>Total: <strong>${total}</strong></p>
      <p>Em breve ele chegará até você.</p>`,
+  );
+  return { subject, text, html };
+}
+
+/** Código de rastreio informado/corrigido depois do envio. */
+export function orderTrackingEmail(ctx: OrderMailContext) {
+  const subject = `Código de rastreio — ${ctx.publicId}`;
+  const line = trackingText(ctx);
+  const text = `${greeting(ctx.customerName)}
+
+${line ? `${line}\n\n` : ''}Use este código no site da transportadora para acompanhar o pedido ${ctx.publicId}.
+Os detalhes também ficam em Meus pedidos, no site ou no app.
+
+Lojas Schimitz
+`;
+  const html = wrapHtml(
+    'Código de rastreio',
+    `<p>${greeting(ctx.customerName)}</p>
+     ${trackingHtml(ctx)}
+     <p>Use este código no site da transportadora para acompanhar o pedido <strong>${esc(ctx.publicId)}</strong>.</p>
+     <p>Os detalhes também ficam em Meus pedidos, no site ou no app.</p>`,
   );
   return { subject, text, html };
 }

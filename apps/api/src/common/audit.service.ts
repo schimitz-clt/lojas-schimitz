@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class AuditService {
-  constructor(private readonly prisma: PrismaService) {}
+  // @Inject explícito: specs rodam via tsx (sem emitDecoratorMetadata) e a auditoria falhava em silêncio.
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async log(action: string, opts?: { actorId?: string; entity?: string; entityId?: string; meta?: Record<string, unknown> }) {
     const safe = { ...(opts?.meta || {}) };
