@@ -25,6 +25,11 @@ assert.deepEqual(aggregatePublishedRatings([1, 2, 3, 4, 5]), { avg: 3, count: 5 
 const svc = readFileSync(join(__dirname, 'reviews.service.ts'), 'utf8');
 const listFn = svc.slice(svc.indexOf('async listByProduct'), svc.indexOf('async eligibility'));
 assert.ok(listFn.includes('select: { name: true }'), 'public reviews omit user.id');
-assert.ok(!listFn.includes('id: true'), 'public review author must not expose user.id');
+// O id da própria avaliação pode sair; o que não pode é id/userId do autor.
+// (Antes, `include` devolvia todos os campos escalares da review, inclusive userId.)
+assert.ok(!/user:\s*\{\s*select:\s*\{[^}]*\bid: true/.test(listFn), 'public review author must not expose user.id');
+assert.ok(!listFn.includes('userId: true'), 'public reviews must not select userId');
+assert.ok(!listFn.includes('include:'), 'public reviews use an explicit select (include leaks every scalar, e.g. userId)');
+assert.ok(listFn.includes('serializePublicReview'), 'public reviews go through the public serializer');
 
 console.log('reviews eligibility tests ok');
