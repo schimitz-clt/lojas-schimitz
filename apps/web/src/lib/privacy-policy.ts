@@ -3,7 +3,7 @@
  * Cada afirmação aqui foi conferida no código em 09/10/2026 (ver PR). Mudou o que o sistema
  * coleta? Atualize este arquivo, PRIVACY_POLICY_UPDATED e o spec.
  */
-export const PRIVACY_POLICY_UPDATED = '9 de outubro de 2026';
+export const PRIVACY_POLICY_UPDATED = '9 de outubro de 2026 (revisão 2)';
 export const ACCOUNT_DELETION_PATH = '/excluir-conta';
 
 export type PrivacyRow = { data: string; why: string; basis: string };
@@ -71,7 +71,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       {
         data: 'Registros técnicos: endereço IP, data e hora, páginas e chamadas da API, identificador da requisição e relatórios de erro do navegador',
         why: 'Segurança (por exemplo, limitar tentativas de login e redefinição de senha), diagnóstico de falhas e prevenção de abuso. Não usamos esses registros para publicidade.',
-        basis: 'Legítimo interesse (art. 7º, IX) e cumprimento de obrigação legal (art. 7º, II; Marco Civil da Internet)',
+        basis: 'Legítimo interesse (art. 7º, IX)',
       },
     ],
   },
@@ -118,7 +118,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       'Sessões: o cookie de refresh expira em até 30 dias; links de redefinição de senha expiram em 1 hora.',
       'Produtos vistos no app (e o registro dos lembretes enviados): apagados automaticamente 90 dias depois da última visualização, ou antes, se você pedir a exclusão da conta.',
       'Token de notificação: enquanto o aparelho estiver registrado. O token é desativado quando o Firebase informa que ele deixou de valer (por exemplo, depois de desinstalar o app) e é apagado quando você pede a exclusão da conta ou pelos canais abaixo.',
-      'Registros técnicos: pelo tempo de retenção do provedor de hospedagem e, quando a lei exigir, por pelo menos 6 meses.',
+      'Registros técnicos (logs com IP, data e hora): ficam só no painel do provedor de hospedagem (Railway) e são apagados automaticamente por ele no prazo do plano contratado (7 dias no plano Hobby, 30 dias no Pro). A loja não exporta nem guarda cópia própria desses registros.',
     ],
   },
   {
