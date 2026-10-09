@@ -1,6 +1,6 @@
 /** Detecção de intenção e FAQ (puro, sem I/O). */
 
-import { INSTALLMENTS, INTEREST_FREE, INSTALLMENTS_PROVIDER } from './chat.facts';
+import { INSTALLMENTS, CARD_HIGHLIGHT, CARD_INSTALLMENT_FACT, INSTALLMENTS_PROVIDER } from './chat.facts';
 
 const HANDOFF_RE = new RegExp(
   [
@@ -101,17 +101,17 @@ export function faqReply(message: string): string | null {
   const bits: string[] = [];
   if (greet) {
     bits.push(
-      `Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcelamento em até ${INTEREST_FREE}x sem juros, troca em 7 dias e produtos do catálogo.`,
+      `Olá! Posso ajudar com frete (grátis em Porto Alegre), PIX 5% off, parcelamento no cartão em até ${CARD_HIGHLIGHT}x, troca em 7 dias e produtos do catálogo.`,
     );
   }
   if (pix) bits.push('No PIX você tem 5% de desconto à vista.');
   if (card)
     bits.push(
-      `Dá para parcelar em até ${INTEREST_FREE}x sem juros (a loja absorve o financiamento). Parcelas de ${INTEREST_FREE + 1} a ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER} podem incluir juros.`,
+      `Dá para parcelar no cartão. ${CARD_INSTALLMENT_FACT}`,
     );
   if (pay && !pix && !card) {
     bits.push(
-      `Aceitamos PIX (5% off à vista) e cartão em até ${INTEREST_FREE}x sem juros; até ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER} (acima de ${INTEREST_FREE}x podem incluir juros).`,
+      `Aceitamos PIX (5% off à vista) e cartão em até ${CARD_HIGHLIGHT}x (até ${INSTALLMENTS}x pelo ${INSTALLMENTS_PROVIDER}; os juros, se houver, dependem do cartão).`,
     );
   }
   if (ship) {
@@ -136,7 +136,7 @@ export function faqReply(message: string): string | null {
   }
   if (support && !bits.length) {
     bits.push(
-      `Estou aqui para políticas da loja (frete, PIX, ${INTEREST_FREE}x sem juros, troca) e busca no catálogo. Também tem a página /suporte e o WhatsApp (51) 99625-3766.`,
+      `Estou aqui para políticas da loja (frete, PIX, parcelamento no cartão, troca) e busca no catálogo. Também tem a página /suporte e o WhatsApp (51) 99625-3766.`,
     );
   }
 
@@ -155,7 +155,7 @@ export function noLlmFallbackReply(opts: { faq: string | null; hasProducts: bool
     return 'Encontrei estes itens no catálogo atual. Os preços são os da loja — não invento produto que não esteja listado. Quer que eu detalhe algum, ou prefere falar no WhatsApp (51) 99625-3766?';
   }
   return [
-    `Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, até ${INTEREST_FREE}x sem juros no ${INSTALLMENTS_PROVIDER} (até ${INSTALLMENTS}x com juros possíveis), troca em 7 dias e SCHIMITZ+.`,
+    `Posso ajudar com o que a loja já publica: frete grátis em Porto Alegre (CEP 90…), PIX 5% off, parcelamento no cartão em até ${CARD_HIGHLIGHT}x no ${INSTALLMENTS_PROVIDER} (até ${INSTALLMENTS}x; juros conforme o cartão), troca em 7 dias e SCHIMITZ+.`,
     'Para atendimento humano ou horários, use /suporte ou o WhatsApp (51) 99625-3766.',
     'Se estiver buscando um produto, diga o nome ou modelo que eu consulto o catálogo.',
   ].join(' ');
@@ -189,6 +189,14 @@ export function llmReplyStatesPriceOrStock(reply: string): boolean {
 }
 
 /**
+ * True quando a resposta do modelo promete parcelamento sem juros. A loja NÃO anuncia isso
+ * (os juros são os do Mercado Pago conforme o cartão), então a frase é trocada pela política real.
+ */
+export function llmReplyPromisesNoInterest(reply: string): boolean {
+  return /sem\s+juros|s\/\s*juros|sem\s+acr[eé]scimo|juros?\s+zero|zero\s+de\s+juros|0\s*%\s*(de\s+)?juros/i.test(reply || '');
+}
+
+/**
  * When tool results contain no products, drop an LLM sentence that states a price or stock.
  * Keeps other sentences (policies, “não sei”) unchanged.
  */
@@ -197,6 +205,9 @@ export function guardUngroundedCatalogReply(
   productCount: number,
 ): { reply: string; handoff: boolean; keptModelText: boolean } | null {
   if (!parsed) return null;
+  if (llmReplyPromisesNoInterest(parsed.reply)) {
+    return { reply: `Dá para parcelar no cartão. ${CARD_INSTALLMENT_FACT}`, handoff: parsed.handoff, keptModelText: false };
+  }
   if (productCount > 0 || !llmReplyStatesPriceOrStock(parsed.reply)) {
     return { reply: parsed.reply, handoff: parsed.handoff, keptModelText: true };
   }

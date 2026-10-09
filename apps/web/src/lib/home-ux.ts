@@ -10,7 +10,7 @@ import {
   type AccountAddressRecord,
 } from '@/lib/account-menu';
 import { formatCepInput, isCompleteCep } from '@/lib/pdp-trust';
-import { interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { cardInstallmentPhrase } from '@/lib/pricing';
 
 export type HomeShortcutId = 'cupons' | 'ofertas' | 'categorias';
 
@@ -117,7 +117,7 @@ export function deliveryBarCopy(input: {
 
 /** Visible home proposition (not the sr-only H1). No invented store address. */
 export function homeMarketLede(): string {
-  return `Eletro, celulares e casa em Porto Alegre. PIX 5% off, ${interestFreeInstallmentPhrase()} e frete grátis na capital.`;
+  return `Eletro, celulares e casa em Porto Alegre. PIX 5% off, ${cardInstallmentPhrase()} e frete grátis na capital.`;
 }
 
 /** Customer-facing home catalog failure. No operator/seed instructions. */

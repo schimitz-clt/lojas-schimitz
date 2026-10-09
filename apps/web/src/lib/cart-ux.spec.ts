@@ -13,7 +13,8 @@ import { cartEmptyCopy, cartFreightNote, cartLinePriceView } from './cart-ux';
   assert.equal(view.pixSuffix, 'no PIX');
   assert.ok(view.orList?.startsWith('ou '));
   assert.ok(view.orList?.includes('200'));
-  assert.ok(view.install?.includes('sem juros'));
+  assert.ok(view.install?.includes('até 3x no cartão'));
+  assert.ok(!/sem juros/i.test(view.install || ''));
   assert.ok(view.unitHint?.includes('cada'));
   assert.ok(view.unitHint?.includes('2'));
 }
@@ -30,7 +31,7 @@ import { cartEmptyCopy, cartFreightNote, cartLinePriceView } from './cart-ux';
   assert.equal(skipped.pix, null);
   assert.equal(skipped.tag, null);
   assert.equal(skipped.orList, null);
-  assert.ok(skipped.install?.includes('sem juros'));
+  assert.ok(skipped.install?.includes('até 3x no cartão'));
 }
 
 {

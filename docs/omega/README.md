@@ -13,7 +13,7 @@ Material da diretiva OMEGA, copiado do box. Nenhuma senha, token ou chave está 
 - `ROTEIRO_TESTE_CARTAO.md`: teste real de cartão 3DS + estorno e checklist do #177.
 - `VARIAVEIS_RAILWAY.md`: variáveis a criar/conferir (sem valores).
 - `QUEDA_API_DEPLOY.md`: por que a API cai alguns segundos a cada deploy e o plano.
-- `PARCELAS_MERCADO_PAGO.md`: o que o MP oferece de parcelas ("3x sem juros").
+- `PARCELAS_MERCADO_PAGO.md`: o que o MP oferece de parcelas (decisão: o site não promete mais "sem juros").
 - `pesos-medidas-modelo.csv` e `pesos-medidas-LEIAME.md`: planilha para preencher peso/medidas.
 
 As capturas grandes da loja (`capturas/`, ~2,9 MB) ficaram fora do repo e continuam no box.

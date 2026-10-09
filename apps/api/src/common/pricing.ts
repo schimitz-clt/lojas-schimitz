@@ -51,10 +51,14 @@ export function pixIntentChargeAmount(
   return pixChargeAmount(total);
 }
 
-/** Card Brick / checkout max installment options — not the interest-free marketing claim. */
+/** Card Brick / checkout max installment options. */
 export const MAX_INSTALLMENTS = 12;
-/** Seller-absorbed Mercado Pago “Parcelado vendedor”. Only this many may be advertised as “sem juros”. */
-export const INTEREST_FREE_INSTALLMENTS = 3;
+/**
+ * Quantas parcelas a loja destaca no marketing (“parcele em até 3x no cartão”).
+ * NÃO é promessa de parcelamento sem juros: os juros de cada parcelamento são definidos pelo
+ * Mercado Pago conforme o cartão (consulta de 09/10/2026: 2x = 9,64%, 3x = 11,23%).
+ */
+export const CARD_INSTALLMENTS_HIGHLIGHT = 3;
 
 /** Money comparison tolerance (R$ 0.01). */
 export const MONEY_EPS = 0.009;

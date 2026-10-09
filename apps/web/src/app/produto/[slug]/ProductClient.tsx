@@ -430,7 +430,7 @@ export default function ProductPage({
               ou{' '}
               {off && p.compareAtPrice != null ? <span className="compare">{brl(p.compareAtPrice)}</span> : null}{' '}
               <span className="pdp-list-price">{brl(price)}</span>
-              {' em '}
+              {' · '}
               {installmentLine(price)}
             </p>
             <PdpFreightCep

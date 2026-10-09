@@ -6,9 +6,8 @@ import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import type { HomeBanner } from '@/lib/storefront';
 import {
-  INTEREST_FREE_INSTALLMENTS,
-  INTEREST_FREE_SUFFIX,
-  interestFreeInstallmentClaim,
+  CARD_INSTALLMENTS_HIGHLIGHT,
+  cardInstallmentClaim,
   pixPrice,
 } from '@/lib/pricing';
 import { discountPercent } from '@/lib/storefront-pro';
@@ -97,7 +96,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
             </div>
           ) : (
             <p className="home-hero-sub">
-              Frete grátis em POA · PIX 5% off · {interestFreeInstallmentClaim().toLowerCase()} · troca em 7 dias
+              Frete grátis em POA · PIX 5% off · {cardInstallmentClaim().toLowerCase()} · troca em 7 dias
             </p>
           )}
           <div className="home-hero-actions">
@@ -113,7 +112,7 @@ function StaticPromoStrip({ featured }: { featured?: HeroProduct | null }) {
               <strong>PIX</strong> 5% off
             </li>
             <li>
-              <strong>{INTEREST_FREE_INSTALLMENTS}x</strong> {INTEREST_FREE_SUFFIX}
+              <strong>{CARD_INSTALLMENTS_HIGHLIGHT}x</strong> no cartão
             </li>
             <li>
               <strong>Frete</strong> grátis POA

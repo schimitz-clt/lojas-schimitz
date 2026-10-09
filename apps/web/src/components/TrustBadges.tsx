@@ -1,4 +1,4 @@
-import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { cardInstallmentClaim } from '@/lib/pricing';
 
 /** Benefícios reais da loja — home. */
 
@@ -15,7 +15,7 @@ const HOME_ITEMS = [
   },
   {
     ico: '💳',
-    title: interestFreeInstallmentClaim(),
+    title: cardInstallmentClaim(),
     sub: 'Loja absorve o financiamento',
   },
   {

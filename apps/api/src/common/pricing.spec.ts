@@ -5,7 +5,7 @@ import {
   PIX_DISCOUNT_RATE,
   PIX_PROMO_COLLIDING_COUPON_CODES,
   MAX_INSTALLMENTS,
-  INTEREST_FREE_INSTALLMENTS,
+  CARD_INSTALLMENTS_HIGHLIGHT,
   amountsMatchForApprove,
   collidingPixPromoCouponCodes,
   computeCheckoutTotals,
@@ -20,8 +20,8 @@ import {
 
 assert.equal(PIX_DISCOUNT_RATE, 0.05);
 assert.equal(MAX_INSTALLMENTS, 12);
-assert.equal(INTEREST_FREE_INSTALLMENTS, 3);
-assert.ok(INTEREST_FREE_INSTALLMENTS < MAX_INSTALLMENTS);
+assert.equal(CARD_INSTALLMENTS_HIGHLIGHT, 3);
+assert.ok(CARD_INSTALLMENTS_HIGHLIGHT < MAX_INSTALLMENTS);
 assert.equal(pixChargeAmount(100), 95);
 assert.equal(pixDiscountAmount(100), 5);
 assert.equal(pixChargeAmount(19.9), 18.9);

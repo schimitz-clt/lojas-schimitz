@@ -1,9 +1,9 @@
 /**
  * PDP offer/description helpers — presentation only.
- * PIX 5% and 3x sem juros stay in @/lib/pricing (do not invent payment math).
+ * PIX 5% and the card-installment highlight stay in @/lib/pricing (do not invent payment math).
  */
 
-import { interestFreeInstallmentClaim, interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { cardInstallmentClaim, cardInstallmentPhrase } from '@/lib/pricing';
 import { publicProductDescription } from '@/lib/public-copy';
 
 /** Trimmed Admin description; QA/homologation phrasing is replaced, never invented specs. */
@@ -27,11 +27,11 @@ export type PdpOfferPill = {
   tone: 'pix' | 'install';
 };
 
-/** Visible buybox chips (Pix 5% + até 3x sem juros). */
+/** Visible buybox chips (Pix 5% + parcele em até 3x no cartão). */
 export function pdpOfferPills(): PdpOfferPill[] {
   return [
     { id: 'pix', label: 'Pix 5%', tone: 'pix' },
-    { id: 'install', label: interestFreeInstallmentClaim(), tone: 'install' },
+    { id: 'install', label: cardInstallmentClaim(), tone: 'install' },
   ];
 }
 
@@ -60,7 +60,7 @@ export function pdpDecisionFacts(input: {
   const seller = String(input.sellerName || '').trim();
   return [
     { id: 'stock', label: 'Disponibilidade', value: input.stockLabel },
-    { id: 'pay', label: 'Pagamento', value: `PIX 5% off e ${interestFreeInstallmentPhrase()} no checkout` },
+    { id: 'pay', label: 'Pagamento', value: `PIX 5% off e ${cardInstallmentPhrase()} no checkout` },
     {
       id: 'ship',
       label: 'Entrega',

@@ -3,7 +3,7 @@
  * Store-wide facts already shown in the topbar — not invented per SKU.
  */
 
-import { INTEREST_FREE_INSTALLMENTS } from '@/lib/pricing';
+import { cardInstallmentShort } from '@/lib/pricing';
 
 export type CardCueId = 'pix' | 'install' | 'ship';
 
@@ -17,7 +17,7 @@ export type CardCue = {
 export function productCardCues(): CardCue[] {
   return [
     { id: 'pix', label: 'PIX 5%', tone: 'pix' },
-    { id: 'install', label: `${INTEREST_FREE_INSTALLMENTS}x s/ juros`, tone: 'install' },
+    { id: 'install', label: cardInstallmentShort(), tone: 'install' },
     { id: 'ship', label: 'Frete POA', tone: 'ship' },
   ];
 }

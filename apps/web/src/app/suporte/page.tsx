@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { waLink } from '@/lib/api';
-import { INTEREST_FREE_INSTALLMENTS, MAX_INSTALLMENTS, interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { INSTALLMENT_INTEREST_NOTE, MAX_INSTALLMENTS, cardInstallmentPhrase } from '@/lib/pricing';
 
 const WA_DISPLAY = '(51) 99625-3766';
 const WA_HREF = 'https://wa.me/5551996253766';
@@ -54,8 +54,8 @@ export default function SuportePage() {
         <ul style={{ lineHeight: 1.8, paddingLeft: 18 }}>
           <li>PIX: 5% de desconto à vista.</li>
           <li>
-            Cartão: {interestFreeInstallmentPhrase()}; até {MAX_INSTALLMENTS}x pelo
-            Mercado Pago (acima de {INTEREST_FREE_INSTALLMENTS}x podem incluir juros).
+            Cartão: {cardInstallmentPhrase()}, ou até {MAX_INSTALLMENTS}x pelo
+            Mercado Pago. {INSTALLMENT_INTEREST_NOTE}
           </li>
           <li>Frete grátis em Porto Alegre (CEP iniciando em 90 ou 91).</li>
           <li>Troca em até 7 dias, conforme as regras da loja.</li>

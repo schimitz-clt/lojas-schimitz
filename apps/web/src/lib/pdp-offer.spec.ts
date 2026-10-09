@@ -9,7 +9,7 @@ import {
   productDescriptionText,
 } from './pdp-offer';
 import { isMissingPdp, pdpBreadcrumbName } from './pdp-missing';
-import { interestFreeInstallmentClaim } from './pricing';
+import { cardInstallmentClaim } from './pricing';
 
 assert.equal(productDescriptionText(null), '');
 assert.equal(productDescriptionText(undefined), '');
@@ -32,8 +32,9 @@ const pills = pdpOfferPills();
 assert.equal(pills.length, 2);
 assert.equal(pills[0].id, 'pix');
 assert.ok(/pix\s*5%/i.test(pills[0].label));
-assert.equal(pills[1].label, interestFreeInstallmentClaim());
-assert.ok(/3x sem juros/i.test(pills[1].label));
+assert.equal(pills[1].label, cardInstallmentClaim());
+assert.ok(/até 3x no cartão/i.test(pills[1].label));
+assert.ok(!/sem juros/i.test(pills[1].label));
 assert.ok(!/12x/.test(pills.map((p) => p.label).join(' ')));
 
 assert.deepEqual(pdpMobileContentOrder(), [

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { INTEREST_FREE_INSTALLMENTS, MAX_INSTALLMENTS, interestFreeInstallmentPhrase } from '@/lib/pricing';
+import { INSTALLMENT_INTEREST_NOTE, MAX_INSTALLMENTS, cardInstallmentPhrase } from '@/lib/pricing';
 import { storefrontPageMetadata, TERMOS_SEO } from '@/lib/seo-metadata';
 
 export const metadata: Metadata = storefrontPageMetadata(TERMOS_SEO);
@@ -77,9 +77,8 @@ export default function TermosPage() {
         <ul style={{ lineHeight: 1.8, paddingLeft: 18 }}>
           <li>
             Aceitamos <strong>PIX</strong> (com desconto à vista quando a promoção estiver ativa —
-            hoje 5%) e <strong>cartão</strong> em {interestFreeInstallmentPhrase()}, ou
-            até {MAX_INSTALLMENTS}x via <strong>Mercado Pago</strong> (parcelas acima de{' '}
-            {INTEREST_FREE_INSTALLMENTS}x podem incluir juros).
+            hoje 5%) e <strong>cartão</strong> ({cardInstallmentPhrase()}, ou
+            até {MAX_INSTALLMENTS}x) via <strong>Mercado Pago</strong>. {INSTALLMENT_INTEREST_NOTE}
           </li>
           <li>
             O pagamento é processado pelo Mercado Pago. A confirmação do pedido depende da

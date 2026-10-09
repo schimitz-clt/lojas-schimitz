@@ -171,7 +171,7 @@ export function CampaignView({ product }: { product: CampaignProduct }) {
             <PriceCount value={pix} />
           </p>
           <p className="id-mono">{pixOffLabel()}</p>
-          <p>{installmentLine(price)} no cartão</p>
+          <p>{installmentLine(price)}</p>
           {pixSavings(price) > 0 ? <p>Economia de {brl(pixSavings(price))} no PIX.</p> : null}
           <ul className="id-perks">
             {trust.map((item) => (

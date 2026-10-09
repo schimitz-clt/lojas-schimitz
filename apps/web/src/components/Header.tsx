@@ -4,7 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { api, userAccountLabel, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
-import { interestFreeInstallmentClaim } from '@/lib/pricing';
+import { cardInstallmentClaim } from '@/lib/pricing';
 import { CompareHeaderLink } from '@/components/compare/CompareHeaderLink';
 import { SearchBox } from '@/components/SearchBox';
 import { HomeDeliveryBar } from '@/components/HomeDeliveryBar';
@@ -211,7 +211,7 @@ export function Header() {
       <Suspense fallback={null}>
         <CatalogSearchSync pathname={pathname} onSync={onCatalogSearchSync} />
       </Suspense>
-      <div className="topbar" aria-label="Benefícios">{customPromo?.map((line, i) => <span key={i}>{i ? ' · ' : ''}{line}</span>) ?? <><span>Frete grátis em POA</span><span className="topbar-sep" aria-hidden>·</span><span>5% OFF no PIX</span><span className="topbar-sep" aria-hidden>·</span><span>{interestFreeInstallmentClaim()}</span></>}</div>
+      <div className="topbar" aria-label="Benefícios">{customPromo?.map((line, i) => <span key={i}>{i ? ' · ' : ''}{line}</span>) ?? <><span>Frete grátis em POA</span><span className="topbar-sep" aria-hidden>·</span><span>5% OFF no PIX</span><span className="topbar-sep" aria-hidden>·</span><span>{cardInstallmentClaim()}</span></>}</div>
       <div className={`site-chrome-head${searchResults ? ' is-search-results' : ''}`}>
       <header className="header">
         <div className="wrap">
