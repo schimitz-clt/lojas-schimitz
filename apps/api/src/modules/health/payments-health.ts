@@ -140,6 +140,20 @@ export function recentPaymentSignals(now = Date.now()): PaymentsHealth['recent15
 }
 
 /**
+ * Corpo público de `/health/payments`. Em produção/staging os contadores `recent15m`
+ * (pagos/falhos/webhooks nos últimos 15 min) não saem no endpoint público: revelariam
+ * volume de vendas a qualquer pessoa. O status/`reasons` continuam (o monitor de uptime só
+ * precisa do 200/503) e os números ficam no admin autenticado (`GET /admin/finance/health`).
+ */
+export type PublicPaymentsHealth = Omit<PaymentsHealth, 'recent15m'> & { recent15m?: PaymentsHealth['recent15m'] };
+
+export function publicPaymentsHealth(h: PaymentsHealth, prodLike: boolean): PublicPaymentsHealth {
+  if (!prodLike) return h;
+  const { recent15m: _hidden, ...rest } = h;
+  return rest;
+}
+
+/**
  * Caches the provider ping (default 5 min) so a public endpoint polled by monitors
  * cannot be used to hammer Mercado Pago. Concurrent callers share one in-flight ping.
  */
