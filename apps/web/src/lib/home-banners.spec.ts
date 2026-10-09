@@ -58,62 +58,56 @@ function banner(partial: Partial<HomeBanner> & Pick<HomeBanner, 'id' | 'imageUrl
   };
 }
 
-assert.equal(MAX_HOME_BANNERS, 5);
+assert.equal(MAX_HOME_BANNERS, 11);
 assert.equal(canCreateHomeBanner(0), true);
 assert.equal(canCreateHomeBanner(4), true);
-assert.equal(canCreateHomeBanner(5), false);
-assert.equal(canCreateHomeBanner(9), false);
+assert.equal(canCreateHomeBanner(10), true);
+assert.equal(canCreateHomeBanner(11), false);
+assert.equal(canCreateHomeBanner(15), false);
 assert.equal(canCreateHomeBanner(Number.NaN), true);
 
 assert.equal(homeBannerRowCount(null), 0);
 assert.equal(homeBannerRowCount([]), 0);
 assert.equal(
-  homeBannerRowCount([
-    { active: true },
-    { active: false },
-    { active: true },
-    { active: false },
-    { active: false },
-  ]),
-  5,
-  'inactive rows still count toward the create cap',
+  homeBannerRowCount([{ active: true }, { active: false }, { active: true }, { active: false }, { active: false }]),
+  2,
+  'inactive rows do not count toward the create cap',
 );
+// 4 banners antigos desativados + 10 novos ativos ainda permitem criar o 11º.
 assert.equal(
   canCreateHomeBanner(
-    homeBannerRowCount([{ active: false }, { active: false }, { active: false }, { active: false }]),
+    homeBannerRowCount([
+      { active: false },
+      { active: false },
+      { active: false },
+      { active: false },
+      ...Array.from({ length: 10 }, () => ({ active: true })),
+    ]),
   ),
   true,
 );
 assert.equal(
-  canCreateHomeBanner(
-    homeBannerRowCount([
-      { active: true },
-      { active: false },
-      { active: true },
-      { active: false },
-      { active: true },
-    ]),
-  ),
+  canCreateHomeBanner(homeBannerRowCount(Array.from({ length: 11 }, () => ({ active: true })))),
   false,
 );
 
-assert.equal(homeBannerSlotCounter(0), '0 de 5');
-assert.equal(homeBannerSlotCounter(2), '2 de 5');
-assert.equal(homeBannerSlotCounter(9), '5 de 5');
+assert.equal(homeBannerSlotCounter(0), '0 de 11');
+assert.equal(homeBannerSlotCounter(2), '2 de 11');
+assert.equal(homeBannerSlotCounter(20), '11 de 11');
 assert.equal(bannerCreateCtaLabel(0), 'Criar banner');
 assert.equal(bannerCreateCtaLabel(1), 'Criar outro banner');
 assert.equal(bannerCreateCtaLabel(4), 'Criar outro banner');
-assert.equal(bannerCreatedToast(1), 'Banner criado. Pode adicionar mais (1/5).');
-assert.equal(bannerCreatedToast(4), 'Banner criado. Pode adicionar mais (4/5).');
-assert.ok(bannerCreatedToast(5).includes('Limite de 5'));
+assert.equal(bannerCreatedToast(1), 'Banner criado. Pode adicionar mais (1/11).');
+assert.equal(bannerCreatedToast(4), 'Banner criado. Pode adicionar mais (4/11).');
+assert.ok(bannerCreatedToast(11).includes('Limite de 11'));
 
-const six = Array.from({ length: 6 }, (_, i) =>
+const six = Array.from({ length: 13 }, (_, i) =>
   banner({ id: `b${i}`, imageUrl: `https://cdn.example/b${i}.jpg`, sortOrder: i }),
 );
-assert.equal(takeUsableHomeBanners(six).length, 5);
+assert.equal(takeUsableHomeBanners(six).length, 11);
 assert.deepEqual(
   takeUsableHomeBanners(six).map((b) => b.id),
-  ['b0', 'b1', 'b2', 'b3', 'b4'],
+  ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10'],
 );
 
 assert.equal(isUsableHomeBanner(banner({ id: 'ok', imageUrl: 'https://cdn.example/hero.jpg' })), true);
@@ -195,10 +189,10 @@ assert.equal(bannerAriaLabel(1, 3), 'Destaques (2 de 3)');
 assert.equal(bannerNavPrevLabel(), 'Banner anterior');
 assert.equal(bannerNavNextLabel(), 'Próximo banner');
 assert.equal(bannerDotLabel(0), 'Banner 1');
-assert.equal(homeBannerLimitMessage().includes('5'), true);
-assert.ok(homeBannerCountHint(0).includes('5'));
-assert.ok(homeBannerCountHint(2).startsWith('2 de 5'));
-assert.ok(homeBannerCountHint(5).includes('Exclua'));
+assert.equal(homeBannerLimitMessage().includes('11'), true);
+assert.ok(homeBannerCountHint(0).includes('11'));
+assert.ok(homeBannerCountHint(2).startsWith('2 de 11'));
+assert.ok(homeBannerCountHint(11).includes('Desative'));
 
 assert.equal(bannerTapOpensLink(0, 0), true);
 assert.equal(bannerTapOpensLink(BANNER_TAP_SLOP_PX, 0), true);
@@ -328,8 +322,8 @@ const adminSrc = readFileSync(
   'utf8',
 );
 assert.ok(adminSrc.includes('homeBannerCountHint'), 'admin shows 1–5 slot hint');
-assert.ok(adminSrc.includes('canCreateHomeBanner'), 'admin hides create at the 5-banner cap');
-assert.ok(adminSrc.includes('homeBannerSlotCounter'), 'admin shows N de 5 counter');
+assert.ok(adminSrc.includes('canCreateHomeBanner'), 'admin hides create at the 11-banner cap');
+assert.ok(adminSrc.includes('homeBannerSlotCounter'), 'admin shows N de 11 counter');
 assert.ok(adminSrc.includes('bannerCreateCtaLabel'), 'create CTA becomes Criar outro banner');
 assert.ok(adminSrc.includes('AdminPhotoFilePicker'), 'vitrine uses mobile-safe picker');
 assert.ok(adminSrc.includes('multiple={false}'), 'banner picker is single-file');
@@ -338,14 +332,14 @@ assert.ok(!adminSrc.includes('admin-file-hidden'), 'vitrine must not clip/1px hi
 assert.ok(adminSrc.includes('role="alert"'), 'banner errors are loud on the vitrine block');
 assert.ok(adminSrc.includes('admin-photo-feedback'), 'banner errors stick on the form');
 assert.ok(adminSrc.includes('Criar outro banner'), 'owner can start another banner after create');
-assert.ok(adminSrc.includes('homeBannerRowCount'), 'create limit counts total rows');
+assert.ok(adminSrc.includes('homeBannerRowCount'), 'create limit counts active rows');
 
 const adminState = readFileSync(join(__dirname, '../components/admin/admin-console-state.ts'), 'utf8');
-assert.ok(adminState.includes('homeBannerLimitMessage'), 'create is blocked at 5 on the client');
+assert.ok(adminState.includes('homeBannerLimitMessage'), 'create is blocked at 11 on the client');
 assert.ok(adminState.includes('snapshotSelectedFiles'), 'banner upload copies FileList before clear');
 assert.ok(adminState.includes('emptyPhotoSelectionError'), 'empty banner pick is loud');
 assert.ok(adminState.includes('bannerCreatedToast'), 'create toast invites another banner');
-assert.ok(adminState.includes('homeBannerRowCount'), 'client create cap uses total rows');
+assert.ok(adminState.includes('homeBannerRowCount'), 'client create cap uses active rows');
 
 assert.equal(bannerImageUrl({ imageUrl: '  https://cdn.example/a.jpg  ' }), 'https://cdn.example/a.jpg');
 

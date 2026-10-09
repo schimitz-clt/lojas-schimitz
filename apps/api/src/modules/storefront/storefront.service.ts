@@ -363,7 +363,8 @@ export class StorefrontService {
   async createBanner(input: CreateBannerInput) {
     const imageUrl = assertImageUrl(input.imageUrl);
     return this.prisma.$transaction(async (tx) => {
-      const count = await tx.homeBanner.count();
+      // O teto vale para banners ATIVOS (inativos ficam guardados e não bloqueiam novos).
+      const count = await tx.homeBanner.count({ where: { active: true } });
       if (!canCreateHomeBanner(count)) {
         throw new BadRequestException(homeBannerLimitMessage());
       }
