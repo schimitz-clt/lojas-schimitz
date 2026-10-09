@@ -79,7 +79,10 @@ assert.ok(productPage.includes('missingPageMetadata'), 'missing product does not
 assert.ok(productPage.includes('notFound()'), 'missing product still 404s from the page');
 
 const department = readFileSync(join(src, 'app/departamento/[slug]/page.tsx'), 'utf8');
-assert.ok(department.includes('!cat.listed'), 'unknown department is not an indexable page');
+// The listed/404 decision lives in lib/department-page.ts (departmentSeo, unit-tested there).
+const departmentLib = readFileSync(join(src, 'lib/department-page.ts'), 'utf8');
+assert.ok(departmentLib.includes('!cat.listed'), 'unknown department is not an indexable page');
+assert.ok(/seo\.notFound\) return missingPageMetadata\(\)/.test(department), 'unlisted department metadata is noindex');
 assert.ok(department.includes('notFound()'), 'unknown department 404s');
 
 console.log('seo-metadata unit tests ok');
