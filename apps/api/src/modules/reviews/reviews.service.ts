@@ -1,3 +1,4 @@
+import { serializePublicReview } from './reviews.public';
 import {
   ForbiddenException,
   Injectable,
@@ -15,14 +16,21 @@ import {
 export class ReviewsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Público: só nome abreviado ("Maria S."), sem userId. */
   async listByProduct(productId: string) {
-    return this.prisma.review.findMany({
+    const rows = await this.prisma.review.findMany({
       where: { productId, status: 'published' },
-      include: {
+      select: {
+        id: true,
+        rating: true,
+        body: true,
+        createdAt: true,
+        updatedAt: true,
         user: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+    return rows.map(serializePublicReview);
   }
 
   async eligibility(userId: string, productId: string) {

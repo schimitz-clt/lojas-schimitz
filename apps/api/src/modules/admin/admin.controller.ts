@@ -28,7 +28,7 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { ok } from '../../common/http';
 import { OrdersService } from '../orders/orders.service';
-import { AdminUpdateOrderStatusDto } from '../orders/dto';
+import { AdminUpdateOrderStatusDto, AdminUpdateTrackingDto } from '../orders/dto';
 import { AdminProductsService } from './admin-products.service';
 import { AdminSalesReportService } from './admin-sales-report.service';
 import { AdminUsersService } from './admin-users.service';
@@ -438,7 +438,20 @@ export class AdminController {
     );
   }
 
-  @Post('orders/:id/notify-paid')
+  @Patch('orders/:id/tracking')
+  @ApiOperation({
+    summary:
+      'Rastreio manual (pedido em trânsito/enviado/entregue). Notifica o cliente (in-app + e-mail) só quando o código muda. Sem chamada à transportadora.',
+  })
+  async updateOrderTracking(
+    @CurrentUser('sub') adminId: string,
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateTrackingDto,
+  ) {
+    return ok(await this.orders.adminUpdateTracking(adminId, id, dto));
+  }
+
+    @Post('orders/:id/notify-paid')
   @ApiOperation({
     summary: 'Reenvia e-mail/in-app de venda paga para a loja (pedido já pago). Sem cobrança.',
   })

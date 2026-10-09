@@ -1,3 +1,10 @@
+import {
+  carrierLabel,
+  isTrackingEditableStatus,
+  normalizeCarrier,
+  normalizeTrackingCode,
+  trackingSentence,
+} from './tracking-code';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { randomUUID } from 'crypto';
@@ -793,7 +800,11 @@ export class OrdersService {
       },
     });
     if (updated) {
-      await this.notifyCustomerInApp(updated.userId, updated.id, updated.publicId, to);
+      const shippedWithCode =
+        (to === 'in_transit' || to === 'shipped') && updated.trackingCode
+          ? `Seu pedido ${updated.publicId} saiu para entrega. ${trackingSentence(updated.trackingCode, updated.carrier)}`
+          : undefined;
+      await this.notifyCustomerInApp(updated.userId, updated.id, updated.publicId, to, shippedWithCode);
       await this.notifyFulfillmentEmail(updated, to);
       // Outros admins ativos (não o ator) — best-effort.
       const adminPayload = buildAdminFulfillmentNotification({
@@ -807,6 +818,90 @@ export class OrdersService {
       });
     }
     return updated;
+  }
+
+  /**
+   * Rastreio manual depois do envio (etiqueta comprada fora do sistema).
+   * Só em pedidos enviados/entregues. Notifica o cliente (in-app + e-mail) apenas quando o código muda.
+   */
+  async adminUpdateTracking(
+    adminId: string,
+    orderId: string,
+    input: { trackingCode?: unknown; carrier?: unknown },
+  ) {
+    const code = normalizeTrackingCode(input.trackingCode);
+    if (!code) {
+      throw new BadRequestException({
+        code: 'TRACKING_CODE_INVALID',
+        message: 'Código de rastreio inválido: use 4 a 40 letras, números ou hífen.',
+      });
+    }
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, trackingCode: true, carrier: true },
+    });
+    if (!order) throw new NotFoundException({ message: 'Pedido não encontrado', code: 'ORDER_NOT_FOUND' });
+    if (!isTrackingEditableStatus(order.status)) {
+      throw new ConflictException({
+        code: 'TRACKING_NOT_EDITABLE',
+        message: 'Rastreio só pode ser informado depois que o pedido sai para entrega (use "Avançar" para Em trânsito).',
+      });
+    }
+    const carrier =
+      input.carrier === undefined || input.carrier === null || input.carrier === ''
+        ? order.carrier || 'propria'
+        : normalizeCarrier(input.carrier) || order.carrier || 'propria';
+    const changed = code !== order.trackingCode || carrier !== order.carrier;
+    if (changed) {
+      const rows = await this.prisma.order.updateMany({
+        where: { id: orderId, status: order.status, trackingCode: order.trackingCode },
+        data: { trackingCode: code, carrier },
+      });
+      if (rows.count === 0) throw new ConflictException('Pedido alterado por outro processo; recarregue');
+      await this.audit.log('order.tracking_updated', {
+        actorId: adminId,
+        entity: 'Order',
+        entityId: orderId,
+        meta: { from: order.trackingCode, to: code, carrier },
+      });
+    }
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: true,
+        payments: true,
+        statusHistory: { orderBy: { createdAt: 'asc' } },
+        user: { select: { email: true, name: true } },
+      },
+    });
+    const codeChanged = code !== order.trackingCode;
+    if (updated && codeChanged) {
+      if (updated.userId) {
+        await this.notifications.createSafe({
+          userId: updated.userId,
+          type: 'order_tracking',
+          title: 'Código de rastreio',
+          body: `Pedido ${updated.publicId}: ${trackingSentence(code, carrier)}`,
+          linkUrl: `/pedidos/${updated.publicId}`,
+          orderId: updated.id,
+        });
+      }
+      const to = updated.user?.email;
+      if (to) {
+        try {
+          await this.mail.notifyOrderTracking(to, {
+            publicId: updated.publicId,
+            total: Number(updated.total),
+            customerName: updated.user?.name,
+            trackingCode: code,
+            carrierLabel: carrierLabel(carrier),
+          });
+        } catch (e: any) {
+          this.log.error(`notifyOrderTracking falhou order=${updated.publicId}: ${e?.message || e}`);
+        }
+      }
+    }
+    return { order: updated, changed, notified: Boolean(updated && codeChanged) };
   }
 
   private async notifyCustomerInApp(
@@ -857,6 +952,8 @@ export class OrdersService {
       id: string;
       publicId: string;
       total: unknown;
+      trackingCode?: string | null;
+      carrier?: string | null;
       user?: { email: string; name: string } | null;
     },
     status: string,
@@ -872,6 +969,8 @@ export class OrdersService {
         total: Number(order.total),
         customerName: order.user?.name,
         statusLabel: orderStatusLabel(status),
+        trackingCode: order.trackingCode ?? null,
+        carrierLabel: carrierLabel(order.carrier),
       };
       if (status === 'ready_for_pickup') {
         await this.mail.notifyOrderReadyForPickup(to, ctx);

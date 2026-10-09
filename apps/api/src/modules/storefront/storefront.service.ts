@@ -1,3 +1,4 @@
+import { publicReviewerName } from '../reviews/reviews.public';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
@@ -240,7 +241,7 @@ export class StorefrontService {
       rating: row.rating,
       body: row.body,
       createdAt: row.createdAt,
-      authorName: row.user.name,
+      authorName: publicReviewerName(row.user.name),
       productName: row.product.name,
       productSlug: row.product.slug,
     }));

@@ -54,8 +54,8 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
         basis: 'Legítimo interesse (art. 7º, IX), com opção de desligar as notificações',
       },
       {
-        data: 'Avaliações de produtos: nota, texto e o nome do seu cadastro',
-        why: 'Publicar a avaliação na página do produto, junto com o seu nome. Só quem comprou o produto pode avaliar.',
+        data: 'Avaliações de produtos: nota, texto e o seu nome',
+        why: 'Publicar a avaliação na página do produto. Publicamente aparece só o primeiro nome e a inicial do último sobrenome (ex.: "Maria S."). Só quem comprou o produto pode avaliar.',
         basis: 'Consentimento (art. 7º, I), ao enviar a avaliação',
       },
       {

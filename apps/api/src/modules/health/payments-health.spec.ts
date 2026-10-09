@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { AddressInfo } from 'net';
 import { opsSignals } from '../../common/sliding-window';
 import { FakeMercadoPagoServer } from '../finance/testing/fake-mercadopago.server';
-import { PaymentsHealthChecker, evaluatePaymentsHealth, pingMercadoPago } from './payments-health';
+import { PaymentsHealthChecker, evaluatePaymentsHealth, pingMercadoPago, publicPaymentsHealth } from './payments-health';
 
 async function main() {
   opsSignals.reset();
@@ -95,6 +95,24 @@ async function main() {
     maxProviderErrors: 5,
   });
   assert.equal(e.status, 'ok');
+
+  // público em produção: sem contadores de vendas; fora de produção, corpo completo
+  const pubProd = publicPaymentsHealth(e, true);
+  assert.equal('recent15m' in pubProd, false, 'produção não expõe volume de pagamentos');
+  assert.equal(pubProd.status, 'ok');
+  assert.deepEqual(pubProd.checks, e.checks);
+  assert.ok(!JSON.stringify(pubProd).includes('paymentsPaid'));
+  assert.deepEqual(publicPaymentsHealth(e, false).recent15m, e.recent15m);
+  const down = evaluatePaymentsHealth({
+    provider: 'mercadopago',
+    configured: false,
+    ping: null,
+    recent: { providerErrors: 9, webhookFailures: 0, webhookProcessingFailures: 0, paymentsFailed: 9, paymentsPaid: 0 },
+    maxProviderErrors: 5,
+  });
+  const pubDown = publicPaymentsHealth(down, true);
+  assert.equal(pubDown.status, 'down');
+  assert.ok(pubDown.reasons.includes('provider_errors_burst'), 'motivo continua visível para o monitor');
 
   console.log('payments-health.spec OK');
 }

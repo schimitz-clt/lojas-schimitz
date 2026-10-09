@@ -16,6 +16,7 @@ import {
   orderPaidEmail,
   orderReadyForPickupEmail,
   orderShippedEmail,
+  orderTrackingEmail,
   orderStatusEmail,
   OrderMailContext,
   passwordResetEmail,
@@ -310,6 +311,19 @@ export class MailService {
   async notifyOrderShipped(to: string, ctx: OrderMailContext) {
     const { subject, text, html } = orderShippedEmail(ctx);
     return this.send(to, subject, text, html, 'order_shipped', this.keyFor('order_shipped', to, ctx));
+  }
+
+  /** Idempotente por código: o mesmo código não é reenviado ao mesmo cliente. */
+  async notifyOrderTracking(to: string, ctx: OrderMailContext) {
+    const { subject, text, html } = orderTrackingEmail(ctx);
+    return this.send(
+      to,
+      subject,
+      text,
+      html,
+      'order_tracking',
+      this.keyFor('order_tracking', to, { publicId: ctx.publicId, statusLabel: ctx.trackingCode || '' }),
+    );
   }
 
   async notifyOrderDelivered(to: string, ctx: OrderMailContext) {

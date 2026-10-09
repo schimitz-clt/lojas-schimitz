@@ -10,6 +10,7 @@ import {
   orderDossierModel,
 } from '@/lib/admin-enterprise-ui';
 import { whatsAppOpsButtonLabel } from '@/lib/admin-ops-ui';
+import { ADMIN_TRACKING_HELP, canEditTracking } from '@/lib/admin-tracking-ui';
 import { customerVerClienteLabel } from '@/lib/admin-customers-ui';
 import {
   paymentRefundAttentionCopy,
@@ -51,6 +52,8 @@ type Props = {
   onResend: () => void;
   onCopyPublicId: () => void;
   onCopyTracking: () => void;
+  /** Rastreio manual (pedido enviado/entregue). */
+  onSaveTracking?: () => void;
   onOpenCustomer?: () => void;
 };
 
@@ -90,6 +93,7 @@ export function AdminOrderDossier({
   onResend,
   onCopyPublicId,
   onCopyTracking,
+  onSaveTracking,
   onOpenCustomer,
 }: Props) {
   const model = orderDossierModel(order);
@@ -275,6 +279,39 @@ export function AdminOrderDossier({
               </button>
               <button type="button" className="btn ghost" disabled={busy || bulkBusy} onClick={onCancelAdvance}>
                 Cancelar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {onSaveTracking && canEditTracking(order.status) && !confirm ? (
+          <div className="admin-ent-confirm" role="region" aria-label="Rastreio manual">
+            <p className="admin-ent-confirm__title">Rastreio</p>
+            <p className="admin-ent-confirm__detail">{ADMIN_TRACKING_HELP}</p>
+            <div className="admin-ent-confirm__fields">
+              <label>
+                Código de rastreio
+                <input
+                  value={trackingDraft}
+                  onChange={(event) => onTrackingDraft(event.target.value)}
+                  maxLength={60}
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                Transportadora
+                <input
+                  value={carrierDraft}
+                  onChange={(event) => onCarrierDraft(event.target.value)}
+                  maxLength={40}
+                  placeholder="correios, jadlog, melhor_envio…"
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+            <div className="admin-ent-actions">
+              <button type="button" className="btn admin-btn-primary-accent" disabled={busy || bulkBusy} onClick={onSaveTracking}>
+                {busy ? 'Salvando...' : 'Salvar rastreio e avisar cliente'}
               </button>
             </div>
           </div>
