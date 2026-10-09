@@ -54,6 +54,7 @@ assert.equal(ACCOUNT_DELETION_PATH, '/excluir-conta');
 const retention = PRIVACY_SECTIONS.find((s) => s.id === 'retencao');
 assert.ok(retention?.items?.some((i) => /30 dias/.test(i)));
 assert.ok(retention?.items?.some((i) => /1 hora/.test(i)));
+assert.ok(retention?.items?.some((i) => /Produtos vistos/.test(i) && /90 dias/.test(i)), 'retenção de 90 dias dos produtos vistos');
 // Não prometer retenção que não existe (não há arquivo próprio de logs).
 assert.ok(!/6 meses|seis meses|Marco Civil/i.test(text), 'sem promessa de 6 meses de logs');
 assert.ok(retention?.items?.some((i) => /Railway/.test(i) && /não exporta nem guarda cópia/.test(i)));
