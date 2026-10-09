@@ -96,6 +96,11 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/excluir-conta" prefetch={false}>
+                    Excluir conta
+                  </Link>
+                </li>
+                <li>
                   <Link href="/pedidos" prefetch={true}>
                     Meus pedidos
                   </Link>

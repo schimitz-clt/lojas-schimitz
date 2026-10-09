@@ -261,6 +261,7 @@ export function accountMenuSections(opts: AccountMenuOptions): AccountMenuSectio
         external: true,
       },
       { id: 'support', label: 'Central de atendimento', href: '/suporte', icon: 'support' },
+      { id: 'delete-account', label: 'Excluir conta', href: '/excluir-conta', icon: 'profile' },
     ],
   };
 
