@@ -1,6 +1,6 @@
 # Lojas Schimitz: mapa do estado real (Fase Zero da diretiva OMEGA)
 
-**Data:** 09/10/2026, por volta de 00:50 UTC (21:50 BRT de 08/10). **Última atualização: 09/10/2026 ~17:30 UTC (seção 8).**
+**Data:** 09/10/2026, por volta de 00:50 UTC (21:50 BRT de 08/10). **Última atualização: 09/10/2026 ~17:20 UTC (seção 8). Main = 8accc39.**
 **Base:** `origin/main` = `f842843` (merge do PR #172), inspecionada num worktree separado (`/workspace/ls-omega-mapa`)
 **Método:** leitura do código, logs do CI, Railway (somente leitura) e GETs públicos na produção. Também usei duas cotações de frete públicas, que não gravam nada nem cobram. Não houve escrita em produção, cobrança, pedido nem conta nova.
 
@@ -232,7 +232,7 @@ Regras: merge só com CI verde (4 checks); conferir cada deploy (SUCCESS, health
 | #193 | `/health/payments` público sem `recent15m` (volume de vendas) em produção | ce5e29c | 5ab44317 SUCCESS | SKIPPED | corpo sem `recent15m`, status ok |
 | #190 | Avaliações públicas: "Maria S.", sem userId; checagem estática corrigida | b9ca568 | abcdf30c SUCCESS | (no deploy seguinte) | /store/reviews 200; logs limpos |
 | #194 | Android 12-: pergunta "Receber notificações?" antes de enviar o token; "não" desativa o token; 1.0.13 (versionCode 14); política atualizada | f378c9f | SKIPPED | 7d6cbe18 SUCCESS | /privacidade com "Maria S.", "1.0.13", "90 dias" |
-| #192 | Admin: alerta "produtos ativos sem peso/medidas" em /admin/ops + bloco em Importação/Lote com contagem e CSV reimportável (campos vazios, nada inventado) | 8accc39 | ver relatório | ver relatório | — |
+| #192 | Admin: alerta "produtos ativos sem peso/medidas" em /admin/ops + bloco em Importação/Lote com contagem e CSV reimportável (campos vazios, nada inventado) | 8accc39 | 80b65ac6 SUCCESS (rota `ops/products-missing-shipping-data` mapeada) | d1f02fc6 SUCCESS | rota 401 sem sessão; logs limpos |
 | #195 | e2e (HTTP) de cartão aprovado e desafio 3DS pendente→aprovado / pendente→recusado com MP falso | f4414c7 | (spec só) | — | CI verde |
 
 **Comprovado:**
@@ -256,3 +256,10 @@ O checkout do ME debita a carteira. Variáveis a criar só quando o Hector decid
 - Cada deploy da API derruba a API por alguns segundos: houve um 502 às ~17:00 UTC. Provavelmente é porque o serviço tem volume, e o Railway não sobrepõe réplicas com volume.
 - O E2E do CI falha às vezes ao baixar fontes do Google (`next/font`). Rerodar resolve. Corrigir de vez = fontes locais.
 - `STORE_NOTIFY_EMAIL` existe no serviço da API (conferido só pelo nome).
+
+**Smoke final (17:15 UTC, só leitura, main 8accc39, API 80b65ac6 e web d1f02fc6 SUCCESS):**
+- Todas estas rotas responderam 200: home, busca (`/produtos?q=Alarme`), produto (`/produto/alarme-residencial-sem-fio`), ofertas (`/departamento/ofertas`), `/privacidade`, `/excluir-conta`, `/api/v1/health`, `/health/ready` e `/health/payments`.
+- O sitemap respondeu 200, com 119 `<loc>`.
+- Logs do API e do web sem erros.
+
+**Contagem de produtos sem peso/medidas:** não dá para ver de fora. A API pública não expõe peso e eu não acesso o banco de produção. O número aparece para o Hector em **Admin → Importação/Lote → "Conferir produtos sem peso/medidas"** e no alerta do painel de operações.
