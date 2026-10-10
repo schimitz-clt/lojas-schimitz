@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist_Mono, Instrument_Serif, Inter_Tight } from 'next/font/google';
+import localFont from 'next/font/local';
 import { MarketingPixels } from '@/components/MarketingPixels';
 import './globals.css';
 import '@/components/storefront/storefront-theme.css';
@@ -14,26 +14,41 @@ import { resolveShareImage, shareImageTag } from '@/lib/og-image';
 import { fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 import { storeWhatsAppDigits } from '@/lib/whatsapp';
 
-const jakarta = Inter_Tight({
-  subsets: ['latin'],
+/*
+ * Fontes servidas do próprio repo (subset latin do Google Fonts, licença OFL;
+ * ver fonts/LICENCAS.md). Antes vinham de `next/font/google`, que baixa do
+ * Google a cada build: quando o download falhava, o `next build` quebrava
+ * (CI e, no pior caso, o deploy do web no Railway).
+ */
+const schimitzSans = localFont({
+  src: './fonts/InterTight-latin-var.woff2',
   display: 'swap',
   variable: '--font-schimitz',
-  weight: ['300', '400', '500', '600', '700'],
+  weight: '300 700',
+  style: 'normal',
+  fallback: ['system-ui', 'Arial', 'sans-serif'],
+  adjustFontFallback: 'Arial',
 });
 
-const display = Instrument_Serif({
-  subsets: ['latin'],
+const schimitzDisplay = localFont({
+  src: [
+    { path: './fonts/InstrumentSerif-latin-regular.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/InstrumentSerif-latin-italic.woff2', weight: '400', style: 'italic' },
+  ],
   display: 'swap',
   variable: '--font-display',
-  weight: '400',
-  style: ['normal', 'italic'],
+  fallback: ['Georgia', 'Times New Roman', 'serif'],
+  adjustFontFallback: 'Times New Roman',
 });
 
-const mono = Geist_Mono({
-  subsets: ['latin'],
+const schimitzMono = localFont({
+  src: './fonts/GeistMono-latin-var.woff2',
   display: 'swap',
   variable: '--font-mono',
-  weight: ['400', '500'],
+  weight: '400 500',
+  style: 'normal',
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+  adjustFontFallback: false,
 });
 
 /** Accessible viewport: pinch-zoom allowed. Safe-area + keyboard still apply. */
@@ -103,8 +118,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     telephone: storeWhatsAppDigits(process.env.NEXT_PUBLIC_WHATSAPP),
   });
   return (
-    <html lang="pt-BR" className={`${jakarta.variable} ${display.variable} ${mono.variable}`}>
-      <body className={jakarta.className}>
+    <html lang="pt-BR" className={`${schimitzSans.variable} ${schimitzDisplay.variable} ${schimitzMono.variable}`}>
+      <body className={schimitzSans.className}>
         <MarketingPixels />
         <ClientErrorReporter />
         <JsonLd data={jsonLd} />
