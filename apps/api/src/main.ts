@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import { applyHttpBodyParsers } from './common/http-body-parsers';
 import { setupSwagger, shouldEnableSwagger } from './common/swagger';
 import { requestIdMiddleware } from './common/request-id';
+import { csrfOriginMiddleware } from './common/csrf-origin';
 import { logProcessError } from './common/error-log';
 
 // H4: crashes / stray promise rejections leave a structured, masked line in Railway logs.
@@ -28,6 +29,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   // H4: every response carries x-request-id; 5xx log lines use the same id.
   app.use(requestIdMiddleware);
+  // CSRF: ação que altera dados com cookie de sessão exige Origin conhecido (CSRF_ORIGIN_CHECK=off desliga).
+  app.use(csrfOriginMiddleware);
   applyHttpBodyParsers(app);
   const prefix = process.env.API_PREFIX || 'api/v1';
   app.setGlobalPrefix(prefix);
