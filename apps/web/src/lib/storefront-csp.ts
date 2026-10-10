@@ -158,7 +158,7 @@ export function buildStorefrontCsp(opts: CspBuildOptions = {}): string {
     `style-src ${styleSrc}`,
     // Product uploads (apex + Railway) and any https CDN; PIX QR is data:.
     "img-src 'self' data: blob: https:",
-    // next/font self-hosts Plus Jakarta Sans; Brick may use data: icons.
+    // Fontes self-hosted (next/font/local, src/app/fonts); Brick may use data: icons.
     "font-src 'self' data:",
     `connect-src ${connectSrc}`,
     `frame-src ${frameSrc}`,
