@@ -13,6 +13,7 @@ import { AdminPrimeCommand, scrollAdminAnchor } from '@/components/admin/AdminPr
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
 import { adminUserStatusLabel, adminUserStatusTone } from '@/lib/admin-pro-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminAuditLogPanel } from './AdminAuditLogPanel';
 
 const ANCHOR: Record<string, string> = {
   admins_none_active: 'admin-equipe-list',
@@ -157,6 +158,8 @@ export function AdminEquipeSection() {
           ) : null}
         </div>
       </div>
+
+      <AdminAuditLogPanel />
     </>
   );
 }
