@@ -820,3 +820,49 @@ export class AdminReorderProductImagesDto {
   @IsString({ each: true })
   orderedIds!: string[];
 }
+
+/** Query GET /admin/audit-log — registro de atividades (quem fez o quê). */
+export class AdminAuditLogQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  actorId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  entity?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  entityId?: string;
+
+  /** Trecho do nome da ação (ex.: products, refund). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  action?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  from?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  to?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  take?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  skip?: number;
+}
