@@ -26,6 +26,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
+import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
+import { AdminAuditLogQueryDto } from './dto';
+import { buildAuditLogWhere, clampAuditSkip, clampAuditTake } from './admin-audit-query';
 import { ok } from '../../common/http';
 import { OrdersService } from '../orders/orders.service';
 import { AdminUpdateOrderStatusDto, AdminUpdateTrackingDto } from '../orders/dto';
@@ -99,6 +102,7 @@ const SHIPPING_DATA_SELECT = {
 @ApiBearerAuth('access-token')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AdminAuditInterceptor)
 @Roles('admin')
 export class AdminController {
   private readonly log = new Logger(AdminController.name);
@@ -334,6 +338,43 @@ export class AdminController {
     });
     const rows = listPlaceholderProducts(productImageRows);
     return ok(placeholderProductsCsv(rows));
+  }
+
+  @Get('audit-log')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Registro de atividades do admin (quem fez o quê). Somente leitura; filtros por ator, entidade, ação e data.',
+  })
+  async auditLog(@Query() query: AdminAuditLogQueryDto) {
+    const where = buildAuditLogWhere(query);
+    const take = clampAuditTake(query.take);
+    const skip = clampAuditSkip(query.skip);
+    const [rows, total] = await Promise.all([
+      this.prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+    const actorIds = [...new Set(rows.map((r) => r.actorId).filter((x): x is string => !!x))];
+    const actors = actorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const byId = new Map(actors.map((a) => [a.id, a]));
+    return ok({
+      total,
+      take,
+      skip,
+      items: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt,
+        action: r.action,
+        entity: r.entity,
+        entityId: r.entityId,
+        meta: r.meta,
+        actor: r.actorId ? byId.get(r.actorId) ?? { id: r.actorId, name: null, email: null } : null,
+      })),
+    });
   }
 
   @Get('admins')
