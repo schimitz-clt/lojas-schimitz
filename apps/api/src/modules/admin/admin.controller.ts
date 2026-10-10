@@ -595,13 +595,17 @@ export class AdminController {
   }
 
   @Post('products')
-  async createProduct(@Body() dto: AdminCreateProductDto) {
-    return ok(await this.productsService.create(dto));
+  async createProduct(@CurrentUser('sub') actorId: string, @Body() dto: AdminCreateProductDto) {
+    return ok(await this.productsService.create(dto, actorId));
   }
 
   @Patch('products/:id')
-  async updateProduct(@Param('id') id: string, @Body() dto: AdminUpdateProductDto) {
-    return ok(await this.productsService.update(id, dto));
+  async updateProduct(
+    @CurrentUser('sub') actorId: string,
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateProductDto,
+  ) {
+    return ok(await this.productsService.update(id, dto, actorId));
   }
 
   @Post('products/:id/images')
