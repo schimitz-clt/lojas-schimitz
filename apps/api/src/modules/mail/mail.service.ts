@@ -1,3 +1,4 @@
+import { isProdLikeEnv } from '../../common/prod-like-env';
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 import {
@@ -363,7 +364,7 @@ export class MailService {
     if (
       !result.sent &&
       result.reason === 'smtp_not_configured' &&
-      (process.env.NODE_ENV || '').toLowerCase() !== 'production'
+      !isProdLikeEnv()
     ) {
       this.log.warn(`mail off — password reset link (local only, recipient omitted): ${ctx.resetUrl}`);
     }
