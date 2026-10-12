@@ -84,7 +84,7 @@ IDOR/BOLA + refresh cookie-prefer: ver `docs/MEGA-PHASE-9-CHECKPOINT.md`.
 - Refresh: cookie HttpOnly tem precedência; body fallback **no servidor**; JSON `refreshToken` dual (default).
 - Cookie-only JSON: `REFRESH_JSON_TOKEN_ENABLED=false` no serviço **API** (Railway), com cookie enabled.
   Merge **não** flipa prod. Rollback = unset / `true`.
-- CSRF: SameSite=Lax via proxy mitiga POST cross-site; residual se `SameSite=None` direto na API.
+- CSRF: SameSite=Lax via proxy mitiga POST cross-site. Além disso, `csrfOriginMiddleware` (`apps/api/src/common/csrf-origin.ts`) bloqueia (403 `CSRF_ORIGIN`) POST/PUT/PATCH/DELETE autenticados só por cookie quando o `Origin` é desconhecido (permite `Sec-Fetch-Site: same-origin`, origens de `CORS_ORIGINS`/site URL e mesmo host). `CSRF_ORIGIN_CHECK=report` só registra; `=off` desliga (rollback).
 
 ### Flip checklist — cookie-only JSON (`REFRESH_JSON_TOKEN_ENABLED=false`)
 
