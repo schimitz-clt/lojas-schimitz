@@ -258,6 +258,9 @@ export default function CartPage() {
   const checkoutHref = cartCheckoutHref(loggedIn);
   const mixedCart = isMixedSellerCart(cart.items, cart.mixedSellers);
   const demoCart = cartHasDemoItem(cart.items);
+  const overStockCart = cart.items.some(
+    (i) => typeof i.stock === 'number' && i.stock >= 0 && i.qty > i.stock,
+  );
   const emptyCopy = cartEmptyCopy();
   const freightNote = cartFreightNote();
 
@@ -278,6 +281,11 @@ export default function CartPage() {
       {demoCart ? (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>
           {DEMO_PURCHASE_BLOCK_MESSAGE}
+        </div>
+      ) : null}
+      {overStockCart ? (
+        <div className="alert" role="alert" style={{ marginBottom: 12 }}>
+          Algum item tem quantidade acima do estoque disponível. Ajuste a quantidade ou remova o item para finalizar.
         </div>
       ) : null}
       {!hasItems ? (
@@ -493,7 +501,7 @@ export default function CartPage() {
                   <div className="cart-sticky-pix">{brl(pixSubtotal)} no PIX</div>
                 ) : null}
               </div>
-              {mixedCart || demoCart ? (
+              {mixedCart || demoCart || overStockCart ? (
                 <button className="btn cart-checkout-btn" type="button" disabled>
                   {cartCheckoutLabel(loggedIn)}
                 </button>
