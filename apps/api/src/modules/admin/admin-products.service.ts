@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { AuditService } from '../../common/audit.service';
+import { diffProductChanges } from './admin-product-changes';
 import {
   AdminAddProductImageDto,
   AdminCreateProductDto,
@@ -384,7 +385,7 @@ export class AdminProductsService {
     };
   }
 
-  async create(dto: AdminCreateProductDto) {
+  async create(dto: AdminCreateProductDto, actorId?: string) {
     const name = dto.name.trim();
     const sku = (dto.sku?.trim() || this.generateSku(name)).slice(0, 64);
     const slug = await this.uniqueSlug(this.slugify(name));
@@ -400,7 +401,7 @@ export class AdminProductsService {
     assertNoPlaceholderProductImageUrls(imageUrls);
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const created = await this.prisma.$transaction(async (tx) => {
         const product = await tx.product.create({
           data: {
             sku,
@@ -435,12 +436,19 @@ export class AdminProductsService {
         });
         return product;
       });
+      await this.audit?.log('product.created', {
+        actorId,
+        entity: 'Product',
+        entityId: created.id,
+        meta: { sku: created.sku, name: created.name, price: Number(created.price), stock, active },
+      });
+      return created;
     } catch (e) {
       this.rethrowUnique(e, 'SKU ou slug já cadastrado');
     }
   }
 
-  async update(id: string, dto: AdminUpdateProductDto) {
+  async update(id: string, dto: AdminUpdateProductDto, actorId?: string) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
       include: { inventory: true, images: { orderBy: { position: 'asc' } } },
@@ -484,7 +492,7 @@ export class AdminProductsService {
     assertNoPlaceholderProductImageUrls([coverUrl]);
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const updated = await this.prisma.$transaction(async (tx) => {
         if (dto.stock !== undefined) {
           // CAS: qtyOnHand only if qtyReserved <= stock (anti TOCTOU vs concurrent reserve)
           await this.inventory.setOnHandCas(tx, id, dto.stock);
@@ -517,6 +525,16 @@ export class AdminProductsService {
           include: productInclude,
         });
       });
+      const changes = diffProductChanges(existing, dto);
+      if (Object.keys(changes).length > 0) {
+        await this.audit?.log('product.updated', {
+          actorId,
+          entity: 'Product',
+          entityId: id,
+          meta: { sku: updated.sku, changes },
+        });
+      }
+      return updated;
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
       this.rethrowUnique(e, 'SKU ou slug já cadastrado');
