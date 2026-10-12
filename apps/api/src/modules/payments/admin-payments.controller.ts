@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Res, UseGuards, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -9,6 +10,7 @@ import { PaymentsService } from './payments.service';
 
 @Controller('admin/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AdminAuditInterceptor)
 @Roles('admin')
 export class AdminPaymentsController {
   constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}

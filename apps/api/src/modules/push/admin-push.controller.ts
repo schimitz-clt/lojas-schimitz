@@ -6,10 +6,12 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,6 +25,7 @@ import { AbandonedViewService } from './abandoned-view.service';
 @ApiBearerAuth('access-token')
 @Controller('admin/push')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AdminAuditInterceptor)
 @Roles('admin')
 export class AdminPushController {
   constructor(

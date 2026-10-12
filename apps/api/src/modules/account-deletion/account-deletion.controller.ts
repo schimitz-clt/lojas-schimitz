@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Post, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ok } from '../../common/http';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -60,6 +61,7 @@ export class MeAccountDeletionController {
 @ApiBearerAuth('access-token')
 @Controller('admin/account-deletion-requests')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AdminAuditInterceptor)
 @Roles('admin')
 export class AdminAccountDeletionController {
   constructor(@Inject(AccountDeletionService) private readonly deletion: AccountDeletionService) {}
