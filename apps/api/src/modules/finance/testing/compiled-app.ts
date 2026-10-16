@@ -30,6 +30,7 @@ export async function bootHttpApp(port = 0): Promise<{ app: any; base: string; g
   app.enableCors({ origin: ['http://localhost:3000'], credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.set('trust proxy', 1);
+  app.set('query parser', 'extended');
   await app.listen(port, '127.0.0.1');
   const url: string = await app.getUrl();
   return {
