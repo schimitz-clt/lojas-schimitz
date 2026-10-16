@@ -1,0 +1,9 @@
+after desktop pedidos-lista: 6 pedidos [SCH-LOCAL09-TESTE, SCH-LOCAL08-TESTE, SCH-LOCAL07-TESTE, SCH-LOCAL06-TESTE, SCH-ARQ2D13B087, SCH-ARQ47CBBCA8] erros=0 overflowX=false
+after desktop pedidos-encerrados: 5 pedidos [SCH-LOCAL04-TESTE, SCH-LOCAL03-TESTE, SCH-LOCAL02-TESTE, SCH-LOCAL01-TESTE, SCH-LOCAL00-TESTE] erros=0 overflowX=false
+after desktop arquivar: 1 pedido(s) arquivado(s).
+after desktop pedidos-arquivados: 3 pedidos [SCH-LOCAL05-TESTE, SCH-LOCAL04-TESTE, SCH-ARQ8DD63100] erros=0 overflowX=false
+after desktop financeiro: 0 pedidos [] erros=0 overflowX=false
+after mobile pedidos-lista: 6 pedidos [SCH-LOCAL09-TESTE, SCH-LOCAL08-TESTE, SCH-LOCAL07-TESTE, SCH-LOCAL06-TESTE, SCH-ARQ2D13B087, SCH-ARQ47CBBCA8] erros=0 overflowX=false
+after mobile pedidos-encerrados: 4 pedidos [SCH-LOCAL03-TESTE, SCH-LOCAL02-TESTE, SCH-LOCAL01-TESTE, SCH-LOCAL00-TESTE] erros=0 overflowX=false
+after mobile pedidos-arquivados: 3 pedidos [SCH-LOCAL05-TESTE, SCH-LOCAL04-TESTE, SCH-ARQ8DD63100] erros=0 overflowX=false
+after mobile financeiro: 0 pedidos [] erros=0 overflowX=false

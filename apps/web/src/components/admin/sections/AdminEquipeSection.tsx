@@ -1,5 +1,14 @@
 'use client';
 
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { useUrlList } from '@/components/admin/useUrlList';
+import { paginate, sortBy, textMatch } from '@/lib/admin-list-params';
+
+const EQUIPE_SORTS = [
+  { id: 'nome', label: 'Nome (A–Z)' },
+  { id: 'status', label: 'Status' },
+];
+
 import { currentUser } from '@/lib/api';
 import { ENTERPRISE_MISSING, textOrDash } from '@/lib/admin-enterprise-ui';
 import { formatAdminDate } from '@/lib/admin-customers-ui';
@@ -29,6 +38,14 @@ const ANCHOR: Record<string, string> = {
 export function AdminEquipeSection() {
   const { admins, adminForm, setAdminForm, savingAdmin, adminBusyId, saveAdmin, toggleAdminStatus, storePayload, load } =
     useAdminConsole();
+  const list = useUrlList('nome');
+  const pagedAdmins = paginate(
+    sortBy(
+      admins.filter((a) => textMatch([a.name, a.email], list.q)),
+      (a) => (list.sort === 'status' ? String(a.status ?? '') : String(a.name || a.email || '')),
+    ),
+    list.page,
+  );
 
   const model = equipePrimeModel({
     load: storePayload,
@@ -114,9 +131,21 @@ export function AdminEquipeSection() {
         <h3 className="admin-section-heading" id="admin-equipe-list">
           Equipe ({storePayload === 'ready' ? admins.length : ENTERPRISE_MISSING})
         </h3>
+        {storePayload === 'ready' && admins.length ? (
+          <AdminListBar
+            search={list.search}
+            onSearch={list.setSearch}
+            searchLabel="Buscar na equipe"
+            placeholder="Nome ou e-mail"
+            sort={list.sort}
+            sorts={EQUIPE_SORTS}
+            onSort={list.setSort}
+            count={pagedAdmins.total ? `Mostrando ${pagedAdmins.from}–${pagedAdmins.to} de ${pagedAdmins.total}` : `Ninguém encontrado para “${list.q}”`}
+          />
+        ) : null}
         <div className="admin-dense-list">
           {storePayload === 'ready'
-            ? admins.map((a) => {
+            ? pagedAdmins.rows.map((a) => {
                 const me = currentUser();
                 const isMe = me?.id === a.id;
                 const active = a.status === 'active';
@@ -150,6 +179,7 @@ export function AdminEquipeSection() {
                 );
               })
             : null}
+          {storePayload === 'ready' ? <AdminPager {...pagedAdmins} onPage={list.setPage} /> : null}
           {storePayload === 'ready' && !admins.length ? <p className="admin-empty">Nenhum administrador listado.</p> : null}
           {storePayload !== 'ready' ? (
             <p className="admin-empty">

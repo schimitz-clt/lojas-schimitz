@@ -88,7 +88,7 @@ import {
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
 import { ORDER_SORTS } from '@/lib/admin-list-params';
-import { ORDER_VIEWS, canArchiveOrder } from '@/lib/admin-order-archive';
+import { ORDER_VIEWS, activeTabTotal, canArchiveOrder } from '@/lib/admin-order-archive';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -305,7 +305,7 @@ export function AdminPedidosSection() {
         {orderView === 'ativos' ? (
         <div className="admin-status-tabs" role="tablist" aria-label="Status do pedido">
           <button type="button" role="tab" aria-selected={orderStatusFilter === ''} className={orderStatusFilter === '' ? 'is-on' : ''} onClick={() => { setOrderRoiFilter('all'); selectOpsBucket(''); }}>
-            Todos <b>{opsCountOrDash(counts.total, ready)}</b>
+            Todos <b>{opsCountOrDash(activeTabTotal(ops?.orders?.activeTotal, counts.total), ready)}</b>
           </button>
           {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
             <button key={key} type="button" role="tab" aria-selected={orderStatusFilter === key} className={orderStatusFilter === key ? 'is-on' : ''} onClick={() => { setOrderRoiFilter('all'); selectOpsBucket(key); }}>

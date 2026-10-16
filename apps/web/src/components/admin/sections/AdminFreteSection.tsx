@@ -1,5 +1,16 @@
 'use client';
 
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { useUrlList } from '@/components/admin/useUrlList';
+import { paginate, sortBy, textMatch } from '@/lib/admin-list-params';
+
+const FRETE_SORTS = [
+  { id: 'cep', label: 'CEP' },
+  { id: 'taxa', label: 'Menor taxa' },
+  { id: 'prazo', label: 'Menor prazo' },
+  { id: 'ordem', label: 'Prioridade' },
+];
+
 import { brl } from '@/lib/api';
 import { moneyOrDash } from '@/lib/admin-enterprise-ui';
 import {
@@ -40,6 +51,14 @@ export function AdminFreteSection() {
     storePayload,
     load,
   } = useAdminConsole();
+  const list = useUrlList('cep');
+  const pagedRules = paginate(
+    sortBy(
+      shippingRules.filter((r) => textMatch([r.cepPrefix, r.label], list.q)),
+      (r) => (list.sort === 'taxa' ? Number(r.fee) || 0 : list.sort === 'prazo' ? r.estimatedDays : list.sort === 'ordem' ? r.sortOrder ?? 0 : r.cepPrefix),
+    ),
+    list.page,
+  );
 
   const model = fretePrimeModel({
     load: storePayload,
@@ -205,8 +224,20 @@ export function AdminFreteSection() {
               </button>
             </form>
             <div className="admin-dense-list">
+              {storePayload === 'ready' && shippingRules.length ? (
+                <AdminListBar
+                  search={list.search}
+                  onSearch={list.setSearch}
+                  searchLabel="Buscar zona"
+                  placeholder="CEP ou nome da zona"
+                  sort={list.sort}
+                  sorts={FRETE_SORTS}
+                  onSort={list.setSort}
+                  count={pagedRules.total ? `Mostrando ${pagedRules.from}–${pagedRules.to} de ${pagedRules.total}` : `Nenhuma zona para “${list.q}”`}
+                />
+              ) : null}
               {storePayload === 'ready'
-                ? shippingRules.map((r) => (
+                ? pagedRules.rows.map((r) => (
                     <div key={r.id} className={`admin-dense-row${r.active ? '' : ' admin-dense-row--muted'}`}>
                       <div className="admin-dense-row__main">
                         <div className="admin-dense-row__title">
@@ -231,6 +262,7 @@ export function AdminFreteSection() {
                     </div>
                   ))
                 : null}
+              {storePayload === 'ready' ? <AdminPager {...pagedRules} onPage={list.setPage} /> : null}
               {storePayload === 'ready' && !shippingRules.length ? (
                 <p className="admin-empty">
                   Nenhuma zona ainda. Sem zona de taxa zero, nenhum CEP fica grátis por regra — a cotação vale para o
