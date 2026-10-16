@@ -29,3 +29,10 @@ import { execHealthValue, execPriorityList, execSeverityLabel } from './admin-ex
   if (execHealthValue(null) !== '—' || execHealthValue(0) !== '0') throw new Error('saúde');
   console.log('admin-exec-dashboard prioridades: PASSOU');
 }
+import { execAlertCopy } from './admin-exec-dashboard';
+{
+  const u = execAlertCopy({ code: 'uploads_ephemeral', message: 'UPLOADS_DIR fora de /data', recommendedAction: 'UPLOADS_DIR=/data' });
+  if (/UPLOADS_DIR|\/data|Railway/.test(u.message + u.action)) throw new Error('texto técnico');
+  if (execAlertCopy({ code: 'low_stock', message: '5 produto(s)', count: 5 }).message !== '5 produto(s)') throw new Error('passa direto');
+  console.log('admin-exec-dashboard textos: PASSOU');
+}

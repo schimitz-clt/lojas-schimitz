@@ -48,3 +48,30 @@ export function execPriorityList<T extends { severity: ExecSeverity; count?: num
 export function execHealthValue(n: number | null | undefined): string {
   return n == null || !Number.isFinite(n) ? '—' : String(n);
 }
+
+/** Texto do alerta para o dono da loja: substitui mensagens técnicas (variáveis, caminhos) por português simples. */
+const PLAIN_ALERT_COPY: Record<string, (count: number | null | undefined) => { message: string; action: string }> = {
+  uploads_ephemeral: () => ({
+    message: 'As fotos enviadas ficam num armazenamento temporário e podem sumir numa atualização do sistema',
+    action: 'Peça ao responsável técnico para ativar o armazenamento permanente de fotos.',
+  }),
+  products_missing_shipping_data: (n) => ({
+    message: `${n ?? 0} produto(s) sem peso ou medidas — o frete está usando um tamanho padrão`,
+    action: 'No Catálogo, baixe a lista de produtos sem peso/medidas e preencha os valores reais.',
+  }),
+  mail_off_with_store_notify: () => ({
+    message: 'O aviso de venda por e-mail está desligado',
+    action: 'Peça ao responsável técnico para configurar o envio de e-mails. Os pagamentos não são afetados.',
+  }),
+  mail_not_configured: () => ({
+    message: 'O envio de e-mails da loja não está configurado',
+    action: 'Peça ao responsável técnico para configurar o envio de e-mails.',
+  }),
+};
+export function execAlertCopy(a: { code: string; message: string; recommendedAction?: string | null; count?: number | null }): {
+  message: string;
+  action: string | null;
+} {
+  const f = PLAIN_ALERT_COPY[a.code];
+  return f ? f(a.count) : { message: a.message, action: a.recommendedAction ?? null };
+}

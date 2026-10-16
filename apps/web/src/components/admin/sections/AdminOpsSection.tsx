@@ -140,6 +140,18 @@ export function AdminOpsSection() {
     }
   }
 
+  function execActionFigure(id: OpsQuickActionId): string | null {
+    if (!actionSnap) return null;
+    const n =
+      id === 'paid' ? actionSnap.paidAwaiting
+      : id === 'photos' ? actionSnap.placeholderPhotos
+      : id === 'recon' ? actionSnap.openRecon
+      : id === 'orders' ? actionSnap.ordersTotal
+      : id === 'catalog' ? actionSnap.lowStock
+      : null;
+    return n == null ? null : String(n);
+  }
+
   const quickHref: Partial<Record<OpsQuickActionId, string>> = {
     catalog: buildAdminSectionHref('catalogo'),
     push: buildAdminSectionHref('notificacoes'),
@@ -188,7 +200,7 @@ export function AdminOpsSection() {
           id: a.id,
           label: a.label,
           hint: a.hint,
-          figure: opsQuickActionFigure(a.id, actionSnap),
+          figure: execActionFigure(a.id),
           href: quickHref[a.id],
           onClick: quickHref[a.id] ? undefined : () => runQuickAction(a.id),
         }))}

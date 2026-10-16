@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { brl } from '@/lib/api';
 import {
   EXEC_PERIODS,
+  execAlertCopy,
   execHealthValue,
   execPeriodLabel,
   execPriorityList,
@@ -80,19 +81,22 @@ export function AdminExecDashboard({
             <p className="admin-exec__empty">Tudo em dia. Nenhum problema pedindo ação agora.</p>
           ) : (
             <ol className="admin-exec__alerts">
-              {pri.items.map((a) => (
+              {pri.items.map((a) => {
+                const copy = execAlertCopy(a);
+                return (
                 <li key={a.code} className={`admin-exec__alert sev-${a.severity}`}>
                   <span className="admin-exec__sev">{execSeverityLabel(a.severity)}</span>
                   <span className="admin-exec__msg">
-                    {a.message}
-                    {a.recommendedAction ? <small>{a.recommendedAction}</small> : null}
+                    {copy.message}
+                    {copy.action ? <small>{copy.action}</small> : null}
                   </span>
-                  {typeof a.count === 'number' ? <strong className="admin-exec__n">{a.count}</strong> : null}
+                  {typeof a.count === 'number' && a.count > 0 ? <strong className="admin-exec__n">{a.count}</strong> : null}
                   <button type="button" className="admin-exec__go" onClick={() => onResolve(a)}>
                     Resolver →
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           )}
           {pri.hidden ? <p className="admin-exec__more">+{pri.hidden} outro(s) nos detalhes abaixo</p> : null}
