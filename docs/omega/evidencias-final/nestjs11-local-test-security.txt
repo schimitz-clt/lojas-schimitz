@@ -1,0 +1,4 @@
+product.serialize: public-upload rewrite — PASSOU
+product.serialize.spec ok
+reviews eligibility tests ok
+seller-portal.authz.spec ok

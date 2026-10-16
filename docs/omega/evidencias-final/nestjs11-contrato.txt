@@ -1,0 +1,25 @@
+IGUAL 200 /health
+IGUAL 200 /products
+IGUAL 200 /products?pageSize=3&sort=price_asc
+IGUAL 200 /products?q=camisa
+IGUAL 200 /products?category=eletronicos&pageSize=2
+IGUAL 200 /products?ids[]=a&ids[]=b
+IGUAL  /products?filter[a]=1
+IGUAL 200 /products/raw-016ffddb
+IGUAL 404 /products/nao-existe
+IGUAL 200 /categories
+IGUAL 404 /storefront/home
+IGUAL 404 /nada/aqui
+IGUAL 200 /products?pageSize=abc
+IGUAL 404 /auth/me
+IGUAL 401 /orders
+IGUAL 401 POST login {"email":"x@y.com","password":"errada123"}
+IGUAL 400 POST login {"email":1}
+IGUAL 400 POST login nao-json
+12c12
+< x-request-id: b0dbb013-cbba-4051-902a-20e58a7eba85
+---
+> x-request-id: 24633762-102c-4ee5-8500-148ab6c57969
+FAIL=0
+Terminated
+Terminated

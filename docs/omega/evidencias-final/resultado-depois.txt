@@ -1,0 +1,18 @@
+desktop | home | 200
+desktop | /produtos | 200
+desktop | busca camisa | 200
+desktop | produto | 200 "Disponível para compra" sem "sem juros"
+desktop | adicionar à sacola | ok
+desktop | /carrinho | 200 Sacola (1) R$ 23,65 / R$ 24,90
+desktop | /checkout sem login | /entrar?next=%2Fcheckout
+desktop | erros JS | 0 
+desktop | rede >=400 | 401 POST /api/v1/auth/refresh
+celular | home | 200
+celular | /produtos | 200
+celular | busca camisa | 200
+celular | produto | 200 "Disponível para compra" sem "sem juros"
+celular | adicionar à sacola | ok
+celular | /carrinho | 200 Sacola (1) R$ 23,65 / R$ 24,90
+celular | /checkout sem login | /entrar?next=%2Fcheckout
+celular | erros JS | 0 
+celular | rede >=400 | 401 POST /api/v1/auth/refresh
