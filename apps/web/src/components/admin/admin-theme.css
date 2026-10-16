@@ -3597,6 +3597,19 @@ button.admin-cc-alert {
   }
 }
 
+/* Tabela padrão do admin: tabela no computador, cartões no celular (usa data-label). */
+.admin-table-wrap { overflow-x: auto; margin-top: 8px; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: var(--admin-type-sm); }
+.admin-table th, .admin-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--admin-line); vertical-align: top; }
+.admin-table th { color: var(--admin-muted); font-weight: 700; text-transform: uppercase; font-size: var(--admin-type-xs); letter-spacing: 0.04em; }
+@media (max-width: 720px) {
+  .admin-table thead { display: none; }
+  .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; width: 100%; }
+  .admin-table tr { border: 1px solid var(--admin-line); border-radius: var(--admin-radius-sm); margin-bottom: 8px; background: var(--admin-surface); padding: 4px 0; }
+  .admin-table td { border: 0; padding: 4px 12px; display: flex; gap: 8px; justify-content: space-between; }
+  .admin-table td::before { content: attr(data-label); color: var(--admin-muted); font-weight: 600; }
+}
+
 /* Painel executivo — seletor de período */
 .admin-exec-period {
   grid-column: 1 / -1;

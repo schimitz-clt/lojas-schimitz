@@ -90,6 +90,29 @@ async function main() {
   const list = await http('GET', `/products?q=${encodeURIComponent(sku)}`);
   assert.ok(!/costPrice|supplierName/.test(list.text), 'listagem não vaza custo');
 
+  // Importação em lote (Prime 2): cliente 403, conferência não grava, erro bloqueia tudo, aplicar grava e audita.
+  const p2 = await prisma.product.create({ data: { sku: `${sku}-B`, name: `Prime B`, slug: `${sku.toLowerCase()}-b`, price: 100, active: true, sellerId: seller.id, inventory: { create: { qtyOnHand: 1, qtyReserved: 0 } } } });
+  const csv = `sku;fornecedor;custo;prazo_dias\n${sku}-B;Forn Lote;55,90;4\n`;
+  assert.equal((await http('POST', '/admin/suppliers/import', customer, { csv })).status, 403, 'cliente import 403');
+  assert.equal((await http('POST', '/admin/suppliers/import', undefined, { csv })).status, 401, 'anônimo import 401');
+  const dry = await http('POST', '/admin/suppliers/import', admin, { csv });
+  assert.equal(dry.status, 201, dry.text);
+  assert.equal(dry.json.data.dryRun, true);
+  assert.equal(dry.json.data.summary.criar, 1);
+  assert.equal(await prisma.productSupplier.count({ where: { productId: p2.id } }), 0, 'conferência não grava');
+  const withErr = await http('POST', '/admin/suppliers/import', admin, { csv: csv + 'NAO-EXISTE;X;;\n', dryRun: false });
+  assert.equal(withErr.json.data.applied, false);
+  assert.equal(withErr.json.data.errorCount, 1);
+  assert.equal(await prisma.productSupplier.count({ where: { productId: p2.id } }), 0, 'erro = nada gravado');
+  const applied = await http('POST', '/admin/suppliers/import', admin, { csv, dryRun: false });
+  assert.equal(applied.json.data.applied, true, applied.text);
+  const row = await prisma.productSupplier.findUnique({ where: { productId: p2.id } });
+  assert.equal(Number(row?.costPrice), 55.9);
+  assert.ok(await prisma.auditLog.findFirst({ where: { action: { contains: 'suppliers/import' } } }), 'import auditado');
+  const again = await http('POST', '/admin/suppliers/import', admin, { csv });
+  assert.equal(again.json.data.summary.semMudanca, 1, 'reimportar igual = sem mudança');
+  await prisma.product.update({ where: { id: p2.id }, data: { active: false } });
+
   await prisma.product.update({ where: { id: p.id }, data: { active: false } });
   await srv.close();
   await prisma.$disconnect();
