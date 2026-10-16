@@ -846,6 +846,7 @@ export function opsAlertDestination(a: OpsAlertLike): OpsAlertDestination {
     const publicId = String(a.evidenceIds?.[0] || '').trim();
     const bucket = String(a.queueBucket || (a.code === 'shipped_without_tracking' ? 'in_transit' : 'organizing'));
     return publicId ? { kind: 'order', publicId, bucket } : { kind: 'orders', bucket };
+  }
   if (a.code === 'products_missing_supplier' || a.code === 'products_missing_shipping_data') {
     return { kind: 'catalog_import' };
   }
