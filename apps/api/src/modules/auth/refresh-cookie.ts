@@ -154,7 +154,32 @@ export function resolveAccessToken(req: Request, bearer?: string): string | unde
   return readAccessFromRequest(req);
 }
 
-function buildSetCookie(name: string, value: string, maxAge: number, clear = false): string {
+/**
+ * Domain do cookie vem de REFRESH_COOKIE_DOMAIN (ex.: .lojasschimitz.com.br), mas só é aplicado
+ * quando o host da requisição pertence a esse domínio. Em outro host (staging *.up.railway.app,
+ * localhost) o navegador DESCARTA cookie com Domain alheio, e o login quebrava; ali o cookie sai
+ * host-only. Em produção (host dentro do domínio) o cabeçalho continua idêntico.
+ * Sem host conhecido (chamada fora de requisição), mantém o comportamento antigo.
+ */
+export function cookieDomainForHost(host: string | undefined, env: EnvLike = process.env): string {
+  const domain = String((env as Record<string, string | undefined>).REFRESH_COOKIE_DOMAIN || '').trim();
+  if (!domain) return '';
+  const h = String(host || '').split(',')[0].trim().toLowerCase().replace(/:\d+$/, '');
+  if (!h) return domain;
+  const bare = domain.replace(/^\./, '').toLowerCase();
+  if (h === bare || h.endsWith(`.${bare}`)) return domain;
+  return '';
+}
+
+function requestHost(res: Response): string | undefined {
+  const req = (res as unknown as { req?: { headers?: Record<string, string | string[] | undefined> } }).req;
+  const hdr = req?.headers;
+  if (!hdr) return undefined;
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || '';
+  return pick(hdr['x-forwarded-host']) || pick(hdr.host) || undefined;
+}
+
+function buildSetCookie(name: string, value: string, maxAge: number, clear = false, host?: string): string {
   const parts = [
     `${name}=${clear ? '' : encodeURIComponent(value)}`,
     'Path=/',
@@ -165,7 +190,7 @@ function buildSetCookie(name: string, value: string, maxAge: number, clear = fal
   const sameSite = refreshCookieSameSite();
   parts.push(`SameSite=${sameSite.charAt(0).toUpperCase()}${sameSite.slice(1)}`);
   if (refreshCookieSecure() || sameSite === 'none') parts.push('Secure');
-  const domain = (process.env.REFRESH_COOKIE_DOMAIN || '').trim();
+  const domain = cookieDomainForHost(host);
   if (domain) parts.push(`Domain=${domain}`);
   return parts.join('; ');
 }
@@ -183,12 +208,12 @@ function appendSetCookie(res: Response, next: string) {
 
 export function setRefreshCookie(res: Response, refreshToken: string) {
   if (!refreshCookieEnabled()) return;
-  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), refreshToken, refreshCookieMaxAgeSec()));
+  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), refreshToken, refreshCookieMaxAgeSec(), false, requestHost(res)));
 }
 
 export function setAccessCookie(res: Response, accessToken: string) {
   if (!refreshCookieEnabled()) return;
-  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), accessToken, accessCookieMaxAgeSec()));
+  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), accessToken, accessCookieMaxAgeSec(), false, requestHost(res)));
 }
 
 /**
@@ -207,12 +232,12 @@ export function issueAuthSession<T extends { refreshToken: string; accessToken: 
 
 export function clearRefreshCookie(res: Response) {
   if (!refreshCookieEnabled()) return;
-  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), '', 0, true));
+  appendSetCookie(res, buildSetCookie(REFRESH_COOKIE_NAME(), '', 0, true, requestHost(res)));
 }
 
 export function clearAccessCookie(res: Response) {
   if (!refreshCookieEnabled()) return;
-  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), '', 0, true));
+  appendSetCookie(res, buildSetCookie(ACCESS_COOKIE_NAME(), '', 0, true, requestHost(res)));
 }
 
 /** Logout / failed refresh: drop both session cookies. */

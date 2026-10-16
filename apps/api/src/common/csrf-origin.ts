@@ -8,7 +8,10 @@
  * Regra (só métodos que alteram dados, só quando há cookie de sessão e NÃO há Authorization: Bearer):
  *  - Sec-Fetch-Site: same-origin            → permite (cabeçalho que o navegador não deixa o site forjar)
  *  - Origin na lista conhecida / mesmo host → permite
- *  - sem Origin e sem Referer               → permite (cliente não-navegador; não carrega cookie ambiente)
+ *  - sem Origin e sem Referer               → bloqueia (403 CSRF_ORIGIN, motivo missing_origin), EXCETO
+ *    nas rotas servidor-a-servidor/nativas de CSRF_EXEMPT_PATHS (webhooks do Mercado Pago, registro de
+ *    token push do app Android, relatórios CSP/erros do navegador). Navegadores e o WebView sempre mandam
+ *    Origin em POST/PATCH/DELETE via fetch; quem não manda é cliente não-navegador, que deve usar Bearer.
  *  - qualquer outro Origin (ou "null")      → bloqueia com 403 CSRF_ORIGIN
  * CSRF_ORIGIN_CHECK=report só registra (não bloqueia); =off desliga (rollback).
  */
@@ -27,6 +30,26 @@ export type CsrfReqLike = {
 export type CsrfDecision = { allow: true; reason: string } | { allow: false; reason: string };
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Rotas que recebem POST sem Origin legitimamente (não são navegador) e por isso ficam fora
+ * da regra "sem Origin → bloqueia". Comparação pelo fim do caminho (independe do prefixo api/v1).
+ *  - /webhooks/*      Mercado Pago (servidor → servidor, assinatura HMAC própria)
+ *  - /push/tokens     app Android: PushRegistration.kt posta com HttpURLConnection + cookie do WebView, sem Origin
+ *  - /security/*      relatórios CSP / erros de cliente (o navegador manda sem Origin às vezes)
+ * Cron/agendador roda dentro do processo (sem HTTP), então não passa por aqui.
+ */
+const CSRF_MISSING_ORIGIN_EXEMPT: RegExp[] = [
+  /\/webhooks(\/|$)/,
+  /\/push\/tokens$/,
+  /\/security\//,
+  /\/csp-report$/,
+];
+
+export function isMissingOriginExempt(path: string): boolean {
+  const p = String(path || '').split('?')[0].replace(/\/+$/, '').toLowerCase();
+  return CSRF_MISSING_ORIGIN_EXEMPT.some((re) => re.test(p));
+}
 
 export function resolveCsrfMode(env: NodeJS.ProcessEnv = process.env): CsrfMode {
   const v = String(env.CSRF_ORIGIN_CHECK || '').toLowerCase().trim();
@@ -104,7 +127,10 @@ export function evaluateCsrfOrigin(req: CsrfReqLike, env: NodeJS.ProcessEnv = pr
 
   if (!claimed) {
     if (fetchSite === 'cross-site') return { allow: false, reason: 'cross_site_without_origin' };
-    return { allow: true, reason: 'no_origin_header' };
+    if (isMissingOriginExempt(String(req.originalUrl || req.path || ''))) {
+      return { allow: true, reason: 'no_origin_exempt_path' };
+    }
+    return { allow: false, reason: 'missing_origin' };
   }
 
   const origin = originOf(claimed);
