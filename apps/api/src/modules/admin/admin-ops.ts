@@ -793,6 +793,8 @@ export function summarizeOps(input: {
   /** Optional sales windows already aggregated from DB (no fake numbers). */
   salesToday?: OpsSalesWindow;
   salesLast30d?: OpsSalesWindow;
+  /** Janela de 7 dias (hoje inclusive), agregada do banco. */
+  salesLast7d?: OpsSalesWindow;
   /** Optional open PaymentReconciliation summary (real DB only). */
   reconciliations?: OpsReconciliationsSummary;
   /** Optional paid-awaiting-org stuck summary (real DB rows only). */
@@ -877,6 +879,7 @@ export function summarizeOps(input: {
     fulfillmentAttention: input.fulfillmentAttention ?? null,
     sales: {
       today: input.salesToday ?? null,
+      last7d: input.salesLast7d ?? null,
       last30d: input.salesLast30d ?? null,
     },
     alerts,
@@ -958,4 +961,11 @@ export function shippingDataMissingCsv(rows: ShippingDataRow[]): string {
     );
   }
   return `${lines.join('\n')}\n`;
+}
+
+/** "2026-10-16" − 6 → "2026-10-10" (calendário puro, sem fuso). */
+export function ymdMinusDays(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d) - days * 86_400_000);
+  return t.toISOString().slice(0, 10);
 }

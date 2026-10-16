@@ -44,28 +44,28 @@ export type PrimeSectionModel = {
 };
 
 export const CLIENTES_NOW_LEDE =
-  'Contagens de GET /admin/customers (take 50). Zero continua zero. Sem a resposta, o valor fica —. GET /admin/ops não traz clientes.';
+  'Números reais dos clientes cadastrados (até 50 por vez). Zero continua zero. Sem resposta, o valor fica —.';
 
 export const CLIENTES_DO_LEDE =
   'Busca, histórico e o atalho para Pedidos. Esta seção não edita cadastro, não exclui e não envia marketing.';
 
 export const CLIENTES_READONLY_NOTE =
-  'Somente leitura: GET /admin/customers e GET /admin/customers/:id. Não há escrita segura nesta seção.';
+  'Somente leitura: esta seção não altera dados dos clientes.';
 
 export const CLIENTES_EVIDENCE_LEDE =
   'O total é o campo total da busca. A lista é no máximo 50. Campo ausente no detalhe fica —.';
 
 export const FRETE_NOW_LEDE =
-  'Configuração e zonas de GET /admin/shipping. Zero continua zero. Sem a resposta, o valor fica —. GET /admin/ops não traz frete.';
+  'Configuração e zonas de entrega cadastradas. Zero continua zero. Sem resposta, o valor fica —.';
 
 export const FRETE_DO_LEDE =
-  'Os formulários que já existem: PATCH /admin/shipping/settings e POST/PATCH/DELETE /admin/shipping/rules. Nada grava sozinho.';
+  'Use os formulários desta tela para alterar a entrega. Nada é gravado sem você salvar.';
 
 export const FRETE_EVIDENCE_LEDE =
   'Envio próprio na operação. Preço e prazo da vitrine vêm da cotação Melhor Envio. Zona com taxa 0 (Porto Alegre 90 e 91) zera o valor do cliente e mantém o prazo calculado. A taxa padrão não substitui essa cotação.';
 
 export const VITRINE_NOW_LEDE =
-  'Banners e SEO já carregados (GET /admin/banners e GET /admin/store/settings). Disco de upload só entra se GET /admin/ops trouxer uploads.';
+  'Banners e SEO já carregados. Disco de upload só entra se  trouxer uploads.';
 
 export const VITRINE_DO_LEDE =
   'Salvar SEO, criar ou editar banner — os POST/PATCH que já existem. Excluir banner continua o DELETE já desta tela.';
@@ -74,43 +74,43 @@ export const VITRINE_EVIDENCE_LEDE =
   'Título e descrição vão para a aba e o Open Graph. Só banners ativos entram no carrossel. Limite conta ativos e inativos.';
 
 export const CUPONS_NOW_LEDE =
-  'Cupons de GET /admin/coupons. Zero continua zero. Sem a lista, o valor fica —. GET /admin/ops não traz cupom.';
+  'Cupons cadastrados. Zero continua zero. Sem a lista, o valor fica —.';
 
 export const CUPONS_DO_LEDE =
-  'Criar e ativar/desativar usam POST /admin/coupons e PATCH /admin/coupons/:id. Nada aplica desconto sozinho.';
+  'Criar, ativar e desativar cupons pede confirmação. Nenhum desconto é aplicado sozinho.';
 
 export const CUPONS_EVIDENCE_LEDE =
   'O cliente aplica o código na sacola ou no checkout. Expirado ou esgotado continua visível nesta lista.';
 
 export const EQUIPE_NOW_LEDE =
-  'Administradores de GET /admin/admins. Zero continua zero. Sem a lista, o valor fica —. Não há papel novo nesta tela.';
+  'Administradores cadastrados. Zero continua zero. Sem a lista, o valor fica —.';
 
 export const EQUIPE_DO_LEDE =
-  'Criar usa POST /admin/admins. Desativar usa PATCH /admin/admins/:id/status. Você não desativa a si mesmo nem o último ativo — a regra já existente.';
+  'Criar e desativar pedem confirmação. Você não desativa a si mesmo nem o último ativo — a regra já existente.';
 
 export const EQUIPE_EVIDENCE_LEDE =
   'Todas as contas listadas entram no mesmo painel. O campo role aparece como a API mandou. Esta tela não reescreve permissão.';
 
 export const AVALIACOES_NOW_LEDE =
-  'Moderação de GET /admin/reviews. Zero continua zero. Sem a lista, o valor fica —. Não há status além dos que a API devolve.';
+  'Avaliações dos clientes. Zero continua zero. Sem a lista, o valor fica —.';
 
 export const AVALIACOES_DO_LEDE =
-  'Ocultar e publicar usam PATCH /admin/reviews/:id. Excluir continua o DELETE já desta tela.';
+  'Ocultar, publicar e excluir avaliações são feitos nesta tela, com confirmação.';
 
 export const AVALIACOES_EVIDENCE_LEDE =
   'Publicadas aparecem na loja. Ocultas saem da vitrine e continuam nesta lista até excluir.';
 
 export const NOTIFICACOES_NOW_LEDE =
-  'Push de GET /admin/push/campaigns, GET /admin/push/tokens e GET /admin/push/abandoned-views. O e-mail da loja entra só se GET /admin/ops trouxer mail.';
+  'Campanhas de notificação, aparelhos cadastrados e recuperação de produto vistos.';
 
 export const NOTIFICACOES_DO_LEDE =
   'Nova campanha, disparar agendada com confirmação, cancelar e teste no aparelho. A recuperação de produto não dispara nesta tela. O e-mail da loja é só leitura.';
 
 export const NOTIFICACOES_EVIDENCE_LEDE =
-  'Token FCM completo não aparece. Firebase ausente grava a campanha e não envia o push. O detalhe de envios é GET /admin/push/campaigns/:id.';
+  'O token completo do aparelho não aparece. Sem Firebase configurado, a campanha é salva mas não é enviada.';
 
 export const MARKETPLACE_NOW_LEDE =
-  'Vendedores de GET /admin/sellers e comissões do filtro já carregado em GET /admin/commissions. GET /admin/ops não traz marketplace.';
+  'Vendedores e comissões cadastrados.';
 
 export const MARKETPLACE_DO_LEDE =
   'Criar vendedor, status, dono e comissão % usam os POST/PATCH já existentes. Aprovar, suspender e marcar pago pedem confirmação e continuam no ledger local — não cobram, não estornam e não gravam no Mercado Pago.';
@@ -212,7 +212,7 @@ export function clientesPrimeModel(input: {
       id: 'total',
       label: 'Total da busca',
       value: countLabel(total, ready),
-      hint: 'campo total · GET /admin/customers',
+ hint: 'campo total',
     },
     {
       id: 'shown',
@@ -257,7 +257,7 @@ export function clientesPrimeModel(input: {
         message: `A busca tem ${total} cliente(s); esta página mostra ${shown}`,
         count: total - shown,
         recommendedAction: 'Refine a busca. Não há paginação além de take 50.',
-        evidenceLine: 'GET /admin/customers?take=50',
+ evidenceLine: '',
       }),
     );
   }
@@ -365,11 +365,11 @@ export function fretePrimeModel(input: {
     attention: alerts,
     signals,
     actions: [
-      { id: 'settings', label: 'Configuração padrão', hint: 'PATCH /admin/shipping/settings', figure: null },
+ { id: 'settings', label: 'Configuração padrão', hint: '', figure: null },
       {
         id: 'zones',
         label: 'Zonas por CEP',
-        hint: 'POST /admin/shipping/rules',
+ hint: '',
         figure: figure(active, ready, 'ativa(s)'),
       },
     ],
@@ -406,7 +406,7 @@ export function vitrinePrimeModel(input: {
     [
       total == null ? 'Os banners não vieram.' : `${total} banner(s).`,
       active == null ? 'Ativos não puderam ser contados.' : `${active} ativo(s) na home.`,
-      uploadsLabel ? uploadsLabel : 'Disco de upload não veio neste snapshot.',
+ uploadsLabel ? uploadsLabel : 'Disco de upload não veio neste resumo.',
     ].join(' '),
   );
 
@@ -458,7 +458,7 @@ export function vitrinePrimeModel(input: {
         count: finiteInt(uploadAlert.count),
         recommendedAction:
           textOrDash(uploadAlert.recommendedAction) === ENTERPRISE_MISSING
-            ? 'O snapshot não trouxe a ação recomendada.'
+ ? 'O resumo não trouxe a ação recomendada.'
             : String(uploadAlert.recommendedAction),
         evidenceLine: uploadsLabel,
         ctaHint: '→ banners da home',
@@ -482,18 +482,18 @@ export function vitrinePrimeModel(input: {
         id: 'uploads',
         label: 'Disco de upload',
         value: uploadsLabel || ENTERPRISE_MISSING,
-        hint: input.opsReady ? 'GET /admin/ops uploads' : 'aguardando snapshot',
+ hint: input.opsReady ? ' uploads' : 'aguardando resumo',
         tone: uploadAlert?.code === 'uploads_ephemeral' ? 'warn' : undefined,
       },
     ],
     attention: alerts,
     signals,
     actions: [
-      { id: 'seo', label: 'SEO da loja', hint: title === ENTERPRISE_MISSING ? 'PATCH /admin/store/settings' : title, figure: null },
+ { id: 'seo', label: 'SEO da loja', hint: title === ENTERPRISE_MISSING ? '' : title, figure: null },
       {
         id: 'banners',
         label: 'Banners da home',
-        hint: 'POST/PATCH /admin/banners',
+ hint: '',
         figure: figure(active, ready, 'ativo(s)'),
       },
     ],
@@ -596,7 +596,7 @@ export function cuponsPrimeModel(input: {
   return {
     summary,
     kpis: [
-      { id: 'total', label: 'Cupons', value: countLabel(total, ready), hint: 'GET /admin/coupons' },
+ { id: 'total', label: 'Cupons', value: countLabel(total, ready), hint: '' },
       { id: 'active', label: 'Ativos', value: countLabel(active, ready), hint: 'active true' },
       { id: 'uses', label: 'Usos', value: countLabel(uses, ready), hint: 'soma de usedCount' },
       {
@@ -609,11 +609,11 @@ export function cuponsPrimeModel(input: {
     attention: alerts,
     signals,
     actions: [
-      { id: 'create', label: 'Novo cupom', hint: 'POST /admin/coupons', figure: null },
+ { id: 'create', label: 'Novo cupom', hint: '', figure: null },
       {
         id: 'list',
         label: 'Lista de cupons',
-        hint: 'PATCH /admin/coupons/:id',
+ hint: '',
         figure: figure(active, ready, 'ativo(s)'),
       },
     ],
@@ -676,7 +676,7 @@ export function equipePrimeModel(input: {
   return {
     summary,
     kpis: [
-      { id: 'total', label: 'Equipe', value: countLabel(total, ready), hint: 'GET /admin/admins' },
+ { id: 'total', label: 'Equipe', value: countLabel(total, ready), hint: '' },
       { id: 'active', label: 'Ativos', value: countLabel(active, ready), hint: 'status active', tone: active === 0 ? 'danger' : undefined },
       { id: 'inactive', label: 'Desativados', value: countLabel(inactive, ready), hint: 'login impedido' },
       {
@@ -689,11 +689,11 @@ export function equipePrimeModel(input: {
     attention: alerts,
     signals,
     actions: [
-      { id: 'create', label: 'Novo administrador', hint: 'POST /admin/admins', figure: null },
+ { id: 'create', label: 'Novo administrador', hint: '', figure: null },
       {
         id: 'list',
         label: 'Lista da equipe',
-        hint: 'PATCH /admin/admins/:id/status',
+ hint: '',
         figure: figure(active, ready, 'ativo(s)'),
       },
     ],
@@ -756,7 +756,7 @@ export function avaliacoesPrimeModel(input: {
   return {
     summary,
     kpis: [
-      { id: 'total', label: 'Avaliações', value: countLabel(total, ready), hint: 'GET /admin/reviews' },
+ { id: 'total', label: 'Avaliações', value: countLabel(total, ready), hint: '' },
       { id: 'published', label: 'Publicadas', value: countLabel(published, ready), hint: 'status published' },
       { id: 'hidden', label: 'Ocultas', value: countLabel(hidden, ready), hint: 'status hidden' },
       { id: 'average', label: 'Nota média', value: ready ? average : ENTERPRISE_MISSING, hint: 'só se toda nota veio' },
@@ -767,7 +767,7 @@ export function avaliacoesPrimeModel(input: {
       {
         id: 'list',
         label: 'Moderar lista',
-        hint: 'PATCH /admin/reviews/:id',
+ hint: '',
         figure: figure(hidden, ready, 'oculta(s)'),
       },
     ],
@@ -843,12 +843,12 @@ export function notificacoesPrimeModel(input: {
     input.load,
     [
       devices == null ? 'Aparelhos ativos não vieram.' : `${devices} aparelho(s) ativo(s).`,
-      firebase == null ? 'Firebase não veio no payload.' : firebase ? 'Firebase pronto.' : 'Firebase ausente.',
+ firebase == null ? 'Firebase não veio nos dados.' : firebase ? 'Firebase pronto.' : 'Firebase ausente.',
       dueViews == null ? 'Recuperação automática sem contagem.' : `${dueViews} visita(s) com atraso cumprido.`,
       !opsReady
-        ? 'E-mail da loja aguarda GET /admin/ops.'
+ ? 'E-mail da loja aguarda '
         : mail == null
-          ? 'E-mail da loja não veio no snapshot.'
+ ? 'E-mail da loja não veio no resumo.'
           : `E-mail da loja: ${mailStatus.label}.`,
     ].join(' '),
   );
@@ -907,7 +907,7 @@ export function notificacoesPrimeModel(input: {
         message: `${scheduled} campanha(s) agendada(s)`,
         count: scheduled,
         recommendedAction:
-          'Disparar agora pede confirmação e chama POST /admin/push/campaigns/:id/send. Cancelar continua nesta lista. A recuperação de produto não dispara.',
+          'Disparar agora pede confirmação. Cancelar continua nesta lista. A recuperação de produto não dispara.',
         ctaHint: '→ histórico',
       }),
     );
@@ -920,7 +920,7 @@ export function notificacoesPrimeModel(input: {
         message: `${sending} campanha(s) ainda em envio`,
         count: sending,
         recommendedAction:
-          'Disparar agora retoma POST /admin/push/campaigns/:id/send se a API ainda aceitar. Não cria outra campanha.',
+          'Disparar agora tenta de novo, se o sistema ainda aceitar. Não cria outra campanha.',
         ctaHint: '→ histórico',
       }),
     );
@@ -933,7 +933,7 @@ export function notificacoesPrimeModel(input: {
         message: `${dueViews} visita(s) com atraso cumprido na recuperação automática`,
         count: dueViews,
         recommendedAction: 'Esta tela não dispara essa mensagem.',
-        evidenceLine: 'GET /admin/push/abandoned-views',
+ evidenceLine: '',
       }),
     );
   }
@@ -963,25 +963,25 @@ export function notificacoesPrimeModel(input: {
         value: countLabel(dueViews, ready),
         hint:
           openViews == null || sent7 == null
-            ? 'GET /admin/push/abandoned-views'
+ ? ''
             : `${openViews} em aberto · ${sent7} em 7 dias`,
       },
       {
         id: 'mail',
         label: 'E-mail da loja',
         value: mailStatus.label,
-        hint: opsReady ? 'GET /admin/ops mail' : 'aguardando snapshot',
+ hint: opsReady ? ' mail' : 'aguardando resumo',
         tone: mailStatus.tone === 'danger' ? 'danger' : undefined,
       },
     ],
     attention: alerts,
     signals,
     actions: [
-      { id: 'create', label: 'Nova campanha', hint: 'POST /admin/push/campaigns', figure: figure(devices, ready, 'aparelho(s)') },
+ { id: 'create', label: 'Nova campanha', hint: '', figure: figure(devices, ready, 'aparelho(s)') },
       {
         id: 'send',
         label: 'Disparar agendada',
-        hint: 'POST /admin/push/campaigns/:id/send',
+ hint: '',
         figure: figure(sendable, ready, 'pronta(s)'),
       },
       {
@@ -993,7 +993,7 @@ export function notificacoesPrimeModel(input: {
       {
         id: 'tokens',
         label: 'Aparelhos',
-        hint: 'POST /admin/push/test',
+ hint: '',
         figure: figure(tokens, ready, 'token(s)'),
       },
       {
@@ -1127,7 +1127,7 @@ export function marketplacePrimeModel(input: {
   return {
     summary,
     kpis: [
-      { id: 'sellers', label: 'Vendedores', value: countLabel(sellerTotal, ready), hint: 'GET /admin/sellers' },
+ { id: 'sellers', label: 'Vendedores', value: countLabel(sellerTotal, ready), hint: '' },
       { id: 'active', label: 'Ativos', value: countLabel(active, ready), hint: 'status active' },
       {
         id: 'pending',
@@ -1146,7 +1146,7 @@ export function marketplacePrimeModel(input: {
     attention: alerts,
     signals,
     actions: [
-      { id: 'create', label: 'Novo vendedor', hint: 'POST /admin/sellers', figure: null },
+ { id: 'create', label: 'Novo vendedor', hint: '', figure: null },
       {
         id: 'sellers',
         label: 'Vendedores',
@@ -1156,7 +1156,7 @@ export function marketplacePrimeModel(input: {
       {
         id: 'commissions',
         label: 'Comissões deste filtro',
-        hint: `GET /admin/commissions?status=${filter}`,
+ hint: ``,
         figure: figure(filterSeesPending ? pendingCommissionCount : null, ready, 'pendente(s)'),
       },
     ],

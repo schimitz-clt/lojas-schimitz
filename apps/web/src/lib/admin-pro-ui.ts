@@ -278,13 +278,13 @@ export function commissionLedgerConfirmCopy(input: {
     return {
       title: `Aprovar comissão de ${seller} (${amount})?`,
       detail:
-        'PATCH /admin/commissions/:id/approve. Ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
+        ' Ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
     };
   }
   return {
     title: `Marcar pago no ledger: ${seller} (${amount})?`,
     detail:
-      'PATCH /admin/commissions/:id/paid. Só o ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
+      ' Só o ledger local. Não cobra, não estorna e não grava no Mercado Pago.',
   };
 }
 
@@ -296,7 +296,7 @@ export function sellerStatusConfirmCopy(input: {
   const verb = input.toStatus === 'active' ? 'Ativar' : input.toStatus === 'suspended' ? 'Suspender' : 'Deixar pendente';
   return {
     title: `${verb} o vendedor ${name}?`,
-    detail: 'PATCH /admin/sellers/:id/status. Não abre OAuth e não grava no Mercado Pago.',
+ detail: ' Não abre OAuth e não grava no Mercado Pago.',
   };
 }
 

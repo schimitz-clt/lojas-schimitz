@@ -17,6 +17,7 @@ import {
   placeholderProductsCsv,
   summarizeInventoryOps,
   summarizeOps,
+  ymdMinusDays,
   summarizeOrderStatusCounts,
   summarizePaidAwaitingOrg,
   summarizeReconciliations,
@@ -765,4 +766,14 @@ console.log('admin-ops unit tests ok');
   const s = summarizeOps({ ...base });
   assert.equal(s.catalog.missingSupplierCount, null);
   assert.equal(summarizeOps({ ...base, productsMissingSupplier: 0 }).catalog.missingSupplierCount, 0);
+}
+
+// Janela de 7 dias para o seletor de período do painel.
+{
+  assert.equal(ymdMinusDays('2026-10-16', 6), '2026-10-10');
+  assert.equal(ymdMinusDays('2026-03-03', 6), '2026-02-25');
+  const base = { lowStockCount: 0, outOfStockCount: 0, placeholderProductCount: 0, pendingPaymentCount: 0 } as any;
+  assert.equal((summarizeOps(base) as any).sales.last7d, null, 'sem consulta = null');
+  const w = { from: '2026-10-10', to: '2026-10-16', orderCount: 2, revenue: 50 } as any;
+  assert.deepEqual((summarizeOps({ ...base, salesLast7d: w }) as any).sales.last7d.orderCount, 2);
 }

@@ -118,7 +118,7 @@ export function AdminMarketplaceSection() {
       <AdminPrimeCommand
         eyebrow="Marketplace"
         title="Vendedores e comissão do ledger."
-        endpoint="GET /admin/sellers · GET /admin/commissions · PATCH já existentes"
+ endpoint=""
         busy={savingSeller || Boolean(commissionBusyId) || Boolean(ownerBusyId)}
         onRefresh={() => void load()}
         nowLede={MARKETPLACE_NOW_LEDE}
@@ -298,7 +298,7 @@ export function AdminMarketplaceSection() {
             <p className="admin-empty">
               {storePayload === 'error'
                 ? 'Vendedores indisponíveis. Nenhum vínculo foi estimado.'
-                : 'Lendo GET /admin/sellers…'}
+ : 'Carregando…'}
             </p>
           ) : null}
         </div>
@@ -447,7 +447,7 @@ export function AdminMarketplaceSection() {
               ) : null}
               {storePayload !== 'ready' ? (
                 <p className="admin-empty">
-                  {storePayload === 'error' ? 'Comissões indisponíveis.' : 'Lendo GET /admin/commissions…'}
+ {storePayload === 'error' ? 'Comissões indisponíveis.' : 'Carregando…'}
                 </p>
               ) : null}
             </div>

@@ -8,8 +8,8 @@ import {
 } from './admin-audit-log-ui';
 
 assert.equal(auditActionLabel('product.updated'), 'Alterou produto');
-assert.equal(auditActionLabel('admin.http.PATCH /api/v1/admin/products/:id'), 'Alterou · products/:id');
-assert.equal(auditActionLabel('admin.http.DELETE /api/v1/admin/banners/:id'), 'Removeu · banners/:id');
+assert.equal(auditActionLabel('admin.http.PATCH /api/v1/admin/products/:id'), 'Alterou · produto');
+assert.equal(auditActionLabel('admin.http.DELETE /api/v1/admin/banners/:id'), 'Removeu · banner');
 assert.equal(auditActionLabel('algo.desconhecido'), 'algo.desconhecido');
 
 assert.equal(auditActorLabel(null), 'Sistema');
@@ -30,3 +30,6 @@ assert.equal(auditOutcomeLabel({ outcome: 'ok' }), '');
 assert.equal(auditLogQueryString({ entity: '', action: '', skip: 0 }), 'take=50');
 assert.equal(auditLogQueryString({ entity: 'products', action: ' refund ', skip: 50 }), 'entity=products&action=refund&take=50&skip=50');
 console.log('admin-audit-log-ui tests ok');
+
+assert.equal(auditActionLabel('admin.http.PUT /api/v1/admin/products/abc/supplier'), 'Alterou · fornecedor do produto');
+assert.equal(auditActionLabel('admin.http.POST /api/v1/admin/xyz'), 'Criou / executou · outra área');

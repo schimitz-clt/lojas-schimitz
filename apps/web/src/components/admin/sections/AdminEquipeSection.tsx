@@ -44,8 +44,8 @@ export function AdminEquipeSection() {
     <>
       <AdminPrimeCommand
         eyebrow="Equipe"
-        title="Administradores, um GET /admin/admins."
-        endpoint="GET /admin/admins · POST /admin/admins · PATCH /admin/admins/:id/status"
+ title="Administradores"
+ endpoint=""
         busy={savingAdmin}
         onRefresh={() => void load()}
         nowLede={EQUIPE_NOW_LEDE}
@@ -153,7 +153,7 @@ export function AdminEquipeSection() {
           {storePayload === 'ready' && !admins.length ? <p className="admin-empty">Nenhum administrador listado.</p> : null}
           {storePayload !== 'ready' ? (
             <p className="admin-empty">
-              {storePayload === 'error' ? 'Equipe indisponível. Nenhum admin foi estimado.' : 'Lendo GET /admin/admins…'}
+ {storePayload === 'error' ? 'Equipe indisponível. Nenhum admin foi estimado.' : 'Carregando…'}
             </p>
           ) : null}
         </div>

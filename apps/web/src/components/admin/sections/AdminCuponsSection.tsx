@@ -44,8 +44,8 @@ export function AdminCuponsSection() {
     <>
       <AdminPrimeCommand
         eyebrow="Cupons"
-        title="Descontos reais, um GET /admin/coupons."
-        endpoint="GET /admin/coupons · POST /admin/coupons · PATCH /admin/coupons/:id"
+ title="Descontos reais"
+ endpoint=""
         busy={savingCoupon}
         onRefresh={() => void load()}
         nowLede={CUPONS_NOW_LEDE}
@@ -209,7 +209,7 @@ export function AdminCuponsSection() {
           ) : null}
           {storePayload !== 'ready' ? (
             <p className="admin-empty">
-              {storePayload === 'error' ? 'Cupons indisponíveis. Nenhum uso foi estimado.' : 'Lendo GET /admin/coupons…'}
+ {storePayload === 'error' ? 'Cupons indisponíveis. Nenhum uso foi estimado.' : 'Carregando…'}
             </p>
           ) : null}
         </div>

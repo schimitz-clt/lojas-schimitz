@@ -137,16 +137,16 @@ assert.equal(shippingSortOrderLine(undefined).includes('—'), true);
 const approve = commissionLedgerConfirmCopy({ kind: 'approve', sellerName: 'Ana', amountLabel: 'R$ 0,00' });
 assert.ok(approve.title.includes('Ana'));
 assert.ok(approve.title.includes('R$ 0,00'));
-assert.ok(approve.detail.includes('PATCH /admin/commissions/:id/approve'));
+assert.ok(!approve.detail.includes('/admin/'));
 assert.ok(approve.detail.includes('Não cobra'));
 assert.ok(approve.detail.includes('não grava no Mercado Pago'));
 const paid = commissionLedgerConfirmCopy({ kind: 'paid', sellerName: '', amountLabel: '' });
 assert.ok(paid.title.includes('—'));
-assert.ok(paid.detail.includes('PATCH /admin/commissions/:id/paid'));
+assert.ok(!paid.detail.includes('/admin/'));
 assert.ok(paid.detail.includes('Não cobra'));
 const suspend = sellerStatusConfirmCopy({ name: 'Loja', toStatus: 'suspended' });
 assert.ok(suspend.title.includes('Suspender'));
-assert.ok(suspend.detail.includes('PATCH /admin/sellers/:id/status'));
+assert.ok(!suspend.detail.includes('/admin/'));
 assert.ok(suspend.detail.includes('Não abre OAuth'));
 
 const stats = couponListStats([

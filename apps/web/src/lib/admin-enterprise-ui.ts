@@ -13,10 +13,10 @@ export const ENTERPRISE_MISSING = '—';
 
 /** actorId is the only "who" the order history payload carries. No new RBAC. */
 export const ORDER_ACTOR_SCOPE =
-  'Quem fez: o histórico mostra actorId quando a API gravou. O nome da pessoa não vem neste payload.';
+  'Quem fez: o histórico mostra actorId quando a API gravou. O nome da pessoa não vem nestes dados.';
 
 export const CATALOG_BATCH_PHOTO_NOTE =
-  'Foto não entra neste lote: cada produto usa Enviar foto ou a galeria. Preço em lote continua em Importação / Lote, no mesmo POST /admin/products/batch.';
+  'Foto não entra neste lote: cada produto usa Enviar foto ou a galeria. Preço em lote continua em Importação / Lote, no mesmo ';
 
 export type EnterpriseField = { label: string; value: string };
 
@@ -270,8 +270,8 @@ export function fulfillmentConfirmCopy(input: {
   return {
     title: `Confirmar ${input.publicId}: ${from} → ${to}?`,
     detail: needsTracking
-      ? 'PATCH /admin/orders/:id/status. Rastreio é opcional e, se preenchido, aparece para o cliente. Sem cobrança e sem estorno.'
-      : 'PATCH /admin/orders/:id/status com o próximo status que o backend já aceita neste pedido. Sem cobrança e sem estorno.',
+ ? ' Rastreio é opcional e, se preenchido, aparece para o cliente. Sem cobrança e sem estorno.'
+ : ' com o próximo status que o backend já aceita neste pedido. Sem cobrança e sem estorno.',
   };
 }
 
@@ -310,7 +310,7 @@ export function partitionCatalogBatch<T extends CatalogBatchProduct>(
 
 export function catalogBatchRequestError(part: { skus: string[]; missingSku: unknown[] }): string | null {
   if (!part.skus.length && part.missingSku.length) {
-    return 'Os marcados não têm SKU neste payload. O lote usa POST /admin/products/batch por SKU. Nada foi enviado.';
+ return 'Os marcados não têm SKU nestes dados. O lote funciona por SKU. Nada foi enviado.';
   }
   return batchSelectionError(part.skus.length);
 }
@@ -360,15 +360,15 @@ export function catalogBatchConfirmText(
   value?: string,
 ): string {
   if (kind === 'stock-set') {
-    return `Definir estoque ${value} em ${count} SKU(s)? POST /admin/products/batch. O restante do catálogo não muda. Nada é apagado.`;
+ return `Definir estoque ${value} em ${count} SKU(s)? O restante do catálogo não muda. Nada é apagado.`;
   }
   if (kind === 'stock-delta') {
-    return `Ajustar estoque em ${value} (soma) em ${count} SKU(s)? POST /admin/products/batch. Nada é apagado.`;
+ return `Ajustar estoque em ${value} (soma) em ${count} SKU(s)? Nada é apagado.`;
   }
   if (kind === 'activate') {
-    return `Ativar ${count} SKU(s) na vitrine? POST /admin/products/batch. Nada é apagado.`;
+ return `Ativar ${count} SKU(s) na vitrine? Nada é apagado.`;
   }
-  return `Desativar ${count} SKU(s) na vitrine? POST /admin/products/batch. O cadastro permanece. Nada é apagado.`;
+ return `Desativar ${count} SKU(s) na vitrine? O cadastro permanece. Nada é apagado.`;
 }
 
 export function catalogBatchProgressLabel(count: number): string {

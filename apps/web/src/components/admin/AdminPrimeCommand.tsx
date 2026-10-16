@@ -11,7 +11,7 @@ export function scrollAdminAnchor(id: string) {
 }
 
 const LIST_LEDE =
-  'Cada item sai do payload já carregado: o problema, onde abrir e como resolver. Nada é estimado e nada se resolve sozinho.';
+  'Cada item sai do dados já carregado: o problema, onde abrir e como resolver. Nada é estimado e nada se resolve sozinho.';
 
 function toAttentionItem(item: PrimeAttentionItem) {
   return {
@@ -115,7 +115,7 @@ export function AdminPrimeCommand({
             : 'Nada precisa de atenção nesta lista.')
         }
         pendingTitle="Lendo a lista…"
-        pendingBody="Os alertas aparecem quando o endpoint responder. Nenhum número foi estimado."
+ pendingBody="Os alertas aparecem quando o sistema responder. Nenhum número foi estimado."
         unavailableTitle="Lista indisponível"
         unavailableBody="Nenhum número foi estimado."
         infoCount={signals.length}

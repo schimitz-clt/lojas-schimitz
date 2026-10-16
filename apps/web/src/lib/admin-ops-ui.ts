@@ -177,7 +177,7 @@ export const OPS_ATTENTION_HEADING = 'O que precisa de atenção?';
 export const OPS_DO_HEADING = 'O que posso fazer agora?';
 
 export const OPS_NOW_LEDE =
-  'Receita, filas e situação deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+  'Receita, filas e situação deste resumo. Zero continua zero. Sem resumo, o valor fica —.';
 
 export const OPS_DO_LEDE =
   'Atalhos para seções que já existem. Nenhum deles grava, estorna ou resolve sozinho.';
@@ -221,15 +221,15 @@ export function opsQuickActionFigure(
   if (!snap) return null;
   if (id === 'paid') {
     const n = finiteCount(snap.paidAwaiting);
-    return n == null ? null : `${n} no snapshot`;
+ return n == null ? null : `${n} no resumo`;
   }
   if (id === 'orders') {
     const n = finiteCount(snap.ordersTotal);
-    return n == null ? null : `${n} no snapshot`;
+ return n == null ? null : `${n} no resumo`;
   }
   if (id === 'photos') {
     const n = finiteCount(snap.placeholderPhotos);
-    return n == null ? null : `${n} no snapshot`;
+ return n == null ? null : `${n} no resumo`;
   }
   if (id === 'catalog') {
     const low = finiteCount(snap.lowStock);
@@ -262,14 +262,14 @@ function finiteOrNull(value: number | null | undefined): number | null {
 
 /** Pedidos command copy — counts still come only from the snapshot. */
 export const PEDIDOS_NOW_LEDE =
-  'Fila e pagos travados deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+  'Fila e pagos travados deste resumo. Zero continua zero. Sem resumo, o valor fica —.';
 
 export const PEDIDOS_DO_LEDE =
   'Filtros e buckets que já existem nesta fila. Nenhum deles estorna, cria status ou resolve sozinho.';
 
 /** Catálogo command copy — stock and photos already on the ops payload. */
 export const CATALOGO_NOW_LEDE =
-  'Estoque e fotos deste GET /admin/ops. Zero continua zero. Sem snapshot, o valor fica —.';
+  'Estoque e fotos deste resumo. Zero continua zero. Sem resumo, o valor fica —.';
 
 export const CATALOGO_DO_LEDE =
   'Atalhos para o painel de estoque, a fila de fotos e o CSV que já existem. Nada grava sozinho.';
@@ -410,8 +410,8 @@ export function pedidosNowSummary(
 ): string {
   if (!counts.ready) {
     return snapshot === 'error'
-      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
-      : 'Lendo o snapshot…';
+ ? 'Resumo operacional indisponível. Nenhum número foi estimado.'
+ : 'Lendo o resumo…';
   }
   const bits: string[] = [];
   if (counts.paidAwaiting != null) {
@@ -419,7 +419,7 @@ export function pedidosNowSummary(
   }
   if (counts.stuckPaid != null) bits.push(`${counts.stuckPaid} pago(s) travado(s).`);
   if (counts.legacyStuck != null) bits.push(`${counts.legacyStuck} legado(s) em separando/saiu.`);
-  if (!bits.length) return 'O snapshot não trouxe contagens de fila.';
+ if (!bits.length) return 'O resumo não trouxe contagens de fila.';
   return bits.join(' ');
 }
 
@@ -439,14 +439,14 @@ export function pedidosQuickActionFigure(
   counts: PedidosCommandCounts,
 ): string | null {
   if (!counts.ready) return null;
-  if (id === 'paid') return counts.paidAwaiting == null ? null : `${counts.paidAwaiting} no snapshot`;
-  if (id === 'stuck') return counts.stuckPaid == null ? null : `${counts.stuckPaid} no snapshot`;
+ if (id === 'paid') return counts.paidAwaiting == null ? null : `${counts.paidAwaiting} no resumo`;
+ if (id === 'stuck') return counts.stuckPaid == null ? null : `${counts.stuckPaid} no resumo`;
   if (id === 'problems') {
     const bucket = counts.buckets ? finiteOrNull(counts.buckets.problems) : null;
-    return bucket == null ? null : `${bucket} no snapshot`;
+ return bucket == null ? null : `${bucket} no resumo`;
   }
   if (id === 'awaiting') {
-    return counts.awaitingPayment == null ? null : `${counts.awaitingPayment} no snapshot`;
+ return counts.awaitingPayment == null ? null : `${counts.awaitingPayment} no resumo`;
   }
   return null;
 }
@@ -494,8 +494,8 @@ export function catalogoNowSummary(
 ): string {
   if (!counts.ready) {
     return snapshot === 'error'
-      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
-      : 'Lendo o snapshot…';
+ ? 'Resumo operacional indisponível. Nenhum número foi estimado.'
+ : 'Lendo o resumo…';
   }
   const bits: string[] = [];
   if (counts.lowStock != null) bits.push(`${counts.lowStock} com estoque baixo.`);
@@ -503,14 +503,14 @@ export function catalogoNowSummary(
   if (counts.placeholderPhotos != null) {
     bits.push(`${counts.placeholderPhotos} com foto placeholder ou ausente.`);
   }
-  if (!bits.length) return 'O snapshot não trouxe estoque nem fotos.';
+ if (!bits.length) return 'O resumo não trouxe estoque nem fotos.';
   return bits.join(' ');
 }
 
 export const CATALOGO_QUICK_ACTIONS = [
   { id: 'stock', label: 'Abrir estoque', hint: 'Rola até o painel de estoque baixo' },
   { id: 'photos', label: 'Trocar fotos', hint: 'Abre a fila sem foto / placeholder' },
-  { id: 'csv', label: 'Baixar CSV', hint: 'GET /admin/ops/products-needing-photos' },
+ { id: 'csv', label: 'Baixar CSV', hint: '' },
   { id: 'form', label: 'Cadastrar produto', hint: 'Abre o formulário que já existe' },
 ] as const;
 
@@ -530,36 +530,36 @@ export function catalogoQuickActionFigure(
     return bits.join(' · ');
   }
   if (id === 'photos') {
-    return counts.placeholderPhotos == null ? null : `${counts.placeholderPhotos} no snapshot`;
+ return counts.placeholderPhotos == null ? null : `${counts.placeholderPhotos} no resumo`;
   }
   return null;
 }
 
 /** Vendas command copy — revenue windows are the ops snapshot, not a second calculation. */
 export const VENDAS_NOW_LEDE =
-  'Receita de hoje e de 30 dias deste GET /admin/ops — a mesma janela do Centro de comando. Zero continua zero. Sem janela, o valor fica —.';
+  'Receita de hoje e de 30 dias deste resumo. — a mesma janela do Centro de comando. Zero continua zero. Sem janela, o valor fica —.';
 
 export const VENDAS_DO_LEDE =
   'Período, CSV do relatório já carregado e atalhos para Pedidos e Clientes. Nenhum deles cobra, estorna ou grava venda.';
 
 export const VENDAS_EVIDENCE_LEDE =
-  'Evidência do período em GET /admin/reports/sales. Campo ausente fica —. Zero continua zero. A tabela não completa dias que a API não devolveu.';
+  'Resultado do período. Campo ausente fica —. Zero continua zero. A tabela não completa dias sem dados.';
 
 export const VENDAS_READONLY_NOTE =
-  'Vendas é leitura. Não há cobrança, estorno nem gravação neste relatório. O CSV baixa o GET /admin/reports/sales já carregado. O payload não traz cliente por venda — o atalho abre o CRM.';
+  'Vendas é leitura. Não há cobrança, estorno nem gravação neste relatório. O CSV baixa o  já carregado. O dados não traz cliente por venda — o atalho abre o CRM.';
 
 export const VENDAS_CHART_FILL_NOTE =
-  'O gráfico completa dias sem pedido pago com zero para a linha ficar contínua. A tabela Por dia lista só as datas que GET /admin/reports/sales devolveu.';
+  'O gráfico completa dias sem pedido pago com zero para a linha ficar contínua. A tabela Por dia lista só as datas que  devolveu.';
 
 export const VENDAS_REPORT_MISSING =
-  'O relatório não veio. Atualizar lê GET /admin/reports/sales de novo. Nenhum total foi estimado.';
+  'O relatório não carregou. Toque em Atualizar para tentar de novo. Nenhum total foi estimado.';
 
 export const VENDAS_QUICK_ACTIONS = [
-  { id: 'today', label: 'Relatório de hoje', hint: 'GET /admin/reports/sales na janela de hoje' },
-  { id: 'days30', label: 'Relatório de 30 dias', hint: 'GET /admin/reports/sales na janela do snapshot' },
+ { id: 'today', label: 'Relatório de hoje', hint: ' na janela de hoje' },
+ { id: 'days30', label: 'Relatório de 30 dias', hint: ' na janela do resumo' },
   { id: 'csv', label: 'Exportar CSV', hint: 'Arquivo do relatório já carregado' },
   { id: 'pedidos', label: 'Abrir Pedidos', hint: 'Fila que já existe' },
-  { id: 'clientes', label: 'Abrir Clientes', hint: 'CRM — este payload não traz o cliente' },
+ { id: 'clientes', label: 'Abrir Clientes', hint: 'CRM — este dados não traz o cliente' },
 ] as const;
 
 export type VendasQuickActionId = (typeof VENDAS_QUICK_ACTIONS)[number]['id'];
@@ -651,12 +651,12 @@ export function vendasNowSummary(
 ): string {
   if (!counts.ready) {
     return snapshot === 'error'
-      ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
-      : 'Lendo o snapshot…';
+ ? 'Resumo operacional indisponível. Nenhum número foi estimado.'
+ : 'Lendo o resumo…';
   }
   return [
-    vendasWindowSentence('Hoje', counts.today, 'Receita de hoje não veio neste snapshot.'),
-    vendasWindowSentence('30 dias', counts.last30d, 'Receita de 30 dias não veio neste snapshot.'),
+ vendasWindowSentence('Hoje', counts.today, 'Receita de hoje não veio neste resumo.'),
+ vendasWindowSentence('30 dias', counts.last30d, 'Receita de 30 dias não veio neste resumo.'),
   ].join(' ');
 }
 
@@ -666,9 +666,9 @@ export function vendasQuickActionFigure(
   counts: VendasCommandCounts,
 ): string | null {
   if (!counts.ready) return null;
-  if (id === 'today') return counts.today?.orderCount == null ? null : `${counts.today.orderCount} no snapshot`;
+ if (id === 'today') return counts.today?.orderCount == null ? null : `${counts.today.orderCount} no resumo`;
   if (id === 'days30') {
-    return counts.last30d?.orderCount == null ? null : `${counts.last30d.orderCount} no snapshot`;
+ return counts.last30d?.orderCount == null ? null : `${counts.last30d.orderCount} no resumo`;
   }
   return null;
 }
@@ -691,9 +691,9 @@ export function salesWindowAlignmentNote(
   if (typeof reportOrderCount !== 'number' || !Number.isFinite(reportOrderCount)) return null;
   const reportN = Math.trunc(reportOrderCount);
   if (reportN === window.orderCount) {
-    return `${windowLabel}: relatório ${reportN} pedido(s) pagos · igual ao snapshot.`;
+ return `${windowLabel}: relatório ${reportN} pedido(s) pagos · igual ao resumo.`;
   }
-  return `${windowLabel}: relatório ${reportN} pedido(s) pagos · snapshot ${window.orderCount}. O relatório é GET /admin/reports/sales; o snapshot é GET /admin/ops.`;
+ return `${windowLabel}: relatório ${reportN} pedido(s) pagos · resumo ${window.orderCount}. O relatório e o painel geral são contados separadamente.`;
 }
 
 /** Shown when the loaded report period matches neither snapshot window that actually has dates. */
@@ -708,7 +708,7 @@ export function salesReportOutsideSnapshotNote(
   if (!windows.length) return null;
   const match = windows.some((window) => window?.from === reportFrom && window?.to === reportTo);
   if (match) return null;
-  return 'O recorte do relatório não é a janela de hoje nem a de 30 dias deste snapshot. Os números não são comparados.';
+ return 'O recorte do relatório não é a janela de hoje nem a de 30 dias deste resumo. Os números não são comparados.';
 }
 
 /**
@@ -724,8 +724,8 @@ export function snapshotListAlignmentNote(
   const snap = finiteOrNull(snapshotCount);
   if (snap == null) return null;
   const list = Math.max(0, Math.trunc(Number(listCount) || 0));
-  if (snap === list) return `Lista carregada: ${list} · igual ao snapshot.`;
-  return `Lista carregada: ${list} · snapshot: ${snap}. A lista é o que esta tela já leu; o snapshot é GET /admin/ops.`;
+ if (snap === list) return `Lista carregada: ${list} · igual ao resumo.`;
+ return `Lista carregada: ${list} · resumo: ${snap}. A lista é o que esta tela já leu; o resumo é o painel geral`;
 }
 
 export function formatOpsSnapshotTime(iso?: string | null): string {
@@ -777,8 +777,7 @@ export function opsUploadsStatusLabel(
   uploads: { persistent?: boolean; dir?: string | null } | null | undefined,
 ): string | null {
   if (!uploads || typeof uploads.persistent !== 'boolean') return null;
-  const dir = uploads.dir ? ` · ${uploads.dir}` : '';
-  return uploads.persistent ? `Volume persistente${dir}` : `Disco efêmero${dir}`;
+  return uploads.persistent ? 'Fotos guardadas com segurança' : 'Fotos em disco temporário (podem sumir no próximo deploy)';
 }
 
 /**
@@ -788,14 +787,14 @@ export function opsUploadsStatusLabel(
 export function opsAttentionEmptyMessage(infoCount = 0): string {
   const extra = Math.max(0, Math.floor(Number(infoCount) || 0));
   if (extra > 0) {
-    return 'Nenhum alerta crítico, urgente ou de atenção neste snapshot. Sinais informativos continuam na lista abaixo.';
+ return 'Nenhum alerta crítico, urgente ou de atenção neste resumo. Sinais informativos continuam na lista abaixo.';
   }
-  return 'Nada precisa de atenção neste snapshot.';
+ return 'Nada precisa de atenção neste resumo.';
 }
 
 /** Shown when GET /admin/ops did not return — never fill with invented counts. */
 export function opsAttentionUnavailableMessage(): string {
-  return 'Snapshot operacional indisponível. Nenhum número foi estimado — atualize para ler GET /admin/ops.';
+ return 'Resumo indisponível agora. Nenhum número foi estimado. Toque em Atualizar para tentar de novo.';
 }
 
 /** PT severity chip for ATENÇÃO AGORA — never leave English "high"/"warn". */
