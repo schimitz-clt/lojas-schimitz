@@ -25,6 +25,10 @@ import { LoginAttemptService } from './login-attempt.service';
 import { registerDuplicateConflict } from './register-public';
 import { signupEmailCheck } from './signup-email';
 import { signupCpfCheck } from './signup-cpf';
+import type { JwtSignOptions } from '@nestjs/jwt';
+
+// @nestjs/jwt 11 tipa expiresIn como number | StringValue; o env segue o mesmo formato ('15m', '30d').
+type JwtExpiresIn = JwtSignOptions['expiresIn'];
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1h
 const RESET_MAX_PER_EMAIL = 3;
@@ -567,7 +571,7 @@ export class AuthService {
       { sub, email, role, jti: randomUUID() },
       {
         secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m',
+        expiresIn: (process.env.JWT_ACCESS_EXPIRES || '15m') as JwtExpiresIn,
       },
     );
     const jti = randomUUID();
@@ -575,7 +579,7 @@ export class AuthService {
       { sub, typ: 'refresh', jti },
       {
         secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES || '30d',
+        expiresIn: (process.env.JWT_REFRESH_EXPIRES || '30d') as JwtExpiresIn,
       },
     );
     const tokenHash = await argon2.hash(refreshToken);

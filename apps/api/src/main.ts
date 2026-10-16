@@ -68,6 +68,8 @@ async function bootstrap() {
 
   // Railway / proxies
   app.set('trust proxy', 1);
+  // Express 5 mudou o padrão para 'simple'; mantém o parser de query do Express 4 (contrato da API).
+  app.set('query parser', 'extended');
 
   setupSwagger(app, prefix);
 

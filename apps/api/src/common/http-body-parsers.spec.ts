@@ -119,7 +119,8 @@ async function main() {
     'application/json',
     JSON.stringify(LOGIN_JSON),
   );
-  const brokenBody = JSON.parse(broken.text);
+  // Express 5: sem parser, req.body fica undefined (Express 4: {}); a resposta vira null.
+  const brokenBody = JSON.parse(broken.text) ?? {};
   assert.equal(broken.status, 200);
   assert.equal(brokenBody.email, undefined, 'CSP-only parsers must leave application/json empty (repro)');
   assert.equal(brokenBody.password, undefined);
