@@ -69,7 +69,7 @@ export function AdminClientesSection() {
       <AdminPrimeCommand
         eyebrow="Clientes"
         title="Cadastro e histórico, só leitura."
-        endpoint="GET /admin/customers · GET /admin/customers/:id"
+ endpoint=""
         busy={customerBusy}
         onRefresh={() => void loadCustomers(customerQ)}
         nowLede={CLIENTES_NOW_LEDE}
@@ -170,7 +170,7 @@ export function AdminClientesSection() {
                 <p className="admin-empty">
                   {customersSnapshot === 'error'
                     ? 'Lista indisponível. Nenhum cliente foi estimado.'
-                    : 'Lendo GET /admin/customers…'}
+ : 'Carregando…'}
                 </p>
               ) : null}
             </div>

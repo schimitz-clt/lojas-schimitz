@@ -47,7 +47,7 @@ assert.equal(copied[0], fakeA);
 assert.equal(liveBox.value, '');
 // Simulate Android Chrome: clearing value empties the live FileList.
 liveBox.files = fakeFileList([]);
-assert.equal(copied.length, 2, 'snapshot must survive clearing input.value');
+assert.equal(copied.length, 2, 'resumo must survive clearing input.value');
 assert.equal(snapshotSelectedFiles(liveBox.files).length, 0);
 
 assert.equal(photoUploadProgressLabel(1, 3), 'Enviando… 1/3');

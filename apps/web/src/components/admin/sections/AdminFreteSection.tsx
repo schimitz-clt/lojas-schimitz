@@ -56,8 +56,8 @@ export function AdminFreteSection() {
     <>
       <AdminPrimeCommand
         eyebrow="Frete"
-        title="Entrega própria, um GET /admin/shipping."
-        endpoint="GET /admin/shipping · PATCH /admin/shipping/settings · POST/PATCH/DELETE /admin/shipping/rules"
+ title="Entrega própria"
+ endpoint=""
         busy={savingShipping || savingCepRule}
         onRefresh={() => void load()}
         nowLede={FRETE_NOW_LEDE}
@@ -239,7 +239,7 @@ export function AdminFreteSection() {
               ) : null}
               {storePayload !== 'ready' ? (
                 <p className="admin-empty">
-                  {storePayload === 'error' ? 'Frete indisponível. Nenhuma zona foi estimada.' : 'Lendo GET /admin/shipping…'}
+ {storePayload === 'error' ? 'Frete indisponível. Nenhuma zona foi estimada.' : 'Carregando…'}
                 </p>
               ) : null}
             </div>

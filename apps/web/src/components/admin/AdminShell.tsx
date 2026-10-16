@@ -53,13 +53,13 @@ function badgeFor(
 
 function pageLead(section: AdminSectionId, description: string): string {
   if (section === 'ops') {
-    return 'O que está acontecendo, o que precisa de atenção e o que dá para fazer agora — só com o snapshot real.';
+ return 'O que está acontecendo, o que precisa de atenção e o que dá para fazer agora — só com o resumo real.';
   }
   if (section === 'pedidos') {
-    return 'Fila real: pagos travados, buckets do snapshot e os filtros que já existem.';
+ return 'Fila real: pagos travados, buckets do resumo e os filtros que já existem.';
   }
   if (section === 'catalogo') {
-    return 'Estoque e fotos do snapshot, com a lista carregada e os atalhos que já existem.';
+ return 'Estoque e fotos do resumo, com a lista carregada e os atalhos que já existem.';
   }
   return description;
 }
@@ -191,12 +191,12 @@ export function AdminShell({
         </div>
         <div className="admin-header__actions">
           {showAlertChip && alertCount > 0 ? (
-            <span className="admin-header__chip" title="Alertas no snapshot">
+ <span className="admin-header__chip" title="Alertas no resumo">
               {alertCount} alerta{alertCount === 1 ? '' : 's'}
             </span>
           ) : null}
           {showAlertChip && alertCount === 0 ? (
-            <span className="admin-header__chip admin-header__chip--quiet" title="Snapshot sem alertas">
+ <span className="admin-header__chip admin-header__chip--quiet" title="Resumo sem alertas">
               Sem alertas
             </span>
           ) : null}

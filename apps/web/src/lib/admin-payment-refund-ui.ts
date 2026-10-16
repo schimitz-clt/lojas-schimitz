@@ -107,7 +107,7 @@ export function paymentRefundConfirmCopy(input: {
       `Pedido ${publicId} · id ${orderId}.`,
       `Pagamento ${paymentId}.`,
       `Valor ${amount}.`,
-      'POST /admin/payments/:id/refund.',
+      '',
       'O dinheiro sai pelo Mercado Pago na hora.',
       restockSentence(input.orderStatus),
       'Voltar não chama a API.',

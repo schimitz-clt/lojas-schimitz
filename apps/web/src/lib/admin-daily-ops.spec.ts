@@ -140,7 +140,7 @@ assert.equal(filterCatalogProducts(products, 'all').length, 4);
 
 assert.ok(photoQueueAlignmentNote(3, 3).includes('alinhado'));
 assert.ok(photoQueueAlignmentNote(5, 3).includes('Lista: 3'));
-assert.ok(photoQueueAlignmentNote(5, 3).includes('Ops (snapshot): 5'));
+assert.ok(photoQueueAlignmentNote(5, 3).includes('Ops (resumo): 5'));
 assert.ok(photoQueueAlignmentNote(null, 2).includes('2 produto'));
 
 assert.equal(shouldPromoteUploadedImageToCover(''), true);

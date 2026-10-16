@@ -318,12 +318,10 @@ export function AdminCatalogoSection() {
       <header className="admin-cc-banner">
         <div>
           <p className="admin-cc-banner__eyebrow">Catálogo</p>
-          <p className="admin-cc-banner__title">Estoque e fotos, um snapshot.</p>
+          <p className="admin-cc-banner__title">Estoque e fotos, um resumo.</p>
           <p className="admin-cc-banner__meta">
-            Snapshot{' '}
+            Atualizado às{' '}
             {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
-            {' · '}
-            GET /admin/ops
           </p>
         </div>
         <button
@@ -351,7 +349,7 @@ export function AdminCatalogoSection() {
             <div className="admin-cc-kpi__value">{opsCountOrDash(counts.lowStock, ready)}</div>
             <div className="admin-cc-kpi__hint">
               {!ready
-                ? 'aguardando snapshot'
+ ? 'aguardando resumo'
                 : counts.lowStockThreshold != null
                   ? `limite ≤${counts.lowStockThreshold}`
                   : 'limite —'}
@@ -362,7 +360,7 @@ export function AdminCatalogoSection() {
             <div className={`admin-cc-kpi__value${(counts.outOfStock ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
               {opsCountOrDash(counts.outOfStock, ready)}
             </div>
-            <div className="admin-cc-kpi__hint">qty em mãos = 0 no snapshot</div>
+            <div className="admin-cc-kpi__hint">sem unidades em estoque</div>
           </button>
           <button
             type="button"
@@ -441,7 +439,7 @@ export function AdminCatalogoSection() {
           </div>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
             Produtos já carregados com estoque em mãos igual ou abaixo do limite local. Clique em Editar para repor.
-            O número da faixa é o snapshot (GET /admin/ops), não o tamanho desta lista.
+ O número da faixa é o resumo, não o tamanho desta lista.
           </p>
           {stockAlign ? <p className="admin-cc-work__note">{stockAlign}</p> : null}
           {lowStockProducts.length ? (
@@ -476,7 +474,7 @@ export function AdminCatalogoSection() {
           ) : (
             <p className="muted" style={{ marginBottom: 0 }}>
               {ready && counts.lowStock != null && counts.lowStock > 0
-                ? 'Nenhum produto abaixo do limite nesta lista carregada. O snapshot ainda registra estoque baixo.'
+ ? 'Nenhum produto abaixo do limite nesta lista carregada. O resumo ainda registra estoque baixo.'
                 : 'Nenhum produto abaixo do limite nesta lista.'}
             </p>
           )}
@@ -490,10 +488,10 @@ export function AdminCatalogoSection() {
       </p>
       <div className="admin-cc-work">
         <div className="admin-cc-work__head">
-          <h3>Checklist do snapshot</h3>
+          <h3>Checklist do resumo</h3>
         </div>
         <p className="admin-cc-work__note">
-          Produtos que GET /admin/ops marcou com foto ausente ou host placeholder. Nenhuma imagem é inventada.
+ Produtos marcados com foto ausente ou host placeholder. Nenhuma imagem é inventada.
         </p>
         {ops?.catalog?.placeholderProducts?.length ? (
           <ul className="admin-cc-photo-list">
@@ -523,12 +521,12 @@ export function AdminCatalogoSection() {
         ) : (
           <p className="admin-cc-empty">
             {!ready
-              ? 'A lista aparece quando o snapshot carregar.'
+ ? 'A lista aparece quando o resumo carregar.'
               : counts.placeholderPhotos == null
-                ? 'O snapshot não trouxe a lista de fotos.'
+ ? 'O resumo não trouxe a lista de fotos.'
                 : counts.placeholderPhotos === 0
-                  ? 'Nenhum produto com placeholder ou foto ausente neste snapshot.'
-                  : `${counts.placeholderPhotos} no snapshot — a lista de nomes não veio neste payload. Use a fila abaixo.`}
+ ? 'Nenhum produto com placeholder ou foto ausente neste resumo.'
+ : `${counts.placeholderPhotos} no resumo — a lista de nomes não veio nestes dados. Use a fila abaixo.`}
           </p>
         )}
       </div>
@@ -558,7 +556,7 @@ export function AdminCatalogoSection() {
           <AdminStatusChip
             label={`Ops: ${ops.catalog.placeholderProductCount}`}
             tone={photoQueueCount > 0 ? 'warn' : 'ok'}
-            title="Contagem do snapshot GET /admin/ops — Foto p/ trocar"
+ title="Contagem do resumo — Foto p/ trocar"
           />
         ) : null}
         <button
@@ -796,7 +794,7 @@ export function AdminCatalogoSection() {
           <div className="admin-ent-sheet__head">
             <div>
               <p className="admin-ent-kicker">
-                {editingId ? 'Edição · PATCH /admin/products/:id' : 'Novo produto · POST /admin/products'}
+ {editingId ? 'Edição' : 'Novo produto'}
               </p>
               <h2>{editingLabel}</h2>
             </div>

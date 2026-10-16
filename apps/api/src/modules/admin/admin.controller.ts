@@ -27,6 +27,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { ymdMinusDays } from './admin-ops';
 import { AdminProductSupplierDto, grossMarginPct, toProductSupplierView } from './product-supplier';
 import { PrismaService } from '../../prisma.service';
 import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
@@ -139,6 +140,7 @@ export class AdminController {
     const todayYmd = saoPauloYmd(new Date());
     const todayRange = parseSalesDateRange(todayYmd, todayYmd);
     const last30 = parseSalesDateRange(undefined, todayYmd); // default last 30d inclusive
+    const last7 = parseSalesDateRange(ymdMinusDays(todayYmd, 6), todayYmd); // 7 dias inclusive
     const paidStatuses = [...PAID_REVENUE_STATUSES] as OrderStatus[];
 
     const [
@@ -150,6 +152,7 @@ export class AdminController {
       salesTodayAgg,
       salesLast30Agg,
       shippingRows,
+      salesLast7Agg,
     ] = await Promise.all([
       this.prisma.inventory.count({
         where: { qtyOnHand: { lte: threshold }, product: { isDemo: false } },
@@ -190,6 +193,14 @@ export class AdminController {
         where: { active: true, isDemo: false },
         select: SHIPPING_DATA_SELECT,
         orderBy: { name: 'asc' },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          status: { in: paidStatuses },
+          createdAt: { gte: last7.fromDate, lt: last7.toDateExclusive },
+        },
+        _count: { _all: true },
+        _sum: { total: true },
       }),
     ]);
 
@@ -323,6 +334,12 @@ export class AdminController {
           to: todayRange.to,
           orderCount: salesTodayAgg._count._all,
           revenue: Number(salesTodayAgg._sum.total ?? 0),
+        }),
+        salesLast7d: summarizeSalesWindow({
+          from: last7.from,
+          to: last7.to,
+          orderCount: salesLast7Agg._count._all,
+          revenue: Number(salesLast7Agg._sum.total ?? 0),
         }),
         salesLast30d: summarizeSalesWindow({
           from: last30.from,

@@ -121,13 +121,13 @@ assert.equal(opsAlertSeverityLabelPt('info'), 'INFO');
 assert.equal(OPS_NOW_HEADING, 'O que está acontecendo agora?');
 assert.equal(OPS_ATTENTION_HEADING, 'O que precisa de atenção?');
 assert.equal(OPS_DO_HEADING, 'O que posso fazer agora?');
-assert.ok(OPS_NOW_LEDE.includes('GET /admin/ops'));
+assert.ok(!OPS_NOW_LEDE.includes('/admin/'));
 assert.ok(OPS_DO_LEDE.includes('seções'));
 assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'push' && /campanha/i.test(a.label)));
 assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'catalog'));
 assert.ok(OPS_QUICK_ACTIONS.some((a) => a.id === 'paid'));
 assert.equal(opsQuickActionFigure('paid', null), null);
-assert.equal(opsQuickActionFigure('paid', { paidAwaiting: 0 }), '0 no snapshot');
+assert.equal(opsQuickActionFigure('paid', { paidAwaiting: 0 }), '0 no resumo');
 assert.equal(opsQuickActionFigure('push', { paidAwaiting: 4 }), null);
 assert.equal(opsQuickActionFigure('recon', {}), null);
 assert.equal(opsQuickActionFigure('recon', { openRecon: 2 }), '2 aberta(s)');
@@ -139,9 +139,9 @@ assert.equal(opsCountOrDash(0, true), '0');
 assert.equal(opsCountOrDash(null, true), '—');
 assert.equal(opsCountOrDash(3, false), '—');
 
-assert.ok(PEDIDOS_NOW_LEDE.includes('GET /admin/ops'));
+assert.ok(!PEDIDOS_NOW_LEDE.includes('/admin/'));
 assert.ok(PEDIDOS_DO_LEDE.includes('buckets'));
-assert.ok(CATALOGO_NOW_LEDE.includes('GET /admin/ops'));
+assert.ok(!CATALOGO_NOW_LEDE.includes('/admin/'));
 assert.ok(CATALOGO_DO_LEDE.includes('CSV'));
 assert.ok(PEDIDOS_QUICK_ACTIONS.some((a) => a.id === 'paid'));
 assert.ok(PEDIDOS_QUICK_ACTIONS.some((a) => a.id === 'stuck'));
@@ -163,7 +163,7 @@ assert.ok(CATALOGO_QUICK_ACTIONS.some((a) => a.id === 'csv'));
   assert.equal(pedidosQuickActionFigure('paid', blank), null);
   assert.equal(pedidosQuickActionFigure('stuck', blank), null);
   assert.equal(pedidosQuickActionFigure('no_shipping', blank), null);
-  assert.equal(pedidosNowSummary(blank, 'pending'), 'Lendo o snapshot…');
+  assert.equal(pedidosNowSummary(blank, 'pending'), 'Lendo o resumo…');
   const unavailable = pedidosNowSummary(blank, 'error');
   assert.ok(unavailable.includes('indisponível'));
   assert.equal(/\d/.test(unavailable), false);
@@ -175,7 +175,7 @@ assert.ok(CATALOGO_QUICK_ACTIONS.some((a) => a.id === 'csv'));
   assert.equal(opsCountOrDash(catalogBlank.lowStock, catalogBlank.ready), '—');
   assert.equal(catalogoQuickActionFigure('photos', catalogBlank), null);
   assert.equal(catalogoQuickActionFigure('stock', catalogBlank), null);
-  assert.equal(catalogoNowSummary(catalogBlank, 'pending'), 'Lendo o snapshot…');
+  assert.equal(catalogoNowSummary(catalogBlank, 'pending'), 'Lendo o resumo…');
   assert.equal(/\d/.test(catalogoNowSummary(catalogBlank, 'error')), false);
   assert.equal(snapshotListAlignmentNote(null, 4, false), null);
   assert.equal(snapshotListAlignmentNote(null, 4, true), null);
@@ -204,7 +204,7 @@ assert.ok(CATALOGO_QUICK_ACTIONS.some((a) => a.id === 'csv'));
   assert.equal(zero.legacyStuck, 0);
   assert.equal(opsCountOrDash(zero.paidAwaiting, true), '0');
   assert.equal(opsCountOrDash(zero.stuckPaid, true), '0');
-  assert.equal(pedidosQuickActionFigure('paid', zero), '0 no snapshot');
+  assert.equal(pedidosQuickActionFigure('paid', zero), '0 no resumo');
   assert.equal(zero.oldestStuckHours, null);
   assert.deepEqual(zero.stuckPublicIds, []);
 
@@ -230,10 +230,10 @@ assert.ok(CATALOGO_QUICK_ACTIONS.some((a) => a.id === 'csv'));
   assert.equal(catalogZero.placeholderPhotos, 0);
   assert.equal(opsCountOrDash(catalogZero.outOfStock, true), '0');
   assert.equal(catalogoQuickActionFigure('stock', catalogZero), 'baixo 0 · zerados 0');
-  assert.equal(catalogoQuickActionFigure('photos', catalogZero), '0 no snapshot');
+  assert.equal(catalogoQuickActionFigure('photos', catalogZero), '0 no resumo');
   assert.equal(catalogoQuickActionFigure('csv', catalogZero), null);
-  assert.equal(snapshotListAlignmentNote(2, 2, true), 'Lista carregada: 2 · igual ao snapshot.');
-  assert.ok(snapshotListAlignmentNote(7, 1, true)?.includes('snapshot: 7'));
+  assert.equal(snapshotListAlignmentNote(2, 2, true), 'Lista carregada: 2 · igual ao resumo.');
+  assert.ok(snapshotListAlignmentNote(7, 1, true)?.includes('resumo: 7'));
 
   const catalogPartial = catalogoCommandCounts({ inventory: { lowStockCount: 4 } }, true);
   assert.equal(catalogPartial.lowStock, 4);
@@ -312,8 +312,8 @@ assert.equal(opsMailFailureCountLabel(0, true), '0', 'zero mail failures stay ze
 assert.equal(opsMailFailureCountLabel(2, false), '—');
 assert.equal(opsMailFailureCountLabel(null, true), '—');
 assert.equal(opsUploadsStatusLabel(null), null);
-assert.equal(opsUploadsStatusLabel({ persistent: true, dir: '/data/uploads' }), 'Volume persistente · /data/uploads');
-assert.equal(opsUploadsStatusLabel({ persistent: false }), 'Disco efêmero');
+assert.equal(opsUploadsStatusLabel({ persistent: true, dir: '/data/uploads' }), 'Fotos guardadas com segurança');
+assert.equal(opsUploadsStatusLabel({ persistent: false }), 'Fotos em disco temporário (podem sumir no próximo deploy)');
 assert.equal(opsAlertDestination({ code: 'out_of_stock', severity: 'critical' }).kind, 'catalog');
 assert.equal(opsAlertDestination({ code: 'low_stock', severity: 'warn' }).kind, 'catalog');
 assert.equal(
@@ -333,9 +333,9 @@ assert.equal(
 );
 assert.equal(opsAlertCtaHintPt({ code: 'out_of_stock', severity: 'critical' }), '→ Catálogo (estoque)');
 assert.equal(opsAlertCtaHintPt({ code: 'placeholder_photos', severity: 'info', section: 'catalog' }), '→ Catálogo (fotos)');
-assert.ok(VENDAS_NOW_LEDE.includes('GET /admin/ops'));
+assert.ok(!VENDAS_NOW_LEDE.includes('/admin/'));
 assert.ok(VENDAS_DO_LEDE.includes('CSV'));
-assert.ok(VENDAS_EVIDENCE_LEDE.includes('GET /admin/reports/sales'));
+assert.ok(!VENDAS_EVIDENCE_LEDE.includes('/admin/'));
 assert.ok(VENDAS_READONLY_NOTE.includes('estorno'));
 assert.ok(VENDAS_READONLY_NOTE.includes('CSV'));
 assert.ok(VENDAS_QUICK_ACTIONS.some((a) => a.id === 'csv'));
@@ -350,7 +350,7 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   assert.equal(blank.last30d, null);
   assert.equal(vendasQuickActionFigure('today', blank), null);
   assert.equal(vendasQuickActionFigure('csv', blank), null);
-  assert.equal(vendasNowSummary(blank, 'pending'), 'Lendo o snapshot…');
+  assert.equal(vendasNowSummary(blank, 'pending'), 'Lendo o resumo…');
   const unavailable = vendasNowSummary(blank, 'error');
   assert.ok(unavailable.includes('indisponível'));
   assert.equal(/\d/.test(unavailable), false);
@@ -359,8 +359,8 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   assert.equal(omitted.today, null);
   assert.equal(omitted.last30d, null);
   const omittedText = vendasNowSummary(omitted, 'ready');
-  assert.ok(omittedText.includes('Receita de hoje não veio neste snapshot.'));
-  assert.ok(omittedText.includes('Receita de 30 dias não veio neste snapshot.'));
+  assert.ok(omittedText.includes('Receita de hoje não veio neste resumo.'));
+  assert.ok(omittedText.includes('Receita de 30 dias não veio neste resumo.'));
   assert.equal(omittedText.includes('pedido'), false);
   assert.equal(omittedText.includes('R$'), false);
 
@@ -376,8 +376,8 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   assert.equal(zero.today?.orderCount, 0);
   assert.equal(zero.today?.revenue, 0);
   assert.equal(zero.last30d?.orderCount, 0);
-  assert.equal(vendasQuickActionFigure('today', zero), '0 no snapshot');
-  assert.equal(vendasQuickActionFigure('days30', zero), '0 no snapshot');
+  assert.equal(vendasQuickActionFigure('today', zero), '0 no resumo');
+  assert.equal(vendasQuickActionFigure('days30', zero), '0 no resumo');
   assert.equal(vendasQuickActionFigure('csv', zero), null);
   assert.equal(vendasQuickActionFigure('pedidos', zero), null);
   assert.ok(vendasNowSummary(zero, 'ready').includes('0 pedido(s) pagos'));
@@ -397,7 +397,7 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   assert.equal(partial.last30d?.orderCount, 4);
   assert.equal(partial.last30d?.revenue, null);
   assert.equal(vendasQuickActionFigure('today', partial), null);
-  assert.equal(vendasQuickActionFigure('days30', partial), '4 no snapshot');
+  assert.equal(vendasQuickActionFigure('days30', partial), '4 no resumo');
   const partialText = vendasNowSummary(partial, 'ready');
   assert.ok(partialText.includes('Receita não veio nesta janela'));
   assert.ok(partialText.includes('4 pedido(s) pagos'));
@@ -418,16 +418,16 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   assert.equal(readyText.includes('11 pedido'), false);
   assert.equal(
     salesWindowAlignmentNote('2026-09-22', '2026-09-22', 2, windows.today, 'Hoje'),
-    'Hoje: relatório 2 pedido(s) pagos · igual ao snapshot.',
+    'Hoje: relatório 2 pedido(s) pagos · igual ao resumo.',
   );
   assert.ok(
-    salesWindowAlignmentNote('2026-09-22', '2026-09-22', 1, windows.today, 'Hoje')?.includes('snapshot 2'),
+    salesWindowAlignmentNote('2026-09-22', '2026-09-22', 1, windows.today, 'Hoje')?.includes('resumo 2'),
   );
   assert.equal(salesWindowAlignmentNote('2026-09-01', '2026-09-22', 1, windows.today, 'Hoje'), null);
   assert.equal(salesWindowAlignmentNote('2026-09-22', '2026-09-22', null, windows.today, 'Hoje'), null);
   assert.equal(
     salesWindowAlignmentNote('2026-08-24', '2026-09-22', 0, windows.last30d, '30 dias'),
-    '30 dias: relatório 0 pedido(s) pagos · snapshot 9. O relatório é GET /admin/reports/sales; o snapshot é GET /admin/ops.',
+    '30 dias: relatório 0 pedido(s) pagos · resumo 9. O relatório e o painel geral são contados separadamente.',
   );
   assert.equal(
     salesReportOutsideSnapshotNote('2026-09-01', '2026-09-07', windows.today, windows.last30d)?.includes(
@@ -470,9 +470,9 @@ assert.equal(VENDAS_QUICK_ACTIONS.some((a) => /refund|estorno|cobran/i.test(a.id
   );
 }
 
-assert.equal(opsAttentionEmptyMessage(0), 'Nada precisa de atenção neste snapshot.');
+assert.equal(opsAttentionEmptyMessage(0), 'Nada precisa de atenção neste resumo.');
 assert.ok(opsAttentionEmptyMessage(2).includes('informativos'));
-assert.ok(opsAttentionUnavailableMessage().includes('GET /admin/ops'));
+assert.ok(!opsAttentionUnavailableMessage().includes('/admin/'));
 assert.equal(/\d/.test(opsAttentionUnavailableMessage()), false);
 
 assert.ok(

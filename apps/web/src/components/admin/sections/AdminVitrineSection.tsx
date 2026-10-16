@@ -99,7 +99,7 @@ export function AdminVitrineSection() {
       <AdminPrimeCommand
         eyebrow="Vitrine"
         title="Banners e SEO já gravados."
-        endpoint="GET /admin/banners · GET /admin/store/settings · uploads em GET /admin/ops"
+ endpoint=""
         busy={savingSeo || savingBanner || uploadingBanner}
         onRefresh={() => {
           void load();
@@ -197,7 +197,7 @@ export function AdminVitrineSection() {
               {storePayload === 'ready' ? (
                 <p className="admin-ent-note">Título atual: {textOrDash(seoForm.siteTitle)}</p>
               ) : (
-                <p className="admin-ent-note">— · SEO ainda não veio de GET /admin/store/settings.</p>
+ <p className="admin-ent-note">— · SEO ainda não carregou.</p>
               )}
             </form>
           </div>
@@ -223,7 +223,7 @@ export function AdminVitrineSection() {
               ) : null}
             </div>
             <p className="admin-section-intro">
-              {storePayload === 'ready' ? homeBannerCountHint(bannerTotal) : 'A contagem aparece quando GET /admin/banners responder.'}{' '}
+ {storePayload === 'ready' ? homeBannerCountHint(bannerTotal) : 'A contagem aparece quando os dados carregarem.'}{' '}
               Imagem + link opcional. Só banners ativos entram no carrossel da
               home (swipe, um por vez). Limite conta ativos e inativos.
             </p>
@@ -377,7 +377,7 @@ export function AdminVitrineSection() {
               ) : null}
               {storePayload !== 'ready' ? (
                 <p className="admin-empty">
-                  {storePayload === 'error' ? 'Vitrine indisponível. Nenhum banner foi estimado.' : 'Lendo GET /admin/banners…'}
+ {storePayload === 'error' ? 'Vitrine indisponível. Nenhum banner foi estimado.' : 'Carregando…'}
                 </p>
               ) : null}
             </div>

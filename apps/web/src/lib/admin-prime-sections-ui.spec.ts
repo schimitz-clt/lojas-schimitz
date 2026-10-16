@@ -89,7 +89,7 @@ const vitrinePending = vitrinePrimeModel({
 });
 assert.equal(vitrinePending.kpis.find((kpi) => kpi.id === 'banners')?.value, ENTERPRISE_MISSING);
 assert.equal(vitrinePending.kpis.find((kpi) => kpi.id === 'uploads')?.value, ENTERPRISE_MISSING);
-assert.equal(vitrinePending.attention.length, 0, 'uploads alert waits for the ops snapshot flag');
+assert.equal(vitrinePending.attention.length, 0, 'uploads alert waits for the ops resumo flag');
 
 const vitrineZero = vitrinePrimeModel({
   load: 'ready',
@@ -120,7 +120,7 @@ const vitrineUploads = vitrinePrimeModel({
   },
 });
 assert.equal(vitrineUploads.attention[0]?.code, 'uploads_ephemeral');
-assert.ok(String(vitrineUploads.kpis.find((kpi) => kpi.id === 'uploads')?.value).includes('efêmero'));
+assert.ok(String(vitrineUploads.kpis.find((kpi) => kpi.id === 'uploads')?.value).includes('temporário'));
 assert.equal(vitrineUploads.signals.some((item) => item.code === 'seo_og_missing'), false);
 
 const couponsPending = cuponsPrimeModel({ load: 'pending', coupons: [] });
@@ -221,7 +221,7 @@ assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'firebase')?.value, ENTERPRIS
 assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'abandoned')?.value, ENTERPRISE_MISSING);
 assert.equal(pushGap.attention.some((item) => item.code === 'push_firebase_off'), false);
 assert.equal(pushGap.attention[0]?.code, 'push_campaigns_failed');
-assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'mail')?.value, ENTERPRISE_MISSING, 'mail waits for the ops snapshot');
+assert.equal(pushGap.kpis.find((kpi) => kpi.id === 'mail')?.value, ENTERPRISE_MISSING, 'mail waits for the ops resumo');
 assert.equal(pushOff.actions.find((action) => action.id === 'send')?.figure, '0 pronta(s)', 'zero sendable stays zero');
 
 const pushMailWaiting = notificacoesPrimeModel({
@@ -312,7 +312,7 @@ assert.equal(pushMailAlert.attention.find((item) => item.code === 'store_notify_
 assert.equal(pushMailAlert.signals.find((item) => item.code === 'mail_not_configured')?.count, 0, 'zero mail info stays zero');
 assert.equal(pushMailAlert.attention.filter((item) => item.code === 'store_notify_mail_failed').length, 1, 'missing severity is dropped');
 assert.equal(pushMailAlert.signals.some((item) => item.code === 'push_sending'), true);
-assert.ok(pushMailAlert.actions.find((action) => action.id === 'send')?.hint.includes('POST /admin/push/campaigns/:id/send'));
+assert.ok(!pushMailAlert.actions.find((action) => action.id === 'send')?.hint.includes('/admin/'));
 
 const couponsFuture = cuponsPrimeModel({
   load: 'ready',

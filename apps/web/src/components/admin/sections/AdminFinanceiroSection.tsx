@@ -193,7 +193,7 @@ export function AdminFinanceiroSection() {
         <p className="admin-ent-kicker">Financeiro</p>
         <h2 id="admin-financeiro-h" className="admin-section-heading">Pagamentos, divergências e estornos</h2>
         <p className="admin-ent-note">
-          Números vindos do banco (GET /admin/finance/*). Ações exigem motivo + confirmação e ficam na auditoria financeira.
+ Números vindos do banco. Ações exigem motivo + confirmação e ficam na auditoria financeira.
           {dash ? ` Atualizado ${fmtDate(dash.generatedAt)}.` : ''}
         </p>
       </div>

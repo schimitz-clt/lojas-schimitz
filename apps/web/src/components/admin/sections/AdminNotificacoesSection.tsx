@@ -317,7 +317,7 @@ export function AdminNotificacoesSection() {
       <AdminPrimeCommand
         eyebrow="Notificações"
         title="Push do app. O e-mail da loja entra só como leitura."
-        endpoint="GET /admin/push/campaigns · GET /admin/push/tokens · GET /admin/push/abandoned-views · mail em GET /admin/ops"
+ endpoint=""
         busy={busy}
         onRefresh={() => {
           void loadOps();
@@ -514,7 +514,7 @@ export function AdminNotificacoesSection() {
                   {dispatchFor === c.id ? (
                     <div className="admin-ent-note" style={{ marginTop: 8 }}>
                       {dispatchState === 'pending' ? (
-                        'Lendo GET /admin/push/campaigns/:id…'
+                        'Carregando…'
                       ) : dispatchState === 'error' ? (
                         'Detalhe indisponível. Nenhum envio foi estimado.'
                       ) : (
@@ -598,7 +598,7 @@ export function AdminNotificacoesSection() {
           <div className="body">
             <h2>E-mail da loja</h2>
             <p className="admin-section-intro" style={{ marginTop: 8 }}>
-              Somente leitura de GET /admin/ops. Esta tela não envia e-mail e não dispara a recuperação de produto.
+ Somente leitura do resumo da loja. Esta tela não envia e-mail e não dispara a recuperação de produto.
             </p>
             <dl className="admin-cc-facts">
               <div>
