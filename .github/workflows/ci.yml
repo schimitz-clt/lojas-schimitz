@@ -173,6 +173,9 @@ jobs:
       - name: Testes (npm test — unitários + *.db.spec)
         working-directory: apps/api
         run: npm test
+      - name: Teste de concorrência de estoque com Postgres (fase-d.db.spec)
+        working-directory: apps/api
+        run: npm run test:stock-db
       - name: Testes financeiros (test:finance)
         working-directory: apps/api
         run: npm run test:finance
