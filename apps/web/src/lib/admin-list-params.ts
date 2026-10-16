@@ -108,3 +108,20 @@ export function sortCustomers<T extends { name?: string | null; lastOrderAt?: st
   if (sort === 'nome') out.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'pt-BR'));
   return out;
 }
+
+/** Período das listas financeiras: padrão últimos 30 dias. Nada é apagado; "Tudo" mostra o histórico inteiro. */
+export type FinancePeriod = '7d' | '30d' | '90d' | 'tudo';
+export const FINANCE_PERIODS: { id: FinancePeriod; label: string }[] = [
+  { id: '7d', label: '7 dias' },
+  { id: '30d', label: '30 dias' },
+  { id: '90d', label: '90 dias' },
+  { id: 'tudo', label: 'Tudo' },
+];
+export function parseFinancePeriod(raw: string | null | undefined): FinancePeriod {
+  return raw === '7d' || raw === '90d' || raw === 'tudo' ? raw : '30d';
+}
+export function financePeriodFrom(p: FinancePeriod, now = new Date()): string | null {
+  if (p === 'tudo') return null;
+  const days = p === '7d' ? 7 : p === '90d' ? 90 : 30;
+  return new Date(now.getTime() - days * 86400000).toISOString();
+}

@@ -1,5 +1,8 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { FINANCE_PERIODS, type FinancePeriod, financePeriodFrom, parseFinancePeriod, withListParams } from '@/lib/admin-list-params';
+
 import { useCallback, useEffect, useState } from 'react';
 import { api, brl } from '@/lib/api';
 import { AdminStatusChip } from '@/components/admin/AdminStatusChip';
@@ -77,6 +80,13 @@ export function AdminFinanceiroSection() {
   const [chargebacks, setChargebacks] = useState<Chargeback[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [filters, setFilters] = useState({ status: '', method: '', state: '', q: '' });
+  const router = useRouter();
+  const pathname = usePathname() || '/admin/financeiro';
+  const searchParams = useSearchParams();
+  const period = parseFinancePeriod(searchParams?.get('periodo'));
+  const setPeriod = (p: FinancePeriod) => {
+    router.replace(`${pathname}${withListParams(searchParams, { periodo: p === '30d' ? '' : p })}`, { scroll: false });
+  };
   const [detail, setDetail] = useState<PaymentDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -92,7 +102,10 @@ export function AdminFinanceiroSection() {
 
   const loadTab = useCallback(async () => {
     if (tab === 'pagamentos') {
-      const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
+      const from = financePeriodFrom(period);
+      const qs = new URLSearchParams(
+        Object.entries({ ...filters, ...(from ? { from } : {}) }).filter(([, v]) => v),
+      ).toString();
       const r = await api<{ items: PaymentRow[] }>(`/admin/finance/payments${qs ? `?${qs}` : ''}`);
       setPayments(r.items);
     } else if (tab === 'divergencias') {
@@ -102,7 +115,7 @@ export function AdminFinanceiroSection() {
     } else {
       setRefunds(await api<Refund[]>('/admin/finance/refunds'));
     }
-  }, [tab, filters]);
+  }, [tab, filters, period]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -231,6 +244,13 @@ export function AdminFinanceiroSection() {
       {tab === 'pagamentos' ? (
         <div className="admin-cc-block">
           <form className="form admin-form-pro row" onSubmit={(e) => { e.preventDefault(); void refresh(); }}>
+            <div className="admin-exec__seg" role="group" aria-label="Período dos pagamentos">
+              {FINANCE_PERIODS.map((p) => (
+                <button key={p.id} type="button" aria-pressed={period === p.id} className={period === p.id ? 'is-on' : ''} onClick={() => setPeriod(p.id)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
             <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} aria-label="Status">
               <option value="">Status (todos)</option>
               {['pending', 'approved', 'refused', 'expired', 'cancelled', 'refunded'].map((s) => <option key={s} value={s}>{s}</option>)}
