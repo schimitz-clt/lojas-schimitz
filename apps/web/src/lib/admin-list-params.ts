@@ -88,3 +88,23 @@ export function textMatch(hay: (string | null | undefined)[], q: string): boolea
   if (!n) return true;
   return hay.some((h) => String(h ?? '').toLowerCase().includes(n));
 }
+
+export type CustomerSort = 'recentes' | 'maior_gasto' | 'mais_pedidos' | 'nome';
+export const CUSTOMER_SORTS: { id: CustomerSort; label: string }[] = [
+  { id: 'recentes', label: 'Compra mais recente' },
+  { id: 'maior_gasto', label: 'Maior gasto' },
+  { id: 'mais_pedidos', label: 'Mais pedidos' },
+  { id: 'nome', label: 'Nome (A–Z)' },
+];
+export function parseCustomerSort(raw: string | null | undefined): CustomerSort {
+  return CUSTOMER_SORTS.some((s) => s.id === raw) ? (raw as CustomerSort) : 'recentes';
+}
+export function sortCustomers<T extends { name?: string | null; lastOrderAt?: string | null; paidTotal?: string | number | null; ordersCount?: number | null }>(rows: T[], sort: CustomerSort): T[] {
+  const out = [...rows];
+  const t = (r: T) => (r.lastOrderAt ? new Date(r.lastOrderAt).getTime() : 0);
+  if (sort === 'recentes') out.sort((a, b) => t(b) - t(a));
+  if (sort === 'maior_gasto') out.sort((a, b) => (Number(b.paidTotal) || 0) - (Number(a.paidTotal) || 0));
+  if (sort === 'mais_pedidos') out.sort((a, b) => (b.ordersCount ?? 0) - (a.ordersCount ?? 0));
+  if (sort === 'nome') out.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'pt-BR'));
+  return out;
+}

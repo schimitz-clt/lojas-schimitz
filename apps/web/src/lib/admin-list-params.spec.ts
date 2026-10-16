@@ -21,3 +21,11 @@ assert.equal(sortProducts(pr, 'estoque_baixo')[0].name, 'Ventilador');
 assert.ok(textMatch(['Air Fryer', 'SKU-1'], 'fryer'));
 assert.ok(!textMatch(['x'], 'y'));
 console.log('admin-list-params: PASSOU');
+import { sortCustomers } from './admin-list-params';
+{
+  const c = [{ name: 'Bia', lastOrderAt: '2026-10-01', paidTotal: '50', ordersCount: 3 }, { name: 'Ana', lastOrderAt: null, paidTotal: '90', ordersCount: 1 }];
+  assert.equal(sortCustomers(c, 'recentes')[0].name, 'Bia');
+  assert.equal(sortCustomers(c, 'maior_gasto')[0].name, 'Ana');
+  assert.equal(sortCustomers(c, 'nome')[0].name, 'Ana');
+  console.log('admin-list-params clientes: PASSOU');
+}
