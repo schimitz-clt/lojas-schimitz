@@ -32,7 +32,25 @@ async function main() {
   assert.equal(evaluateCsrfOrigin(post({ origin: 'https://evil.example', authorization: 'Bearer tok' }), ENV).allow, true);
   assert.equal(evaluateCsrfOrigin({ method: 'POST', headers: { origin: 'https://evil.example' } }, ENV).allow, true, 'sem cookie de sessão não há o que "pegar carona"');
   assert.equal(evaluateCsrfOrigin({ method: 'GET', headers: { cookie: COOKIE, origin: 'https://evil.example' } }, ENV).allow, true);
-  assert.equal(evaluateCsrfOrigin(post({}), ENV).allow, true);
+  // 7b: cookie de sessão SEM Origin e SEM Referer → bloqueia (antes: permitia)
+  const noOrigin = evaluateCsrfOrigin({ method: 'POST', path: '/api/v1/admin/payments/x/refund', headers: { cookie: COOKIE } }, ENV);
+  assert.deepEqual(noOrigin, { allow: false, reason: 'missing_origin' });
+  assert.equal(evaluateCsrfOrigin({ method: 'PATCH', originalUrl: '/api/v1/users/me', headers: { cookie: COOKIE } }, ENV).allow, false);
+  assert.equal(evaluateCsrfOrigin({ method: 'DELETE', originalUrl: '/api/v1/addresses/1', headers: { cookie: 'sch_refresh=r' } }, ENV).allow, false);
+  // isentos: webhook MP (mesmo se vier cookie), token push do app Android (HttpURLConnection + cookie), relatórios CSP
+  for (const path of ['/api/v1/webhooks/mercadopago', '/api/v1/webhooks/mercadopago?data.id=1', '/api/v1/push/tokens', '/api/v1/security/csp-report', '/api/v1/security/client-error']) {
+    assert.equal(evaluateCsrfOrigin({ method: 'POST', originalUrl: path, headers: { cookie: COOKIE } }, ENV).allow, true, path);
+  }
+  // isenção não vale para Origin estranho
+  assert.equal(evaluateCsrfOrigin({ method: 'POST', originalUrl: '/api/v1/push/tokens', headers: { cookie: COOKIE, origin: 'https://evil.example' } }, ENV).allow, false);
+  // caminho parecido não é isento
+  assert.equal(evaluateCsrfOrigin({ method: 'POST', originalUrl: '/api/v1/push/tokens/x/delete', headers: { cookie: COOKIE } }, ENV).allow, false);
+  // WebView/navegador: fetch POST sempre manda Origin (ou Sec-Fetch-Site) → passa
+  assert.equal(evaluateCsrfOrigin(post({ origin: 'https://lojasschimitz.com.br', 'sec-fetch-site': 'same-origin' }), ENV).allow, true);
+  assert.equal(evaluateCsrfOrigin(post({ 'sec-fetch-site': 'same-origin' }), ENV).allow, true);
+  assert.equal(evaluateCsrfOrigin(post({ referer: 'https://lojasschimitz.com.br/checkout' }), ENV).allow, true);
+  // sem cookie (servidor-a-servidor, cron, curl) segue livre
+  assert.equal(evaluateCsrfOrigin({ method: 'POST', path: '/api/v1/auth/login', headers: {} }, ENV).allow, true);
   // webhook do Mercado Pago (sem cookie, sem Origin) nunca é afetado
   assert.equal(evaluateCsrfOrigin({ method: 'POST', headers: { 'x-signature': 'ts=1,v1=a' } }, ENV).allow, true);
 
@@ -67,10 +85,16 @@ async function main() {
     assert.equal(await call({ cookie: COOKIE, origin: 'https://lojasschimitz.com.br', 'sec-fetch-site': 'same-origin' }), 200);
     assert.equal(sideEffects, 1);
 
+    // 7b no servidor real: cookie sem Origin/Referer → 403, handler não roda
+    assert.equal(await call({ cookie: COOKIE }), 403);
+    assert.equal(sideEffects, 1, 'sem Origin não executa o estorno');
+
     process.env.CSRF_ORIGIN_CHECK = 'report';
+    assert.equal(await call({ cookie: COOKIE }), 200, 'report não bloqueia sem Origin');
     assert.equal(await call({ cookie: COOKIE, origin: 'https://evil.example' }), 200, 'report não bloqueia');
     process.env.CSRF_ORIGIN_CHECK = 'off';
     assert.equal(await call({ cookie: COOKIE, origin: 'https://evil.example' }), 200, 'off = rollback');
+    assert.equal(await call({ cookie: COOKIE }), 200, 'off = rollback (sem Origin)');
   } finally {
     server.close();
   }

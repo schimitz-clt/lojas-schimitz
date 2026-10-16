@@ -147,7 +147,7 @@ async function main() {
     assert.equal((ev[0].meta as any).providerError, 'recovered_after_timeout');
     // repeated click after the incident: idempotent, no new POST at MP
     const before = mpPosts(o.pay.externalId);
-    const again = await refund(o.pay.id, {});
+    const again = await refund(o.pay.id);
     assert.equal(again.status, 201);
     assert.equal(again.json.data.idempotent, true);
     assert.equal(mpPosts(o.pay.externalId), before);
@@ -250,15 +250,19 @@ async function main() {
     return 'estorno OK, estoque não volta automaticamente';
   });
 
-  await scenario('R08', 'Compat: body {} continua aceito (motivo opcional, auditado como null); cliente → 403', async () => {
+  await scenario('R08', 'Motivo obrigatório: body {} / motivo vazio → 400 REASON_REQUIRED sem chamar o MP; cliente → 403', async () => {
     const o = await paidOrder(1);
-    const r = await refund(o.pay.id, {});
-    assert.equal(r.status, 201, JSON.stringify(r.json));
-    const ev = await audits(o.pay.id);
-    assert.equal(ev[0].reason, null);
-    assert.equal((ev[0].meta as any).reasonProvided, false);
+    for (const body of [{}, { reason: '' }, { reason: '  ' }]) {
+      const r = await refund(o.pay.id, body);
+      assert.equal(r.status, 400, JSON.stringify(r.json));
+      assert.equal(r.json.error?.code, 'REASON_REQUIRED');
+    }
+    assert.equal(mpPosts(o.pay.externalId), 0, 'MP não é chamado sem motivo');
+    assert.equal((await audits(o.pay.id)).length, 0);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: o.pay.id } })).status, 'approved');
     const o2 = await paidOrder(1);
-    assert.equal((await http('POST', `/admin/payments/${o2.pay.id}/refund`, { cookie: customer.cookie, body: {} })).status, 403);
+    assert.equal((await http('POST', `/admin/payments/${o2.pay.id}/refund`, { cookie: customer.cookie, body: { reason: 'tentativa de cliente' } })).status, 403);
+    return '{} / vazio → 400, 0 chamadas ao MP; cliente → 403';
   });
 
   await prisma.product.updateMany({ where: { sku: { startsWith: 'OMEGA-REFUND-' } }, data: { active: false } });
