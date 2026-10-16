@@ -85,6 +85,7 @@ assert.ok(!banners.includes('homeHeroEmptyCopy'), 'hero fallback stays the #122 
 assert.ok(!banners.includes('catalogEmpty'), 'hero does not branch on an empty catalog flag');
 for (const rel of [
   'app/produtos/page.tsx',
+  'app/produtos/produtos-client.tsx',
   'app/departamento/[slug]/DepartamentoClient.tsx',
   'app/marketplace/page.tsx',
   'components/ComingSoonShelf.tsx',
