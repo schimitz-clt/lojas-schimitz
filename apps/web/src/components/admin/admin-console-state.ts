@@ -475,6 +475,11 @@ export function useAdminConsoleState() {
         });
         return;
       }
+      if (dest.kind === 'order') {
+        setOrderJumpQ(dest.publicId);
+        selectOpsBucket(dest.bucket);
+        return;
+      }
       if (dest.kind === 'catalog_photos') {
         openCatalogPhotoQueue();
         return;
