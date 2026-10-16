@@ -15,6 +15,7 @@ import {
   textMatch,
   withListParams,
 } from '@/lib/admin-list-params';
+import { archiveResultMessage, parseOrderView, type OrderView } from '@/lib/admin-order-archive';
 import { api, apiUpload, brl, clearSession, currentUser, ensureHydratedSession, isUnauthorizedError } from '@/lib/api';
 import {
   nextFulfillmentStatus,
@@ -189,6 +190,9 @@ export function useAdminConsoleState() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formImages, setFormImages] = useState<FormImage[]>([]);
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  /** Aba da lista de pedidos: ativos | encerrados | arquivados (na URL como ?aba=). */
+  const [orderView, setOrderView] = useState<OrderView>('ativos');
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [lowStockThreshold, setLowStockThreshold] = useState(DEFAULT_LOW_STOCK);
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [couponForm, setCouponForm] = useState<CouponForm>(emptyCouponForm);
@@ -308,6 +312,7 @@ export function useAdminConsoleState() {
       if (st) setOrderStatusFilter(st);
       if (q) setOrderJumpQ(q);
       if (f === 'stuck_paid' || f === 'no_shipping') setOrderRoiFilter(f);
+      setOrderView(parseOrderView(searchParams?.get('aba')));
     }
     if (adminSection === 'clientes') {
       const q = readListParam(searchParams, 'busca');
@@ -317,17 +322,18 @@ export function useAdminConsoleState() {
   }, []);
   useEffect(() => {
     if (!listUrlHydratedRef.current || adminSection !== 'pedidos') return;
-    const want = { status: orderStatusFilter, busca: orderJumpQ.trim(), filtro: orderRoiFilter === 'all' ? '' : orderRoiFilter };
+    const want = { status: orderStatusFilter, busca: orderJumpQ.trim(), filtro: orderRoiFilter === 'all' ? '' : orderRoiFilter, aba: orderView === 'ativos' ? '' : orderView };
     const cur = {
       status: readListParam(searchParams, 'status'),
       busca: readListParam(searchParams, 'busca'),
       filtro: readListParam(searchParams, 'filtro'),
+      aba: readListParam(searchParams, 'aba'),
     };
-    if (want.status === cur.status && want.busca === cur.busca && want.filtro === cur.filtro) return;
+    if (want.status === cur.status && want.busca === cur.busca && want.filtro === cur.filtro && want.aba === cur.aba) return;
     const t = setTimeout(() => setListParams(want), 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderStatusFilter, orderJumpQ, orderRoiFilter, adminSection]);
+  }, [orderStatusFilter, orderJumpQ, orderRoiFilter, orderView, adminSection]);
   useEffect(() => {
     if (!listUrlHydratedRef.current || adminSection !== 'clientes') return;
     const q = customerQ.trim();
@@ -359,6 +365,7 @@ export function useAdminConsoleState() {
     }
     const ordersPath = buildAdminOrdersQueryPath({
       status: orderStatusFilter || undefined,
+      view: orderView,
       // Full reload keeps status bucket; server q handled by dedicated search effect.
     });
     setOrderServerSearchActive(false);
@@ -416,7 +423,7 @@ export function useAdminConsoleState() {
         setErr(e.message);
         return false;
       });
-  }, [orderStatusFilter, commissionStatusFilter, commissionSellerFilter]);
+  }, [orderStatusFilter, orderView, commissionStatusFilter, commissionSellerFilter]);
 
   const loadCustomers = useCallback(async (q = customerQ) => {
     const u = await ensureHydratedSession();
@@ -741,6 +748,7 @@ export function useAdminConsoleState() {
         setOrderServerSearchActive(false);
         const path = buildAdminOrdersQueryPath({
           status: orderStatusFilter || undefined,
+          view: orderView,
         });
         setOrderSearchBusy(true);
         void api<AdminOrder[]>(path)
@@ -760,6 +768,7 @@ export function useAdminConsoleState() {
       const path = buildAdminOrdersQueryPath({
         status: orderStatusFilter || undefined,
         q,
+        view: orderView,
       });
       setOrderSearchBusy(true);
       void api<AdminOrder[]>(path)
@@ -778,7 +787,7 @@ export function useAdminConsoleState() {
         .finally(() => setOrderSearchBusy(false));
     }, 320);
     return () => window.clearTimeout(handle);
-  }, [orderJumpQ, orderStatusFilter]);
+  }, [orderJumpQ, orderStatusFilter, orderView]);
 
 
 
@@ -831,6 +840,34 @@ export function useAdminConsoleState() {
   }, [orders, orderJumpQ, orderRoiFilter, orderServerSearchActive]);
 
   const orderSort = parseOrderSort(listSortParam);
+
+  /** Arquivar/desarquivar: só oculta da lista; servidor recusa pedidos ativos/em andamento. */
+  const archiveOrders = useCallback(
+    async (ids: string[], archive: boolean) => {
+      if (!ids.length) return;
+      setArchiveBusy(true);
+      setErr('');
+      try {
+        const r = await api<{ applied: number; skipped: { publicId: string | null; reason: string }[] }>(
+          '/admin/orders/archive',
+          { method: 'POST', body: JSON.stringify({ ids, archive }) },
+        );
+        setMsg(archiveResultMessage(archive, r.applied, r.skipped));
+        setSelectedOrderIds([]);
+        await load();
+      } catch (e: any) {
+        if (isUnauthorizedError(e)) {
+          adminUnauthorizedRedirect();
+          return;
+        }
+        setErr(e?.message || 'Não foi possível arquivar.');
+      } finally {
+        setArchiveBusy(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [load],
+  );
   const pagedOrders = useMemo(
     () => paginate(sortOrders(filteredOrders, orderSort), listPage),
     [filteredOrders, orderSort, listPage],
@@ -2432,6 +2469,10 @@ export function useAdminConsoleState() {
     filteredOrders,
     pagedOrders,
     orderSort,
+    orderView,
+    setOrderView,
+    archiveOrders,
+    archiveBusy,
     pagedCatalogProducts,
     productSort,
     catalogQ,

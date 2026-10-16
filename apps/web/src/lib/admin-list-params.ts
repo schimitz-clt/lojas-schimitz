@@ -4,7 +4,7 @@
  */
 export const ADMIN_PAGE_SIZE = 25;
 
-export type ListParamKey = 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
+export type ListParamKey = 'aba' | 'periodo' | 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
 
 export function readListParam(search: URLSearchParams | null | undefined, key: ListParamKey): string {
   return String(search?.get(key) ?? '').trim();
