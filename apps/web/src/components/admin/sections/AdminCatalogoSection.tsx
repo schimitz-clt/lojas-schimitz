@@ -348,6 +348,8 @@ export function AdminCatalogoSection() {
         </button>
       </header>
 
+      <details className="admin-exec-details">
+        <summary>Resumo do catálogo e alertas</summary>
       <section className="admin-cc-block" aria-labelledby="catalogo-now-heading">
         <p className="admin-cc-block__step">01</p>
         <h2 id="catalogo-now-heading" className="admin-cc-block__title">
@@ -425,6 +427,7 @@ export function AdminCatalogoSection() {
           })}
         </div>
       </section>
+      </details>
       </div>
       <div className="admin-section-panel admin-catalog">
 <section id="admin-low-stock" className={`admin-card-pro admin-catalog-panel${lowStockProducts.length ? ' admin-catalog-panel--low' : ''}`} style={{ marginBottom: 0, borderColor: lowStockProducts.length ? 'var(--admin-danger)' : undefined }}>

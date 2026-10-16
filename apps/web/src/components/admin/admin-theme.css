@@ -3688,3 +3688,11 @@ button.admin-cc-alert {
   .admin-exec__go { grid-column: 1 / -1; }
   .admin-exec__seg { width: 100%; } .admin-exec__seg button { flex: 1; }
 }
+
+/* Abas de status padronizadas nas listas */
+.admin-status-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; margin: 6px 0 4px; border-bottom: 1px solid var(--admin-line); scrollbar-width: thin; }
+.admin-status-tabs button { flex: 0 0 auto; border: 1px solid var(--admin-line); background: #fff; color: #07122a; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 13px; cursor: pointer; min-height: 38px; display: inline-flex; gap: 8px; align-items: center; }
+.admin-status-tabs button b { background: #eef0f4; border-radius: 999px; padding: 0 8px; font-size: 12px; }
+.admin-status-tabs button.is-on { background: #07122a; color: #fff; border-color: #07122a; }
+.admin-status-tabs button.is-on b { background: #7a1f35; color: #fff; }
+.admin-listbar { background: #fff; border: 1px solid var(--admin-line); border-radius: 12px; padding: 10px 12px; }
