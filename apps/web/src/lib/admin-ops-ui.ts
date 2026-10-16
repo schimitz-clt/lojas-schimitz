@@ -821,6 +821,7 @@ export type OpsAlertDestination =
   | { kind: 'mail'; publicId: string | null }
   | { kind: 'catalog_photos' }
   | { kind: 'catalog' }
+  | { kind: 'catalog_import' }
   | { kind: 'orders'; bucket: string }
   | { kind: 'order'; publicId: string; bucket: string }
   | { kind: 'none' };
@@ -845,6 +846,9 @@ export function opsAlertDestination(a: OpsAlertLike): OpsAlertDestination {
     const publicId = String(a.evidenceIds?.[0] || '').trim();
     const bucket = String(a.queueBucket || (a.code === 'shipped_without_tracking' ? 'in_transit' : 'organizing'));
     return publicId ? { kind: 'order', publicId, bucket } : { kind: 'orders', bucket };
+  }
+  if (a.code === 'products_missing_supplier' || a.code === 'products_missing_shipping_data') {
+    return { kind: 'catalog_import' };
   }
   if (a.section === 'catalog' || a.code === 'placeholder_photos') {
     return { kind: 'catalog_photos' };
@@ -887,6 +891,7 @@ export function opsAlertCtaHintPt(a: OpsAlertLike): string | null {
   if (dest.kind === 'mail') return '→ Pedidos / reenviar aviso';
   if (dest.kind === 'catalog_photos') return '→ Catálogo (fotos)';
   if (dest.kind === 'catalog') return '→ Catálogo (estoque)';
+  if (dest.kind === 'catalog_import') return '→ Catálogo (produtos)';
   if (dest.kind === 'orders') return '→ abrir fila';
   if (dest.kind === 'order') return `→ abrir pedido ${dest.publicId}`;
   return null;

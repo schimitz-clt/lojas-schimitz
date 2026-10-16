@@ -480,6 +480,10 @@ export function useAdminConsoleState() {
         selectOpsBucket(dest.bucket);
         return;
       }
+      if (dest.kind === 'catalog_import') {
+        router.push(buildAdminSectionHref('catalogo'));
+        return;
+      }
       if (dest.kind === 'catalog_photos') {
         openCatalogPhotoQueue();
         return;

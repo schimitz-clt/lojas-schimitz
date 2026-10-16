@@ -266,6 +266,8 @@ model Product {
   favorites           Favorite[]
   productViews        ProductViewEvent[]
   abandonedViewPushes AbandonedViewPush[]
+  /** Interno do admin (fornecedor/custo). Tabela separada: a vitrine nunca inclui. */
+  supplier            ProductSupplier?
 
   @@index([sellerId])
   @@index([active])
@@ -1062,4 +1064,18 @@ model InventoryMovement {
   @@unique([orderItemId, kind])
   @@index([orderId])
   @@index([productId, createdAt])
+}
+
+/** Fornecedor e custo do produto — só admin (GET/PUT /admin/products/:id/supplier). */
+model ProductSupplier {
+  productId    String   @id
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierName String
+  supplierSku  String?
+  supplierUrl  String?
+  costPrice    Decimal? @db.Decimal(12, 2)
+  leadTimeDays Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
