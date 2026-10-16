@@ -4,7 +4,7 @@
  */
 export const ADMIN_PAGE_SIZE = 25;
 
-export type ListParamKey = 'aba' | 'periodo' | 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
+export type ListParamKey = 'aba' | 'periodo' | 'area' | 'acao' | 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
 
 export function readListParam(search: URLSearchParams | null | undefined, key: ListParamKey): string {
   return String(search?.get(key) ?? '').trim();
@@ -124,4 +124,16 @@ export function financePeriodFrom(p: FinancePeriod, now = new Date()): string | 
   if (p === 'tudo') return null;
   const days = p === '7d' ? 7 : p === '90d' ? 90 : 30;
   return new Date(now.getTime() - days * 86400000).toISOString();
+}
+
+/** Ordenação genérica para listas pequenas do admin (zonas de frete, equipe). */
+export function sortBy<T>(rows: T[], key: (r: T) => string | number, dir: 'asc' | 'desc' = 'asc'): T[] {
+  const out = [...rows];
+  out.sort((a, b) => {
+    const x = key(a);
+    const y = key(b);
+    const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'pt-BR');
+    return dir === 'asc' ? c : -c;
+  });
+  return out;
 }

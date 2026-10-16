@@ -1,5 +1,8 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { readListParam, withListParams } from '@/lib/admin-list-params';
+
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatAdminDateTime } from '@/lib/admin-customers-ui';
@@ -18,8 +21,20 @@ import {
 } from '@/lib/admin-audit-log-ui';
 
 export function AdminAuditLogPanel() {
-  const [entity, setEntity] = useState('');
-  const [action, setAction] = useState('');
+  const router = useRouter();
+  const pathname = usePathname() || '/admin/equipe';
+  const sp = useSearchParams();
+  const [entity, setEntity] = useState(readListParam(sp, 'area'));
+  const [action, setAction] = useState(readListParam(sp, 'acao'));
+  useEffect(() => {
+    if (entity === readListParam(sp, 'area') && action.trim() === readListParam(sp, 'acao')) return;
+    const t = setTimeout(
+      () => router.replace(`${pathname}${withListParams(sp, { area: entity, acao: action.trim() })}`, { scroll: false }),
+      300,
+    );
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity, action]);
   const [items, setItems] = useState<AdminAuditLogItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);

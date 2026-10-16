@@ -39,3 +39,8 @@ import { financePeriodFrom, parseFinancePeriod } from './admin-list-params';
   assert.equal(financePeriodFrom('7d', now), '2026-10-09T12:00:00.000Z');
   console.log('admin-list-params financeiro: PASSOU');
 }
+import { sortBy } from './admin-list-params';
+assert.deepEqual(sortBy([{ n: 'b' }, { n: 'a' }], (r) => r.n).map((r) => r.n), ['a', 'b']);
+assert.deepEqual(sortBy([{ n: 1 }, { n: 3 }], (r) => r.n, 'desc').map((r) => r.n), [3, 1]);
+assert.equal(withListParams('area=products', { acao: 'PATCH' }), '?area=products&acao=PATCH');
+console.log('admin-list-params sortBy: PASSOU');
