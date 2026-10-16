@@ -477,6 +477,8 @@ export type AdminOpsSnapshot = {
     storeNotifyFailureCount?: number;
   };
   orders?: {
+    /** Pedidos da aba Ativos (sem arquivados, cancelados e estornados). */
+    activeTotal?: number | null;
     byStatus: Record<string, number>;
     buckets: Record<string, number>;
     problemsStatuses?: string[];

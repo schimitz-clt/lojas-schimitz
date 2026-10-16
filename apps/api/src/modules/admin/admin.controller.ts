@@ -308,6 +308,16 @@ export class AdminController {
       this.log.warn(`ops productsMissingSupplier query failed: ${e?.message || e}`);
     }
 
+    /** Pedidos da aba "Ativos": sem arquivados, cancelados e estornados (mesma regra de GET /admin/orders). */
+    let activeOrderCount: number | null = null;
+    try {
+      activeOrderCount = await this.prisma.order.count({
+        where: adminOrderViewWhere('ativos', { hasSearch: false, hasStatus: false }),
+      });
+    } catch (e: any) {
+      this.log.warn(`ops activeOrderCount query failed: ${e?.message || e}`);
+    }
+
     const placeholderProducts = listPlaceholderProducts(productImageRows);
     const orderStatusCounts = orderStatusGroups.map((g) => ({
       status: g.status,
@@ -321,8 +331,7 @@ export class AdminController {
         `ops uploads_ephemeral dir=${uploads.dir} — mount Volume /data/uploads (OWNER); UPLOADS_DIR should be under /data`,
       );
     }
-    return ok(
-      summarizeOps({
+    const summary = summarizeOps({
         lowStockCount,
         outOfStockCount,
         placeholderProductCount: placeholderProducts.length,
@@ -357,8 +366,8 @@ export class AdminController {
         uploads,
         storeNotifyMail: peekStoreNotifyMailSnapshot(),
         shippingData: summarizeShippingData(shippingRows),
-      }),
-    );
+      });
+    return ok({ ...summary, orders: { ...summary.orders, activeTotal: activeOrderCount } });
   }
 
   @Get('ops/products-missing-shipping-data')

@@ -16,3 +16,7 @@ assert.equal(buildAdminOrdersQueryPath({ view: 'ativos' }), '/admin/orders');
 assert.equal(archiveResultMessage(true, 2, []), '2 pedido(s) arquivado(s).');
 assert.ok(archiveResultMessage(true, 0, [{ publicId: 'SCH-1', reason: 'x' }]).includes('SCH-1'));
 console.log('admin-order-archive: PASSOU');
+import { activeTabTotal } from './admin-order-archive';
+assert.equal(activeTabTotal(6, 13), 6, 'Todos = ativos');
+assert.equal(activeTabTotal(undefined, 13), null, 'sem dado não usa total geral');
+console.log('admin-order-archive Todos: PASSOU');

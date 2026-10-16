@@ -23,3 +23,8 @@ export function archiveResultMessage(
   const list = skipped.slice(0, 3).map((s) => `${s.publicId ?? 'pedido'}: ${s.reason}`).join('; ');
   return `${head} ${skipped.length} não alterado(s) — ${list}${skipped.length > 3 ? '…' : ''}`;
 }
+
+/** "Todos" na aba Ativos: contagem de ativos do servidor; se a API antiga não mandar, mostra "—" em vez do total geral. */
+export function activeTabTotal(activeTotal: number | null | undefined, _legacyTotal: number | null | undefined): number | null {
+  return typeof activeTotal === 'number' && Number.isFinite(activeTotal) ? activeTotal : null;
+}
