@@ -27,3 +27,24 @@ export function execWindow(sales: ExecSales, period: ExecPeriod): ExecWindow | n
 export function execPeriodLabel(p: ExecPeriod): string {
   return p === 'hoje' ? 'hoje' : p === '7d' ? 'nos últimos 7 dias' : 'nos últimos 30 dias';
 }
+
+/** Lista de prioridades: mais grave primeiro, depois maior contagem. Só alertas reais do resumo. */
+export type ExecSeverity = 'info' | 'warn' | 'high' | 'critical';
+const SEV_RANK: Record<ExecSeverity, number> = { critical: 0, high: 1, warn: 2, info: 3 };
+export function execSeverityLabel(s: ExecSeverity): string {
+  return s === 'critical' ? 'Crítico' : s === 'high' ? 'Alto' : s === 'warn' ? 'Atenção' : 'Aviso';
+}
+export function execPriorityList<T extends { severity: ExecSeverity; count?: number | null; code: string }>(
+  alerts: T[] | null | undefined,
+  max = 6,
+): { items: T[]; hidden: number } {
+  const sorted = [...(alerts ?? [])].sort(
+    (a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity] || (b.count ?? 0) - (a.count ?? 0) || a.code.localeCompare(b.code),
+  );
+  return { items: sorted.slice(0, max), hidden: Math.max(0, sorted.length - max) };
+}
+
+/** Saúde da loja: número real ou "—" quando o resumo não trouxe. */
+export function execHealthValue(n: number | null | undefined): string {
+  return n == null || !Number.isFinite(n) ? '—' : String(n);
+}

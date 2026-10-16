@@ -21,6 +21,7 @@ import {
   sortOpsAlertsForAttention,
   type OpsQuickActionId,
 } from '@/lib/admin-ops-ui';
+import { AdminExecDashboard } from '@/components/admin/AdminExecDashboard';
 import { AdminAttentionStrip, type AdminAttentionItem } from '@/components/admin/AdminAttentionStrip';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 import {
@@ -174,6 +175,34 @@ export function AdminOpsSection() {
         </button>
       </header>
 
+      <AdminExecDashboard
+        ready={ready}
+        failed={opsSnapshot === 'error'}
+        period={period}
+        onPeriod={setPeriod}
+        win={win}
+        awaiting={paidCount}
+        alerts={ops?.alerts ?? []}
+        onResolve={selectOpsAlert}
+        actions={OPS_QUICK_ACTIONS.slice(0, 6).map((a) => ({
+          id: a.id,
+          label: a.label,
+          hint: a.hint,
+          figure: opsQuickActionFigure(a.id, actionSnap),
+          href: quickHref[a.id],
+          onClick: quickHref[a.id] ? undefined : () => runQuickAction(a.id),
+        }))}
+        health={[
+          { label: 'Estoque baixo', value: ops?.inventory.lowStockCount, tone: ops?.inventory.lowStockCount ? 'warn' : 'ok', href: buildAdminSectionHref('catalogo') },
+          { label: 'Produtos zerados', value: ops?.inventory.outOfStockCount, tone: ops?.inventory.outOfStockCount ? 'danger' : 'ok', href: buildAdminSectionHref('catalogo') },
+          { label: 'Fotos para trocar', value: ops?.catalog?.placeholderProductCount, tone: ops?.catalog?.placeholderProductCount ? 'warn' : 'ok' },
+          { label: 'Pagos travados', value: stuckCount, tone: stuckCount ? 'danger' : 'ok', href: buildAdminSectionHref('pedidos') },
+          { label: 'Divergências de pagamento', value: ops?.reconciliations?.openCount, tone: ops?.reconciliations?.openCount ? 'danger' : 'ok', href: buildAdminSectionHref('financeiro') },
+        ]}
+      />
+
+      <details className="admin-exec-details">
+        <summary>Detalhes da operação (filas, alertas completos e ações)</summary>
       <section className="admin-cc-block" aria-labelledby="ops-now-heading">
         <p className="admin-cc-block__step">01</p>
         <h2 id="ops-now-heading" className="admin-cc-block__title">
@@ -185,19 +214,6 @@ export function AdminOpsSection() {
         </p>
 
         <div className="admin-cc-kpi-grid">
-          <div className="admin-exec-period" role="group" aria-label="Período">
-            {EXEC_PERIODS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className={`admin-chip${period === p.id ? ' is-active' : ''}`}
-                aria-pressed={period === p.id}
-                onClick={() => setPeriod(p.id)}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
           <div className="admin-cc-kpi">
             <div className="admin-cc-kpi__label">Receita {execPeriodLabel(period)}</div>
             <div className="admin-cc-kpi__value">{win ? brl(win.revenue) : '—'}</div>
@@ -436,6 +452,8 @@ export function AdminOpsSection() {
           )}
         </div>
       </section>
+
+ </details>
 
       <section id="admin-reconciliations" className="admin-cc-block" aria-label="Reconciliações">
         <div className="admin-cc-work__head">

@@ -34,10 +34,10 @@ export type AdminNavItem = {
 
 /** Sidebar / mobile nav — Portuguese labels, business console tone. */
 export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
-  { id: 'ops', label: 'Ops', description: 'Command', badgeKey: 'alerts' },
+  { id: 'ops', label: 'Painel', description: 'Visão geral', badgeKey: 'alerts' },
   { id: 'pedidos', label: 'Pedidos', description: 'Fila e Separar', badgeKey: 'paid' },
   { id: 'catalogo', label: 'Catálogo', description: 'Produtos e estoque', badgeKey: 'lowStock' },
-  { id: 'clientes', label: 'Clientes', description: 'CRM' },
+  { id: 'clientes', label: 'Clientes', description: 'Cadastro e histórico' },
   { id: 'vendas', label: 'Vendas', description: 'Relatório' },
   { id: 'frete', label: 'Frete', description: 'Entrega própria' },
   { id: 'cupons', label: 'Cupons', description: 'Descontos' },
@@ -45,7 +45,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: 'avaliacoes', label: 'Avaliações', description: 'Moderação' },
   { id: 'marketplace', label: 'Marketplace', description: 'Vendedores' },
   { id: 'equipe', label: 'Equipe', description: 'Administradores' },
-  { id: 'notificacoes', label: 'Notificações', description: 'Push FCM' },
+  { id: 'notificacoes', label: 'Notificações', description: 'Avisos no app' },
   { id: 'financeiro', label: 'Financeiro', description: 'Pagamentos e divergências' },
 ] as const;
 
