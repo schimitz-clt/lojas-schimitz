@@ -35,11 +35,11 @@ assert.equal(stockBadge(20), null);
 
 assert.equal(pdpLowStockUrgency(4), null);
 assert.equal(pdpLowStockUrgency(3), LOW_STOCK_LABEL);
-assert.equal(pdpStockLine(4), 'Em estoque · 4 unidades');
+assert.equal(pdpStockLine(4), 'Disponível para compra');
 assert.equal(pdpStockLine(3), 'Últimas unidades · 3 restantes');
 
-assert.equal(stockCompareLabel(4), 'Em estoque (4)');
-assert.equal(stockCompareLabel(5), 'Em estoque (5)');
+assert.equal(stockCompareLabel(4), 'Disponível (4)');
+assert.equal(stockCompareLabel(5), 'Disponível (5)');
 assert.equal(stockCompareLabel(2), 'Últimas unidades (2)');
 
 const srcRoot = join(__dirname, '..');

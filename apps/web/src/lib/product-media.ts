@@ -54,5 +54,5 @@ export function stockCompareLabel(stock: number | null | undefined): string {
   if (stock == null) return 'Sob consulta';
   if (stock <= 0) return 'Esgotado';
   if (shouldShowLowStock(stock)) return `Últimas unidades (${stock})`;
-  return `Em estoque (${stock})`;
+  return `Disponível (${stock})`;
 }

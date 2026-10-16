@@ -122,7 +122,7 @@ assert.ok(compareCell(a, 'pix').includes('950'));
 assert.ok(/12x/.test(compareCell(a, 'installments')));
 assert.equal(compareCell(a, 'seller'), 'Lojas Schimitz');
 assert.equal(compareCell(a, 'category'), 'TVs e Áudio');
-assert.equal(compareCell(a, 'stock'), 'Em estoque (8)');
+assert.equal(compareCell(a, 'stock'), 'Disponível (8)');
 assert.equal(compareCell(b, 'stock'), 'Últimas unidades (2)');
 assert.equal(compareCell(c, 'stock'), 'Esgotado');
 assert.equal(compareCell(a, 'badge'), 'Oferta');
