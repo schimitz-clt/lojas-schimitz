@@ -1,0 +1,28 @@
+after desktop painel: erros=0 overflowX=false
+after desktop pedidos: erros=0 overflowX=false
+after desktop catalogo: erros=0 overflowX=false
+after desktop clientes: erros=0 overflowX=false
+after desktop vendas: erros=0 overflowX=false
+after desktop financeiro: erros=0 overflowX=false
+after desktop frete: erros=0 overflowX=false
+after desktop cupons: erros=0 overflowX=false
+after desktop vitrine: erros=0 overflowX=false
+after desktop avaliacoes: erros=0 overflowX=false
+after desktop marketplace: erros=0 overflowX=false
+after desktop equipe: erros=0 overflowX=false
+after desktop notificacoes: erros=0 overflowX=false
+after desktop fornecedor: INTERNO · NÃO APARECE NA LOJA /  / Fornecedor e custo /  / Margem bruta: 44,1% · atualizado às 16/10/2026, 11:19:56 /  / Fornecedor 
+after mobile painel: erros=0 overflowX=false
+after mobile pedidos: erros=0 overflowX=false
+after mobile catalogo: erros=0 overflowX=false
+after mobile clientes: erros=0 overflowX=false
+after mobile vendas: erros=0 overflowX=false
+after mobile financeiro: erros=0 overflowX=false
+after mobile frete: erros=0 overflowX=false
+after mobile cupons: erros=0 overflowX=false
+after mobile vitrine: erros=0 overflowX=false
+after mobile avaliacoes: erros=0 overflowX=false
+after mobile marketplace: erros=0 overflowX=false
+after mobile equipe: erros=0 overflowX=false
+after mobile notificacoes: erros=0 overflowX=false
+after mobile fornecedor: INTERNO · NÃO APARECE NA LOJA /  / Fornecedor e custo /  / Margem bruta: 44,1% · atualizado às 16/10/2026, 11:19:56 /  / Fornecedor 
