@@ -3633,3 +3633,5 @@ button.admin-cc-alert {
   .admin-listbar__sort { width: 100%; }
   .admin-listbar__sort select { flex: 1; }
 }
+.admin-exec-period .admin-filter-chip.is-active,
+.admin-exec-period [aria-pressed='true'] { color: #fff; }
