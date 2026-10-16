@@ -88,6 +88,7 @@ import {
 import { useAdminConsole } from '@/components/admin/admin-console-context';
 import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
 import { ORDER_SORTS } from '@/lib/admin-list-params';
+import { ORDER_VIEWS, canArchiveOrder } from '@/lib/admin-order-archive';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -127,6 +128,10 @@ export function AdminPedidosSection() {
     filteredOrders,
     pagedOrders,
     orderSort,
+    orderView,
+    setOrderView,
+    archiveOrders,
+    archiveBusy,
     setListParams,
     bulkSepararEligibleCount,
     bulkAdvanceEligibleCount,
@@ -142,6 +147,8 @@ export function AdminPedidosSection() {
     opsBusy,
     updateTracking,
   } = useAdminConsole();
+  const selectedArchivableIds = orders.filter((o) => selectedOrderIds.includes(o.id) && canArchiveOrder(o)).map((o) => o.id);
+  const archivableSelected = selectedArchivableIds.length;
   const ready = ops != null;
   const [confirmAdvance, setConfirmAdvance] = useState(false);
   const [refundPaymentId, setRefundPaymentId] = useState<string | null>(null);
@@ -275,6 +282,27 @@ export function AdminPedidosSection() {
           Status real de cada pedido. Separar leva Pago → Organizando e Organizando → Embalagem.
           Pronto para coleta → Em trânsito é feito um a um (precisa do rastreio). O WhatsApp abre a conversa, mas não envia sozinho.
         </p>
+        <div className="admin-exec__seg admin-view-tabs" role="group" aria-label="Aba de pedidos">
+          {ORDER_VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              aria-pressed={orderView === v.id}
+              className={orderView === v.id ? 'is-on' : ''}
+              onClick={() => {
+                setSelectedOrderIds([]);
+                if (v.id !== 'ativos') {
+                  setOrderRoiFilter('all');
+                  if (orderStatusFilter) selectOpsBucket('');
+                }
+                setOrderView(v.id);
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        {orderView === 'ativos' ? (
         <div className="admin-status-tabs" role="tablist" aria-label="Status do pedido">
           <button type="button" role="tab" aria-selected={orderStatusFilter === ''} className={orderStatusFilter === '' ? 'is-on' : ''} onClick={() => { setOrderRoiFilter('all'); selectOpsBucket(''); }}>
             Todos <b>{opsCountOrDash(counts.total, ready)}</b>
@@ -285,6 +313,7 @@ export function AdminPedidosSection() {
             </button>
           ))}
         </div>
+        ) : null}
       <div className="admin-pedidos__toolbar">
       <label className="admin-search-field">
         <span>
@@ -385,6 +414,26 @@ export function AdminPedidosSection() {
           >
             Avançar status ({bulkAdvanceEligibleCount})
           </button>
+          {orderView === 'arquivados' ? (
+            <button
+              type="button"
+              className="btn admin-btn-primary-accent"
+              disabled={archiveBusy}
+              onClick={() => void archiveOrders(selectedOrderIds, false)}
+            >
+              Desarquivar ({selectedOrderIds.length})
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn admin-btn-primary-accent"
+              disabled={archiveBusy || archivableSelected === 0}
+              onClick={() => void archiveOrders(selectedArchivableIds, true)}
+              title="Só cancelados, expirados, estornados ou entregues. Não muda pagamento, estoque nem relatórios."
+            >
+              {archiveBusy ? 'Arquivando…' : `Arquivar (${archivableSelected})`}
+            </button>
+          )}
           <button
             type="button"
             className="btn ghost"
@@ -464,6 +513,28 @@ export function AdminPedidosSection() {
                     >
                       Copiar ID
                     </button>
+                    {o.archivedAt ? (
+                      <button
+                        type="button"
+                        className="btn ghost admin-btn-ghost-pro"
+                        disabled={archiveBusy}
+                        onClick={() => void archiveOrders([o.id], false)}
+                        style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
+                      >
+                        Desarquivar
+                      </button>
+                    ) : canArchiveOrder(o) ? (
+                      <button
+                        type="button"
+                        className="btn ghost admin-btn-ghost-pro"
+                        disabled={archiveBusy}
+                        onClick={() => void archiveOrders([o.id], true)}
+                        title="Oculta da lista. Não muda pagamento, estoque nem relatórios."
+                        style={{ padding: '6px 10px', minHeight: 36, fontSize: 12 }}
+                      >
+                        Arquivar
+                      </button>
+                    ) : null}
                     {payBadge ? (
                       <AdminStatusChip
                         label={`${payBadge.label}${payBadge.amount != null ? ` · ${brl(payBadge.amount)}` : ''}`}
@@ -641,7 +712,9 @@ export function AdminPedidosSection() {
         );
       })}
       <AdminPager {...pagedOrders} onPage={(p) => setListParams({ pagina: p })} />
-      {!filteredOrders.length ? (
+      {!filteredOrders.length && orderView !== 'ativos' ? (
+        <p className="muted">{ORDER_VIEWS.find((v) => v.id === orderView)?.empty}</p>
+      ) : !filteredOrders.length ? (
         <p className="muted">
           {emptyOrdersQueueMessage({
             hasSearch: Boolean(orderJumpQ.trim()),

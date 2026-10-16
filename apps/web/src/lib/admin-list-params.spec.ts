@@ -29,3 +29,13 @@ import { sortCustomers } from './admin-list-params';
   assert.equal(sortCustomers(c, 'nome')[0].name, 'Ana');
   console.log('admin-list-params clientes: PASSOU');
 }
+import { financePeriodFrom, parseFinancePeriod } from './admin-list-params';
+{
+  assert.equal(parseFinancePeriod(null), '30d');
+  assert.equal(parseFinancePeriod('tudo'), 'tudo');
+  assert.equal(financePeriodFrom('tudo'), null);
+  const now = new Date('2026-10-16T12:00:00Z');
+  assert.equal(financePeriodFrom('30d', now), '2026-09-16T12:00:00.000Z');
+  assert.equal(financePeriodFrom('7d', now), '2026-10-09T12:00:00.000Z');
+  console.log('admin-list-params financeiro: PASSOU');
+}

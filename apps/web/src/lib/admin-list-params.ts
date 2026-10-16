@@ -4,7 +4,7 @@
  */
 export const ADMIN_PAGE_SIZE = 25;
 
-export type ListParamKey = 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
+export type ListParamKey = 'aba' | 'periodo' | 'status' | 'busca' | 'ordem' | 'pagina' | 'filtro' | 'foto' | 'cliente_busca';
 
 export function readListParam(search: URLSearchParams | null | undefined, key: ListParamKey): string {
   return String(search?.get(key) ?? '').trim();
@@ -107,4 +107,21 @@ export function sortCustomers<T extends { name?: string | null; lastOrderAt?: st
   if (sort === 'mais_pedidos') out.sort((a, b) => (b.ordersCount ?? 0) - (a.ordersCount ?? 0));
   if (sort === 'nome') out.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'pt-BR'));
   return out;
+}
+
+/** Período das listas financeiras: padrão últimos 30 dias. Nada é apagado; "Tudo" mostra o histórico inteiro. */
+export type FinancePeriod = '7d' | '30d' | '90d' | 'tudo';
+export const FINANCE_PERIODS: { id: FinancePeriod; label: string }[] = [
+  { id: '7d', label: '7 dias' },
+  { id: '30d', label: '30 dias' },
+  { id: '90d', label: '90 dias' },
+  { id: 'tudo', label: 'Tudo' },
+];
+export function parseFinancePeriod(raw: string | null | undefined): FinancePeriod {
+  return raw === '7d' || raw === '90d' || raw === 'tudo' ? raw : '30d';
+}
+export function financePeriodFrom(p: FinancePeriod, now = new Date()): string | null {
+  if (p === 'tudo') return null;
+  const days = p === '7d' ? 7 : p === '90d' ? 90 : 30;
+  return new Date(now.getTime() - days * 86400000).toISOString();
 }

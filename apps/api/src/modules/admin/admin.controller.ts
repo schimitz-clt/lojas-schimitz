@@ -29,6 +29,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { AdminSupplierImportDto, SUPPLIER_CSV_COLUMNS, SUPPLIER_CSV_TEMPLATE, planSupplierImport, validateSupplierCsv } from './supplier-csv';
 import { ymdMinusDays } from './admin-ops';
+import { ARCHIVABLE_ORDER_STATUSES, AdminOrderArchiveDto, adminOrderViewWhere, planOrderArchive } from './order-archive';
 import { AdminProductSupplierDto, grossMarginPct, toProductSupplierView } from './product-supplier';
 import { PrismaService } from '../../prisma.service';
 import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
@@ -91,6 +92,7 @@ import { peekStoreNotifyMailSnapshot } from '../notifications/store-notify-obs';
 import { fulfillmentStuckDays, summarizeFulfillmentAttention } from './fulfillment-attention';
 import {
   buildAdminOrderWhere,
+  shouldServerOrderSearch,
   resolveAdminOrdersTake,
 } from './admin-orders-search';
 
@@ -494,7 +496,15 @@ export class AdminController {
         statusWhere = { status: query.status as OrderStatus };
       }
     }
-    const where = buildAdminOrderWhere(query.q, statusWhere);
+    const where: Prisma.OrderWhereInput = {
+      AND: [
+        buildAdminOrderWhere(query.q, statusWhere),
+        adminOrderViewWhere(query.view, {
+          hasSearch: shouldServerOrderSearch((query.q || '').trim()),
+          hasStatus: Boolean(query.status),
+        }),
+      ],
+    };
     const take = resolveAdminOrdersTake(query.q, query.take);
     const data = await this.prisma.order.findMany({
       where,
@@ -519,6 +529,44 @@ export class AdminController {
       },
     });
     return ok(data);
+  }
+
+  /**
+   * Arquivar / desarquivar pedidos. Só oculta da lista: não muda status, pagamentos, estoque,
+   * relatórios nem receita. Só cancelados, estornados ou entregues podem ser arquivados.
+   */
+  @Post('orders/archive')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({ summary: 'Arquivar ou desarquivar pedidos (só oculta da lista)' })
+  async archiveOrders(@CurrentUser('sub') adminId: string, @Body() dto: AdminOrderArchiveDto) {
+    const archive = dto.archive !== false;
+    const ids = [...new Set(dto.ids)];
+    const found = await this.prisma.order.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, publicId: true, status: true, archivedAt: true },
+    });
+    const plan = planOrderArchive(found, ids, archive);
+    if (plan.apply.length) {
+      const at = new Date();
+      await this.prisma.$transaction([
+        this.prisma.order.updateMany({
+          where: archive
+            ? { id: { in: plan.apply }, archivedAt: null, status: { in: [...ARCHIVABLE_ORDER_STATUSES] } }
+            : { id: { in: plan.apply }, archivedAt: { not: null } },
+          data: { archivedAt: archive ? at : null },
+        }),
+        this.prisma.auditLog.createMany({
+          data: plan.apply.map((id) => ({
+            actorId: adminId,
+            action: archive ? 'admin.order.archive' : 'admin.order.unarchive',
+            entity: 'Order',
+            entityId: id,
+            meta: { publicId: found.find((o) => o.id === id)?.publicId ?? null } as Prisma.InputJsonValue,
+          })),
+        }),
+      ]);
+    }
+    return ok({ archive, applied: plan.apply.length, appliedIds: plan.apply, skipped: plan.skipped });
   }
 
   @Patch('orders/:id/status')

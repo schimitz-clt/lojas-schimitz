@@ -4,6 +4,8 @@ import { ADMIN_ORDER_QUEUE_BUCKETS, adminQueueBucketLabel, orderStatusLabel } fr
 import { separarPrimaryLabel } from '@/lib/admin-ops-ui';
 
 export type AdminOrder = {
+  /** Arquivado no admin (só oculta da lista). */
+  archivedAt?: string | null;
   id: string;
   publicId: string;
   status: string;

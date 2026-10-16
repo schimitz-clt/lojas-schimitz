@@ -113,6 +113,40 @@ async function main() {
   assert.equal(again.json.data.summary.semMudanca, 1, 'reimportar igual = sem mudança');
   await prisma.product.update({ where: { id: p2.id }, data: { active: false } });
 
+  // Arquivar pedidos: cliente 403, só encerrados/entregues, auditado, receita do painel não muda.
+  const mkOrder = (status: 'delivered' | 'cancelled' | 'paid') =>
+    prisma.order.create({
+      data: { publicId: `SCH-ARQ${randomUUID().slice(0, 8).toUpperCase()}`, status, subtotal: 150, total: 150 },
+    });
+  const oDel = await mkOrder('delivered');
+  const oCan = await mkOrder('cancelled');
+  const oPaid = await mkOrder('paid');
+  const ids = [oDel.id, oCan.id, oPaid.id];
+  assert.equal((await http('POST', '/admin/orders/archive', customer, { ids })).status, 403, 'cliente arquivar 403');
+  assert.equal((await http('POST', '/admin/orders/archive', undefined, { ids })).status, 401, 'anônimo arquivar 401');
+  const listIds = async (view?: string) =>
+    ((await http('GET', `/admin/orders${view ? `?view=${view}` : ''}`, admin)).json.data as { id: string }[]).map((o) => o.id);
+  assert.ok(!(await listIds()).includes(oCan.id), 'cancelado fora da lista padrão');
+  assert.ok((await listIds('encerrados')).includes(oCan.id), 'cancelado na aba encerrados');
+  const opsBefore = (await http('GET', '/admin/ops', admin)).json.data;
+  const arch = await http('POST', '/admin/orders/archive', admin, { ids });
+  assert.equal(arch.status, 201, 'arquivar 201');
+  assert.deepEqual([...arch.json.data.appliedIds].sort(), [oDel.id, oCan.id].sort(), 'só entregue e cancelado');
+  assert.equal(arch.json.data.skipped[0].id, oPaid.id, 'pago em andamento recusado');
+  const after = await prisma.order.findMany({ where: { id: { in: ids } } });
+  assert.equal(after.find((o) => o.id === oPaid.id)?.archivedAt, null, 'pago não arquivado');
+  assert.equal(after.find((o) => o.id === oDel.id)?.status, 'delivered', 'status intacto');
+  assert.equal(await prisma.auditLog.count({ where: { action: 'admin.order.archive', entityId: { in: ids } } }), 2, 'auditado por pedido');
+  const opsAfter = (await http('GET', '/admin/ops', admin)).json.data;
+  assert.deepEqual(opsAfter.sales, opsBefore.sales, 'receita/pedidos pagos do painel não mudam ao arquivar');
+  assert.ok(!(await listIds()).includes(oDel.id), 'arquivado fora da lista padrão');
+  assert.ok((await listIds('arquivados')).includes(oDel.id), 'aba arquivados');
+  const found = (await http('GET', `/admin/orders?q=${oDel.publicId}`, admin)).json.data as { id: string }[];
+  assert.ok(found.some((o) => o.id === oDel.id), 'busca por SCH acha arquivado');
+  const un = await http('POST', '/admin/orders/archive', admin, { ids: [oDel.id], archive: false });
+  assert.deepEqual(un.json.data.appliedIds, [oDel.id], 'desarquivar');
+  assert.ok(await prisma.auditLog.findFirst({ where: { action: 'admin.order.unarchive', entityId: oDel.id } }), 'desarquivar auditado');
+
   await prisma.product.update({ where: { id: p.id }, data: { active: false } });
   await srv.close();
   await prisma.$disconnect();

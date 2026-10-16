@@ -3696,3 +3696,4 @@ button.admin-cc-alert {
 .admin-status-tabs button.is-on { background: #07122a; color: #fff; border-color: #07122a; }
 .admin-status-tabs button.is-on b { background: #7a1f35; color: #fff; }
 .admin-listbar { background: #fff; border: 1px solid var(--admin-line); border-radius: 12px; padding: 10px 12px; }
+.admin-view-tabs { margin: 4px 0 10px; max-width: 100%; overflow-x: auto; } .admin-view-tabs button { white-space: nowrap; }

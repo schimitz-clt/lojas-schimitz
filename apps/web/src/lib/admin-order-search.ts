@@ -14,9 +14,12 @@ export function shouldServerOrderSearch(q?: string): boolean {
 export function buildAdminOrdersQueryPath(opts: {
   status?: string;
   q?: string;
+  /** ativos (padrão, omitido) | encerrados | arquivados */
+  view?: string;
 }): string {
   const qs = new URLSearchParams();
   if (opts.status) qs.set('status', opts.status);
+  if (opts.view && opts.view !== 'ativos') qs.set('view', opts.view);
   const q = (opts.q || '').trim();
   if (shouldServerOrderSearch(q)) qs.set('q', q);
   const s = qs.toString();
