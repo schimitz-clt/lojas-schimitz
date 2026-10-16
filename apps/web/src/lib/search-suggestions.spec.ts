@@ -264,7 +264,7 @@ assert.ok(box.includes('closeSuggestions'), 'submit closes the suggest panel');
 assert.ok(box.includes('setFocused(false)'), 'URL seed clears focus so results stay clean');
 assert.ok(box.includes('SEARCH_OPEN_CLASS'), 'open panel pins the chrome');
 
-const catalog = readFileSync(join(__dirname, '../app/produtos/page.tsx'), 'utf8');
+const catalog = readFileSync(join(__dirname, '../app/produtos/produtos-client.tsx'), 'utf8');
 assert.ok(
   catalog.includes("variant={q ? 'shelf' : 'default'}"),
   'search result cards reuse the PIX-first shelf card',

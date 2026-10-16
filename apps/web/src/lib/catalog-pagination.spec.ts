@@ -94,7 +94,7 @@ import { batchSelectionError, catalogImportFileError, toggleSkuSelection } from 
   );
   assert.ok(section.includes('AdminCatalogImportPanel'));
   assert.ok(section.includes('id="admin-product-form"'));
-  const produtos = readFileSync(join(__dirname, '../app/produtos/page.tsx'), 'utf8');
+  const produtos = readFileSync(join(__dirname, '../app/produtos/produtos-client.tsx'), 'utf8');
   assert.ok(produtos.includes('CatalogPager'));
   assert.ok(produtos.includes('pageSize'));
   console.log('catalog-import-ui — PASSOU');
