@@ -73,3 +73,37 @@ Reverter os merges #230 → #229 → #228 nessa ordem. Não há migração na et
 - **A lista de pedidos não foi vista com pedidos reais.** O banco local tem 0 pedidos, então a captura mostra o estado vazio.
 - **Financeiro, logística e equipe/auditoria ainda não têm a barra padrão** (busca, ordenação e paginação na URL).
 - **A tela de pedidos no celular não recebeu ajuste específico.** As capturas não mostraram rolagem horizontal; não houve teste com pedidos reais.
+
+---
+
+# Etapa 3 — arquivar pedidos e período no financeiro (PR #232)
+
+- **Lista de pedidos limpa:** a aba **Ativos** é a padrão e esconde cancelados, estornados e arquivados. A aba **Cancelados/expirados** reúne cancelados e estornados (o job de reservas transforma pedido expirado em cancelado). A aba **Arquivados** permite desarquivar. A aba fica na URL (`?aba=`). A busca por SCH-… encontra qualquer pedido.
+- **Arquivar:** funciona na linha e em lote. Regras:
+  - Só admin.
+  - Só para pedidos cancelados, estornados ou entregues. Pago, aguardando pagamento ou em andamento é recusado, com o motivo.
+  - Cada pedido arquivado ou desarquivado gera uma linha na AuditLog (`admin.order.archive|unarchive`).
+  - Não muda status, pagamento, estoque, relatórios nem receita. A receita do painel continua contando pedidos pagos arquivados; o e2e prova que `ops.sales` fica igual.
+- **Migração aditiva** `20261016_order_archived_at`: `Order.archivedAt` (nullable) e um índice. Aplicada em produção.
+- **Financeiro:** os pagamentos abrem nos últimos 30 dias, com seletor 7 / 30 / 90 / Tudo (`?periodo=`). Nada é apagado.
+- **Testes:**
+  - API: 403 para cliente, 401 para anônimo, auditoria, recusa de pedido pago e receita inalterada.
+  - Web: abas, regra de arquivamento e período.
+  - Os 4 checks do CI ficaram verdes.
+- **Evidências** em `evidencias-admin/etapa3/` (13 pedidos de teste locais):
+  - Antes: tudo misturado ("Pedidos (13)").
+  - Depois: Ativos com 6, Cancelados/expirados, Arquivados e Financeiro, com 0 erros de JS.
+- **Rollback:** reverter o merge. A coluna fica, vazia e ignorada.
+
+# Encerramento (PR #233)
+
+- **"Todos" da aba Ativos:** passa a vir de `ops.orders.activeTotal`, a mesma regra da lista (sem arquivados, cancelados e estornados). Sem esse dado, a tela mostra "—" e nunca o total geral. O e2e confirma que o valor bate com o banco e cai 1 ao arquivar.
+- **Barra padrão** (busca, ordenação e páginas na URL):
+  - Frete/logística: zonas por CEP/nome; ordenação por CEP, taxa, prazo e prioridade.
+  - Equipe: nome/e-mail; ordenação por nome e status.
+  - Auditoria: filtros de área e ação na URL (`?area=`, `?acao=`).
+- **Sem migração.** Rollback: reverter o merge.
+
+## NÃO COMPROVADO (final)
+- **Admin logado em produção não foi testado.** Não há conta de teste, e nenhuma foi criada em dados reais. Os 43 pedidos reais (ex.: SCH-MTP54JTR-9B5235) não foram arquivados pelo agente; o dono arquiva pela tela.
+- **O financeiro não foi testado com pagamentos reais.** O banco local não tem pagamentos.
