@@ -17,3 +17,4 @@ Material da diretiva OMEGA, copiado do box. Nenhuma senha, token ou chave está 
 - `pesos-medidas-modelo.csv` e `pesos-medidas-LEIAME.md`: planilha para preencher peso/medidas.
 
 As capturas grandes da loja (`capturas/`, ~2,9 MB) ficaram fora do repo e continuam no box.
+- **RELATORIO-FINAL-OMEGA-2026-10-16.md**: relatório único A–F do Comando Omega Final (16/10).

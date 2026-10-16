@@ -1,0 +1,4 @@
+  6_idempotency: PASS
+  7_rollback_failure: PASS
+  extra_inv_parallel_cas: PASS
+FASE_D_ALL_REQUIRED_DB_PATHS: PASS

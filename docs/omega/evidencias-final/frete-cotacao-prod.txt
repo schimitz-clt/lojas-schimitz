@@ -1,0 +1,18 @@
+== {"cep":"90010-000","subtotal":24.9,"items":[{"qty":1}]}
+{"success":true,"ok":true,"data":{"price":0,"days":2,"carrier":"Correios","modality":"gratis","matchedPrefix":"90","label":"Porto Alegre — frete grátis","freeAbove":99999,"carrierPrice":12.43,"service":"SEDEX","subsidized":true,"assumedPackage":true},"meta":{"requestId":"f44b2f78-aa29-41dd-8b64-c8fa0fd21b56"}}
+== {"cep":"01310-100","subtotal":24.9,"items":[{"qty":1}]}
+{"success":true,"ok":true,"data":{"price":20.01,"days":4,"carrier":"Jadlog","modality":".Package","matchedPrefix":null,"label":null,"freeAbove":99999,"carrierPrice":20.01,"service":".Package","subsidized":false,"assumedPackage":true},"meta":{"requestId":"c1445216-ca29-4d92-9bdb-d40e4e4b15e8"}}
+== {"cep":"69900-000","subtotal":249.9,"items":[{"qty":2}]}
+{"success":false,"ok":false,"error":{"code":"SHIPPING_CEP_INVALID","message":"CEP inválido ou não encontrado. Confira os dígitos e tente de novo.","details":[]},"meta":{"requestId":"adc7b937-3078-4719-b0c2-44cc4cfc3569"}}
+== {"cep":"00000-000","subtotal":24.9,"items":[{"qty":1}]}
+{"success":false,"ok":false,"error":{"code":"SHIPPING_CEP_INVALID","message":"CEP inválido ou não encontrado. Confira os dígitos e tente de novo.","details":[]},"meta":{"requestId":"7b2fa1d0-c21c-4a11-8cfc-e4f2ffd55732"}}
+== {"cep":"abc","subtotal":24.9}
+{"success":false,"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Informe um CEP com 8 dígitos.","details":[]},"meta":{"requestId":"211434ee-b0d3-4d40-89a9-8f698e463fda"}}
+== {"subtotal":1}
+{"success":false,"ok":false,"error":{"code":"VALIDATION_ERROR","message":"cep must be a string","details":["cep must be a string"]},"meta":{"requestId":"e9ff620e-f0a6-4d35-b380-27f2caee7bfa"}}
+== 69005-010
+{"success":true,"ok":true,"data":{"price":44.16,"days":20,"carrier":"Correios","modality":"PAC","matchedPrefix":null,"label":null,"freeAbove":99999,"carrierPrice":44.16,"service":"PAC","subsidized":false,"assumedPackage":true},"meta":{"requestId":"97cc35bd-d5ab-4a80-95c5-e5f980a2213d"}}
+== 69900-062
+{"success":true,"ok":true,"data":{"price":43.61,"days":16,"carrier":"Jadlog","modality":".Package","matchedPrefix":null,"label":null,"freeAbove":99999,"carrierPrice":43.61,"service":".Package","subsidized":false,"assumedPackage":true},"meta":{"requestId":"7e599d14-b1cb-4075-961d-42baf6e63d28"}}
+== 88010-000
+{"success":true,"ok":true,"data":{"price":24.27,"days":6,"carrier":"Jadlog","modality":".Package","matchedPrefix":null,"label":null,"freeAbove":99999,"carrierPrice":24.27,"service":".Package","subsidized":false,"assumedPackage":true},"meta":{"requestId":"a8fd1e04-1ffb-47fe-8ebe-b3c3ccc06810"}}

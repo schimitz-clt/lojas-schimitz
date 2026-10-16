@@ -1,0 +1,2 @@
+{'performance': 80, 'accessibility': 96, 'best-practices': 93, 'seo': 92}
+{'aria-allowed-attr': 1, 'aria-required-children': None, 'target-size': 0}

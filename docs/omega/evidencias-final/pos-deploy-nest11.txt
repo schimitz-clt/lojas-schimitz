@@ -1,0 +1,12 @@
+200 https://lojas-schimitz-production.up.railway.app/api/v1/health
+200 https://lojas-schimitz-production.up.railway.app/api/v1/health/ready
+200 https://lojas-schimitz-production.up.railway.app/api/v1/health/payments
+200 https://lojas-schimitz-production.up.railway.app/api/v1/products?pageSize=2
+200 https://lojas-schimitz-production.up.railway.app/api/v1/products/anel-de-apoio-para-celular
+200 https://lojas-schimitz-production.up.railway.app/api/v1/categories
+401 https://lojas-schimitz-production.up.railway.app/api/v1/orders
+200 https://lojasschimitz.com.br/
+200 https://lojasschimitz.com.br/produtos
+200 https://lojasschimitz.com.br/produto/anel-de-apoio-para-celular
+401 login-sem-origin(esperado 401/400)
+{"success":true,"ok":true,"data":{"price":20.01,"days":4,"carrier":"Jadlog","modality":".Package","matchedPrefix":null,"admin/ops sem sessão: 401

@@ -1,0 +1,4 @@
+account-deletion.rules.spec ok
+DB_SAFE: postgresql://schimitz:***@127.0.0.1:5432/ls_nest11?schema=public
+account-deletion.db.spec ok
+storefront.no-interest.spec ok

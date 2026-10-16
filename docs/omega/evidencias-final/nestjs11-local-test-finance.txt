@@ -1,0 +1,4 @@
+  PASS documented error shapes: refund on pending PIX = 400/2063, over-refund = 400/2017 (→ refund FAILED, 4xx path)
+  PASS webhook x-signature (docs format "ts=…,v1=…", manifest id:<data.id>;request-id:<x-request-id>;ts:<ts>;) over a real sandbox id
+
+finance.mp-sandbox-contract.spec: 17 PASS / 0 FAIL
