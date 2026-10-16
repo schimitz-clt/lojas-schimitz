@@ -287,6 +287,12 @@ export class AdminOrdersQueryDto {
   @IsInt()
   @Min(1)
   take?: number;
+
+  /** Visão da lista: ativos (padrão), encerrados (cancelados/expirados/estornados), arquivados, todos. */
+  @IsOptional()
+  @IsString()
+  @IsIn(['ativos', 'encerrados', 'arquivados', 'todos'])
+  view?: string;
 }
 
 /** Query GET /admin/products. Sem q/page/pageSize/active a resposta continua um array. */

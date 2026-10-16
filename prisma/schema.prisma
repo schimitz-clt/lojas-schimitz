@@ -375,9 +375,12 @@ model Order {
   notifications   Notification[]
 
   @@unique([userId, idempotencyKey])
+  /** Arquivado no admin (só oculta da lista; não altera pagamento, estoque nem relatórios). */
+  archivedAt           DateTime?
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([archivedAt])
   @@index([userId, status])
 }
 
