@@ -1,0 +1,16 @@
+
+/* Listas padronizadas: barra de busca/ordenação e paginação */
+.admin-listbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0 12px; }
+.admin-listbar__search { flex: 1 1 220px; }
+.admin-listbar__search input { width: 100%; min-height: 40px; }
+.admin-listbar__sort { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.admin-listbar__sort select { min-height: 40px; }
+.admin-listbar__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-listbar__count { margin: 0 0 0 auto; font-size: 13px; opacity: .8; }
+.admin-pager { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin: 12px 0; font-size: 13px; }
+.admin-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 640px) {
+  .admin-listbar__count { margin: 0; width: 100%; }
+  .admin-listbar__sort { width: 100%; }
+  .admin-listbar__sort select { flex: 1; }
+}

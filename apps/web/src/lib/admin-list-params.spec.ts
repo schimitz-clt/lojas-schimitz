@@ -1,0 +1,23 @@
+import assert from 'assert';
+import { paginate, parseOrderSort, parsePage, sortOrders, sortProducts, textMatch, withListParams } from './admin-list-params';
+
+assert.equal(withListParams('pagina=3&x=1', { status: 'paid' }), '?x=1&status=paid', 'filtro volta à página 1 e preserva o resto');
+assert.equal(withListParams('status=paid', { pagina: 2 }), '?status=paid&pagina=2');
+assert.equal(withListParams('status=paid&pagina=2', { pagina: 1 }), '?status=paid');
+assert.equal(withListParams('busca=abc', { busca: '' }), '');
+assert.equal(parsePage('0'), 1);
+assert.equal(parsePage('4'), 4);
+const p = paginate(Array.from({ length: 60 }, (_, i) => i), 3, 25);
+assert.deepEqual([p.page, p.pages, p.from, p.to, p.rows.length], [3, 3, 51, 60, 10]);
+assert.equal(paginate([], 5).page, 1);
+assert.equal(paginate([1, 2], 9).page, 1, 'página fora do limite volta ao máximo');
+assert.equal(parseOrderSort('x'), 'recentes');
+const o = [{ id: 'a', createdAt: '2026-10-01', total: '10' }, { id: 'b', createdAt: '2026-10-05', total: '5' }];
+assert.equal(sortOrders(o, 'recentes')[0].id, 'b');
+assert.equal(sortOrders(o, 'maior_valor')[0].id, 'a');
+const pr = [{ name: 'Ventilador', price: 100, inventory: { qtyOnHand: 1 } }, { name: 'Air fryer', price: 300, inventory: { qtyOnHand: 9 } }];
+assert.equal(sortProducts(pr, 'nome')[0].name, 'Air fryer');
+assert.equal(sortProducts(pr, 'estoque_baixo')[0].name, 'Ventilador');
+assert.ok(textMatch(['Air Fryer', 'SKU-1'], 'fryer'));
+assert.ok(!textMatch(['x'], 'y'));
+console.log('admin-list-params: PASSOU');

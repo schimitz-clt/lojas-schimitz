@@ -86,6 +86,8 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { ORDER_SORTS } from '@/lib/admin-list-params';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -123,6 +125,9 @@ export function AdminPedidosSection() {
     selectOpsBucket,
     openCustomer,
     filteredOrders,
+    pagedOrders,
+    orderSort,
+    setListParams,
     bulkSepararEligibleCount,
     bulkAdvanceEligibleCount,
     advance,
@@ -413,19 +418,18 @@ export function AdminPedidosSection() {
 
       <section className="admin-cc-block" aria-labelledby="admin-orders-queue">
         <h2 id="admin-orders-queue" className="admin-cc-block__title">
-          Fila carregada ({filteredOrders.length}
+          Pedidos ({filteredOrders.length}
           {orderJumpQ.trim() ? ` / ${orders.length}` : ''})
         </h2>
         <p className="admin-cc-block__lede">
- Lista de pedidos com o status real de cada pedido. Os números da faixa acima são o
- resumo. Separar continua Pago → Organizando e Organizando → Embalagem — sem status novo.
-          Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp abre wa.me e não envia sozinho.
+          Status real de cada pedido. Separar leva Pago → Organizando e Organizando → Embalagem.
+          Pronto para coleta → Em trânsito é feito um a um (precisa do rastreio). O WhatsApp abre a conversa, mas não envia sozinho.
         </p>
       <div className="admin-pedidos__toolbar">
       <label className="admin-search-field">
         <span>
-          Busca pedidos (servidor se ≥3 caracteres ou SCH-…; senão na lista carregada)
-          {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — busca no servidor' : ''}
+          Buscar pedido (número SCH-…, e-mail ou nome)
+          {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — em todos os pedidos' : ''}
         </span>
         <input
           value={orderJumpQ}
@@ -542,8 +546,18 @@ export function AdminPedidosSection() {
           {msg}
         </p>
       ) : null}
+      <AdminListBar
+        sort={orderSort}
+        sorts={ORDER_SORTS}
+        onSort={(v) => setListParams({ ordem: v === 'recentes' ? '' : v })}
+        count={
+          pagedOrders.total
+            ? `Mostrando ${pagedOrders.from}–${pagedOrders.to} de ${pagedOrders.total}`
+            : undefined
+        }
+      />
       <div className="admin-order-list">
-      {filteredOrders.map((o) => {
+      {pagedOrders.rows.map((o) => {
         const next = nextFulfillmentStatus(o.status);
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
@@ -759,13 +773,14 @@ export function AdminPedidosSection() {
               <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
                 {wa.toCustomer
                   ? `Abre conversa com o cliente (${phone}).`
-                  : 'Cliente sem telefone — abre o WhatsApp da loja (NEXT_PUBLIC_WHATSAPP) com rascunho interno.'}
+                  : 'Cliente sem telefone — abre o WhatsApp da loja com um rascunho interno.'}
               </p>
 
             </div>
           </div>
         );
       })}
+      <AdminPager {...pagedOrders} onPage={(p) => setListParams({ pagina: p })} />
       {!filteredOrders.length ? (
         <p className="muted">
           {emptyOrdersQueueMessage({
