@@ -99,6 +99,7 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminSupplierImportPanel } from '@/components/admin/AdminSupplierImportPanel';
 import { AdminCatalogImportPanel } from '@/components/admin/sections/AdminCatalogImportPanel';
 import { catalogSplitCounts } from '@/lib/demo-catalog';
 import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
@@ -812,6 +813,7 @@ export function AdminCatalogoSection() {
 
       <div className="admin-section-panel admin-catalog">
       <AdminCatalogImportPanel />
+      <AdminSupplierImportPanel />
       {editingId ? (
         <button type="button" className="admin-ent-backdrop" aria-label="Fechar edição do produto" onClick={resetForm} />
       ) : null}

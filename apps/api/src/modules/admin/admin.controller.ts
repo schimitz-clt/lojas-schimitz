@@ -27,6 +27,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { AdminSupplierImportDto, SUPPLIER_CSV_COLUMNS, SUPPLIER_CSV_TEMPLATE, planSupplierImport, validateSupplierCsv } from './supplier-csv';
 import { ymdMinusDays } from './admin-ops';
 import { AdminProductSupplierDto, grossMarginPct, toProductSupplierView } from './product-supplier';
 import { PrismaService } from '../../prisma.service';
@@ -702,6 +703,49 @@ export class AdminController {
     @Body() dto: AdminUpdateProductDto,
   ) {
     return ok(await this.productsService.update(id, dto, actorId));
+  }
+
+  @Get('suppliers/template')
+  @ApiOperation({ summary: 'Modelo CSV de fornecedor/custo por SKU' })
+  supplierTemplate() {
+    return ok({ filename: 'modelo-fornecedores.csv', csv: SUPPLIER_CSV_TEMPLATE, columns: SUPPLIER_CSV_COLUMNS });
+  }
+
+  @Post('suppliers/import')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Importa fornecedor/custo por SKU. dryRun (padrão) só confere; aplicar é tudo ou nada; auditado' })
+  async importSuppliers(@Body() dto: AdminSupplierImportDto) {
+    const dryRun = dto.dryRun !== false;
+    const v = validateSupplierCsv(dto.csv);
+    const skus = v.rows.map((r) => r.sku);
+    const products = skus.length
+      ? await this.prisma.product.findMany({
+          where: { sku: { in: skus, mode: 'insensitive' } },
+          select: { id: true, sku: true, name: true, supplier: true },
+        })
+      : [];
+    const plan = planSupplierImport(
+      v.rows,
+      products.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        supplier: p.supplier
+          ? { ...p.supplier, costPrice: p.supplier.costPrice == null ? null : Number(p.supplier.costPrice) }
+          : null,
+      })),
+    );
+    const errors = [...v.errors, ...plan.errors].sort((a, b) => a.line - b.line);
+    if (dryRun || errors.length) {
+      return ok({ dryRun, applied: false, errors: errors.slice(0, 200), errorCount: errors.length, summary: plan.summary, preview: plan.preview.slice(0, 500) });
+    }
+    await this.prisma.$transaction(
+      plan.writes.map((w) => {
+        const data = { ...w.data, costPrice: w.data.costPrice == null ? null : new Prisma.Decimal(w.data.costPrice.toFixed(2)) };
+        return this.prisma.productSupplier.upsert({ where: { productId: w.productId }, create: { productId: w.productId, ...data }, update: data });
+      }),
+    );
+    return ok({ dryRun: false, applied: true, errors: [], errorCount: 0, summary: plan.summary, written: plan.writes.length, preview: plan.preview.slice(0, 500) });
   }
 
   @Get('products/:id/supplier')
