@@ -509,14 +509,14 @@ export function HomeBanners({
         ) : null}
       </div>
       {multi ? (
-        <div className="home-banner-dots" role="tablist" aria-label="Banners">
+        <div className="home-banner-dots" role="group" aria-label="Banners">
           {slides.map((b, i) => (
             <button
               key={b.id}
               type="button"
               className={i === safeIdx ? 'home-banner-dot active' : 'home-banner-dot'}
               aria-label={bannerDotLabel(i)}
-              aria-selected={i === safeIdx}
+              aria-current={i === safeIdx ? 'true' : undefined}
               onClick={() => {
                 pauseAuto();
                 goTo(i, false);
