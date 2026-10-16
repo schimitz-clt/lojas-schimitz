@@ -29,8 +29,8 @@ export function AdminAvaliacoesSection() {
     <>
       <AdminPrimeCommand
         eyebrow="Avaliações"
-        title="Moderação do que GET /admin/reviews já devolve."
-        endpoint="GET /admin/reviews · PATCH /admin/reviews/:id · DELETE /admin/reviews/:id"
+ title="Moderação das avaliações dos clientes."
+ endpoint=""
         busy={Boolean(reviewBusyId)}
         onRefresh={() => void load()}
         nowLede={AVALIACOES_NOW_LEDE}
@@ -120,7 +120,7 @@ export function AdminAvaliacoesSection() {
             <p className="admin-empty">
               {storePayload === 'error'
                 ? 'Avaliações indisponíveis. Nenhuma nota foi estimada.'
-                : 'Lendo GET /admin/reviews…'}
+ : 'Carregando…'}
             </p>
           ) : null}
         </div>

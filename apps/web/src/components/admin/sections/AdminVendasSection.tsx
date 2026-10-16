@@ -52,8 +52,8 @@ function toAttentionItem(a: AdminOpsAlert) {
 }
 
 function rangeHint(window: VendasWindowCounts | null, ready: boolean): string {
-  if (!ready) return 'aguardando snapshot';
-  if (!window) return 'sem janela neste snapshot';
+ if (!ready) return 'aguardando resumo';
+ if (!window) return 'sem janela neste resumo';
   if (!window.from && !window.to) return 'período —';
   const from = window.from ? formatSalesDatePt(window.from) : ENTERPRISE_MISSING;
   const to = window.to ? formatSalesDatePt(window.to) : ENTERPRISE_MISSING;
@@ -162,12 +162,10 @@ export function AdminVendasSection() {
         <header className="admin-cc-banner">
           <div>
             <p className="admin-cc-banner__eyebrow">Vendas</p>
-            <p className="admin-cc-banner__title">Receita do snapshot, um GET /admin/ops.</p>
+ <p className="admin-cc-banner__title">Receita do resumo</p>
             <p className="admin-cc-banner__meta">
-              Snapshot{' '}
+              Atualizado às{' '}
               {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
-              {' · '}
-              GET /admin/ops
             </p>
           </div>
           <button

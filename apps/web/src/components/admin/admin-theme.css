@@ -3609,3 +3609,11 @@ button.admin-cc-alert {
   .admin-table td { border: 0; padding: 4px 12px; display: flex; gap: 8px; justify-content: space-between; }
   .admin-table td::before { content: attr(data-label); color: var(--admin-muted); font-weight: 600; }
 }
+
+/* Painel executivo — seletor de período */
+.admin-exec-period {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

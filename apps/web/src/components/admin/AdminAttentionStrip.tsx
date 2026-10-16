@@ -163,17 +163,17 @@ export function AdminAttentionStrip({
         </div>
         <p className="admin-attn__lede">
           {lede ||
-            'Cada alerta do snapshot: o problema, onde abrir e como resolver. Os atalhos são os que já existem. Nada é estimado e nada se resolve sozinho.'}
+            'Cada alerta do resumo: o problema, onde abrir e como resolver. Os atalhos são os que já existem. Nada é estimado e nada se resolve sozinho.'}
         </p>
         {pending ? (
           <div className="admin-shell-state admin-shell-state--loading" role="status">
-            <p className="admin-shell-state__title">{pendingTitle || 'Lendo o snapshot…'}</p>
+ <p className="admin-shell-state__title">{pendingTitle || 'Lendo o resumo…'}</p>
             <p>{pendingBody || 'Os alertas aparecem quando o centro de comando responder.'}</p>
           </div>
         ) : null}
         {unavailable ? (
           <div className="admin-shell-state" role="status">
-            <p className="admin-shell-state__title">{unavailableTitle || 'Snapshot indisponível'}</p>
+ <p className="admin-shell-state__title">{unavailableTitle || 'Resumo indisponível'}</p>
             <p>{unavailableBody || opsAttentionUnavailableMessage()}</p>
           </div>
         ) : null}

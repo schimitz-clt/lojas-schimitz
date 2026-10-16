@@ -135,7 +135,7 @@ export function AdminOrderDossier({
       <aside className="admin-ent-sheet" role="dialog" aria-modal="true" aria-labelledby="admin-order-dossier-title">
         <header className="admin-ent-sheet__head">
           <div>
-            <p className="admin-ent-kicker">Pedido · GET /admin/orders</p>
+ <p className="admin-ent-kicker">Pedido</p>
             <h2 id="admin-order-dossier-title" className="admin-ent-sheet__title">
               {model.publicId}
             </h2>

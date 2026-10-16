@@ -131,7 +131,7 @@ assert.equal(historyActorLabel(null), ENTERPRISE_MISSING);
 assert.equal(historyActorLabel('  '), ENTERPRISE_MISSING);
 assert.equal(historyActorLabel('user-1'), 'user-1');
 assert.ok(ORDER_ACTOR_SCOPE.includes('actorId'));
-assert.ok(ORDER_ACTOR_SCOPE.includes('não vem neste payload'));
+assert.ok(ORDER_ACTOR_SCOPE.includes('não vem nestes dados'));
 
 const confirm = fulfillmentConfirmCopy({
   publicId: 'SCH-1',
@@ -141,7 +141,7 @@ const confirm = fulfillmentConfirmCopy({
 assert.ok(confirm.title.includes('SCH-1'));
 assert.ok(confirm.title.includes('Pago'));
 assert.ok(confirm.title.includes('Organizando'));
-assert.ok(confirm.detail.includes('PATCH /admin/orders/:id/status'));
+assert.ok(!confirm.detail.includes('/admin/'));
 assert.ok(confirm.detail.includes('Sem cobrança'));
 assert.equal(confirm.detail.includes('refund'), false);
 
@@ -190,11 +190,11 @@ assert.equal(catalogStockBatchBody(['FICT-001'], 'set', '1,5').ok, false);
 
 const activeBody = catalogActiveBatchBody(['FICT-001'], false);
 assert.deepEqual(activeBody, { skus: ['FICT-001'], active: false });
-assert.ok(catalogBatchConfirmText('stock-set', 2, '4').includes('POST /admin/products/batch'));
+assert.ok(!catalogBatchConfirmText('stock-set', 2, '4').includes('/admin/'));
 assert.ok(catalogBatchConfirmText('deactivate', 1).includes('Nada é apagado'));
 assert.equal(catalogBatchProgressLabel(3), 'Aplicando lote em 3 SKU(s)…');
 assert.ok(CATALOG_BATCH_PHOTO_NOTE.includes('Foto não entra neste lote'));
-assert.ok(CATALOG_BATCH_PHOTO_NOTE.includes('POST /admin/products/batch'));
+assert.ok(!CATALOG_BATCH_PHOTO_NOTE.includes('/admin/'));
 
 const feedback = catalogBatchFeedback({
   updated: 1,
@@ -349,7 +349,7 @@ const state = readFileSync(join(srcRoot, 'components/admin/admin-console-state.t
 
 assert.ok(pedidos.includes('AdminOrderDossier'), 'order evidence opens in the dossier');
 assert.ok(pedidos.includes('id="admin-orders-queue"'), 'queue anchor stays');
-assert.ok(pedidos.includes('pedidosCommandCounts'), 'snapshot counts stay on the helper');
+assert.ok(pedidos.includes('pedidosCommandCounts'), 'resumo counts stay on the helper');
 assert.ok(pedidos.includes('askAdvance'), 'single advance asks before PATCH');
 assert.ok(dossier.includes('ORDER_ACTOR_SCOPE'));
 assert.ok(dossier.includes('fulfillmentConfirmCopy'));
@@ -367,10 +367,10 @@ assert.ok(state.includes('orderMutationErrorText'), 'status failure keeps the AP
 assert.ok(state.includes('/admin/orders/${order.id}/status'), 'status PATCH stays');
 assert.equal(state.includes('window.prompt'), false, 'tracking is collected in the dossier, not a prompt');
 
-assert.ok(vendas.includes('vendasCommandCounts'), 'snapshot windows stay on the helper');
+assert.ok(vendas.includes('vendasCommandCounts'), 'resumo windows stay on the helper');
 assert.ok(vendas.includes('salesEvidenceModel'), 'period evidence stays on the helper');
 assert.ok(vendas.includes('exportSalesCsv'), 'CSV stays the existing download');
-assert.ok(vendas.includes('GET /admin/ops'));
+assert.ok(!vendas.includes('GET /admin/'), 'sem rota técnica na tela');
 assert.ok(vendas.includes('VENDAS_EVIDENCE_LEDE'));
 assert.ok(vendas.includes('VENDAS_READONLY_NOTE'));
 assert.ok(vendas.includes('blocks={{'), 'omitted chart blocks stay explicit');

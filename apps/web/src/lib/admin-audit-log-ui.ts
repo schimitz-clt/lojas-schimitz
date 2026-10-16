@@ -59,8 +59,37 @@ export function auditActionLabel(action: string): string {
   if (CURATED[action]) return CURATED[action];
   const m = action.match(/^admin\.http\.([A-Z]+) (.+)$/);
   if (!m) return action;
-  const path = m[2].replace(/^\/?(api\/v1\/)?admin\//, '');
-  return `${VERB[m[1]] || m[1]} · ${path}`;
+  const path = m[2].replace(/^\/?(api\/v1\/)?admin\//, '').split('?')[0];
+  return `${VERB[m[1]] || m[1]} · ${auditEntityLabel(path)}`;
+}
+
+const ENTITY_PT: [RegExp, string][] = [
+  [/^products\/[^/]+\/supplier$/, 'fornecedor do produto'],
+  [/^products\/[^/]+\/images/, 'fotos do produto'],
+  [/^products\/(import|batch)$/, 'produtos em lote'],
+  [/^suppliers\/import$/, 'fornecedores em lote'],
+  [/^products/, 'produto'],
+  [/^orders\/[^/]+\/tracking$/, 'rastreio do pedido'],
+  [/^orders\/[^/]+\/notify-paid$/, 'aviso de pedido pago'],
+  [/^orders/, 'pedido'],
+  [/^payments/, 'pagamento'],
+  [/^banners/, 'banner'],
+  [/^coupons/, 'cupom'],
+  [/^shipping/, 'frete'],
+  [/^reviews/, 'avaliação'],
+  [/^store/, 'configuração da loja'],
+  [/^admins/, 'administrador'],
+  [/^sellers/, 'vendedor'],
+  [/^commissions/, 'comissão'],
+  [/^push/, 'notificação'],
+  [/^uploads/, 'arquivo enviado'],
+  [/^finance/, 'financeiro'],
+];
+
+/** "products/:id" → "produto". Sem correspondência, mostra "outra área" (nunca a rota). */
+export function auditEntityLabel(path: string): string {
+  const hit = ENTITY_PT.find(([re]) => re.test(path));
+  return hit ? hit[1] : 'outra área';
 }
 
 export function auditActorLabel(actor: AdminAuditLogItem['actor']): string {

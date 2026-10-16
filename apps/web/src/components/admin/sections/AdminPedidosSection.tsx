@@ -245,12 +245,10 @@ export function AdminPedidosSection() {
       <header className="admin-cc-banner">
         <div>
           <p className="admin-cc-banner__eyebrow">Pedidos</p>
-          <p className="admin-cc-banner__title">Fila operacional, um snapshot.</p>
+          <p className="admin-cc-banner__title">Fila operacional, um resumo.</p>
           <p className="admin-cc-banner__meta">
-            Snapshot{' '}
+            Atualizado às{' '}
             {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
-            {' · '}
-            GET /admin/ops
           </p>
         </div>
         <button
@@ -286,7 +284,7 @@ export function AdminPedidosSection() {
             </div>
             <div className="admin-cc-kpi__hint">
               {!ready
-                ? 'aguardando snapshot'
+ ? 'aguardando resumo'
                 : counts.stuckPaid == null
                   ? 'travados —'
                   : counts.stuckPaid > 0
@@ -309,12 +307,12 @@ export function AdminPedidosSection() {
             </div>
             <div className="admin-cc-kpi__hint">
               {!ready
-                ? 'aguardando snapshot'
+ ? 'aguardando resumo'
                 : counts.oldestStuckHours != null
                   ? `mais antigo ~${counts.oldestStuckHours}h`
                   : counts.stuckPaid === 0
                     ? 'nenhum acima do limite'
-                    : 'sem horas neste snapshot'}
+ : 'sem horas neste resumo'}
             </div>
           </button>
           <button
@@ -335,7 +333,7 @@ export function AdminPedidosSection() {
           >
             <div className="admin-cc-kpi__label">Aguardando pagamento</div>
             <div className="admin-cc-kpi__value">{opsCountOrDash(counts.awaitingPayment, ready)}</div>
-            <div className="admin-cc-kpi__hint">bucket do snapshot</div>
+            <div className="admin-cc-kpi__hint">nesta etapa</div>
           </button>
         </div>
         {counts.stuckPublicIds.length ? (
@@ -419,8 +417,8 @@ export function AdminPedidosSection() {
           {orderJumpQ.trim() ? ` / ${orders.length}` : ''})
         </h2>
         <p className="admin-cc-block__lede">
-          Lista de GET /admin/orders com o status real de cada pedido. Os números da faixa acima são o
-          snapshot. Separar continua Pago → Organizando e Organizando → Embalagem — sem status novo.
+ Lista de pedidos com o status real de cada pedido. Os números da faixa acima são o
+ resumo. Separar continua Pago → Organizando e Organizando → Embalagem — sem status novo.
           Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp abre wa.me e não envia sozinho.
         </p>
       <div className="admin-pedidos__toolbar">
@@ -728,7 +726,7 @@ export function AdminPedidosSection() {
                     className="btn ghost admin-btn-ghost-pro"
                     disabled={busyId === o.id || bulkBusy}
                     onClick={() => void resendStorePaidNotify(o)}
-                    title="POST /admin/orders/:id/notify-paid"
+ title=""
                   >
                     Reenviar aviso loja
                   </button>

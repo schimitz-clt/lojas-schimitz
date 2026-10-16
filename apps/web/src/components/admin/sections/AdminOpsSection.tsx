@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { EXEC_PERIODS, execPeriodLabel, execWindow, parseExecPeriod, type ExecPeriod } from '@/lib/admin-exec-dashboard';
 import { brl } from '@/lib/api';
 import { adminQueueBucketLabel, ADMIN_ORDER_QUEUE_BUCKETS } from '@/lib/order-status';
 import { buildAdminSectionHref } from '@/lib/admin-sections';
@@ -67,6 +69,17 @@ export function AdminOpsSection() {
   } = useAdminConsole();
 
   const ready = ops != null;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const period = parseExecPeriod(searchParams?.get('periodo'));
+  const win = ready ? execWindow(ops?.sales, period) : null;
+  function setPeriod(p: ExecPeriod) {
+    const q = new URLSearchParams(searchParams?.toString() || '');
+    if (p === 'hoje') q.delete('periodo');
+    else q.set('periodo', p);
+    const qs = q.toString();
+    router.replace(qs ? `?${qs}` : '?', { scroll: false });
+  }
   const signalAlerts = sortOpsAlertsForAttention(
     (ops?.alerts ?? []).filter((a) => a.severity === 'info'),
   );
@@ -92,8 +105,8 @@ export function AdminOpsSection() {
   if (!ready) {
     nowBits.push(
       opsSnapshot === 'error'
-        ? 'Snapshot operacional indisponível. Nenhum número foi estimado.'
-        : 'Lendo o snapshot…',
+ ? 'Resumo operacional indisponível. Nenhum número foi estimado.'
+ : 'Lendo o resumo…',
     );
   } else {
     if (ops.sales?.today) {
@@ -101,7 +114,7 @@ export function AdminOpsSection() {
         `Hoje ${brl(ops.sales.today.revenue)} em ${ops.sales.today.orderCount} pedido(s) pagos.`,
       );
     } else {
-      nowBits.push('Receita de hoje não veio neste snapshot.');
+ nowBits.push('Receita de hoje não veio neste resumo.');
     }
     if (paidCount != null) nowBits.push(`${paidCount} pago(s) aguardando organização.`);
     nowBits.push(`${attentionAlerts.length} alerta(s) de atenção.`);
@@ -137,17 +150,15 @@ export function AdminOpsSection() {
     <div className="admin-section-panel admin-cc">
       <header className="admin-cc-banner">
         <div>
-          <p className="admin-cc-banner__eyebrow">Centro de comando</p>
-          <p className="admin-cc-banner__title">Três perguntas, um snapshot.</p>
+          <p className="admin-cc-banner__eyebrow">Visão geral</p>
+          <p className="admin-cc-banner__title">Painel da loja</p>
           <p className="admin-cc-banner__meta">
-            Snapshot{' '}
+            Atualizado às{' '}
             {ops?.time ? (
               <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time>
             ) : (
               '—'
             )}
-            {' · '}
-            GET /admin/ops
           </p>
         </div>
         <button
@@ -174,36 +185,38 @@ export function AdminOpsSection() {
         </p>
 
         <div className="admin-cc-kpi-grid">
-          <div className="admin-cc-kpi">
-            <div className="admin-cc-kpi__label">Receita hoje</div>
-            <div className="admin-cc-kpi__value">
-              {ops?.sales?.today ? brl(ops.sales.today.revenue) : '—'}
-            </div>
-            <div className="admin-cc-kpi__hint">
-              {ops?.sales?.today
-                ? `${ops.sales.today.orderCount} pedido(s) pagos`
-                : ready
-                  ? 'sem janela neste snapshot'
-                  : 'aguardando snapshot'}
-            </div>
+          <div className="admin-exec-period" role="group" aria-label="Período">
+            {EXEC_PERIODS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`admin-chip${period === p.id ? ' is-active' : ''}`}
+                aria-pressed={period === p.id}
+                onClick={() => setPeriod(p.id)}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
           <div className="admin-cc-kpi">
-            <div className="admin-cc-kpi__label">Receita 30 dias</div>
-            <div className="admin-cc-kpi__value">
-              {ops?.sales?.last30d ? brl(ops.sales.last30d.revenue) : '—'}
-            </div>
-            <div className="admin-cc-kpi__hint">
-              {ops?.sales?.last30d
-                ? `${ops.sales.last30d.orderCount} pedido(s) pagos`
-                : ready
-                  ? 'sem janela neste snapshot'
-                  : 'aguardando snapshot'}
-            </div>
+            <div className="admin-cc-kpi__label">Receita {execPeriodLabel(period)}</div>
+            <div className="admin-cc-kpi__value">{win ? brl(win.revenue) : '—'}</div>
+            <div className="admin-cc-kpi__hint">{win ? 'pedidos pagos' : ready ? 'sem dados ainda' : 'carregando…'}</div>
+          </div>
+          <div className="admin-cc-kpi">
+            <div className="admin-cc-kpi__label">Pedidos pagos</div>
+            <div className="admin-cc-kpi__value">{win ? win.orders : '—'}</div>
+            <div className="admin-cc-kpi__hint">{execPeriodLabel(period)}</div>
+          </div>
+          <div className="admin-cc-kpi">
+            <div className="admin-cc-kpi__label">Ticket médio</div>
+            <div className="admin-cc-kpi__value">{win?.ticket != null ? brl(win.ticket) : '—'}</div>
+            <div className="admin-cc-kpi__hint">{win && win.orders === 0 ? 'sem vendas no período' : win ? 'receita ÷ pedidos' : 'sem dados ainda'}</div>
           </div>
           <div className="admin-cc-kpi">
             <div className="admin-cc-kpi__label">Pedidos</div>
             <div className="admin-cc-kpi__value">{opsCountOrDash(ops?.orders?.total, ready)}</div>
-            <div className="admin-cc-kpi__hint">total no snapshot</div>
+            <div className="admin-cc-kpi__hint">total no resumo</div>
           </div>
           <button
             type="button"
@@ -218,7 +231,7 @@ export function AdminOpsSection() {
             </div>
             <div className="admin-cc-kpi__hint">
               {!ready
-                ? 'aguardando snapshot'
+ ? 'aguardando resumo'
                 : (stuckCount ?? 0) > 0
                   ? `${stuckCount} travado(s) ≥${stuckThreshold ?? PAID_STUCK_HOURS_UI}h`
                   : `limite ${stuckThreshold ?? PAID_STUCK_HOURS_UI}h`}
@@ -227,7 +240,7 @@ export function AdminOpsSection() {
           <div className={`admin-cc-kpi${kpiTone(ready, ops?.payments?.pendingCount, 'warn')}`}>
             <div className="admin-cc-kpi__label">Pagamentos</div>
             <div className="admin-cc-kpi__value">{opsCountOrDash(ops?.payments?.pendingCount, ready)}</div>
-            <div className="admin-cc-kpi__hint">pendentes no snapshot</div>
+            <div className="admin-cc-kpi__hint">pendentes no resumo</div>
           </div>
           <button
             type="button"
@@ -248,7 +261,7 @@ export function AdminOpsSection() {
             >
               {opsCountOrDash(ops?.reconciliations?.openCount, ready)}
             </div>
-            <div className="admin-cc-kpi__hint">abertas no snapshot</div>
+            <div className="admin-cc-kpi__hint">abertas no resumo</div>
           </button>
         </div>
 
@@ -387,7 +400,7 @@ export function AdminOpsSection() {
             </div>
           </div>
           <p className="admin-cc-work__note">
-            Produtos do snapshot com foto ausente ou host placeholder. Nenhuma imagem é inventada.
+ Produtos do resumo com foto ausente ou host placeholder. Nenhuma imagem é inventada.
           </p>
           {ops?.catalog?.placeholderProducts?.length ? (
             <ul className="admin-cc-photo-list">
@@ -417,8 +430,8 @@ export function AdminOpsSection() {
           ) : (
             <p className="admin-cc-empty">
               {ready
-                ? 'Nenhum produto com placeholder ou foto ausente neste snapshot.'
-                : 'A lista aparece quando o snapshot carregar.'}
+ ? 'Nenhum produto com placeholder ou foto ausente neste resumo.'
+ : 'A lista aparece quando o resumo carregar.'}
             </p>
           )}
         </div>
@@ -433,7 +446,7 @@ export function AdminOpsSection() {
         </div>
         <p className="admin-cc-block__lede">
           Webhooks que não aplicaram o pagamento no pedido: órfãos (sem Payment local) e divergência de
-          valor ou referência (`GET /admin/payments/reconciliations`). Somente revisão humana — sem
+ valor ou referência. Somente revisão humana — sem
           estorno, cancelamento ou ajuste de estoque automático.
         </p>
         <p className="admin-cc-work__note">
@@ -480,7 +493,7 @@ export function AdminOpsSection() {
           ))}
           {!reconciliations.length && !ops?.reconciliations?.recent?.length ? (
             <p className="admin-cc-empty">
-              {ready ? 'Nenhuma reconciliação aberta.' : 'A fila aparece quando o snapshot carregar.'}
+ {ready ? 'Nenhuma reconciliação aberta.' : 'A fila aparece quando o resumo carregar.'}
             </p>
           ) : null}
         </div>

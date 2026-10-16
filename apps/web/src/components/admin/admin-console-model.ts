@@ -494,6 +494,7 @@ export type AdminOpsSnapshot = {
   };
   sales?: {
     today: AdminOpsSalesWindow | null;
+    last7d?: AdminOpsSalesWindow | null;
     last30d: AdminOpsSalesWindow | null;
   };
   /** Present only when the API checked the uploads dir. Null/omitted = unknown, not a status. */

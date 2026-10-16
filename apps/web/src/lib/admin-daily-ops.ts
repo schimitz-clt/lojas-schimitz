@@ -215,7 +215,7 @@ export function photoQueueAlignmentNote(
   if (ops === n) {
     return `${n} produto(s) — alinhado ao Ops “Foto p/ trocar”. Sem foto inventada.`;
   }
-  return `Lista: ${n} · Ops (snapshot): ${ops}. Atualize o Centro de comando se acabou de enviar fotos.`;
+ return `Lista: ${n} · Ops (resumo): ${ops}. Atualize o Centro de comando se acabou de enviar fotos.`;
 }
 
 export function shouldPromoteUploadedImageToCover(coverUrl?: string | null): boolean {

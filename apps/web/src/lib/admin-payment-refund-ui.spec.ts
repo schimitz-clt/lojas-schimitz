@@ -77,7 +77,7 @@ assert.ok(confirm.title.includes('SCH-9'));
 assert.ok(confirm.detail.includes('ord_12345678'));
 assert.ok(confirm.detail.includes(approved.id));
 assert.ok(confirm.detail.includes('100'));
-assert.ok(confirm.detail.includes('POST /admin/payments/:id/refund'));
+assert.ok(!confirm.detail.includes('/admin/'));
 assert.ok(confirm.detail.includes('Mercado Pago na hora'));
 assert.ok(confirm.detail.includes('estoque dos itens volta'));
 assert.ok(confirm.detail.includes('Voltar não chama a API'));
