@@ -41,7 +41,7 @@ jobs:
         run: npm test
 
   e2e:
-    name: E2E navegador — carrinho → checkout → PIX e jornada de compra (MP falso, Postgres local)
+    name: E2E navegador — carrinho → checkout → PIX (MP falso, Postgres local)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
