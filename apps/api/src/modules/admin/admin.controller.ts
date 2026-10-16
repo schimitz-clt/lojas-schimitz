@@ -1,4 +1,6 @@
 import {
+  NotFoundException,
+  Put,
   BadRequestException,
   Body,
   Logger,
@@ -24,7 +26,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
+import { AdminProductSupplierDto, grossMarginPct, toProductSupplierView } from './product-supplier';
 import { PrismaService } from '../../prisma.service';
 import { AdminAuditInterceptor } from '../../common/admin-audit.interceptor';
 import { AdminAuditLogQueryDto } from './dto';
@@ -282,6 +285,15 @@ export class AdminController {
       this.log.warn(`ops fulfillmentAttention query failed: ${e?.message || e}`);
     }
 
+    let productsMissingSupplier: number | undefined;
+    try {
+      productsMissingSupplier = await this.prisma.product.count({
+        where: { active: true, isDemo: false, supplier: null },
+      });
+    } catch (e: any) {
+      this.log.warn(`ops productsMissingSupplier query failed: ${e?.message || e}`);
+    }
+
     const placeholderProducts = listPlaceholderProducts(productImageRows);
     const orderStatusCounts = orderStatusGroups.map((g) => ({
       status: g.status,
@@ -321,6 +333,7 @@ export class AdminController {
         reconciliations,
         paidAwaitingOrg,
         fulfillmentAttention,
+        productsMissingSupplier,
         uploads,
         storeNotifyMail: peekStoreNotifyMailSnapshot(),
         shippingData: summarizeShippingData(shippingRows),
@@ -672,6 +685,41 @@ export class AdminController {
     @Body() dto: AdminUpdateProductDto,
   ) {
     return ok(await this.productsService.update(id, dto, actorId));
+  }
+
+  @Get('products/:id/supplier')
+  @ApiOperation({ summary: 'Fornecedor e custo do produto (interno; null = não cadastrado)' })
+  async productSupplier(@Param('id') id: string) {
+    const product = await this.prisma.product.findUnique({ where: { id }, select: { id: true, price: true } });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+    const row = await this.prisma.productSupplier.findUnique({ where: { productId: id } });
+    const view = row ? toProductSupplierView(row) : null;
+    return ok({
+      supplier: view,
+      grossMarginPct: grossMarginPct(Number(product.price), view?.costPrice ?? null),
+    });
+  }
+
+  @Put('products/:id/supplier')
+  @ApiOperation({ summary: 'Cadastra/atualiza fornecedor e custo (auditado em AuditLog)' })
+  async upsertProductSupplier(@Param('id') id: string, @Body() dto: AdminProductSupplierDto) {
+    const product = await this.prisma.product.findUnique({ where: { id }, select: { id: true, price: true } });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+    const data = {
+      supplierName: dto.supplierName,
+      supplierSku: dto.supplierSku ?? null,
+      supplierUrl: dto.supplierUrl ?? null,
+      costPrice: dto.costPrice == null ? null : new Prisma.Decimal(dto.costPrice.toFixed(2)),
+      leadTimeDays: dto.leadTimeDays ?? null,
+      notes: dto.notes ?? null,
+    };
+    const row = await this.prisma.productSupplier.upsert({
+      where: { productId: id },
+      create: { productId: id, ...data },
+      update: data,
+    });
+    const view = toProductSupplierView(row);
+    return ok({ supplier: view, grossMarginPct: grossMarginPct(Number(product.price), view.costPrice) });
   }
 
   @Post('products/:id/images')

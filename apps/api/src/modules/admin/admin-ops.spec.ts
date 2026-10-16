@@ -754,3 +754,15 @@ console.log('admin-ops unit tests ok');
   assert.equal(nt.count, 1);
   assert.equal(nt.queueBucket, 'in_transit');
 }
+
+// Fornecedor/custo: alerta só com número real; undefined não gera alerta.
+{
+  const base = { lowStockCount: 0, outOfStockCount: 0, placeholderProductCount: 0, pendingPaymentCount: 0 } as any;
+  assert.ok(!deriveOpsAlerts(base).some((a) => a.code === 'products_missing_supplier'));
+  const a = deriveOpsAlerts({ ...base, productsMissingSupplier: 7 }).find((x) => x.code === 'products_missing_supplier')!;
+  assert.equal(a.count, 7);
+  assert.equal(a.section, 'catalog');
+  const s = summarizeOps({ ...base });
+  assert.equal(s.catalog.missingSupplierCount, null);
+  assert.equal(summarizeOps({ ...base, productsMissingSupplier: 0 }).catalog.missingSupplierCount, 0);
+}

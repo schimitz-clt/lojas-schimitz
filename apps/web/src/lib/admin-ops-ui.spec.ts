@@ -567,3 +567,7 @@ console.log('admin-ops-ui web unit ok');
   assert.deepEqual(e, { kind: 'orders', bucket: 'organizing' });
   assert.equal(opsAlertCtaHintPt({ code: 'shipped_without_tracking', severity: 'high', evidenceIds: ['LS-9'] }), '→ abrir pedido LS-9');
 }
+// Fornecedor e peso/medidas abrem o Catálogo (não a fila de fotos).
+assert.deepEqual(opsAlertDestination({ code: 'products_missing_supplier', severity: 'info', section: 'catalog' }), { kind: 'catalog_import' });
+assert.deepEqual(opsAlertDestination({ code: 'products_missing_shipping_data', severity: 'warn', section: 'catalog' }), { kind: 'catalog_import' });
+assert.deepEqual(opsAlertDestination({ code: 'placeholder_photos', severity: 'info', section: 'catalog' }), { kind: 'catalog_photos' });

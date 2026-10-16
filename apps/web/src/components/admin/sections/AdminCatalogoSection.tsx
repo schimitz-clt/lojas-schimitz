@@ -100,6 +100,7 @@ import { useAdminConsole } from '@/components/admin/admin-console-context';
 import { AdminCatalogImportPanel } from '@/components/admin/sections/AdminCatalogImportPanel';
 import { catalogSplitCounts } from '@/lib/demo-catalog';
 import { AdminPhotoFilePicker } from '@/components/admin/AdminPhotoFilePicker';
+import { AdminProductSupplierPanel } from '@/components/admin/AdminProductSupplierPanel';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -1139,6 +1140,7 @@ export function AdminCatalogoSection() {
               {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Cadastrar produto'}
             </button>
           </form>
+          {editingId ? <AdminProductSupplierPanel productId={editingId} /> : null}
         </div>
       </section>
 

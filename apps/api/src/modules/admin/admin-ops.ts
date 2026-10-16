@@ -519,6 +519,8 @@ export function deriveOpsAlerts(input: {
     shippedNoTrackingCount: number;
     shippedNoTrackingPublicIds: string[];
   };
+  /** Produtos ativos sem fornecedor cadastrado (ProductSupplier). undefined = não consultado. */
+  productsMissingSupplier?: number;
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -661,6 +663,18 @@ export function deriveOpsAlerts(input: {
         'Baixar a lista (Admin → Catálogo → Importar → "Produtos sem peso/medidas") e preencher peso_kg, largura_cm, altura_cm e comprimento_cm reais na planilha. Não inventar valores.',
     });
   }
+  const missingSupplier = Math.max(0, Number(input.productsMissingSupplier) || 0);
+  if (missingSupplier > 0) {
+    alerts.push({
+      code: 'products_missing_supplier',
+      severity: 'info',
+      message: `${missingSupplier} produto(s) ativo(s) sem fornecedor/custo cadastrado`,
+      count: missingSupplier,
+      section: 'catalog',
+      recommendedAction:
+        'Abrir o produto no Catálogo → bloco "Fornecedor e custo (interno)" e informar fornecedor, custo e prazo reais.',
+    });
+  }
   if (placeholders > 0) {
     alerts.push({
       code: 'placeholder_photos',
@@ -791,6 +805,8 @@ export function summarizeOps(input: {
   shippingData?: ShippingDataSummary;
   /** Venda sob encomenda: separação parada e enviado sem rastreio (fulfillment-attention.ts). */
   fulfillmentAttention?: ReturnType<typeof import('./fulfillment-attention').summarizeFulfillmentAttention>;
+  /** Produtos ativos (não demo) sem ProductSupplier. undefined = consulta falhou/não feita. */
+  productsMissingSupplier?: number;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -828,6 +844,7 @@ export function summarizeOps(input: {
     storeNotifyMail,
     productsMissingShippingData: input.shippingData?.missingCount,
     fulfillment: input.fulfillmentAttention,
+    productsMissingSupplier: input.productsMissingSupplier,
   });
   return {
     ...base,
@@ -836,6 +853,8 @@ export function summarizeOps(input: {
       placeholderProducts,
       /** null quando o chamador não consultou (sem número inventado). */
       shippingData: input.shippingData ?? null,
+      /** null = não consultado; número real do banco caso contrário. */
+      missingSupplierCount: input.productsMissingSupplier ?? null,
     },
     payments: {
       pendingCount: input.pendingPaymentCount,
