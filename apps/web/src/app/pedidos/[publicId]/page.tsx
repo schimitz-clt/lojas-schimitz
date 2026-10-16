@@ -29,6 +29,7 @@ import { orderItemDisplayName, orderItemImageUrl } from '@/lib/order-card-ui';
 import MercadoPagoCardBrick from '@/components/MercadoPagoCardBrick';
 import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/payment-simulate';
 import { useOrderLiveReload } from '@/lib/use-order-live-reload';
+import { PAYMENT_REFUSED_COPY, hasRefusedAttemptOnly, reservationNotice } from '@/lib/journey-copy';
 import Link from 'next/link';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -70,6 +71,7 @@ type Order = {
   trackingCode?: string | null;
   carrier?: string | null;
   freightSnap?: FreightSnapLike;
+  reservationExpiresAt?: string | null;
   items: {
     id: string;
     qty: number;
@@ -187,7 +189,7 @@ function FulfillmentTimeline({
               padding: '10px 12px',
               borderRadius: 10,
               border: '1px solid var(--line)',
-              background: 'rgba(245, 197, 24, 0.06)',
+              background: 'var(--yellow-soft)',
               fontWeight: 600,
               fontSize: 14,
             }}
@@ -202,7 +204,7 @@ function FulfillmentTimeline({
               padding: '12px 14px',
               borderRadius: 10,
               border: '1px solid var(--primary)',
-              background: 'rgba(245, 197, 24, 0.08)',
+              background: 'var(--yellow-soft)',
             }}
           >
             <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
@@ -290,6 +292,7 @@ export default function PedidoPage() {
       const approved = order.payments?.find((p) => p.status === 'approved');
       if (approved) setIntent({ payment: approved });
       else if (pending) setIntent({ payment: pending });
+      else setIntent(null); // recusado/cancelado/expirado não é "pagamento em curso": libera nova tentativa
       return order;
     });
   }, [publicId]);
@@ -352,7 +355,8 @@ export default function PedidoPage() {
       headers: { 'Idempotency-Key': key },
       body: JSON.stringify(body),
     });
-    setIntent(data);
+    // Tentativa recusada não vira "pagamento em andamento": a tela continua oferecendo nova tentativa.
+    if (data.payment.status !== 'refused') setIntent(data);
     await reload();
     return data;
   }
@@ -393,7 +397,8 @@ export default function PedidoPage() {
     try {
       const body = buildCardIntentBody(o.id, submit, { requireToken: true });
       const persistKey = `sch_idem_pay:${o.id}:card:${body.installments}:${body.cardToken.slice(0, 12)}`;
-      await postPaymentIntent(body, persistKey);
+      const result = await postPaymentIntent(body, persistKey);
+      if (result.payment.status === 'refused') throw new Error(PAYMENT_REFUSED_COPY);
     } catch (e: any) {
       const msg = e.message || 'Falha ao processar cartão';
       setErr(msg);
@@ -465,6 +470,8 @@ export default function PedidoPage() {
   // Recompute with definite order (after load) — same rule as showPixUi above.
   const showPixPayUi = showPixGate(intent?.payment?.status, o.status, intent?.payment?.method);
   const supportHref = waLink(`Olá! Preciso de ajuda com o pedido ${o.publicId}.`);
+  const reserve = awaiting ? reservationNotice(o.reservationExpiresAt) : null;
+  const showRefusedNotice = awaiting && !intent && !err && hasRefusedAttemptOnly(o.payments);
 
   return (
     <div className="order-page" style={{ padding: '24px 0' }}>
@@ -488,12 +495,28 @@ export default function PedidoPage() {
           <p className="ok" style={{ margin: '6px 0 0', fontSize: 14 }}>
             Pagamento confirmado. Estamos organizando seu pedido.
           </p>
+        ) : o.status === 'cancelled' ? (
+          <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
+            Este pedido foi cancelado e os itens voltaram para o estoque. Se você chegou a pagar, fale com a gente
+            pelo WhatsApp informando o código do pedido.
+          </p>
         ) : paidLike ? (
           <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>
             Acompanhe a entrega na timeline abaixo.
           </p>
         ) : null}
       </div>
+
+      {reserve ? (
+        <p
+          className={reserve.expired ? 'alert' : 'muted'}
+          role={reserve.expired ? 'alert' : undefined}
+          style={{ margin: '8px 0 0', fontSize: 14 }}
+          data-testid="reservation-notice"
+        >
+          {reserve.text}
+        </p>
+      ) : null}
 
       <section className="card" style={{ marginTop: 12 }} aria-labelledby="order-items-heading">
         <div className="body">
@@ -552,6 +575,11 @@ export default function PedidoPage() {
         <div className="card id-pay-card" style={{ marginTop: 16 }}>
           <div className="body">
             <h3>Pagamento pendente</h3>
+            {showRefusedNotice ? (
+              <div className="alert" role="alert" style={{ marginBottom: 12 }}>
+                {PAYMENT_REFUSED_COPY}
+              </div>
+            ) : null}
             <p className="muted">
               {skipAutoPix
                 ? 'Escolha o método: PIX (cupom PIX já aplicado — sem segundo 5%) ou cartão. O pedido só fica pago após aprovação.'
@@ -707,6 +735,11 @@ export default function PedidoPage() {
           <Link className="btn ghost" href="/pedidos" style={{ minHeight: 44 }}>
             Meus pedidos
           </Link>
+          {o.status === 'cancelled' ? (
+            <Link className="btn" href="/produtos" style={{ minHeight: 44 }}>
+              Continuar comprando
+            </Link>
+          ) : null}
           {paidLike || showTimeline ? (
             <a className="btn ghost" href="#order-tracking" style={{ minHeight: 44 }}>
               Acompanhar pedido

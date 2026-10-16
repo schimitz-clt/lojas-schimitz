@@ -30,6 +30,12 @@ import { cartDiscountAmount } from '@/lib/cart-coupon';
 import { DEMO_PURCHASE_BLOCK_MESSAGE, cartHasDemoItem } from '@/lib/demo-catalog';
 import { IdentitySteps } from '@/components/identidade/IdentitySteps';
 import { checkoutJourneyLede } from '@/lib/storefront-states';
+import {
+  PENDING_ORDER_RESUME_COPY,
+  isCartFixableOrderError,
+  pendingOrderToResume,
+  type OrderListEntry,
+} from '@/lib/journey-copy';
 
 type CartItem = {
   id: string;
@@ -95,6 +101,8 @@ export default function CheckoutPage() {
   const [freightErr, setFreightErr] = useState('');
   const [freightLoading, setFreightLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [errFixInCart, setErrFixInCart] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<OrderListEntry | null>(null);
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
 
@@ -123,6 +131,20 @@ export default function CheckoutPage() {
       .finally(() => setAddressesLoaded(true));
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, [router, sessionReady, user]);
+
+  const cartIsEmpty = cart !== null && cart.items.length === 0;
+  useEffect(() => {
+    if (!cartIsEmpty || !user) return;
+    let cancelled = false;
+    api<OrderListEntry[]>('/orders')
+      .then((list) => {
+        if (!cancelled) setPendingOrder(pendingOrderToResume(list));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [cartIsEmpty, user]);
 
   useEffect(() => {
     if (!cart || !addressId) {
@@ -237,6 +259,7 @@ export default function CheckoutPage() {
     submittingRef.current = true;
     setLoading(true);
     setErr('');
+    setErrFixInCart(false);
     try {
       const cashbackNum = Number(String(cashbackAmount).replace(',', '.')) || 0;
       if (cashbackNum < 0) {
@@ -268,6 +291,11 @@ export default function CheckoutPage() {
       router.push(`/pedidos/${order.publicId}`);
     } catch (e: any) {
       setErr(e.message || 'Não foi possível criar o pedido. Preço e estoque são recalculados no servidor.');
+      if (isCartFixableOrderError(e?.code, e?.message)) {
+        setErrFixInCart(true);
+        // estoque/preço mudaram: recarrega a sacola para o resumo mostrar o que está valendo agora
+        api<Cart>('/cart').then(setCart).catch(() => {});
+      }
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -279,6 +307,14 @@ export default function CheckoutPage() {
   if (cart.items.length === 0) {
     return (
       <div style={{ padding: '24px 0' }}>
+        {pendingOrder ? (
+          <div className="alert" role="status" style={{ marginBottom: 16 }}>
+            <p style={{ margin: '0 0 8px' }}>{PENDING_ORDER_RESUME_COPY}</p>
+            <Link className="btn" href={`/pedidos/${pendingOrder.publicId}`}>
+              Ver pedido {pendingOrder.publicId} e pagar
+            </Link>
+          </div>
+        ) : null}
         <p className="muted">Sacola vazia. Volte ao catálogo.</p>
         <Link className="btn" href="/produtos">Continuar comprando</Link>
       </div>
@@ -594,6 +630,12 @@ export default function CheckoutPage() {
       {err ? (
         <div className="alert checkout-err" id={errId} role="alert" style={{ marginTop: 12 }}>
           {err}
+          {errFixInCart ? (
+            <>
+              {' '}
+              <Link href="/carrinho">Revisar a sacola</Link> para ajustar a quantidade ou remover o item.
+            </>
+          ) : null}
         </div>
       ) : null}
 
