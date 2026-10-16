@@ -220,3 +220,5 @@ cp apps/mobile/app/google-services.json.example apps/mobile/app/google-services.
 | Página em branco | Confirme rede / certificado HTTPS do site |
 | Pagamento falha no WebView | Esperado: Mercado Pago abre no navegador externo |
 | WhatsApp não abre | Instale o WhatsApp ou use o fallback do navegador |
+
+- **Fluidez no WebView (1.0.14, versionCode 15):** `CookieManager.flush()` (bloqueante, com I/O em disco) saiu da thread de interface no fim de cada carregamento de página e não roda mais duas vezes; `offscreenPreRaster` ligado; o fundo do splash deixa de ser redesenhado atrás do WebView. Teste estático: `apps/web/src/lib/android-webview-perf.spec.ts`.
