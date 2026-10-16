@@ -326,7 +326,7 @@ import {
   assert.equal(pdpStockLine(null), 'Estoque sob consulta');
   assert.equal(pdpStockLine(0), 'Esgotado');
   assert.equal(pdpStockLine(2), 'Últimas unidades · 2 restantes');
-  assert.equal(pdpStockLine(8), 'Em estoque · 8 unidades');
+  assert.equal(pdpStockLine(8), 'Disponível para compra');
   console.log('pdp-trust: stock urgency — PASSOU');
 }
 

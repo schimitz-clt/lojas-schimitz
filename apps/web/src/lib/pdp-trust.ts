@@ -406,5 +406,6 @@ export function pdpStockLine(stock: number | null | undefined): string {
   if (typeof stock !== 'number' || !Number.isFinite(stock)) return 'Estoque sob consulta';
   if (stock <= 0) return 'Esgotado';
   if (shouldShowLowStock(stock)) return `${LOW_STOCK_LABEL} · ${stock} restantes`;
-  return `Em estoque · ${stock} unidades`;
+  // Venda sob encomenda (compra no fornecedor após a venda): não prometer estoque físico.
+  return 'Disponível para compra';
 }
