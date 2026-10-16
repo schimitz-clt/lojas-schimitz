@@ -754,6 +754,8 @@ export function summarizeOps(input: {
   storeNotifyMail?: OpsStoreNotifyMailSummary;
   /** Produtos ativos e seus dados de frete (real DB rows). */
   shippingData?: ShippingDataSummary;
+  /** Venda sob encomenda: separação parada e enviado sem rastreio (fulfillment-attention.ts). */
+  fulfillmentAttention?: ReturnType<typeof import('./fulfillment-attention').summarizeFulfillmentAttention>;
 }) {
   const base = summarizeInventoryOps({
     lowStockCount: input.lowStockCount,
@@ -816,6 +818,8 @@ export function summarizeOps(input: {
     uploads: uploads ?? null,
     orders,
     paidAwaitingOrg,
+    /** null quando o chamador não consultou. */
+    fulfillmentAttention: input.fulfillmentAttention ?? null,
     sales: {
       today: input.salesToday ?? null,
       last30d: input.salesLast30d ?? null,
