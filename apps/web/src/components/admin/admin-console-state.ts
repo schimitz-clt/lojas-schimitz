@@ -3,6 +3,18 @@
 import { normalizeTrackingDraft, trackingDraftError, trackingSavedMessage } from '@/lib/admin-tracking-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+  type ListParamKey,
+  paginate,
+  parseOrderSort,
+  parsePage,
+  parseProductSort,
+  readListParam,
+  sortOrders,
+  sortProducts,
+  textMatch,
+  withListParams,
+} from '@/lib/admin-list-params';
 import { api, apiUpload, brl, clearSession, currentUser, ensureHydratedSession, isUnauthorizedError } from '@/lib/api';
 import {
   nextFulfillmentStatus,
@@ -273,6 +285,57 @@ export function useAdminConsoleState() {
   const searchParams = useSearchParams();
   const searchString = searchParams.toString();
   const adminSection = sectionFromPathname(pathname);
+
+  /** Filtros, ordenação e página das listas ficam na URL (recarregar/compartilhar mantém a visão). */
+  const setListParams = useCallback(
+    (patch: Partial<Record<ListParamKey, string | number | null | undefined>>) => {
+      const next = `${pathname}${withListParams(searchString, patch)}`;
+      router.replace(next, { scroll: false });
+    },
+    [pathname, router, searchString],
+  );
+  const listSortParam = readListParam(searchParams, 'ordem');
+  const listPage = parsePage(readListParam(searchParams, 'pagina'));
+  const catalogQ = adminSection === 'catalogo' ? readListParam(searchParams, 'busca') : '';
+  const listUrlHydratedRef = useRef(false);
+  useEffect(() => {
+    if (listUrlHydratedRef.current) return;
+    listUrlHydratedRef.current = true;
+    if (adminSection === 'pedidos') {
+      const st = readListParam(searchParams, 'status');
+      const q = readListParam(searchParams, 'busca');
+      const f = readListParam(searchParams, 'filtro');
+      if (st) setOrderStatusFilter(st);
+      if (q) setOrderJumpQ(q);
+      if (f === 'stuck_paid' || f === 'no_shipping') setOrderRoiFilter(f);
+    }
+    if (adminSection === 'clientes') {
+      const q = readListParam(searchParams, 'busca');
+      if (q) setCustomerQ(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!listUrlHydratedRef.current || adminSection !== 'pedidos') return;
+    const want = { status: orderStatusFilter, busca: orderJumpQ.trim(), filtro: orderRoiFilter === 'all' ? '' : orderRoiFilter };
+    const cur = {
+      status: readListParam(searchParams, 'status'),
+      busca: readListParam(searchParams, 'busca'),
+      filtro: readListParam(searchParams, 'filtro'),
+    };
+    if (want.status === cur.status && want.busca === cur.busca && want.filtro === cur.filtro) return;
+    const t = setTimeout(() => setListParams(want), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderStatusFilter, orderJumpQ, orderRoiFilter, adminSection]);
+  useEffect(() => {
+    if (!listUrlHydratedRef.current || adminSection !== 'clientes') return;
+    const q = customerQ.trim();
+    if (q === readListParam(searchParams, 'busca')) return;
+    const t = setTimeout(() => setListParams({ busca: q }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerQ, adminSection]);
 
   const goAdminSection = useCallback((next: AdminSectionId) => {
     if (next !== 'clientes') setCustomerDetail(null);
@@ -767,6 +830,12 @@ export function useAdminConsoleState() {
     });
   }, [orders, orderJumpQ, orderRoiFilter, orderServerSearchActive]);
 
+  const orderSort = parseOrderSort(listSortParam);
+  const pagedOrders = useMemo(
+    () => paginate(sortOrders(filteredOrders, orderSort), listPage),
+    [filteredOrders, orderSort, listPage],
+  );
+
   const selectedVisibleOrders = useMemo(
     () => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)),
     [filteredOrders, selectedOrderIds],
@@ -788,6 +857,14 @@ export function useAdminConsoleState() {
     () => filterCatalogProducts(products, catalogPhotoFilter),
     [products, catalogPhotoFilter],
   );
+
+  const productSort = parseProductSort(listSortParam);
+  const pagedCatalogProducts = useMemo(() => {
+    const matched = visibleCatalogProducts.filter((p) =>
+      textMatch([p.name, (p as { sku?: string | null }).sku, (p as { slug?: string | null }).slug], catalogQ),
+    );
+    return paginate(sortProducts(matched, productSort), listPage);
+  }, [visibleCatalogProducts, catalogQ, productSort, listPage]);
 
   useEffect(() => {
     setSelectedOrderIds((prev) => {
@@ -2353,6 +2430,12 @@ export function useAdminConsoleState() {
     editingLabel,
     lowStockProducts,
     filteredOrders,
+    pagedOrders,
+    orderSort,
+    pagedCatalogProducts,
+    productSort,
+    catalogQ,
+    setListParams,
     selectedVisibleOrders,
     bulkSepararEligibleCount,
     bulkAdvanceEligibleCount,

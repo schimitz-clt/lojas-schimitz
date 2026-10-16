@@ -86,6 +86,8 @@ import {
   formatCustomerCityUf,
 } from '@/lib/admin-customers-ui';
 import { useAdminConsole } from '@/components/admin/admin-console-context';
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { ORDER_SORTS } from '@/lib/admin-list-params';
 import {
   DEFAULT_LOW_STOCK,
   MAX_PRODUCT_IMAGES,
@@ -123,6 +125,9 @@ export function AdminPedidosSection() {
     selectOpsBucket,
     openCustomer,
     filteredOrders,
+    pagedOrders,
+    orderSort,
+    setListParams,
     bulkSepararEligibleCount,
     bulkAdvanceEligibleCount,
     advance,
@@ -245,7 +250,7 @@ export function AdminPedidosSection() {
       <header className="admin-cc-banner">
         <div>
           <p className="admin-cc-banner__eyebrow">Pedidos</p>
-          <p className="admin-cc-banner__title">Fila operacional, um resumo.</p>
+          <p className="admin-cc-banner__title">Fila de pedidos</p>
           <p className="admin-cc-banner__meta">
             Atualizado às{' '}
             {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
@@ -261,171 +266,30 @@ export function AdminPedidosSection() {
         </button>
       </header>
 
-      <section className="admin-cc-block" aria-labelledby="pedidos-now-heading">
-        <p className="admin-cc-block__step">01</p>
-        <h2 id="pedidos-now-heading" className="admin-cc-block__title">
-          {OPS_NOW_HEADING}
-        </h2>
-        <p className="admin-cc-block__lede">{PEDIDOS_NOW_LEDE}</p>
-        <p className="admin-cc-nowline" role="status">
-          {pedidosNowSummary(counts, snapshotState)}
-        </p>
-        <div className="admin-cc-kpi-grid">
-          <button
-            type="button"
-            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}${
-              ready && (counts.stuckPaid ?? 0) === 0 ? kpiTone(counts.paidAwaiting, 'warn') : ''
-            }`}
-            onClick={() => runQuickAction('paid')}
-          >
-            <div className="admin-cc-kpi__label">Pagos p/ organizar</div>
-            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
-              {opsCountOrDash(counts.paidAwaiting, ready)}
-            </div>
-            <div className="admin-cc-kpi__hint">
-              {!ready
- ? 'aguardando resumo'
-                : counts.stuckPaid == null
-                  ? 'travados —'
-                  : counts.stuckPaid > 0
-                    ? `${counts.stuckPaid} travado(s)${
-                        counts.stuckHoursThreshold != null ? ` ≥${counts.stuckHoursThreshold}h` : ''
-                      }`
-                    : counts.stuckHoursThreshold != null
-                      ? `limite ${counts.stuckHoursThreshold}h`
-                      : '0 travado'}
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}`}
-            onClick={() => runQuickAction('stuck')}
-          >
-            <div className="admin-cc-kpi__label">Pagos travados</div>
-            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
-              {opsCountOrDash(counts.stuckPaid, ready)}
-            </div>
-            <div className="admin-cc-kpi__hint">
-              {!ready
- ? 'aguardando resumo'
-                : counts.oldestStuckHours != null
-                  ? `mais antigo ~${counts.oldestStuckHours}h`
-                  : counts.stuckPaid === 0
-                    ? 'nenhum acima do limite'
- : 'sem horas neste resumo'}
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`admin-cc-kpi${kpiTone(counts.legacyStuck, 'danger')}`}
-            onClick={() => runQuickAction('problems')}
-          >
-            <div className="admin-cc-kpi__label">Legado travado</div>
-            <div className={`admin-cc-kpi__value${(counts.legacyStuck ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
-              {opsCountOrDash(counts.legacyStuck, ready)}
-            </div>
-            <div className="admin-cc-kpi__hint">separando / saiu para entrega</div>
-          </button>
-          <button
-            type="button"
-            className={`admin-cc-kpi${kpiTone(counts.awaitingPayment, 'warn')}`}
-            onClick={() => runQuickAction('awaiting')}
-          >
-            <div className="admin-cc-kpi__label">Aguardando pagamento</div>
-            <div className="admin-cc-kpi__value">{opsCountOrDash(counts.awaitingPayment, ready)}</div>
-            <div className="admin-cc-kpi__hint">nesta etapa</div>
-          </button>
-        </div>
-        {counts.stuckPublicIds.length ? (
-          <p className="admin-cc-work__note">IDs travados: {counts.stuckPublicIds.join(', ')}</p>
-        ) : null}
-        <p className="admin-cc-flow__label">Fila por status real — o clique filtra esta página</p>
-        <div className="admin-cc-flow" role="list">
-          <button
-            type="button"
-            role="listitem"
-            className={`admin-cc-flow__step${orderStatusFilter === '' ? ' is-active' : ''}`}
-            onClick={() => {
-              setOrderRoiFilter('all');
-              selectOpsBucket('');
-            }}
-          >
-            <span>Todos</span>
-            <strong>{opsCountOrDash(counts.total, ready)}</strong>
-          </button>
-          {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="listitem"
-              className={`admin-cc-flow__step${orderStatusFilter === key ? ' is-active' : ''}${
-                ready && key === 'problems' && (counts.legacyStuck ?? 0) > 0 ? ' is-hot' : ''
-              }${ready && key === 'paid' && (counts.stuckPaid ?? 0) > 0 ? ' is-hot' : ''}`}
-              onClick={() => {
-                setOrderRoiFilter('all');
-                selectOpsBucket(key);
-              }}
-            >
-              <span>{adminQueueBucketLabel(key)}</span>
-              <strong>{opsCountOrDash(counts.buckets ? counts.buckets[key] : null, ready)}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <AdminAttentionStrip
-        variant="command"
-        snapshot={snapshotState}
-        infoCount={sectionAlerts.signals.length}
-        max={Math.max(sectionAlerts.attention.length, 1)}
-        items={sectionAlerts.attention.map(toAttentionItem)}
-        signals={sectionAlerts.signals.map(toAttentionItem)}
-        onSelect={(code) => {
-          const a = (ops?.alerts ?? []).find((x) => x.code === code);
-          if (a) selectOpsAlert(a);
-        }}
-      />
-
-      <section className="admin-cc-block" aria-labelledby="pedidos-do-heading">
-        <p className="admin-cc-block__step">03</p>
-        <h2 id="pedidos-do-heading" className="admin-cc-block__title">
-          {OPS_DO_HEADING}
-        </h2>
-        <p className="admin-cc-block__lede">{PEDIDOS_DO_LEDE}</p>
-        <div className="admin-cc-actions admin-cc-actions--sticky">
-          {PEDIDOS_QUICK_ACTIONS.map((action) => {
-            const figure = pedidosQuickActionFigure(action.id, counts);
-            return (
-              <button
-                key={action.id}
-                type="button"
-                className="admin-cc-action"
-                onClick={() => runQuickAction(action.id)}
-              >
-                <span className="admin-cc-action__label">{action.label}</span>
-                <span className="admin-cc-action__hint">{action.hint}</span>
-                {figure ? <span className="admin-cc-action__figure">{figure}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="admin-cc-block" aria-labelledby="admin-orders-queue">
         <h2 id="admin-orders-queue" className="admin-cc-block__title">
-          Fila carregada ({filteredOrders.length}
+          Pedidos ({filteredOrders.length}
           {orderJumpQ.trim() ? ` / ${orders.length}` : ''})
         </h2>
         <p className="admin-cc-block__lede">
- Lista de pedidos com o status real de cada pedido. Os números da faixa acima são o
- resumo. Separar continua Pago → Organizando e Organizando → Embalagem — sem status novo.
-          Pronto para coleta → Em trânsito continua individual (rastreio). WhatsApp abre wa.me e não envia sozinho.
+          Status real de cada pedido. Separar leva Pago → Organizando e Organizando → Embalagem.
+          Pronto para coleta → Em trânsito é feito um a um (precisa do rastreio). O WhatsApp abre a conversa, mas não envia sozinho.
         </p>
+        <div className="admin-status-tabs" role="tablist" aria-label="Status do pedido">
+          <button type="button" role="tab" aria-selected={orderStatusFilter === ''} className={orderStatusFilter === '' ? 'is-on' : ''} onClick={() => { setOrderRoiFilter('all'); selectOpsBucket(''); }}>
+            Todos <b>{opsCountOrDash(counts.total, ready)}</b>
+          </button>
+          {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
+            <button key={key} type="button" role="tab" aria-selected={orderStatusFilter === key} className={orderStatusFilter === key ? 'is-on' : ''} onClick={() => { setOrderRoiFilter('all'); selectOpsBucket(key); }}>
+              {adminQueueBucketLabel(key)} <b>{opsCountOrDash(counts.buckets ? counts.buckets[key] : null, ready)}</b>
+            </button>
+          ))}
+        </div>
       <div className="admin-pedidos__toolbar">
       <label className="admin-search-field">
         <span>
-          Busca pedidos (servidor se ≥3 caracteres ou SCH-…; senão na lista carregada)
-          {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — busca no servidor' : ''}
+          Buscar pedido (número SCH-…, e-mail ou nome)
+          {orderSearchBusy ? ' — buscando…' : orderServerSearchActive ? ' — em todos os pedidos' : ''}
         </span>
         <input
           value={orderJumpQ}
@@ -437,7 +301,7 @@ export function AdminPedidosSection() {
       <div className="admin-filter-row">
         {(
           [
-            { key: 'all', label: 'Filtro ROI: todos' },
+            { key: 'all', label: 'Sem filtro extra' },
             { key: 'stuck_paid', label: `Pagos travados (≥${PAID_STUCK_HOURS_UI}h)` },
             { key: 'no_shipping', label: 'Sem frete/rastreio (pago→pronto)' },
           ] as const
@@ -542,8 +406,18 @@ export function AdminPedidosSection() {
           {msg}
         </p>
       ) : null}
+      <AdminListBar
+        sort={orderSort}
+        sorts={ORDER_SORTS}
+        onSort={(v) => setListParams({ ordem: v === 'recentes' ? '' : v })}
+        count={
+          pagedOrders.total
+            ? `Mostrando ${pagedOrders.from}–${pagedOrders.to} de ${pagedOrders.total}`
+            : undefined
+        }
+      />
       <div className="admin-order-list">
-      {filteredOrders.map((o) => {
+      {pagedOrders.rows.map((o) => {
         const next = nextFulfillmentStatus(o.status);
         const wa = orderWa(o, 'generic');
         const waPaid = orderWa(o, 'paid');
@@ -759,13 +633,14 @@ export function AdminPedidosSection() {
               <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
                 {wa.toCustomer
                   ? `Abre conversa com o cliente (${phone}).`
-                  : 'Cliente sem telefone — abre o WhatsApp da loja (NEXT_PUBLIC_WHATSAPP) com rascunho interno.'}
+                  : 'Cliente sem telefone — abre o WhatsApp da loja com um rascunho interno.'}
               </p>
 
             </div>
           </div>
         );
       })}
+      <AdminPager {...pagedOrders} onPage={(p) => setListParams({ pagina: p })} />
       {!filteredOrders.length ? (
         <p className="muted">
           {emptyOrdersQueueMessage({
@@ -814,6 +689,159 @@ export function AdminPedidosSection() {
         />
       ) : null}
       </section>
+
+      <details className="admin-exec-details">
+        <summary>Resumo da fila e alertas</summary>
+      <section className="admin-cc-block" aria-labelledby="pedidos-now-heading">
+        <p className="admin-cc-block__step">01</p>
+        <h2 id="pedidos-now-heading" className="admin-cc-block__title">
+          {OPS_NOW_HEADING}
+        </h2>
+        <p className="admin-cc-block__lede">{PEDIDOS_NOW_LEDE}</p>
+        <p className="admin-cc-nowline" role="status">
+          {pedidosNowSummary(counts, snapshotState)}
+        </p>
+        <div className="admin-cc-kpi-grid">
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}${
+              ready && (counts.stuckPaid ?? 0) === 0 ? kpiTone(counts.paidAwaiting, 'warn') : ''
+            }`}
+            onClick={() => runQuickAction('paid')}
+          >
+            <div className="admin-cc-kpi__label">Pagos p/ organizar</div>
+            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.paidAwaiting, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">
+              {!ready
+ ? 'aguardando resumo'
+                : counts.stuckPaid == null
+                  ? 'travados —'
+                  : counts.stuckPaid > 0
+                    ? `${counts.stuckPaid} travado(s)${
+                        counts.stuckHoursThreshold != null ? ` ≥${counts.stuckHoursThreshold}h` : ''
+                      }`
+                    : counts.stuckHoursThreshold != null
+                      ? `limite ${counts.stuckHoursThreshold}h`
+                      : '0 travado'}
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.stuckPaid, 'danger')}`}
+            onClick={() => runQuickAction('stuck')}
+          >
+            <div className="admin-cc-kpi__label">Pagos travados</div>
+            <div className={`admin-cc-kpi__value${(counts.stuckPaid ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.stuckPaid, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">
+              {!ready
+ ? 'aguardando resumo'
+                : counts.oldestStuckHours != null
+                  ? `mais antigo ~${counts.oldestStuckHours}h`
+                  : counts.stuckPaid === 0
+                    ? 'nenhum acima do limite'
+ : 'sem horas neste resumo'}
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.legacyStuck, 'danger')}`}
+            onClick={() => runQuickAction('problems')}
+          >
+            <div className="admin-cc-kpi__label">Legado travado</div>
+            <div className={`admin-cc-kpi__value${(counts.legacyStuck ?? 0) > 0 ? ' admin-cc-kpi__value--danger' : ''}`}>
+              {opsCountOrDash(counts.legacyStuck, ready)}
+            </div>
+            <div className="admin-cc-kpi__hint">separando / saiu para entrega</div>
+          </button>
+          <button
+            type="button"
+            className={`admin-cc-kpi${kpiTone(counts.awaitingPayment, 'warn')}`}
+            onClick={() => runQuickAction('awaiting')}
+          >
+            <div className="admin-cc-kpi__label">Aguardando pagamento</div>
+            <div className="admin-cc-kpi__value">{opsCountOrDash(counts.awaitingPayment, ready)}</div>
+            <div className="admin-cc-kpi__hint">nesta etapa</div>
+          </button>
+        </div>
+        {counts.stuckPublicIds.length ? (
+          <p className="admin-cc-work__note">IDs travados: {counts.stuckPublicIds.join(', ')}</p>
+        ) : null}
+        <p className="admin-cc-flow__label">Fila por status real — o clique filtra esta página</p>
+        <div className="admin-cc-flow" role="list">
+          <button
+            type="button"
+            role="listitem"
+            className={`admin-cc-flow__step${orderStatusFilter === '' ? ' is-active' : ''}`}
+            onClick={() => {
+              setOrderRoiFilter('all');
+              selectOpsBucket('');
+            }}
+          >
+            <span>Todos</span>
+            <strong>{opsCountOrDash(counts.total, ready)}</strong>
+          </button>
+          {ADMIN_ORDER_QUEUE_BUCKETS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="listitem"
+              className={`admin-cc-flow__step${orderStatusFilter === key ? ' is-active' : ''}${
+                ready && key === 'problems' && (counts.legacyStuck ?? 0) > 0 ? ' is-hot' : ''
+              }${ready && key === 'paid' && (counts.stuckPaid ?? 0) > 0 ? ' is-hot' : ''}`}
+              onClick={() => {
+                setOrderRoiFilter('all');
+                selectOpsBucket(key);
+              }}
+            >
+              <span>{adminQueueBucketLabel(key)}</span>
+              <strong>{opsCountOrDash(counts.buckets ? counts.buckets[key] : null, ready)}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <AdminAttentionStrip
+        variant="command"
+        snapshot={snapshotState}
+        infoCount={sectionAlerts.signals.length}
+        max={Math.max(sectionAlerts.attention.length, 1)}
+        items={sectionAlerts.attention.map(toAttentionItem)}
+        signals={sectionAlerts.signals.map(toAttentionItem)}
+        onSelect={(code) => {
+          const a = (ops?.alerts ?? []).find((x) => x.code === code);
+          if (a) selectOpsAlert(a);
+        }}
+      />
+
+      <section className="admin-cc-block" aria-labelledby="pedidos-do-heading">
+        <p className="admin-cc-block__step">03</p>
+        <h2 id="pedidos-do-heading" className="admin-cc-block__title">
+          {OPS_DO_HEADING}
+        </h2>
+        <p className="admin-cc-block__lede">{PEDIDOS_DO_LEDE}</p>
+        <div className="admin-cc-actions admin-cc-actions--sticky">
+          {PEDIDOS_QUICK_ACTIONS.map((action) => {
+            const figure = pedidosQuickActionFigure(action.id, counts);
+            return (
+              <button
+                key={action.id}
+                type="button"
+                className="admin-cc-action"
+                onClick={() => runQuickAction(action.id)}
+              >
+                <span className="admin-cc-action__label">{action.label}</span>
+                <span className="admin-cc-action__hint">{action.hint}</span>
+                {figure ? <span className="admin-cc-action__figure">{figure}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      </details>
       </div>
     </>
   );

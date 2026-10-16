@@ -11,3 +11,28 @@ assert.equal(execWindow(sales, '30d'), null, 'janela ausente = sem dados');
 assert.equal(execWindow(null, 'hoje'), null);
 assert.equal(execPeriodLabel('30d'), 'nos últimos 30 dias');
 console.log('admin-exec-dashboard: PASSOU');
+
+import { execHealthValue, execPriorityList, execSeverityLabel } from './admin-exec-dashboard';
+{
+  const r = execPriorityList(
+    [
+      { code: 'a', severity: 'info', count: 9 },
+      { code: 'b', severity: 'critical', count: 1 },
+      { code: 'c', severity: 'warn', count: 5 },
+      { code: 'd', severity: 'warn', count: 7 },
+    ],
+    3,
+  );
+  if (r.items.map((x) => x.code).join() !== 'b,d,c' || r.hidden !== 1) throw new Error('prioridade');
+  if (execPriorityList(null).items.length !== 0) throw new Error('vazio');
+  if (execSeverityLabel('critical') !== 'Crítico') throw new Error('rótulo');
+  if (execHealthValue(null) !== '—' || execHealthValue(0) !== '0') throw new Error('saúde');
+  console.log('admin-exec-dashboard prioridades: PASSOU');
+}
+import { execAlertCopy } from './admin-exec-dashboard';
+{
+  const u = execAlertCopy({ code: 'uploads_ephemeral', message: 'UPLOADS_DIR fora de /data', recommendedAction: 'UPLOADS_DIR=/data' });
+  if (/UPLOADS_DIR|\/data|Railway/.test(u.message + u.action)) throw new Error('texto técnico');
+  if (execAlertCopy({ code: 'low_stock', message: '5 produto(s)', count: 5 }).message !== '5 produto(s)') throw new Error('passa direto');
+  console.log('admin-exec-dashboard textos: PASSOU');
+}

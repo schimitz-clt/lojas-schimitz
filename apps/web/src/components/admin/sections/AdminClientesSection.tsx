@@ -1,5 +1,9 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { CUSTOMER_SORTS, paginate, parseCustomerSort, parsePage, sortCustomers } from '@/lib/admin-list-params';
+
 import { brl } from '@/lib/api';
 import { orderStatusLabel } from '@/lib/order-status';
 import { ENTERPRISE_MISSING, moneyOrDash, textOrDash } from '@/lib/admin-enterprise-ui';
@@ -43,6 +47,7 @@ export function AdminClientesSection() {
     customersTotal,
     customersSnapshot,
     customerQ,
+    setListParams,
     setCustomerQ,
     customerBusy,
     customerDetail,
@@ -52,6 +57,9 @@ export function AdminClientesSection() {
     closeCustomer,
     openPedidoFromCustomer,
   } = useAdminConsole();
+  const searchParams = useSearchParams();
+  const customerSort = parseCustomerSort(searchParams?.get('ordem'));
+  const pagedCustomers = paginate(sortCustomers(customers, customerSort), parsePage(searchParams?.get('pagina')));
 
   const model = clientesPrimeModel({
     load: customersSnapshot,
@@ -125,8 +133,16 @@ export function AdminClientesSection() {
         <div className="admin-crm-layout">
           <div className="admin-crm-list" id="admin-clientes-list">
             <div className="admin-dense-list">
+              {customersSnapshot === 'ready' && customers.length ? (
+                <AdminListBar
+                  sort={customerSort}
+                  sorts={CUSTOMER_SORTS}
+                  onSort={(v) => setListParams({ ordem: v === 'recentes' ? '' : v })}
+                  count={`Mostrando ${pagedCustomers.from}–${pagedCustomers.to} de ${pagedCustomers.total}`}
+                />
+              ) : null}
               {customersSnapshot === 'ready'
-                ? customers.map((c) => {
+                ? pagedCustomers.rows.map((c) => {
                     const selected = customerDetail?.id === c.id;
                     const cityUf = formatCustomerCityUf(c);
                     return (
@@ -163,6 +179,9 @@ export function AdminClientesSection() {
                     );
                   })
                 : null}
+              {customersSnapshot === 'ready' ? (
+                <AdminPager {...pagedCustomers} onPage={(pg) => setListParams({ pagina: pg })} />
+              ) : null}
               {customersSnapshot === 'ready' && !customers.length ? (
                 <p className="admin-empty">{customerHistoryEmptyMessage(Boolean(customerQ.trim()))}</p>
               ) : null}

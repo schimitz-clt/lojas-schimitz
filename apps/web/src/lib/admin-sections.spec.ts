@@ -53,7 +53,7 @@ assert.equal(isAdminSectionId('x'), false);
 assert.equal(isAdminSectionId(1), false);
 
 assert.equal(adminSectionLabel('pedidos'), 'Pedidos');
-assert.equal(adminSectionLabel('ops'), 'Ops');
+assert.equal(adminSectionLabel('ops'), 'Painel');
 
 assert.equal(adminSectionPath('ops'), '/admin');
 assert.equal(adminSectionPath('pedidos'), '/admin/pedidos');

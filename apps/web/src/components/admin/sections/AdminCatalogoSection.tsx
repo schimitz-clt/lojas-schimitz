@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { AdminListBar, AdminPager } from '@/components/admin/AdminListBar';
+import { PRODUCT_SORTS } from '@/lib/admin-list-params';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
 import {
@@ -147,6 +149,10 @@ export function AdminCatalogoSection() {
     lowStockProducts,
     photoQueueCount,
     visibleCatalogProducts,
+    pagedCatalogProducts,
+    productSort,
+    catalogQ,
+    setListParams,
     startEdit,
     resetForm,
     uploadPhotos,
@@ -159,6 +165,13 @@ export function AdminCatalogoSection() {
     load,
   } = useAdminConsole();
   const [photoUrlDraft, setPhotoUrlDraft] = useState('');
+  const [catalogSearch, setCatalogSearch] = useState(catalogQ);
+  useEffect(() => {
+    if (catalogSearch.trim() === catalogQ) return;
+    const t = setTimeout(() => setListParams({ busca: catalogSearch.trim() }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogSearch]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [stockMode, setStockMode] = useState<'set' | 'delta'>('set');
   const [stockValue, setStockValue] = useState('');
@@ -335,6 +348,8 @@ export function AdminCatalogoSection() {
         </button>
       </header>
 
+      <details className="admin-exec-details">
+        <summary>Resumo do catálogo e alertas</summary>
       <section className="admin-cc-block" aria-labelledby="catalogo-now-heading">
         <p className="admin-cc-block__step">01</p>
         <h2 id="catalogo-now-heading" className="admin-cc-block__title">
@@ -412,6 +427,7 @@ export function AdminCatalogoSection() {
           })}
         </div>
       </section>
+      </details>
       </div>
       <div className="admin-section-panel admin-catalog">
 <section id="admin-low-stock" className={`admin-card-pro admin-catalog-panel${lowStockProducts.length ? ' admin-catalog-panel--low' : ''}`} style={{ marginBottom: 0, borderColor: lowStockProducts.length ? 'var(--admin-danger)' : undefined }}>
@@ -673,8 +689,22 @@ export function AdminCatalogoSection() {
           ) : null}
         </div>
       ) : null}
+      <AdminListBar
+        search={catalogSearch}
+        onSearch={setCatalogSearch}
+        searchLabel="Buscar produto"
+        placeholder="Nome ou SKU"
+        sort={productSort}
+        sorts={PRODUCT_SORTS}
+        onSort={(v) => setListParams({ ordem: v === 'nome' ? '' : v })}
+        count={
+          pagedCatalogProducts.total
+            ? `Mostrando ${pagedCatalogProducts.from}–${pagedCatalogProducts.to} de ${pagedCatalogProducts.total}`
+            : undefined
+        }
+      />
       <div className="admin-product-list" style={{ marginBottom: 8 }}>
-        {visibleCatalogProducts.map((p) => {
+        {pagedCatalogProducts.rows.map((p) => {
           const avail = availableStock(p);
           const onHand = p.inventory?.qtyOnHand ?? 0;
           const isLow = !p.isDemo && onHand <= lowStockThreshold;
@@ -776,7 +806,10 @@ export function AdminCatalogoSection() {
         })}
         {!visibleCatalogProducts.length ? (
           <p className="muted">{emptyPhotoQueueMessage(catalogPhotoFilter)}</p>
+        ) : !pagedCatalogProducts.total ? (
+          <p className="muted">Nenhum produto encontrado para “{catalogQ}”.</p>
         ) : null}
+        <AdminPager {...pagedCatalogProducts} onPage={(pg) => setListParams({ pagina: pg })} />
       </div>
 
       </div>
