@@ -83,6 +83,7 @@ import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence } from '../mail/mail.config';
 import { peekStoreNotifyMailSnapshot } from '../notifications/store-notify-obs';
+import { fulfillmentStuckDays, summarizeFulfillmentAttention } from './fulfillment-attention';
 import {
   buildAdminOrderWhere,
   resolveAdminOrdersTake,
@@ -258,6 +259,29 @@ export class AdminController {
       paidAwaitingOrg = summarizePaidAwaitingOrg({ orders: [] });
     }
 
+    // Venda sob encomenda: separação parada (fornecedor não confirmado) e enviado sem rastreio.
+    let fulfillmentAttention = summarizeFulfillmentAttention([], new Date(), fulfillmentStuckDays());
+    try {
+      const fRows = await this.prisma.order.findMany({
+        where: { status: { in: ['organizing', 'separating', 'packing', 'in_transit', 'shipped'] } },
+        select: { publicId: true, status: true, updatedAt: true, trackingCode: true },
+        orderBy: { updatedAt: 'asc' },
+        take: 500,
+      });
+      fulfillmentAttention = summarizeFulfillmentAttention(
+        fRows.map((o) => ({ publicId: o.publicId, status: o.status, since: o.updatedAt, trackingCode: o.trackingCode })),
+        new Date(),
+        fulfillmentStuckDays(),
+      );
+      if (fulfillmentAttention.prepStuckCount > 0 || fulfillmentAttention.shippedNoTrackingCount > 0) {
+        this.log.warn(
+          `ops fulfillment_attention prepStuck=${fulfillmentAttention.prepStuckCount} shippedNoTracking=${fulfillmentAttention.shippedNoTrackingCount} stuckDays=${fulfillmentAttention.stuckDays}`,
+        );
+      }
+    } catch (e: any) {
+      this.log.warn(`ops fulfillmentAttention query failed: ${e?.message || e}`);
+    }
+
     const placeholderProducts = listPlaceholderProducts(productImageRows);
     const orderStatusCounts = orderStatusGroups.map((g) => ({
       status: g.status,
@@ -296,6 +320,7 @@ export class AdminController {
         }),
         reconciliations,
         paidAwaitingOrg,
+        fulfillmentAttention,
         uploads,
         storeNotifyMail: peekStoreNotifyMailSnapshot(),
         shippingData: summarizeShippingData(shippingRows),
