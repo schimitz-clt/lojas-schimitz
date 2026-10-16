@@ -511,6 +511,14 @@ export function deriveOpsAlerts(input: {
   storeNotifyMail?: OpsStoreNotifyMailSummary;
   /** Produtos ativos sem peso/medidas (frete usa pacote padrão). */
   productsMissingShippingData?: number;
+  /** Venda sob encomenda (fulfillment-attention.ts) — linhas reais do banco. */
+  fulfillment?: {
+    stuckDays: number;
+    prepStuckCount: number;
+    prepStuckPublicIds: string[];
+    shippedNoTrackingCount: number;
+    shippedNoTrackingPublicIds: string[];
+  };
 }): OpsAlert[] {
   const alerts: OpsAlert[] = [];
   const out = Math.max(0, Number(input.outOfStockCount) || 0);
@@ -612,6 +620,33 @@ export function deriveOpsAlerts(input: {
       message: `${terminalHistory} pedido(s) cancelado(s)/reembolsado(s) (histórico — não é fila crítica)`,
       count: terminalHistory,
       queueBucket: 'problems',
+    });
+  }
+  const prepStuck = Math.max(0, Number(input.fulfillment?.prepStuckCount) || 0);
+  if (prepStuck > 0) {
+    alerts.push({
+      code: 'fulfillment_prep_stuck',
+      severity: 'high',
+      message: `${prepStuck} pedido(s) parado(s) em separação há ${input.fulfillment!.stuckDays} dia(s) ou mais`,
+      count: prepStuck,
+      section: 'orders',
+      queueBucket: 'organizing',
+      evidence: { ids: input.fulfillment!.prepStuckPublicIds.slice(0, 20) },
+      recommendedAction:
+        'Abrir o pedido, confirmar com o fornecedor e avançar o status (ou avisar o cliente sobre o prazo).',
+    });
+  }
+  const noTracking = Math.max(0, Number(input.fulfillment?.shippedNoTrackingCount) || 0);
+  if (noTracking > 0) {
+    alerts.push({
+      code: 'shipped_without_tracking',
+      severity: 'high',
+      message: `${noTracking} pedido(s) enviado(s) sem código de rastreio`,
+      count: noTracking,
+      section: 'orders',
+      queueBucket: 'in_transit',
+      evidence: { ids: input.fulfillment!.shippedNoTrackingPublicIds.slice(0, 20) },
+      recommendedAction: 'Abrir o pedido e informar o código no bloco "Rastreio".',
     });
   }
   const missingShipping = Math.max(0, Number(input.productsMissingShippingData) || 0);
@@ -792,6 +827,7 @@ export function summarizeOps(input: {
     uploadsDir: uploads?.dir,
     storeNotifyMail,
     productsMissingShippingData: input.shippingData?.missingCount,
+    fulfillment: input.fulfillmentAttention,
   });
   return {
     ...base,

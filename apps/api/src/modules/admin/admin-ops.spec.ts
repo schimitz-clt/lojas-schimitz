@@ -737,3 +737,20 @@ console.log('admin-ops unit tests ok');
 
   console.log('admin-ops: store_notify_mail_failed + recon attention sort — PASSOU');
 }
+
+// Alertas de atendimento (venda sob encomenda) entram no painel com link ao pedido.
+{
+  const none = deriveOpsAlerts({ lowStockCount: 0, outOfStockCount: 0, placeholderProductCount: 0, pendingPaymentCount: 0 } as any);
+  assert.ok(!none.some((a) => a.code === 'fulfillment_prep_stuck' || a.code === 'shipped_without_tracking'));
+  const f = deriveOpsAlerts({
+    lowStockCount: 0, outOfStockCount: 0, placeholderProductCount: 0, pendingPaymentCount: 0,
+    fulfillment: { stuckDays: 3, prepStuckCount: 2, prepStuckPublicIds: ['A1', 'A2'], shippedNoTrackingCount: 1, shippedNoTrackingPublicIds: ['B1'] },
+  } as any);
+  const prep = f.find((a) => a.code === 'fulfillment_prep_stuck')!;
+  assert.equal(prep.count, 2);
+  assert.equal(prep.queueBucket, 'organizing');
+  assert.deepEqual(prep.evidence?.ids, ['A1', 'A2']);
+  const nt = f.find((a) => a.code === 'shipped_without_tracking')!;
+  assert.equal(nt.count, 1);
+  assert.equal(nt.queueBucket, 'in_transit');
+}

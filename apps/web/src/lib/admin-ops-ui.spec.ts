@@ -558,3 +558,12 @@ assert.ok(
 );
 
 console.log('admin-ops-ui web unit ok');
+
+// Alertas de atendimento (#221) levam direto ao pedido que resolve o problema.
+{
+  const d = opsAlertDestination({ code: 'shipped_without_tracking', severity: 'high', section: 'orders', queueBucket: 'in_transit', evidenceIds: ['LS-123'] });
+  assert.deepEqual(d, { kind: 'order', publicId: 'LS-123', bucket: 'in_transit' });
+  const e = opsAlertDestination({ code: 'fulfillment_prep_stuck', severity: 'high', section: 'orders', queueBucket: 'organizing', evidenceIds: [] });
+  assert.deepEqual(e, { kind: 'orders', bucket: 'organizing' });
+  assert.equal(opsAlertCtaHintPt({ code: 'shipped_without_tracking', severity: 'high', evidenceIds: ['LS-9'] }), '→ abrir pedido LS-9');
+}
