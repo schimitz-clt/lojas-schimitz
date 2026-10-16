@@ -250,7 +250,7 @@ export function AdminPedidosSection() {
       <header className="admin-cc-banner">
         <div>
           <p className="admin-cc-banner__eyebrow">Pedidos</p>
-          <p className="admin-cc-banner__title">Fila operacional, um resumo.</p>
+          <p className="admin-cc-banner__title">Fila de pedidos</p>
           <p className="admin-cc-banner__meta">
             Atualizado às{' '}
             {ops?.time ? <time dateTime={ops.time}>{formatOpsSnapshotTime(ops.time)}</time> : '—'}
@@ -301,7 +301,7 @@ export function AdminPedidosSection() {
       <div className="admin-filter-row">
         {(
           [
-            { key: 'all', label: 'Filtro ROI: todos' },
+            { key: 'all', label: 'Sem filtro extra' },
             { key: 'stuck_paid', label: `Pagos travados (≥${PAID_STUCK_HOURS_UI}h)` },
             { key: 'no_shipping', label: 'Sem frete/rastreio (pago→pronto)' },
           ] as const

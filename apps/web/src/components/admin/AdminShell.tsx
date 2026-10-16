@@ -56,7 +56,7 @@ function pageLead(section: AdminSectionId, description: string): string {
  return 'O que está acontecendo, o que precisa de atenção e o que dá para fazer agora — só com o resumo real.';
   }
   if (section === 'pedidos') {
- return 'Fila real: pagos travados, buckets do resumo e os filtros que já existem.';
+ return 'Todos os pedidos, do pagamento à entrega. Filtre, busque e avance cada etapa.';
   }
   if (section === 'catalogo') {
  return 'Estoque e fotos do resumo, com a lista carregada e os atalhos que já existem.';
