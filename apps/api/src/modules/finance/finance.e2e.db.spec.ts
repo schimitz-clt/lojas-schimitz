@@ -300,7 +300,7 @@ async function main() {
     return `8 concurrent → 1 row; 11th call from same IP → 429`;
   });
 
-  await scenario('E09', 'Estorno legado POST /admin/payments/:id/refund: {} continua funcionando; motivo opcional auditado', async () => {
+  await scenario('E09', 'Estorno legado POST /admin/payments/:id/refund: motivo obrigatório ({} → 400 sem chamar o MP); com motivo auditado; replay idempotente', async () => {
     async function paid() {
       const b = await user('customer');
       const p = await product(2);
@@ -311,24 +311,27 @@ async function main() {
       return { pay, p };
     }
     const a = await paid();
-    const r1 = await http('POST', `/admin/payments/${a.pay.id}/refund`, { cookie: admin.cookie, body: {} });
-    assert.equal(r1.status, 201, JSON.stringify(r1.json));
-    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: a.pay.id } })).status, 'refunded');
-    const ev1 = await prisma.financialAuditEvent.findFirstOrThrow({ where: { action: 'payment.legacy_refund_requested', paymentId: a.pay.id } });
-    assert.equal(ev1.reason, null);
-    assert.equal((ev1.meta as any).reasonProvided, false);
+    const aExt = (await prisma.payment.findUniqueOrThrow({ where: { id: a.pay.id } })).externalId;
+    for (const body of [{}, { reason: '' }, { reason: '   ' }, { reason: 'abc' }]) {
+      const r = await http('POST', `/admin/payments/${a.pay.id}/refund`, { cookie: admin.cookie, body });
+      assert.equal(r.status, 400, JSON.stringify(r.json));
+      assert.equal(r.json.error?.code, 'REASON_REQUIRED', JSON.stringify(r.json));
+    }
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: a.pay.id } })).status, 'approved', 'sem motivo nada muda');
+    assert.equal(fake.count('POST', new RegExp(`/v1/payments/${aExt}/refunds$`)), 0, 'sem motivo o MP não é chamado');
+    assert.equal(await prisma.financialAuditEvent.count({ where: { action: 'payment.legacy_refund_requested', paymentId: a.pay.id } }), 0);
     const b = await paid();
     const r2 = await http('POST', `/admin/payments/${b.pay.id}/refund`, { cookie: admin.cookie, body: { reason: 'cliente devolveu o produto (e2e)' } });
     assert.equal(r2.status, 201);
     const ev2 = await prisma.financialAuditEvent.findFirstOrThrow({ where: { action: 'payment.legacy_refund_requested', paymentId: b.pay.id } });
     assert.equal(ev2.reason, 'cliente devolveu o produto (e2e)');
-    const again = await http('POST', `/admin/payments/${b.pay.id}/refund`, { cookie: admin.cookie, body: {} });
+    const again = await http('POST', `/admin/payments/${b.pay.id}/refund`, { cookie: admin.cookie, body: { reason: 'cliente devolveu o produto (e2e)' } });
     assert.equal(again.status, 201);
     assert.equal(again.json.data.idempotent, true);
     assert.equal(await prisma.financialAuditEvent.count({ where: { action: 'payment.legacy_refund_requested', paymentId: b.pay.id } }), 1);
     assert.equal(fake.count('POST', new RegExp(`/v1/payments/${(await prisma.payment.findUniqueOrThrow({ where: { id: b.pay.id } })).externalId}/refunds$`)), 1);
-    assert.equal((await http('POST', `/admin/payments/${b.pay.id}/refund`, { cookie: customer.cookie, body: {} })).status, 403);
-    return 'legacy {} OK (reason null audited), reason recorded, replay idempotent, 1 provider refund';
+    assert.equal((await http('POST', `/admin/payments/${b.pay.id}/refund`, { cookie: customer.cookie, body: { reason: 'tentativa de cliente' } })).status, 403);
+    return 'legacy {} → 400 REASON_REQUIRED (0 chamadas ao MP), reason recorded, replay idempotent, 1 provider refund';
   });
 
   const counters = async () => {
