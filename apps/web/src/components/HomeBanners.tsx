@@ -45,6 +45,7 @@ import {
   takeUsableHomeBanners,
   trackIndexFromScroll,
 } from '@/lib/home-banners';
+import { shouldSkipBannerAutoplay } from '@/lib/banner-autoplay';
 
 type HeroProduct = CatProductLike & {
   id?: string;
@@ -313,8 +314,11 @@ export function HomeBanners({
 
   useEffect(() => {
     if (!multi || paused) return;
+    // WCAG 2.2.2: quem pede menos movimento não recebe troca automática; aba oculta não gasta CPU/rede.
+    if (shouldSkipBannerAutoplay(typeof window !== 'undefined' ? window : null)) return;
     const t = setInterval(() => {
       if (interacting.current) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       setIdx((i) => {
         const next = nextBannerIndex(i, total, 1);
         scrollToTrack(loopingAdvanceTrackIndex(i, total, 1), true);
