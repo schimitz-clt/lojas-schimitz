@@ -23,6 +23,8 @@ export async function resolveOptionalAccessUser(input: {
   token: string;
   verify: (token: string) => Promise<OptionalJwtPayload>;
   lookupUser: (id: string) => Promise<OptionalJwtUserRow | null>;
+  /** 7c: access revogado no logout vira visitante. */
+  isRevoked?: (jti: unknown) => Promise<boolean>;
 }): Promise<(OptionalJwtPayload & { sub: string; email: string; role: string; status: string }) | null> {
   const token = String(input.token || '').trim();
   if (!token) return null;
@@ -30,6 +32,7 @@ export async function resolveOptionalAccessUser(input: {
     const payload = await input.verify(token);
     const sub = typeof payload?.sub === 'string' ? payload.sub : '';
     if (!sub) return null;
+    if (input.isRevoked && (await input.isRevoked(payload.jti))) return null;
     const user = await input.lookupUser(sub);
     if (!user || user.status !== 'active') return null;
     return {

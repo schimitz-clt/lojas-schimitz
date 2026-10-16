@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { resolveAccessToken } from '../../modules/auth/refresh-cookie';
 import { PrismaService } from '../../prisma.service';
 import { resolveOptionalAccessUser } from './optional-jwt';
+import { isAccessTokenRevoked } from '../../modules/auth/access-revocation';
 
 @Injectable()
 export class OptionalJwtGuard implements CanActivate {
@@ -25,6 +26,7 @@ export class OptionalJwtGuard implements CanActivate {
           where: { id },
           select: { id: true, email: true, role: true, status: true },
         }),
+      isRevoked: (jti) => isAccessTokenRevoked(this.prisma, jti),
     });
     return true;
   }

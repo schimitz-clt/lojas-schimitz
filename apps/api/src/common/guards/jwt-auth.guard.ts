@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma.service';
 import { resolveAccessToken } from '../../modules/auth/refresh-cookie';
+import { isAccessTokenRevoked } from '../../modules/auth/access-revocation';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -15,10 +16,13 @@ export class JwtAuthGuard implements CanActivate {
     const token = resolveAccessToken(req) || '';
     if (!token) throw new UnauthorizedException({ message: 'Token ausente', code: 'UNAUTHORIZED' });
     try {
-      const payload = await this.jwt.verifyAsync<{ sub?: string; email?: string; role?: string }>(token, {
+      const payload = await this.jwt.verifyAsync<{ sub?: string; email?: string; role?: string; jti?: string }>(token, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
       if (!payload?.sub) throw new UnauthorizedException({ message: 'Token inválido', code: 'UNAUTHORIZED' });
+      if (await isAccessTokenRevoked(this.prisma, payload.jti)) {
+        throw new UnauthorizedException({ message: 'Sessão encerrada', code: 'UNAUTHORIZED' });
+      }
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },

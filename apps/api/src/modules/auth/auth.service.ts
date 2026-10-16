@@ -1,3 +1,4 @@
+import { revokeAccessToken } from './access-revocation';
 import {
   BadRequestException,
   ConflictException,
@@ -420,10 +421,17 @@ export class AuthService {
   async logoutFlexible(accessToken?: string, refreshToken?: string) {
     if (accessToken) {
       try {
-        const payload = await this.jwt.verifyAsync<{ sub: string }>(accessToken, {
+        const payload = await this.jwt.verifyAsync<{ sub: string; jti?: string; exp?: number }>(accessToken, {
           secret: process.env.JWT_ACCESS_SECRET,
         });
         if (payload?.sub) {
+          // 7c: o access deixa de valer na hora (não espera os 15 min do TTL).
+          try {
+            await revokeAccessToken(this.prisma, payload);
+          } catch (e) {
+            // Nunca impedir o logout; refresh continua revogado e cookies são limpos.
+            console.warn(JSON.stringify({ level: 'warn', msg: 'ACCESS_REVOKE_FAILED', err: String((e as Error)?.message || e).slice(0, 200) }));
+          }
           return this.logout(payload.sub, refreshToken);
         }
       } catch {
@@ -556,7 +564,7 @@ export class AuthService {
 
   private async issue(sub: string, email: string, role: string, name: string) {
     const accessToken = await this.jwt.signAsync(
-      { sub, email, role },
+      { sub, email, role, jti: randomUUID() },
       {
         secret: process.env.JWT_ACCESS_SECRET,
         expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m',

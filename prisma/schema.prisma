@@ -122,6 +122,19 @@ model RefreshToken {
   @@index([userId])
 }
 
+/**
+ * Access JWT revogado no logout (achado 7c). Guardas recusam token cujo `jti` esteja aqui.
+ * Sem FK para não acoplar ao ciclo de vida do usuário; linha só importa até `expiresAt` (TTL do access, 15 min).
+ */
+model RevokedAccessToken {
+  jti       String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 /** One-time password reset; store SHA-256(hex) of raw token only — never the raw token. */
 model PasswordResetToken {
   id        String    @id @default(uuid())
