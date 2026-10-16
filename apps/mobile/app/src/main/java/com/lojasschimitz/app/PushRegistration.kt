@@ -110,9 +110,9 @@ object PushRegistration {
      * First-party cookie so the storefront PDP can record a view.
      * Value is the device id only — never the FCM registration token, never sch_access/sch_refresh.
      */
-    fun ensureDeviceCookie(context: Context) {
+    fun ensureDeviceCookie(context: Context, flush: Boolean = true) {
         val id = savedDeviceId(context) ?: return
-        setDeviceCookie(id)
+        setDeviceCookie(id, flush)
     }
 
     fun rememberToken(context: Context, token: String) {
@@ -176,8 +176,8 @@ object PushRegistration {
         }
     }
 
-    fun registerSaved(context: Context, force: Boolean = false) {
-        ensureDeviceCookie(context)
+    fun registerSaved(context: Context, force: Boolean = false, flushCookies: Boolean = true) {
+        ensureDeviceCookie(context, flushCookies)
         val token = savedToken(context) ?: return
         register(context, token, force)
     }
@@ -278,13 +278,13 @@ object PushRegistration {
         }
     }
 
-    private fun setDeviceCookie(deviceId: String) {
+    private fun setDeviceCookie(deviceId: String, flush: Boolean = true) {
         if (!DEVICE_ID.matches(deviceId)) return
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
         val value = "$DEVICE_COOKIE=$deviceId; Path=/; Secure; SameSite=Lax; Max-Age=31536000"
         cm.setCookie(PushDeepLink.STORE_ORIGIN, value)
         cm.setCookie("https://www.lojasschimitz.com.br", value)
-        cm.flush()
+        if (flush) cm.flush()
     }
 }

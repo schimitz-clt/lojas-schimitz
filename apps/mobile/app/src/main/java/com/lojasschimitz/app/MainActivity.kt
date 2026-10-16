@@ -40,6 +40,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.firebase.messaging.FirebaseMessaging
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -73,6 +74,8 @@ class MainActivity : AppCompatActivity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var tokenRetry: Runnable? = null
+    // CookieManager.flush() blocks and does disk I/O: keep it off the UI thread during navigation.
+    private val cookieFlusher = Executors.newSingleThreadExecutor()
 
     /**
      * `<input type=file>` inside the storefront/Admin WebView (product/banner photos).
@@ -99,6 +102,9 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // The splash theme's full-screen windowBackground would be redrawn under the WebView on
+        // every frame (overdraw). The root layout already paints #1A1A1A, so drop it after inflate.
+        window.setBackgroundDrawable(null)
 
         applyDarkGoldSystemBars()
 
@@ -190,6 +196,7 @@ class MainActivity : AppCompatActivity() {
         tokenRetry = null
         cancelFileChooser()
         webView.destroy()
+        cookieFlusher.shutdown()
         super.onDestroy()
     }
 
@@ -231,6 +238,8 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = true
             @Suppress("DEPRECATION")
             allowFileAccessFromFileURLs = false
+            // Raster tiles ahead of the viewport: smoother scroll and page transitions (API 23+).
+            offscreenPreRaster = true
         }
 
         webView.addJavascriptInterface(
@@ -288,8 +297,9 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
-                CookieManager.getInstance().flush()
-                PushRegistration.registerSaved(this@MainActivity, force = false)
+                // Session cookie (sch_refresh) still persisted after each load, just not on the UI thread.
+                cookieFlusher.execute { CookieManager.getInstance().flush() }
+                PushRegistration.registerSaved(this@MainActivity, force = false, flushCookies = false)
             }
 
             override fun onReceivedError(
