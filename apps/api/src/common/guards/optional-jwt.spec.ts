@@ -54,6 +54,26 @@ async function main() {
   const jwtGuard = readFileSync(join(__dirname, 'jwt-auth.guard.ts'), 'utf8');
   assert.ok(jwtGuard.includes("user.status !== 'active'"));
 
+  // 7c: access revogado no logout → visitante (sem consultar usuário)
+  let looked = 0;
+  const revoked = await resolveOptionalAccessUser({
+    token: 'tok',
+    verify: async () => ({ sub: 'u1', jti: 'j-revogado' }),
+    lookupUser: async () => { looked++; return { id: 'u1', email: 'a@b.c', role: 'customer', status: 'active' }; },
+    isRevoked: async (jti) => jti === 'j-revogado',
+  });
+  assert.equal(revoked, null);
+  assert.equal(looked, 0);
+  const live = await resolveOptionalAccessUser({
+    token: 'tok',
+    verify: async () => ({ sub: 'u1', jti: 'j-ok' }),
+    lookupUser: async () => ({ id: 'u1', email: 'a@b.c', role: 'customer', status: 'active' }),
+    isRevoked: async (jti) => jti === 'j-revogado',
+  });
+  assert.equal(live?.sub, 'u1');
+  assert.ok(guardSrc.includes('isAccessTokenRevoked'));
+  assert.ok(jwtGuard.includes('isAccessTokenRevoked'));
+
   console.log('optional-jwt unit tests ok');
 }
 
