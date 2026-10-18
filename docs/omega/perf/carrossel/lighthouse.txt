@@ -1,0 +1,5 @@
+local-base-1 perf 77 TBT 105 CLS 0.012 LCP 6077
+local-base-2 perf 76 TBT 135 CLS 0.012 LCP 6090
+local-new-1 perf 77 TBT 105 CLS 0.012 LCP 6137
+local-new-2 perf 78 TBT 126 CLS 0.012 LCP 5482
+prod-before-1 perf 83 TBT 162 CLS 0.012 LCP 4080

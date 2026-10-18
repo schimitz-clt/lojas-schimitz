@@ -1132,7 +1132,7 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .home-banner-dot::before {
   content: ''; display: block; width: 8px; height: 8px; border-radius: 999px;
-  background: var(--line-strong); transition: width .15s, background .15s;
+  background: var(--line-strong); transition: background-color .15s;
 }
 .home-banner-dot.active::before { background: var(--yellow); width: 22px; }
 .home-banner-nav {

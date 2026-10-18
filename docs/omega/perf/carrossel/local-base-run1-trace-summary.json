@@ -1,0 +1,84 @@
+{
+  "framesTotal": 1120,
+  "framesDroppedTotal": 4,
+  "framesDuringScroll": 1077,
+  "framesDroppedDuringScroll": 2,
+  "framesDuringScrollMissingContent": 0,
+  "scrollStates": {
+    "SCROLL_MAIN_THREAD": 1077
+  },
+  "eventLatencyMs": {
+    "TOUCH_PRESSED": {
+      "n": 16,
+      "median": 10.9,
+      "p95": 27.4,
+      "max": 35.0
+    },
+    "GESTURE_TAP_DOWN": {
+      "n": 8,
+      "median": 26.1,
+      "p95": 33.5,
+      "max": 36.7
+    },
+    "TOUCH_MOVED": {
+      "n": 112,
+      "median": 33.6,
+      "p95": 52.7,
+      "max": 68.8
+    },
+    "GESTURE_SCROLL_BEGIN": {
+      "n": 8,
+      "median": 32.7,
+      "p95": 37.2,
+      "max": 38.6
+    },
+    "FIRST_GESTURE_SCROLL_UPDATE": {
+      "n": 8,
+      "median": 41.0,
+      "p95": 48.3,
+      "max": 49.3
+    },
+    "GESTURE_TAP_CANCEL": {
+      "n": 8,
+      "median": 49.8,
+      "p95": 57.2,
+      "max": 60.9
+    },
+    "GESTURE_SCROLL_UPDATE": {
+      "n": 104,
+      "median": 17.0,
+      "p95": 30.9,
+      "max": 48.1
+    },
+    "INERTIAL_GESTURE_SCROLL_UPDATE": {
+      "n": 16,
+      "median": 1.4,
+      "p95": 1.8,
+      "max": 2.0
+    },
+    "TOUCH_RELEASED": {
+      "n": 8,
+      "median": 19.5,
+      "p95": 23.7,
+      "max": 31.0
+    },
+    "INERTIAL_GESTURE_SCROLL_END": {
+      "n": 8,
+      "median": 33.2,
+      "p95": 49.4,
+      "max": 66.3
+    }
+  },
+  "traceDurationsMs": {
+    "FireAnimationFrame": 80.4,
+    "FunctionCall": 257.8,
+    "PrePaint": 133.1,
+    "Layerize": 147.6,
+    "EventDispatch": 186.3,
+    "RasterTask": 27.0,
+    "TimerFire": 20.5,
+    "Paint": 147.3,
+    "UpdateLayoutTree": 27.1,
+    "Layout": 73.0
+  }
+}

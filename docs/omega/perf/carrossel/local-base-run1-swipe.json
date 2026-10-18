@@ -1,0 +1,46 @@
+{
+  "url": "https://loja.test:4101/",
+  "label": "local-base-run1",
+  "gpu": false,
+  "cpuThrottle": 4,
+  "gestureWindowMs": 9959,
+  "rafFrames": 705,
+  "droppedFramesRaf": 4,
+  "framesOver50ms": 0,
+  "worstFrameMs": 33.4,
+  "p95FrameMs": 16.7,
+  "longTasks": 0,
+  "longTaskTotalMs": 0,
+  "longAnimFrames": 0,
+  "carouselDomMutations": 40,
+  "slides": 9,
+  "mainThread": {
+    "scriptMs": 218.6,
+    "layoutMs": 77.6,
+    "styleMs": 27.4,
+    "taskMs": 1922
+  },
+  "trace": {
+    "paintEvents": 183,
+    "paintMs": 147.3,
+    "rasterMs": 27,
+    "layoutEvents": 75,
+    "styleEvents": 79,
+    "droppedFrameEvents": 7,
+    "decodeMs": 0
+  },
+  "scrollLeftAfterEachSwipe": [
+    388,
+    776,
+    1164,
+    1552,
+    1164,
+    1552,
+    1940,
+    2328,
+    1940
+  ],
+  "jsErrors": [
+    "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+}
