@@ -1,12 +1,14 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
-  buildProxyUpstreamInit,
   buildUpstreamUrl,
   getBrowserApiBase,
   normalizeProxyOrigin,
   resolveApiProxyTarget,
   rewriteSetCookieForSameOrigin,
 } from './api-proxy';
+import { buildProxyUpstreamInit } from './api-proxy-upstream';
 
 const saved = { ...process.env };
 
@@ -70,6 +72,8 @@ try {
   assert.ok(withBody.body, 'multipart body is forwarded');
   assert.equal(withBody.duplex, 'half', 'undici needs duplex for proxied POST');
 
+  // Browser bundle must not pull the Node Buffer polyfill through api.ts → api-proxy.ts.
+  assert.equal(/\bBuffer\b/.test(readFileSync(join(__dirname, 'api-proxy.ts'), 'utf8')), false, 'api-proxy.ts (browser) has no Buffer');
   console.log('api-proxy unit tests ok');
 } finally {
   restore();

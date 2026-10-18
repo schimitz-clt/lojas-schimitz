@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  buildProxyUpstreamInit,
-  buildUpstreamUrl,
-  rewriteSetCookieHeaders,
-} from '@/lib/api-proxy';
+import { buildUpstreamUrl, rewriteSetCookieHeaders } from '@/lib/api-proxy';
+import { buildProxyUpstreamInit } from '@/lib/api-proxy-upstream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
