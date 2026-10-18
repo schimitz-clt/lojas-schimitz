@@ -1,0 +1,22 @@
+{
+  "url": "https://loja.test:4101/",
+  "start": {
+    "scroll": 388,
+    "dot": 0
+  },
+  "afterAutoplay6_5s": {
+    "scroll": 776,
+    "dot": 1
+  },
+  "offscreen12s": {
+    "scroll": 1552,
+    "dot": 3
+  },
+  "dot3Click": {
+    "scroll": 1552,
+    "dot": 3
+  },
+  "slides": 9,
+  "imgsLoaded": 4,
+  "jsErrors": []
+}

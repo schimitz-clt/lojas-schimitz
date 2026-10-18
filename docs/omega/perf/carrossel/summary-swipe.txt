@@ -1,0 +1,30 @@
+local-base 3 runs
+  dropRaf    [4, 1, 0] median 1
+  worst      [33.4, 33.2, 16.8] median 33.2
+  longTasks  [0, 0, 0] median 0
+  mut        [40, 40, 40] median 40
+  script     [218.6, 197.2, 176.1] median 197.2
+  layout     [77.6, 68.4, 69.5] median 69.5
+  style      [27.4, 24.9, 23.5] median 24.9
+  task       [1922, 1689.4, 1685.4] median 1689.4
+  dropScroll [2, 4, 4] median 4
+  gsuP95     [30.9, 29.9, 30.8] median 30.8
+  tmP95      [52.7, 52.5, 52.4] median 52.5
+  paint      [147.3, 129.3, 108.6] median 129.3
+  final      [1940, 1940, 1940] median 1940
+  errs       [0, 0, 0] median 0
+local-new 3 runs
+  dropRaf    [2, 3, 6] median 3
+  worst      [33.3, 33.3, 33.4] median 33.3
+  longTasks  [0, 0, 0] median 0
+  mut        [40, 40, 40] median 40
+  script     [158.4, 143, 153] median 153
+  layout     [13.3, 13, 13] median 13
+  style      [3.6, 6.8, 5] median 5
+  task       [1361.7, 1370.6, 1356] median 1361.7
+  dropScroll [0, 5, 4] median 4
+  gsuP95     [28.6, 33.4, 32.8] median 32.8
+  tmP95      [52.1, 52.5, 55.0] median 52.5
+  paint      [41.4, 39.6, 35.8] median 39.6
+  final      [1940, 1940, 1940] median 1940
+  errs       [0, 0, 0] median 0

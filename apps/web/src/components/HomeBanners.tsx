@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
@@ -35,6 +35,7 @@ import {
   bannerTapOpensLink,
   clampBannerIndex,
   homeBannerLoopSlides,
+  type HomeBannerLoopSlot,
   homeBannerTrackLength,
   logicalFromTrackIndex,
   loopingAdvanceTrackIndex,
@@ -157,6 +158,77 @@ function BannerSkeleton() {
   );
 }
 
+type LoopSlot = HomeBannerLoopSlot<HomeBanner>;
+
+/**
+ * Slides are memoized: a slide change (dots, aria-label) or a finger-down must not
+ * re-render 9 links + images. In the Android WebView every React commit during a swipe
+ * competes with the touch → scroll pipeline on a slow main thread.
+ */
+const BannerSlides = memo(function BannerSlides({
+  loopSlides,
+  placement,
+  total,
+  onSlidePointerDown,
+  onSlideClick,
+  onImageError,
+}: {
+  loopSlides: LoopSlot[];
+  placement: 'home' | 'retail';
+  total: number;
+  onSlidePointerDown: (e: React.PointerEvent) => void;
+  onSlideClick: (e: React.MouseEvent) => void;
+  onImageError: (id: string) => void;
+}) {
+  return (
+    <>
+      {loopSlides.map((slot) => {
+        const b = slot.item;
+        const priority =
+          placement === 'retail' ? false : bannerImageIsPriority(slot.clone, slot.logicalIndex);
+        const eager = placement === 'retail' ? false : bannerImagePreload(slot.clone, slot.logicalIndex, total);
+        const href = bannerCtaHref(b);
+        return (
+          <div
+            className="home-banner-slide"
+            key={slot.key}
+            aria-hidden={slot.clone ? true : undefined}
+          >
+            <Link
+              href={href}
+              className="home-banner-link"
+              draggable={false}
+              tabIndex={slot.clone ? -1 : undefined}
+              onPointerDown={onSlidePointerDown}
+              onDragStart={(e) => e.preventDefault()}
+              onClick={onSlideClick}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                {...responsiveImageProps(bannerImageUrl(b), IMAGE_WIDTHS.banner)}
+                alt={slot.clone ? '' : bannerAlt(b)}
+                className="home-banner-img"
+                width={1400}
+                height={520}
+                sizes="100vw"
+                loading={eager ? 'eager' : 'lazy'}
+                fetchPriority={priority ? 'high' : 'low'}
+                decoding="async"
+                draggable={false}
+                onError={() => onImageError(b.id)}
+              />
+              <div className="home-banner-overlay">
+                {b.title ? <p className="home-banner-caption">{b.title}</p> : null}
+                <span className="btn home-banner-cta">{bannerCtaLabel()}</span>
+              </div>
+            </Link>
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
 export function HomeBanners({
   products,
   placement = 'home',
@@ -168,13 +240,16 @@ export function HomeBanners({
   const [banners, setBanners] = useState<HomeBanner[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
-  const [paused, setPaused] = useState(false);
+  /** Paused until this timestamp (ref: pausing on finger-down must not trigger a React commit). */
+  const pausedUntil = useRef(0);
+  /** Autoplay only while at least half of the banner is on screen. */
+  const onScreen = useRef(true);
+  const sectionRef = useRef<HTMLElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const idxRef = useRef(0);
   const interacting = useRef(false);
   const programmatic = useRef(false);
   const jumping = useRef(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapOrigin = useRef<{ x: number; y: number } | null>(null);
   const settleLoopRef = useRef<() => void>(() => {});
@@ -202,14 +277,14 @@ export function HomeBanners({
   const total = slides.length;
   const multi = shouldShowBannerChrome(total);
   const safeIdx = clampBannerIndex(idx, total);
-  const loopSlides = homeBannerLoopSlides(slides);
   const slideSetKey = slides.map((b) => b.id).join('|');
+  // Stable array identity per slide set so the memoized slides skip index-only renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loopSlides = useMemo(() => homeBannerLoopSlides(slides), [slideSetKey]);
   idxRef.current = safeIdx;
 
   const pauseAuto = useCallback(() => {
-    setPaused(true);
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    resumeTimer.current = setTimeout(() => setPaused(false), HOME_BANNER_RESUME_MS);
+    pausedUntil.current = Date.now() + HOME_BANNER_RESUME_MS;
   }, []);
 
   const scrollToTrack = useCallback(
@@ -283,7 +358,6 @@ export function HomeBanners({
 
   useEffect(() => {
     return () => {
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
       if (settleTimer.current) clearTimeout(settleTimer.current);
     };
   }, []);
@@ -313,11 +387,27 @@ export function HomeBanners({
   }, [jumpToTrack, total]);
 
   useEffect(() => {
-    if (!multi || paused) return;
+    const node = sectionRef.current;
+    if (!node || !multi || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) onScreen.current = entry.intersectionRatio >= 0.5;
+      },
+      { threshold: [0, 0.5] },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [multi]);
+
+  useEffect(() => {
+    if (!multi) return;
     // WCAG 2.2.2: quem pede menos movimento não recebe troca automática; aba oculta não gasta CPU/rede.
     if (shouldSkipBannerAutoplay(typeof window !== 'undefined' ? window : null)) return;
     const t = setInterval(() => {
       if (interacting.current) return;
+      if (Date.now() < pausedUntil.current) return;
+      // Fora da tela (rolou a página) não troca: evita scroll + commit enquanto o dedo rola a lista.
+      if (!onScreen.current) return;
       if (typeof document !== 'undefined' && document.hidden) return;
       setIdx((i) => {
         const next = nextBannerIndex(i, total, 1);
@@ -326,7 +416,7 @@ export function HomeBanners({
       });
     }, HOME_BANNER_AUTO_MS);
     return () => clearInterval(t);
-  }, [multi, paused, scrollToTrack, total]);
+  }, [multi, scrollToTrack, total]);
 
   useEffect(() => {
     setIdx((i) => clampBannerIndex(i, total));
@@ -390,6 +480,15 @@ export function HomeBanners({
     [onTrackPointerDown],
   );
 
+  const onImageError = useCallback((id: string) => {
+    setFailedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
   const onSlideClick = useCallback((e: React.MouseEvent) => {
     const origin = tapOrigin.current;
     tapOrigin.current = null;
@@ -404,6 +503,7 @@ export function HomeBanners({
 
   return (
     <section
+      ref={sectionRef}
       className="home-banners"
       aria-roledescription={multi ? 'carrossel' : undefined}
       aria-label={bannerAriaLabel(safeIdx, total)}
@@ -427,59 +527,14 @@ export function HomeBanners({
           ref={trackRef}
           onPointerDown={onTrackPointerDown}
         >
-          {loopSlides.map((slot) => {
-            const b = slot.item;
-            const priority =
-              placement === 'retail' ? false : bannerImageIsPriority(slot.clone, slot.logicalIndex);
-            const eager = placement === 'retail' ? false : bannerImagePreload(slot.clone, slot.logicalIndex, total);
-            const href = bannerCtaHref(b);
-            const img = (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                {...responsiveImageProps(bannerImageUrl(b), IMAGE_WIDTHS.banner)}
-                alt={slot.clone ? '' : bannerAlt(b)}
-                className="home-banner-img"
-                width={1400}
-                height={520}
-                sizes="100vw"
-                loading={eager ? 'eager' : 'lazy'}
-                fetchPriority={priority ? 'high' : 'low'}
-                decoding="async"
-                draggable={false}
-                onError={() => {
-                  setFailedIds((prev) => {
-                    if (prev.has(b.id)) return prev;
-                    const next = new Set(prev);
-                    next.add(b.id);
-                    return next;
-                  });
-                }}
-              />
-            );
-            return (
-              <div
-                className="home-banner-slide"
-                key={slot.key}
-                aria-hidden={slot.clone ? true : undefined}
-              >
-                <Link
-                  href={href}
-                  className="home-banner-link"
-                  draggable={false}
-                  tabIndex={slot.clone ? -1 : undefined}
-                  onPointerDown={onSlidePointerDown}
-                  onDragStart={(e) => e.preventDefault()}
-                  onClick={onSlideClick}
-                >
-                  {img}
-                  <div className="home-banner-overlay">
-                    {b.title ? <p className="home-banner-caption">{b.title}</p> : null}
-                    <span className="btn home-banner-cta">{bannerCtaLabel()}</span>
-                  </div>
-                </Link>
-              </div>
-            );
-          })}
+          <BannerSlides
+            loopSlides={loopSlides}
+            placement={placement}
+            total={total}
+            onSlidePointerDown={onSlidePointerDown}
+            onSlideClick={onSlideClick}
+            onImageError={onImageError}
+          />
         </div>
         {multi ? (
           <>
