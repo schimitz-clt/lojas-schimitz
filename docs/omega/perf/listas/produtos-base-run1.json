@@ -1,0 +1,28 @@
+{
+  "url": "https://loja.test:4101/produtos",
+  "label": "produtos-base-run1",
+  "cpu": 4,
+  "scrollYAfterEach": [
+    667,
+    1371,
+    2149,
+    2821,
+    3559,
+    4276,
+    3518,
+    2791,
+    2103,
+    1324
+  ],
+  "longTasks": 0,
+  "framesDuringScroll": 955,
+  "framesDroppedDuringScroll": 0,
+  "compositorDrawMs": 1015.1,
+  "softwareDrawQuadMs": 983.6,
+  "rasterMs": 58.7,
+  "paintMs": 1.7,
+  "layoutMs": 0,
+  "styleMs": 0,
+  "scriptMs": 94.5,
+  "jsErrors": []
+}

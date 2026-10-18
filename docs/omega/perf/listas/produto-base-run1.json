@@ -1,0 +1,28 @@
+{
+  "url": "https://loja.test:4101/produto/alarme-residencial-sem-fio",
+  "label": "produto-base-run1",
+  "cpu": 4,
+  "scrollYAfterEach": [
+    729,
+    1478,
+    2245,
+    2336,
+    2336,
+    2336,
+    1617,
+    926,
+    127,
+    127
+  ],
+  "longTasks": 0,
+  "framesDuringScroll": 665,
+  "framesDroppedDuringScroll": 0,
+  "compositorDrawMs": 1063.1,
+  "softwareDrawQuadMs": 1006,
+  "rasterMs": 27.9,
+  "paintMs": 0,
+  "layoutMs": 0,
+  "styleMs": 0,
+  "scriptMs": 93.3,
+  "jsErrors": []
+}

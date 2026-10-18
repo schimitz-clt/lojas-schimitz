@@ -443,8 +443,6 @@
   color: var(--id-cream);
   background: linear-gradient(180deg, rgba(24, 44, 86, 0.88), rgba(7, 18, 42, 0.92));
   border: 0.5px solid rgba(243, 236, 223, 0.18);
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
   border-radius: 28px;
 }
 .id-pdp .pdp-buybar-price strong,
@@ -857,8 +855,6 @@
     border-radius: 0;
     color: var(--id-cream);
     background: linear-gradient(180deg, rgba(24, 44, 86, 0.96), rgba(7, 18, 42, 0.98));
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
     box-shadow: 0 -8px 24px rgba(7, 18, 42, 0.18);
   }
   .cart-page .cart-sticky-checkout .muted,
