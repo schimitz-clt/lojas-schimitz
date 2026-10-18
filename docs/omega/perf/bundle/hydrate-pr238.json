@@ -1,0 +1,228 @@
+{
+  "origin": "https://loja.test:4102",
+  "label": "pr238",
+  "cpu": 4,
+  "network": "150ms RTT ~1.6Mbps, cache off",
+  "results": [
+    {
+      "run": 0,
+      "route": "/",
+      "loadMs": 2869,
+      "jsKB": 317,
+      "scriptMs": 443,
+      "taskMs": 1519,
+      "longTasks": 5,
+      "tbtLike": 488,
+      "jsErrors": 0
+    },
+    {
+      "run": 0,
+      "route": "/produtos",
+      "loadMs": 2726,
+      "jsKB": 307,
+      "scriptMs": 401,
+      "taskMs": 1270,
+      "longTasks": 4,
+      "tbtLike": 355,
+      "jsErrors": 0
+    },
+    {
+      "run": 0,
+      "route": "/produto/[slug]",
+      "loadMs": 2592,
+      "jsKB": 325,
+      "scriptMs": 286,
+      "taskMs": 1025,
+      "longTasks": 2,
+      "tbtLike": 136,
+      "jsErrors": 0
+    },
+    {
+      "run": 0,
+      "route": "/carrinho",
+      "loadMs": 2551,
+      "jsKB": 340,
+      "scriptMs": 319,
+      "taskMs": 968,
+      "longTasks": 2,
+      "tbtLike": 212,
+      "jsErrors": 0
+    },
+    {
+      "run": 1,
+      "route": "/",
+      "loadMs": 2871,
+      "jsKB": 317,
+      "scriptMs": 475,
+      "taskMs": 1475,
+      "longTasks": 5,
+      "tbtLike": 427,
+      "jsErrors": 0
+    },
+    {
+      "run": 1,
+      "route": "/produtos",
+      "loadMs": 2741,
+      "jsKB": 307,
+      "scriptMs": 428,
+      "taskMs": 1212,
+      "longTasks": 5,
+      "tbtLike": 331,
+      "jsErrors": 0
+    },
+    {
+      "run": 1,
+      "route": "/produto/[slug]",
+      "loadMs": 2647,
+      "jsKB": 325,
+      "scriptMs": 395,
+      "taskMs": 1145,
+      "longTasks": 5,
+      "tbtLike": 270,
+      "jsErrors": 0
+    },
+    {
+      "run": 1,
+      "route": "/carrinho",
+      "loadMs": 2516,
+      "jsKB": 340,
+      "scriptMs": 294,
+      "taskMs": 915,
+      "longTasks": 2,
+      "tbtLike": 169,
+      "jsErrors": 0
+    },
+    {
+      "run": 2,
+      "route": "/",
+      "loadMs": 2854,
+      "jsKB": 317,
+      "scriptMs": 425,
+      "taskMs": 1437,
+      "longTasks": 4,
+      "tbtLike": 329,
+      "jsErrors": 0
+    },
+    {
+      "run": 2,
+      "route": "/produtos",
+      "loadMs": 2726,
+      "jsKB": 307,
+      "scriptMs": 414,
+      "taskMs": 1240,
+      "longTasks": 4,
+      "tbtLike": 331,
+      "jsErrors": 0
+    },
+    {
+      "run": 2,
+      "route": "/produto/[slug]",
+      "loadMs": 2574,
+      "jsKB": 325,
+      "scriptMs": 436,
+      "taskMs": 1246,
+      "longTasks": 4,
+      "tbtLike": 320,
+      "jsErrors": 0
+    },
+    {
+      "run": 2,
+      "route": "/carrinho",
+      "loadMs": 2550,
+      "jsKB": 340,
+      "scriptMs": 322,
+      "taskMs": 968,
+      "longTasks": 2,
+      "tbtLike": 196,
+      "jsErrors": 0
+    },
+    {
+      "run": 3,
+      "route": "/",
+      "loadMs": 2844,
+      "jsKB": 317,
+      "scriptMs": 407,
+      "taskMs": 1376,
+      "longTasks": 4,
+      "tbtLike": 354,
+      "jsErrors": 0
+    },
+    {
+      "run": 3,
+      "route": "/produtos",
+      "loadMs": 2719,
+      "jsKB": 307,
+      "scriptMs": 408,
+      "taskMs": 1173,
+      "longTasks": 4,
+      "tbtLike": 301,
+      "jsErrors": 0
+    },
+    {
+      "run": 3,
+      "route": "/produto/[slug]",
+      "loadMs": 2583,
+      "jsKB": 325,
+      "scriptMs": 399,
+      "taskMs": 1127,
+      "longTasks": 5,
+      "tbtLike": 281,
+      "jsErrors": 0
+    },
+    {
+      "run": 3,
+      "route": "/carrinho",
+      "loadMs": 2540,
+      "jsKB": 340,
+      "scriptMs": 309,
+      "taskMs": 948,
+      "longTasks": 2,
+      "tbtLike": 196,
+      "jsErrors": 0
+    },
+    {
+      "run": 4,
+      "route": "/",
+      "loadMs": 2908,
+      "jsKB": 317,
+      "scriptMs": 474,
+      "taskMs": 1487,
+      "longTasks": 4,
+      "tbtLike": 387,
+      "jsErrors": 0
+    },
+    {
+      "run": 4,
+      "route": "/produtos",
+      "loadMs": 2716,
+      "jsKB": 307,
+      "scriptMs": 405,
+      "taskMs": 1215,
+      "longTasks": 4,
+      "tbtLike": 320,
+      "jsErrors": 0
+    },
+    {
+      "run": 4,
+      "route": "/produto/[slug]",
+      "loadMs": 2580,
+      "jsKB": 325,
+      "scriptMs": 396,
+      "taskMs": 1152,
+      "longTasks": 4,
+      "tbtLike": 279,
+      "jsErrors": 0
+    },
+    {
+      "run": 4,
+      "route": "/carrinho",
+      "loadMs": 2520,
+      "jsKB": 340,
+      "scriptMs": 313,
+      "taskMs": 896,
+      "longTasks": 2,
+      "tbtLike": 175,
+      "jsErrors": 0
+    }
+  ]
+}
