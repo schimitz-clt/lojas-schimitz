@@ -1,0 +1,56 @@
+{
+  "origin": "https://loja.test:4102",
+  "label": "c2c-nav-run2",
+  "cpu": 4,
+  "apiDelayMs": 150,
+  "quoteDelayMs": 550,
+  "runs": [
+    {
+      "urlMs": 188,
+      "freightReadyMs": 909,
+      "apiCallsAfterTap": {
+        "GET /cart": 1,
+        "GET /me/loyalty": 1,
+        "POST /shipping/quote": 1
+      }
+    },
+    {
+      "urlMs": 182,
+      "freightReadyMs": 838,
+      "apiCallsAfterTap": {
+        "GET /cart": 1,
+        "GET /me/loyalty": 1,
+        "POST /shipping/quote": 1
+      }
+    },
+    {
+      "urlMs": 166,
+      "freightReadyMs": 812,
+      "apiCallsAfterTap": {
+        "GET /cart": 1,
+        "GET /me/loyalty": 1,
+        "POST /shipping/quote": 1
+      }
+    },
+    {
+      "urlMs": 172,
+      "freightReadyMs": 821,
+      "apiCallsAfterTap": {
+        "GET /cart": 1,
+        "GET /me/loyalty": 1,
+        "POST /shipping/quote": 1
+      }
+    },
+    {
+      "urlMs": 171,
+      "freightReadyMs": 829,
+      "apiCallsAfterTap": {
+        "GET /cart": 1,
+        "GET /me/loyalty": 1,
+        "POST /shipping/quote": 1
+      }
+    }
+  ],
+  "medianFreightReadyMs": 829,
+  "jsErrors": []
+}

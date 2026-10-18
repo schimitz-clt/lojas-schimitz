@@ -1,0 +1,40 @@
+{
+  "origin": "https://loja.test:4102",
+  "label": "pdp-nav-run2",
+  "cpu": 4,
+  "rttMs": 150,
+  "taps": [
+    {
+      "href": "/produto/alarme-residencial-sem-fio",
+      "urlMs": 229,
+      "readyMs": 664
+    },
+    {
+      "href": "/produto/robo-aspirador-basico",
+      "urlMs": 207,
+      "readyMs": 351
+    },
+    {
+      "href": "/produto/impressora-jato-de-tinta-wi-fi",
+      "urlMs": 206,
+      "readyMs": 331
+    },
+    {
+      "href": "/produto/gps-automotivo-5",
+      "urlMs": 199,
+      "readyMs": 325
+    },
+    {
+      "href": "/produto/radio-portatil-am-fm",
+      "urlMs": 207,
+      "readyMs": 348
+    },
+    {
+      "href": "/produto/leitor-digital-de-e-books",
+      "urlMs": 204,
+      "readyMs": 339
+    }
+  ],
+  "medianReadyMs": 348,
+  "jsErrors": []
+}

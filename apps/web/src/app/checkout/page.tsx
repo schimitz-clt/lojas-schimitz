@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, brl, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
+import { sameCartPayload, takeCheckoutWarm } from '@/lib/checkout-warm';
 import { loginNextPath, persistLastOrderPublicId } from '@/lib/order-recovery';
 import {
   INSTALLMENT_INTEREST_NOTE,
@@ -112,23 +113,38 @@ export default function CheckoutPage() {
       router.replace(loginNextPath('/checkout'));
       return;
     }
+    const applyCart = (data: Cart) => {
+      setCart(data);
+      if (data.coupon?.code) {
+        setCoupon(data.coupon.code);
+        setCouponPreview(data.coupon);
+      }
+      if (data.couponError?.message) setCouponErr(data.couponError.message);
+    };
+    const applyAddresses = (list: CheckoutAddress[]) => {
+      setAddresses(list);
+      if (list[0]) setAddressId(list[0].id);
+    };
+    // Vindo do carrinho: desenha já com o que o carrinho tinha (e o frete começa agora);
+    // o carrinho é buscado de novo e só troca se mudou.
+    const seed = takeCheckoutWarm<Cart, CheckoutAddress>();
+    if (seed) applyCart(seed.cart);
+    if (seed?.addresses) {
+      applyAddresses(seed.addresses);
+      setAddressesLoaded(true);
+    }
     api<Cart>('/cart')
       .then((data) => {
-        setCart(data);
-        if (data.coupon?.code) {
-          setCoupon(data.coupon.code);
-          setCouponPreview(data.coupon);
-        }
-        if (data.couponError?.message) setCouponErr(data.couponError.message);
+        if (seed && sameCartPayload(seed.cart, data)) return;
+        applyCart(data);
       })
       .catch((e) => setErr(e.message));
-    api<CheckoutAddress[]>('/me/addresses')
-      .then((list) => {
-        setAddresses(list);
-        if (list[0]) setAddressId(list[0].id);
-      })
-      .catch(() => {})
-      .finally(() => setAddressesLoaded(true));
+    if (!seed?.addresses) {
+      api<CheckoutAddress[]>('/me/addresses')
+        .then(applyAddresses)
+        .catch(() => {})
+        .finally(() => setAddressesLoaded(true));
+    }
     api<Loyalty>('/me/loyalty').then(setLoyalty).catch(() => {});
   }, [router, sessionReady, user]);
 
