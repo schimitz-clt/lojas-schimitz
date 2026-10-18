@@ -6,6 +6,7 @@
 
 import { PIX_DISCOUNT } from '@/lib/pricing';
 import { parseProductStory, type ProductFeature } from '@/lib/product-story';
+import { formatTwoDecimals } from './money-format';
 
 export type DisplayHeadline = {
   lead: string;
@@ -139,10 +140,7 @@ export function pixOffLabel(): string {
 
 export function splitBrl(value: number): { whole: string; cents: string } {
   const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
-  const formatted = safe.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const formatted = formatTwoDecimals(safe);
   const [whole, cents] = formatted.split(',');
   return { whole: whole || '0', cents: `,${cents || '00'}` };
 }

@@ -10,6 +10,7 @@ import {
   stockCompareLabel,
   type ProductInventoryLike,
 } from '@/lib/product-media';
+import { formatBrlCurrency } from './money-format';
 
 export const COMPARE_MAX = 3;
 export const COMPARE_STORAGE_KEY = 'sch_compare_v1';
@@ -193,7 +194,7 @@ export function compareRows(): CompareRow[] {
 }
 
 function brl(n: number): string {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(n);
 }
 
 export function compareCell(item: CompareSnapshot, row: CompareRowId): string {

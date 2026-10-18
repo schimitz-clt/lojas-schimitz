@@ -1,0 +1,52 @@
+┌ ƒ /                                    13.4 kB         146 kB
+├ ○ /_not-found                            225 B         103 kB          1m      1y
+├ ○ /admin                                 225 B         103 kB          1m      1y
+├ ○ /admin/avaliacoes                      225 B         103 kB          1m      1y
+├ ○ /admin/catalogo                        225 B         103 kB          1m      1y
+├ ○ /admin/clientes                        225 B         103 kB          1m      1y
+├ ○ /admin/cupons                          225 B         103 kB          1m      1y
+├ ○ /admin/equipe                          225 B         103 kB          1m      1y
+├ ○ /admin/financeiro                      225 B         103 kB          1m      1y
+├ ○ /admin/frete                           225 B         103 kB          1m      1y
+├ ○ /admin/marketplace                     225 B         103 kB          1m      1y
+├ ○ /admin/notificacoes                    225 B         103 kB          1m      1y
+├ ○ /admin/pedidos                         225 B         103 kB          1m      1y
+├ ○ /admin/vendas                          225 B         103 kB          1m      1y
+├ ○ /admin/vitrine                         225 B         103 kB          1m      1y
+├ ƒ /api/v1/[[...path]]                    225 B         103 kB
+├ ○ /apple-icon.png                          0 B            0 B
+├ ƒ /busca                                 225 B         103 kB
+├ ƒ /buscar                                225 B         103 kB
+├ ○ /cadastro                              935 B         119 kB          1m      1y
+├ ƒ /campanha/[slug]                     6.12 kB         120 kB
+├ ○ /carrinho                            6.03 kB         121 kB          1m      1y
+├ ○ /checkout                            6.64 kB         126 kB          1m      1y
+├ ○ /comparar                            4.93 kB         115 kB          1m      1y
+├ ○ /conta                               6.54 kB         116 kB          1m      1y
+├ ○ /conta/dados                         3.75 kB         114 kB          1m      1y
+├ ○ /conta/salvos                          253 B         119 kB          1m      1y
+├ ○ /conta/vistos                        2.09 kB         127 kB          1m      1y
+├ ƒ /departamento/[slug]                 5.04 kB         130 kB
+├ ○ /entrar                              1.24 kB         120 kB          1m      1y
+├ ○ /esqueci-senha                       1.19 kB         114 kB          1m      1y
+├ ○ /excluir-conta                       3.27 kB         113 kB          1m      1y
+├ ○ /favoritos                             252 B         119 kB          1m      1y
+├ ○ /manifest.webmanifest                  225 B         103 kB
+├ ○ /marketplace                           174 B         106 kB          1m      1y
+├ ○ /notificacoes                        1.81 kB         112 kB          1m      1y
+├ ○ /pedidos                             3.71 kB         114 kB          1m      1y
+├ ƒ /pedidos/[publicId]                  10.8 kB         121 kB
+├ ○ /privacidade                           174 B         106 kB          1m      1y
+├ ƒ /produto/[slug]                      13.9 kB         143 kB
+├ ƒ /produtos                            4.84 kB         129 kB
+├ ○ /redefinir-senha                       984 B         111 kB          1m      1y
+├ ○ /robots.txt                            225 B         103 kB
+├ ƒ /sitemap.xml                           225 B         103 kB
+├ ○ /suporte                             1.78 kB         112 kB          1m      1y
+├ ○ /termos                                174 B         106 kB          1m      1y
+├ ○ /vendedor                            4.13 kB         114 kB          1m      1y
+└ ○ /vendedor/mp/callback                1.09 kB         108 kB          1m      1y
++ First Load JS shared by all             102 kB
+  ├ chunks/6394-ace99c29e5a2fe40.js      46.3 kB
+  ├ chunks/90183106-db0e4986041aadf6.js  54.2 kB
+  └ other shared chunks (total)          1.97 kB

@@ -2,6 +2,7 @@
  * WhatsApp click-to-chat (wa.me) — sem Cloud API, Twilio ou tokens.
  * Envio automático exige WhatsApp Cloud API (Meta) + templates aprovados (futuro).
  */
+import { formatBrlCurrency } from './money-format';
 
 export const DEFAULT_STORE_WHATSAPP = '5551996253766';
 
@@ -36,7 +37,7 @@ export function statusLabelPt(status: string) {
 }
 
 export function formatBRL(value: number | string) {
-  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(value);
 }
 
 /**

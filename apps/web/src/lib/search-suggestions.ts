@@ -8,6 +8,7 @@ import { stockBadge, toNumber } from '@/lib/pricing';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
 import { pixHighlight } from '@/lib/storefront-pro';
 import { isDemoCatalogProduct } from '@/lib/demo-catalog';
+import { formatBrlCurrency } from './money-format';
 
 export const SEARCH_SUGGEST_MIN = 2;
 export const SEARCH_SUGGEST_DEBOUNCE_MS = 280;
@@ -119,7 +120,7 @@ export function categoriesFromListResponse(data: unknown): SearchCategoryLike[] 
 export function formatSuggestionMoney(price: number | string | null | undefined): string | undefined {
   const n = toNumber(price);
   if (!(n > 0)) return undefined;
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(n);
 }
 
 /** List price + PIX 5% hint from the same storefront helpers as cards/PDP. */
