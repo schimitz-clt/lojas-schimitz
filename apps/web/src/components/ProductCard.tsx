@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePrefetchFullOnTouch } from '@/lib/prefetch-on-touch';
 import { IMAGE_WIDTHS, responsiveImageProps } from '@/lib/responsive-image';
 import Link from 'next/link';
 import { api, brl } from '@/lib/api';
@@ -99,6 +100,7 @@ export function ProductCard({
   const kicker = productCardKicker(p.category?.name, p.seller?.name);
   const cues = productCardCues();
   const shelf = variant === 'shelf';
+  const prefetchPdp = usePrefetchFullOnTouch(`/produto/${p.slug}`);
 
   async function addToCart(e: { preventDefault(): void; stopPropagation(): void }) {
     e.preventDefault();
@@ -146,7 +148,7 @@ export function ProductCard({
     <article className={`pcard pcard-pro${shelf ? ' pcard-shelf' : ''}`}>
       <FavoriteToggle productId={p.id} product={p} variant="card" />
       <CompareToggle product={p} variant="card" />
-      <Link href={`/produto/${p.slug}`} className="pcard-link">
+      <Link href={`/produto/${p.slug}`} className="pcard-link" onPointerDown={prefetchPdp}>
         <div className="pcard-media">
           {img ? <ProductImage src={img} alt={p.name} priority={priority} /> : null}
           <div
@@ -221,7 +223,7 @@ export function ProductCard({
             {productCardAddLabel({ outOfStock: false, adding: false, added: false, demo: true })}
           </button>
         ) : out ? (
-          <Link className="btn pcard-btn ghost" href={`/produto/${p.slug}`}>
+          <Link className="btn pcard-btn ghost" href={`/produto/${p.slug}`} onPointerDown={prefetchPdp}>
             Ver detalhes
           </Link>
         ) : (

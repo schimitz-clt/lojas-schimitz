@@ -1,0 +1,63 @@
+{
+  "origin": "https://lojasschimitz.com.br",
+  "label": "prod-before",
+  "cpu": 4,
+  "network": "150ms RTT ~1.6Mbps",
+  "steps": [
+    {
+      "name": "home→departamento (menu)",
+      "urlChangeMs": 474,
+      "readyMs": 581,
+      "softNav": true,
+      "lt": 1,
+      "ltMs": 110,
+      "url": "/departamento/ofertas"
+    },
+    {
+      "name": "departamento→produto (card)",
+      "urlChangeMs": 164,
+      "readyMs": 1485,
+      "softNav": true,
+      "lt": 0,
+      "ltMs": 0,
+      "url": "/produto/alarme-residencial-sem-fio"
+    },
+    {
+      "name": "produto→carrinho (header)",
+      "urlChangeMs": 149,
+      "readyMs": 569,
+      "softNav": true,
+      "lt": 0,
+      "ltMs": 0,
+      "url": "/carrinho"
+    },
+    {
+      "name": "carrinho→home (voltar x3)",
+      "urlChangeMs": 133,
+      "readyMs": 190,
+      "softNav": true,
+      "lt": 1,
+      "ltMs": 68,
+      "url": "/produto/alarme-residencial-sem-fio"
+    },
+    {
+      "name": "produto→departamento (voltar)",
+      "urlChangeMs": 228,
+      "readyMs": 248,
+      "softNav": true,
+      "lt": 1,
+      "ltMs": 83,
+      "url": "/departamento/ofertas"
+    },
+    {
+      "name": "departamento→produtos (menu)",
+      "urlChangeMs": 439,
+      "readyMs": 586,
+      "softNav": true,
+      "lt": 2,
+      "ltMs": 302,
+      "url": "/produtos"
+    }
+  ],
+  "jsErrors": []
+}

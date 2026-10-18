@@ -28,4 +28,12 @@ const page = src('app/page.tsx');
 assert.ok(page.includes('imageSrcSet') && page.includes('STAGE_IMG_SIZES'));
 assert.ok(src('components/RetailHome.tsx').includes('sizes={STAGE_IMG_SIZES}'));
 
+// 4) Card de produto: toque já pede a PDP completa (dados), não só o esqueleto do loading.tsx.
+const card = src('components/ProductCard.tsx');
+assert.ok(card.includes('usePrefetchFullOnTouch('), 'card usa prefetch completo no toque');
+assert.ok(/className="pcard-link" onPointerDown=\{prefetchPdp\}/.test(card), 'link principal do card prefetcha no pointerdown');
+const pf = src('lib/prefetch-on-touch.ts');
+assert.ok(pf.includes("kind: 'full'"), 'prefetch FULL (com dados)');
+assert.ok(pf.includes('done.current === href'), 'no máximo 1 prefetch por card');
+
 console.log('mobile-speed.spec OK');

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { api, brl, getGuestToken } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
 import { cartCheckoutHref } from '@/lib/checkout-auth';
+import { warmCheckout } from '@/lib/checkout-warm';
 import {
   CheckoutAddressSection,
   type CheckoutAddress,
@@ -506,7 +507,13 @@ export default function CartPage() {
                   {cartCheckoutLabel(loggedIn)}
                 </button>
               ) : (
-                <Link className="btn cart-checkout-btn" href={checkoutHref}>
+                <Link
+                  className="btn cart-checkout-btn"
+                  href={checkoutHref}
+                  onPointerDown={() => {
+                    if (loggedIn) warmCheckout(cart, addressesLoaded ? addresses : null);
+                  }}
+                >
                   {cartCheckoutLabel(loggedIn)}
                 </Link>
               )}

@@ -1,0 +1,55 @@
+// node cart2checkout.mjs <origin> <label> — tap "Finalizar" on /carrinho → time until checkout shows the freight (API mocked: 150ms each, quote +400ms)
+import { chromium } from 'playwright-core';
+import fs from 'node:fs';
+const [origin, label] = process.argv.slice(2);
+const out = `/workspace/ls-final-evidence/nav/${label}`; fs.mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true, args: ['--host-resolver-rules=MAP loja.test 127.0.0.1', '--ignore-certificate-errors'] });
+const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true, ignoreHTTPSErrors: true });
+await ctx.addCookies([{ name: 'sch_refresh', value: 'test', domain: 'loja.test', path: '/', secure: true, httpOnly: true, sameSite: 'Lax' }]);
+const user = { id: 'u1', email: 'teste@example.com', name: 'Teste Perf', role: 'customer' };
+const cart = { items: [{ id: 'ci1', productId: 'p1', name: 'Mouse pad XL', slug: 'mouse-pad-xl-com-base-antiderrapante', qty: 1, price: 24.9, lineTotal: 24.9, image: null }], subtotal: 24.9, discount: 0, coupon: null, couponError: null, mixedSellers: false };
+const addresses = [{ id: 'a1', label: 'Casa', recipient: 'Teste Perf', cep: '90010000', street: 'Rua A', number: '1', district: 'Centro', city: 'Porto Alegre', state: 'RS', complement: null, phone: '51999999999', isDefault: true }];
+const counts = {};
+const ok = (data) => JSON.stringify({ success: true, ok: true, data });
+await ctx.route('**/api/v1/**', async (route) => {
+  const u = new URL(route.request().url()); const p = u.pathname.replace('/api/v1', ''); const m = route.request().method();
+  const key = `${m} ${p}`; counts[key] = (counts[key] || 0) + 1;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const send = async (data, ms = 150) => { await wait(ms); await route.fulfill({ status: 200, contentType: 'application/json', body: ok(data) }); };
+  if (p === '/auth/refresh') return send({ accessToken: 'x', user });
+  if (p === '/auth/me' || p === '/me') return send(user);
+  if (p === '/cart' && m === 'GET') return send(cart);
+  if (p === '/me/addresses') return send(addresses);
+  if (p === '/me/loyalty') return send({ balance: 0, label: 'Cashback', rate: 0 });
+  if (p === '/orders' && m === 'GET') return send([]);
+  if (p === '/shipping/quote') return send({ price: 0, days: 1, carrier: 'Entrega própria', modality: 'local', service: null, matchedPrefix: '90', label: 'Frete grátis POA', freeAbove: 0 }, 550);
+  if (p.startsWith('/me') || p.startsWith('/notifications') || p.startsWith('/wishlist')) return send([]);
+  return route.continue();
+});
+const page = await ctx.newPage(); const cdp = await ctx.newCDPSession(page);
+const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+const res = [];
+for (let i = 0; i < 5; i++) {
+  await page.goto(origin + '/carrinho', { waitUntil: 'networkidle', timeout: 120000 });
+  const btn = page.locator('a.cart-checkout-btn:visible').first();
+  await btn.waitFor({ timeout: 30000 }); await page.waitForTimeout(1500);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  const box = await btn.boundingBox(); const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  for (const k of Object.keys(counts)) delete counts[k];
+  const t0 = Date.now();
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await new Promise((r) => setTimeout(r, 120));
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForURL((u) => u.pathname === '/checkout', { timeout: 30000 });
+  const tUrl = Date.now() - t0;
+  await page.waitForFunction(() => { const s = document.querySelector('[aria-labelledby="checkout-freight-heading"]'); return s && s.querySelector('strong') && !s.textContent.includes('Calculando frete'); }, null, { timeout: 30000, polling: 16 });
+  const tReady = Date.now() - t0;
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  await page.waitForTimeout(1200);
+  res.push({ urlMs: tUrl, freightReadyMs: tReady, apiCallsAfterTap: { ...counts } });
+}
+const r = res.map((x) => x.freightReadyMs).sort((a, b) => a - b);
+const summary = { origin, label, cpu: 4, apiDelayMs: 150, quoteDelayMs: 550, runs: res, medianFreightReadyMs: r[2], jsErrors: errors };
+fs.writeFileSync(`${out}/cart2checkout.json`, JSON.stringify(summary, null, 2));
+console.log(JSON.stringify({ label, ready: res.map((x) => x.freightReadyMs), median: r[2], calls: res[res.length - 1].apiCallsAfterTap, errs: errors }));
+await browser.close();
