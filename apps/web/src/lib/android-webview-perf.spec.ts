@@ -16,5 +16,13 @@ assert.ok(kotlin.includes('offscreenPreRaster = true'), 'offscreen pre-raster on
 assert.ok(kotlin.includes('window.setBackgroundDrawable(null)'), 'splash window background removed (overdraw)');
 assert.equal(/setLayerType\([^)]*SOFTWARE/.test(kotlin), false, 'no software layer');
 assert.equal(/LOAD_NO_CACHE|clearCache\(/.test(kotlin), false, 'HTTP cache kept');
-assert.ok(/versionCode = 15/.test(gradle) && /versionName = "1\.0\.14"/.test(gradle), '1.0.14 (15)');
+assert.ok(/versionCode = 16/.test(gradle) && /versionName = "1\.0\.15"/.test(gradle), '1.0.15 (16)');
+
+// 1.0.15: pull-to-refresh must not steal a sideways swipe (home banner carousel at the top of the page).
+const layout = readFileSync(resolve(root, 'src/main/res/layout/activity_main.xml'), 'utf8');
+const srl = readFileSync(resolve(root, 'src/main/java/com/lojasschimitz/app/HorizontalAwareSwipeRefreshLayout.kt'), 'utf8');
+assert.ok(layout.includes('<com.lojasschimitz.app.HorizontalAwareSwipeRefreshLayout'), 'layout uses the horizontal-aware refresh');
+assert.equal(layout.includes('<androidx.swiperefreshlayout.widget.SwipeRefreshLayout'), false, 'stock SRL steals sideways swipes');
+assert.ok(/override fun onInterceptTouchEvent/.test(srl) && srl.includes('horizontalGesture'), 'sideways gesture stays with the WebView');
+assert.ok(srl.includes('dx > dy'), 'horizontal = X beats Y');
 console.log('android-webview-perf.spec OK');
