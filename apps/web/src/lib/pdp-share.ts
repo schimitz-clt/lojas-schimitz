@@ -6,6 +6,7 @@
  */
 
 import { pixPrice } from '@/lib/pricing';
+import { formatBrlCurrency } from './money-format';
 
 export const PDP_SHARE_ORIGIN = 'https://lojasschimitz.com.br';
 
@@ -34,7 +35,7 @@ export function pdpSharePixLabel(price: number | string | null | undefined): str
   if (!Number.isFinite(base) || base <= 0) return null;
   const pix = pixPrice(base);
   if (!Number.isFinite(pix) || pix <= 0) return null;
-  return pix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(pix);
 }
 
 export function pdpSharePayload(

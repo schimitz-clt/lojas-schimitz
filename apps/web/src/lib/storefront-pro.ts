@@ -5,6 +5,7 @@
 
 import { pixPrice, pixSavings, toNumber } from '@/lib/pricing';
 import { DEFAULT_STORE_WHATSAPP, storeWhatsAppDigits, waMeUrl } from '@/lib/whatsapp';
+import { formatBrlCurrency, formatBrlCurrencyWhole, formatCount } from './money-format';
 
 /** Percent off vs compare-at; null when no real discount. */
 export function discountPercent(
@@ -39,7 +40,7 @@ export function pixHighlight(listPrice: number | string): PixHighlight {
     tag: '5% OFF',
     savingsLine:
       savings > 0
-        ? `Economize ${savings.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no PIX`
+        ? `Economize ${formatBrlCurrency(savings)} no PIX`
         : '5% de desconto no PIX',
   };
 }
@@ -159,7 +160,7 @@ export function searchResultsHeading(
     };
   }
   const countLabel =
-    total === 1 ? '1 resultado' : `${total.toLocaleString('pt-BR')} resultados`;
+    total === 1 ? '1 resultado' : `${formatCount(total)} resultados`;
   if (query) {
     return {
       title: `Resultados para “${query}”`,
@@ -295,7 +296,7 @@ export function formatPriceRangeChip(min?: string, max?: string): string | null 
   const maxN = parseOptionalMoney(max);
   if (minN == null && maxN == null) return null;
   const fmt = (n: number) =>
-    n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    formatBrlCurrencyWhole(n);
   if (minN != null && maxN != null) return `${fmt(minN)} – ${fmt(maxN)}`;
   if (minN != null) return `A partir de ${fmt(minN)}`;
   return `Até ${fmt(maxN!)}`;

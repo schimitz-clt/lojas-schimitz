@@ -7,6 +7,7 @@
 import { loginNextPath } from '@/lib/order-recovery';
 import { pixPrice, toNumber } from '@/lib/pricing';
 import { resolveProductImageUrl, resolveProductStock } from '@/lib/product-media';
+import { formatBrlCurrency } from './money-format';
 
 export const FAVORITES_EVENT = 'sch-favorites-updated';
 export const FAVORITES_MAX_BADGE = 99;
@@ -246,7 +247,7 @@ export function wishlistProductImage(product: WishlistProductLike): string {
 export function wishlistMoney(price: number | string | null | undefined): string {
   const n = toNumber(price);
   if (!(n > 0)) return '';
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(n);
 }
 
 export function wishlistPriceLabel(product: WishlistProductLike): string {

@@ -10,6 +10,7 @@ import {
   shouldRestoreSessionFromCookies,
   wipeAuthSessionStorage,
 } from './auth-session';
+import { formatBrlCurrency } from './money-format';
 
 export { SESSION_UPDATED_EVENT };
 
@@ -336,7 +337,7 @@ export function userAccountLabel(user: SessionUser): string {
 }
 
 export function brl(n: number | string) {
-  return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return formatBrlCurrency(n);
 }
 
 export function waLink(text = 'Olá, vim pela Lojas Schimitz') {
