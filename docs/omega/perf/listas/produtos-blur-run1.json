@@ -1,0 +1,28 @@
+{
+  "url": "https://loja.test:4103/produtos",
+  "label": "produtos-blur-run1",
+  "cpu": 4,
+  "scrollYAfterEach": [
+    757,
+    1442,
+    2213,
+    2972,
+    3690,
+    4425,
+    3693,
+    2957,
+    2225,
+    1462
+  ],
+  "longTasks": 0,
+  "framesDuringScroll": 976,
+  "framesDroppedDuringScroll": 0,
+  "compositorDrawMs": 325.5,
+  "softwareDrawQuadMs": 316.6,
+  "rasterMs": 56.6,
+  "paintMs": 1.9,
+  "layoutMs": 0,
+  "styleMs": 0,
+  "scriptMs": 92.9,
+  "jsErrors": []
+}
