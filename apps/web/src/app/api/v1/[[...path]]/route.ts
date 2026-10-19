@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildUpstreamUrl, rewriteSetCookieHeaders } from '@/lib/api-proxy';
-import { buildProxyUpstreamInit } from '@/lib/api-proxy-upstream';
+import { buildProxyUpstreamInit, fetchUpstreamWithRetry } from '@/lib/api-proxy-upstream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,7 +40,7 @@ async function proxyRequest(req: NextRequest, pathParts: string[] | undefined) {
 
   let upstreamRes: Response;
   try {
-    upstreamRes = await fetch(upstreamUrl, init);
+    upstreamRes = await fetchUpstreamWithRetry(upstreamUrl, init, req.method);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'proxy upstream error';
     return NextResponse.json(

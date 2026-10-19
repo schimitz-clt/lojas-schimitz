@@ -17,4 +17,7 @@ watchPatterns = [
 [deploy]
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 30
+# Serviço com volume (/data/uploads): o Railway não sobrepõe versões. Draining dá ao processo antigo
+# tempo para terminar requisições em andamento após o SIGTERM (main.ts: installGracefulShutdown, 8 s).
+drainingSeconds = 10
 restartPolicyType = "ON_FAILURE"
