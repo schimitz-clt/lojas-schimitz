@@ -6,4 +6,8 @@ buildCommand = "npm install && npm run build"
 startCommand = "npm run start"
 healthcheckPath = "/"
 healthcheckTimeout = 60
+# Zero downtime: a versão antiga segue atendendo 20 s depois da nova ficar ativa; depois recebe
+# SIGTERM e o next start fecha o servidor terminando as requisições em andamento (até 15 s).
+overlapSeconds = 20
+drainingSeconds = 15
 restartPolicyType = "ON_FAILURE"
