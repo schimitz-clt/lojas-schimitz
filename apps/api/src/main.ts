@@ -73,6 +73,8 @@ async function bootstrap() {
 
   setupSwagger(app, prefix);
 
+  installGracefulShutdown(app);
+
   const port = Number(process.env.PORT || 3001);
   await app.listen(port);
   // eslint-disable-next-line no-console
@@ -82,3 +84,33 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+/**
+ * Deploy sem cortar requisições: no SIGTERM do Railway (drainingSeconds no railway.toml) a API para
+ * de aceitar conexões, termina as que estão em andamento e roda os hooks de shutdown (flush final das
+ * métricas financeiras, $disconnect do Prisma) antes de sair. Handler próprio em vez de
+ * app.enableShutdownHooks(): o Nest re-emite o sinal para o próprio processo depois do close, e como
+ * PID 1 do container (docker-entrypoint.sh faz exec node) o kernel ignora esse sinal — o processo
+ * ficaria pendurado até o SIGKILL.
+ */
+function installGracefulShutdown(app: { close(): Promise<void> }, graceMs = 8000) {
+  let closing = false;
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => {
+      if (closing) return;
+      closing = true;
+      // eslint-disable-next-line no-console
+      console.log(`${signal}: encerrando a API (drenando requisições, hooks de shutdown)`);
+      const force = setTimeout(() => process.exit(0), graceMs);
+      force.unref();
+      app.close().then(
+        () => process.exit(0),
+        (err) => {
+          // eslint-disable-next-line no-console
+          console.error('shutdown', err);
+          process.exit(1);
+        },
+      );
+    });
+  }
+}

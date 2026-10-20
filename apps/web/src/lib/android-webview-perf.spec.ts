@@ -16,7 +16,8 @@ assert.ok(kotlin.includes('offscreenPreRaster = true'), 'offscreen pre-raster on
 assert.ok(kotlin.includes('window.setBackgroundDrawable(null)'), 'splash window background removed (overdraw)');
 assert.equal(/setLayerType\([^)]*SOFTWARE/.test(kotlin), false, 'no software layer');
 assert.equal(/LOAD_NO_CACHE|clearCache\(/.test(kotlin), false, 'HTTP cache kept');
-assert.ok(/versionCode = 16/.test(gradle) && /versionName = "1\.0\.15"/.test(gradle), '1.0.15 (16)');
+// versão ≥ 1.0.15 (16): a correção do swipe abaixo vale daí em diante (1.0.16 = 17 desliga backup).
+assert.ok(Number(/versionCode = (\d+)/.exec(gradle)?.[1]) >= 16, 'versionCode ≥ 16');
 
 // 1.0.15: pull-to-refresh must not steal a sideways swipe (home banner carousel at the top of the page).
 const layout = readFileSync(resolve(root, 'src/main/res/layout/activity_main.xml'), 'utf8');
