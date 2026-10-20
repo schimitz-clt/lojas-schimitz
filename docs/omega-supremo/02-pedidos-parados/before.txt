@@ -1,0 +1,4 @@
+# Antes (2026-10-20T15:03:35Z)
+web /admin/parados: 307
+API GET /admin/ops/stalled-orders (sem login): 404
+Rollback: web prod deploy a3a693d9-e105-46a9-9fb4-8ab4f2757acb (25d93ce); API prod deploy 80efdbf0-6f73-4137-87e3-ce49a6bd087e (756eaf8); main antes do merge 6256191

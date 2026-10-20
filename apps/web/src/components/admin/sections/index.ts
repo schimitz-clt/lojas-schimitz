@@ -11,3 +11,4 @@ export { AdminFreteSection } from './AdminFreteSection';
 export { AdminPedidosSection } from './AdminPedidosSection';
 export { AdminNotificacoesSection } from './AdminNotificacoesSection';
 export { AdminFinanceiroSection } from './AdminFinanceiroSection';
+export { AdminParadosSection } from './AdminParadosSection';
