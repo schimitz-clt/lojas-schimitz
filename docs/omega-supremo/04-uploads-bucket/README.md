@@ -9,3 +9,8 @@
 - Testes: `uploads-s3.spec.ts` (CI) e `uploads-s3.int.spec.ts` (S3 local moto: volume e bucket com o mesmo sha256, 404 → null).
   Script de cópia testado contra moto: 2/2 copiados e verificados.
 - Rollback: flag desligada (remover `UPLOADS_STORAGE`) ou reverter o merge. Volume intocado.
+
+## PR 2 — cópia volume → bucket no próprio serviço
+- Com `UPLOADS_S3_SYNC_FROM_VOLUME=true`, após subir, a API copia para o bucket os arquivos do volume que faltam/diferem,
+  relê cada um e confere sha256. Nunca apaga. Log: `uploads_sync OK {files,copied,verified,mismatched,manifestSha256}`.
+- Motivo: as credenciais ficam só nas variáveis da Railway (referências `${{uploads.*}}`); ninguém precisa vê-las.
