@@ -31,6 +31,7 @@ import { isPaymentSimulateUiEnabled, paymentSimulateWebhookSecret } from '@/lib/
 import { useOrderLiveReload } from '@/lib/use-order-live-reload';
 import { PAYMENT_REFUSED_COPY, hasRefusedAttemptOnly, reservationNotice } from '@/lib/journey-copy';
 import Link from 'next/link';
+import { takeOrderWarm } from '@/lib/order-warm';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
@@ -285,8 +286,9 @@ export default function PedidoPage() {
   const [generatedQr, setGeneratedQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const reload = useCallback(() => {
-    return api<Order>(`/orders/${publicId}`).then((order) => {
+  const reload = useCallback((opts?: { useWarm?: boolean }) => {
+    const warmed = opts?.useWarm ? takeOrderWarm<Order>(String(publicId)) : null;
+    return (warmed ?? api<Order>(`/orders/${publicId}`)).then((order) => {
       setO(order);
       const pending = order.payments?.find((p) => p.status === 'pending');
       const approved = order.payments?.find((p) => p.status === 'approved');
@@ -304,7 +306,7 @@ export default function PedidoPage() {
       window.location.href = loginNextPath(`/pedidos/${publicId}`);
       return;
     }
-    reload().catch((e) => {
+    reload({ useWarm: true }).catch((e) => {
       if (isUnauthorizedError(e)) {
         window.location.href = loginNextPath(`/pedidos/${publicId}`);
         return;
