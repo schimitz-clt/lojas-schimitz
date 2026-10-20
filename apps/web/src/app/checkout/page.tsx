@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api, brl, waLink } from '@/lib/api';
 import { useSessionUser } from '@/lib/use-session-user';
 import { sameCartPayload, takeCheckoutWarm } from '@/lib/checkout-warm';
+import { warmOrder } from '@/lib/order-warm';
 import { loginNextPath, persistLastOrderPublicId } from '@/lib/order-recovery';
 import {
   INSTALLMENT_INTEREST_NOTE,
@@ -304,6 +305,8 @@ export default function CheckoutPage() {
       });
       sessionStorage.removeItem(persistKey);
       persistLastOrderPublicId(order.publicId, window.localStorage);
+      // Mesma leitura que a página do pedido faria ao montar, já em paralelo com a navegação.
+      warmOrder(order.publicId, () => api(`/orders/${order.publicId}`));
       router.push(`/pedidos/${order.publicId}`);
     } catch (e: any) {
       setErr(e.message || 'Não foi possível criar o pedido. Preço e estoque são recalculados no servidor.');
