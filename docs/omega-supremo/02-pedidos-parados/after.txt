@@ -1,0 +1,7 @@
+# Depois (2026-10-20T15:14:40Z) — deploy API 852d1305, web b17744b4 (e7f3f41)
+API health: ue,"data":{"ok":true,"time":"2026-10-20T15:14:40.485Z"},"meta":{"requestId":"e8aed9ab-e727-4725-8b48-41cfa6fb0420"}} 200
+API GET /admin/ops/stalled-orders sem login: 401 (esperado 401 — rota existe e é protegida)
+API GET /admin/ops sem login: 401
+web /admin/parados: 200 -> 
+web /: 200  /produtos: 200  /checkout: 307
+Durante o deploy da API houve 1 resposta 502 às 15:13:54 UTC numa sonda direta à API (não via proxy do site).
