@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { syncDirToBucket } from './modules/uploads/uploads-copy-to-bucket';
 import { UploadsS3Store, isSafeUploadName, mimeFromUploadName, uploadsS3Config } from './modules/uploads/uploads-s3';
 import { applyHttpBodyParsers } from './common/http-body-parsers';
 import { setupSwagger, shouldEnableSwagger } from './common/swagger';
@@ -102,6 +103,19 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT || 3001);
   await app.listen(port);
+
+  // Cópia volume → bucket (só com UPLOADS_S3_SYNC_FROM_VOLUME=true). Nunca apaga nada; só loga contagens.
+  if (s3Cfg && String(process.env.UPLOADS_S3_SYNC_FROM_VOLUME || '').toLowerCase() === 'true') {
+    void syncDirToBucket(uploadsDir, new UploadsS3Store(s3Cfg))
+      .then((r) => {
+        // eslint-disable-next-line no-console
+        console.log(`uploads_sync ${r.mismatched ? 'FAIL' : 'OK'} ${JSON.stringify(r)}`);
+      })
+      .catch((e: any) => {
+        // eslint-disable-next-line no-console
+        console.warn(`uploads_sync FAIL err=${e?.name || 'error'}`);
+      });
+  }
   // eslint-disable-next-line no-console
   console.log(
     `Lojas Schimitz API ${prefix} on :${port} env=${process.env.APP_ENV || 'development'} uploads=${uploadsDir} uploadsBucket=${s3Cfg ? 'on' : 'off'}`,
