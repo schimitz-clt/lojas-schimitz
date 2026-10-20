@@ -25,3 +25,12 @@ terminar requisições nem rodar os hooks de shutdown (flush final das métricas
 - **Regressão achada:** /api/v1/health via loja ficou pendurado 30 s (499 no log HTTP do web) em 3 requisições: a repetição sem limite de tempo
   somava tentativas de 15 s cada. Correção (#243): orçamento total de 10 s para as repetições, cada repetição abortada no que sobra.
 - Logs: `SIGTERM: encerrando a API (drenando requisições, hooks de shutdown)` aparece no processo antigo — antes ele morria sem hooks.
+
+## Depois do #243 (orçamento de 10 s) — ainda pior que antes; repetição removida
+
+Redeploy da API em produção às 00:13 UTC (deploy 8d991493), sonda de 240 s: loja 0/480 falhas;
+API direta 3/120 (502 em ~15 s, igual a antes); **pelo proxy 3/120 com espera de 30 s** (antes do #240: 502 em 15 s).
+O edge do Railway segura cada requisição ~15 s antes de responder 502, então qualquer repetição
+soma tempo e não salva a requisição. Este PR tira a repetição: o proxy volta a 1 tentativa (como antes do #240).
+O que fica do #240: API drena no SIGTERM e o web troca de versão sem queda (overlap). A janela de ~5 s
+na API continua por causa do volume (`/data/uploads`); só some movendo os uploads para um bucket.
