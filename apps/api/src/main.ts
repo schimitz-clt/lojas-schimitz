@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { UploadsS3Store, isSafeUploadName, mimeFromUploadName, uploadsS3Config } from './modules/uploads/uploads-s3';
 import { applyHttpBodyParsers } from './common/http-body-parsers';
 import { setupSwagger, shouldEnableSwagger } from './common/swagger';
 import { requestIdMiddleware } from './common/request-id';
@@ -66,6 +67,30 @@ async function bootstrap() {
     },
   });
 
+  // Bucket (UPLOADS_STORAGE=s3): o que não está no volume é servido do bucket, mesma URL.
+  const s3Cfg = uploadsS3Config();
+  if (s3Cfg) {
+    const store = new UploadsS3Store(s3Cfg);
+    app.use(`/${prefix}/uploads/:name`, async (req: any, res: any, next: any) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      const name = String(req.params?.name || '');
+      if (!isSafeUploadName(name)) return next();
+      try {
+        const obj = await store.get(name);
+        if (!obj) return next();
+        res.setHeader('Content-Type', obj.contentType || mimeFromUploadName(name));
+        res.setHeader('Content-Length', String(obj.body.length));
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('X-Uploads-Source', 'bucket');
+        return req.method === 'HEAD' ? res.end() : res.end(obj.body);
+      } catch (e: any) {
+        // eslint-disable-next-line no-console
+        console.warn(`uploads bucket read failed name=${name} err=${e?.name || 'error'}`);
+        return next();
+      }
+    });
+  }
+
   // Railway / proxies
   app.set('trust proxy', 1);
   // Express 5 mudou o padrão para 'simple'; mantém o parser de query do Express 4 (contrato da API).
@@ -79,7 +104,7 @@ async function bootstrap() {
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(
-    `Lojas Schimitz API ${prefix} on :${port} env=${process.env.APP_ENV || 'development'} uploads=${uploadsDir}`,
+    `Lojas Schimitz API ${prefix} on :${port} env=${process.env.APP_ENV || 'development'} uploads=${uploadsDir} uploadsBucket=${s3Cfg ? 'on' : 'off'}`,
   );
 }
 

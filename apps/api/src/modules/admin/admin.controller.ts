@@ -1040,7 +1040,7 @@ export class AdminController {
     if (!checked.ok) {
       throw new BadRequestException({ message: checked.message, code: checked.code });
     }
-    const { filename } = this.uploads.save(file.buffer, checked.mime);
+    const { filename } = await this.uploads.save(file.buffer, checked.mime);
     const rawUrl = this.uploads.publicUrl(filename, req);
     const url = rewritePublicUploadUrl(rawUrl) || rawUrl;
     return ok({ url, filename });
