@@ -18,3 +18,10 @@ terminar requisições nem rodar os hooks de shutdown (flush final das métricas
 - Web `railway.toml`: `overlapSeconds = 20`, `drainingSeconds = 15` (next start já fecha com graça no SIGTERM).
 - Proxy `/api/v1` da loja: GET/HEAD com 502/504/erro de rede tenta de novo (0,5→2 s, até 11 s). Nunca repete POST/PUT/PATCH/DELETE. API não emite 502/504.
 - Migrações continuam no start (medidas < 1 s; mover para preDeploy não compensa o risco).
+
+## Depois do #240 (redeploy a5891bb2 da API)
+- Loja `/` 0/480 falhas; web (deploy c5240a28 com overlap) 0/960 falhas.
+- API direta: 4/120 falhas (502 do edge, mas agora o edge segurou 15 s antes do 502). Janela da API ≈ 5–6 s, igual: o volume impede sobreposição.
+- **Regressão achada:** /api/v1/health via loja ficou pendurado 30 s (499 no log HTTP do web) em 3 requisições: a repetição sem limite de tempo
+  somava tentativas de 15 s cada. Correção (#243): orçamento total de 10 s para as repetições, cada repetição abortada no que sobra.
+- Logs: `SIGTERM: encerrando a API (drenando requisições, hooks de shutdown)` aparece no processo antigo — antes ele morria sem hooks.
