@@ -3699,3 +3699,15 @@ button.acct-textlink {
     transition: none;
   }
 }
+
+/* Rodapé no toque: cada link vira uma linha de 48 px (área de toque ≥ 48 × 48, WCAG 2.5.5 / Lighthouse
+   target-size). Mesma fonte, cor e alinhamento; só o espaçamento vertical da lista muda (7 px de gap
+   viram a própria altura da linha). Mouse/desktop sem mudança. */
+@media (pointer: coarse) {
+  .footer-col ul:has(> li > a) { gap: 0; }
+  .footer-col ul a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+  }
+}
