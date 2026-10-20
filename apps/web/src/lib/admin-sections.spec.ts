@@ -177,6 +177,7 @@ const paths = adminAppRoutePaths();
 assert.deepEqual(paths, [
   '/admin',
   '/admin/pedidos',
+  '/admin/parados',
   '/admin/catalogo',
   '/admin/clientes',
   '/admin/vendas',
@@ -257,3 +258,9 @@ console.log('admin-sections web unit ok');
 function consoleSrcHasFinance() {
   return readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8').includes('financeiro: AdminFinanceiroSection');
 }
+assert.equal(sectionFromPathname('/admin/parados'), 'parados');
+assert.ok(adminNavGroupFor('parados').id === 'operacao', 'Pedidos parados fica em Operação');
+assert.ok(
+  readFileSync(join(__dirname, '../components/admin/AdminConsole.tsx'), 'utf8').includes('parados: AdminParadosSection'),
+  'console renderiza Pedidos parados',
+);

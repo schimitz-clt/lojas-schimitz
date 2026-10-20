@@ -89,7 +89,7 @@ import { PAID_REVENUE_STATUSES, parseSalesDateRange, saoPauloYmd } from './admin
 import { isAdminOrderQueueBucket, statusesForAdminQueueBucket } from '../../common/order-status';
 import { mailConfiguredFromEnvPresence, storeNotifyConfiguredFromEnvPresence } from '../mail/mail.config';
 import { peekStoreNotifyMailSnapshot } from '../notifications/store-notify-obs';
-import { fulfillmentStuckDays, summarizeFulfillmentAttention } from './fulfillment-attention';
+import { fulfillmentStuckDays, listStalledOrders, summarizeFulfillmentAttention } from './fulfillment-attention';
 import {
   buildAdminOrderWhere,
   shouldServerOrderSearch,
@@ -368,6 +368,50 @@ export class AdminController {
         shippingData: summarizeShippingData(shippingRows),
       });
     return ok({ ...summary, orders: { ...summary.orders, activeTotal: activeOrderCount } });
+  }
+
+  @Get('ops/stalled-orders')
+  @ApiOperation({
+    summary:
+      'Pedidos parados (mesmas regras dos alertas do /admin/ops): pago sem organizar, separação parada, enviado sem rastreio. Só dados reais.',
+  })
+  async stalledOrders() {
+    const stuckDays = fulfillmentStuckDays();
+    const rows = await this.prisma.order.findMany({
+      where: { status: { in: ['paid', 'organizing', 'separating', 'packing', 'in_transit', 'shipped'] } },
+      select: {
+        id: true,
+        publicId: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        trackingCode: true,
+        total: true,
+        user: { select: { name: true } },
+        statusHistory: {
+          where: { toStatus: 'paid' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true },
+        },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: 500,
+    });
+    const items = listStalledOrders(
+      rows.map((o) => ({
+        id: o.id,
+        publicId: o.publicId,
+        status: o.status,
+        since: o.status === 'paid' ? (o.statusHistory[0]?.createdAt ?? o.createdAt) : o.updatedAt,
+        trackingCode: o.trackingCode,
+        customerName: o.user?.name ?? null,
+        total: o.total == null ? null : Number(o.total),
+      })),
+      new Date(),
+      { paidHours: PAID_STUCK_HOURS, stuckDays },
+    );
+    return ok({ generatedAt: new Date().toISOString(), paidHours: PAID_STUCK_HOURS, stuckDays, count: items.length, items });
   }
 
   @Get('ops/products-missing-shipping-data')

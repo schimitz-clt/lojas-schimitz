@@ -14,6 +14,7 @@ import { AdminFreteSection } from '@/components/admin/sections/AdminFreteSection
 import { AdminMarketplaceSection } from '@/components/admin/sections/AdminMarketplaceSection';
 import { AdminNotificacoesSection } from '@/components/admin/sections/AdminNotificacoesSection';
 import { AdminOpsSection } from '@/components/admin/sections/AdminOpsSection';
+import { AdminParadosSection } from '@/components/admin/sections/AdminParadosSection';
 import { AdminPedidosSection } from '@/components/admin/sections/AdminPedidosSection';
 import { AdminVendasSection } from '@/components/admin/sections/AdminVendasSection';
 import { AdminVitrineSection } from '@/components/admin/sections/AdminVitrineSection';
@@ -23,6 +24,7 @@ import { clearSession } from '@/lib/api';
 const SECTION_VIEW = {
   ops: AdminOpsSection,
   pedidos: AdminPedidosSection,
+  parados: AdminParadosSection,
   catalogo: AdminCatalogoSection,
   clientes: AdminClientesSection,
   vendas: AdminVendasSection,

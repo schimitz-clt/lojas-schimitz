@@ -28,3 +28,61 @@ export function summarizeFulfillmentAttention(rows: FulfillmentRow[], now = new 
       'Separação parada: confirme com o fornecedor e atualize o pedido. Enviado sem rastreio: informe o código no bloco "Rastreio" do pedido.',
   };
 }
+
+/** Motivo pelo qual um pedido aparece na tela "Pedidos parados". */
+export type StalledReason = 'paid_awaiting_org' | 'prep_stuck' | 'shipped_no_tracking';
+
+export type StalledOrderRow = {
+  id: string;
+  publicId: string;
+  status: string;
+  /** Desde quando está no status atual (pago: histórico "paid"; demais: updatedAt). */
+  since: Date;
+  trackingCode: string | null;
+  customerName?: string | null;
+  total?: number | null;
+};
+
+export type StalledOrderItem = {
+  id: string;
+  publicId: string;
+  status: string;
+  reason: StalledReason;
+  since: string;
+  ageHours: number;
+  customerName: string | null;
+  total: number | null;
+};
+
+/**
+ * Lista detalhada para a tela "Pedidos parados" — mesmas regras dos alertas do /admin/ops
+ * (pago > paidHours sem organizar; separação > stuckDays; enviado sem rastreio). Mais antigos primeiro.
+ */
+export function listStalledOrders(
+  rows: StalledOrderRow[],
+  now = new Date(),
+  opts: { paidHours: number; stuckDays: number },
+): StalledOrderItem[] {
+  const out: StalledOrderItem[] = [];
+  for (const r of rows) {
+    const t = r.since instanceof Date ? r.since.getTime() : new Date(r.since).getTime();
+    if (!Number.isFinite(t)) continue;
+    const ageH = Math.max(0, (now.getTime() - t) / 3_600_000);
+    let reason: StalledReason | null = null;
+    if (r.status === 'paid' && ageH >= opts.paidHours) reason = 'paid_awaiting_org';
+    else if (IN_PREP.has(r.status) && ageH >= opts.stuckDays * 24) reason = 'prep_stuck';
+    else if (SHIPPED.has(r.status) && !String(r.trackingCode ?? '').trim()) reason = 'shipped_no_tracking';
+    if (!reason) continue;
+    out.push({
+      id: r.id,
+      publicId: r.publicId,
+      status: r.status,
+      reason,
+      since: new Date(t).toISOString(),
+      ageHours: Math.floor(ageH),
+      customerName: r.customerName ?? null,
+      total: r.total == null || !Number.isFinite(Number(r.total)) ? null : Number(r.total),
+    });
+  }
+  return out.sort((a, b) => b.ageHours - a.ageHours);
+}

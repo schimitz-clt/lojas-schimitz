@@ -8,6 +8,7 @@ export const ADMIN_BASE_PATH = '/admin';
 export const ADMIN_SECTION_IDS = [
   'ops',
   'pedidos',
+  'parados',
   'catalogo',
   'clientes',
   'vendas',
@@ -36,6 +37,7 @@ export type AdminNavItem = {
 export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: 'ops', label: 'Painel', description: 'Visão geral', badgeKey: 'alerts' },
   { id: 'pedidos', label: 'Pedidos', description: 'Fila e Separar', badgeKey: 'paid' },
+  { id: 'parados', label: 'Pedidos parados', description: 'Precisam de ação' },
   { id: 'catalogo', label: 'Catálogo', description: 'Produtos e estoque', badgeKey: 'lowStock' },
   { id: 'clientes', label: 'Clientes', description: 'Cadastro e histórico' },
   { id: 'vendas', label: 'Vendas', description: 'Relatório' },
@@ -81,7 +83,7 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     id: 'operacao',
     label: 'Operação',
-    itemIds: ['ops', 'pedidos', 'financeiro', 'notificacoes'],
+    itemIds: ['ops', 'pedidos', 'parados', 'financeiro', 'notificacoes'],
   },
   {
     id: 'catalogo',
