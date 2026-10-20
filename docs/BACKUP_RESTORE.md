@@ -103,6 +103,7 @@ RPO is ≤ 24 h, since backups are daily (changes since the last 03:15 BRT run a
 | Date (BRT) | Backup object | Result |
 |---|---|---|
 | 2026-09-27 ~14:56 | `postgres/daily/2026-09-27_20260927T175315Z.dump.age` (632 059 B) | encSha256 and plainSha256 match the manifest. Restored into a local PG 18.6 in 216 ms. **47/47 tables, 5 651/5 651 rows match the manifest**. 32 migrations. Ledger net 1.00+165.30−30.40. 6/6 photos byte-identical to live. |
+| 2026-10-20 ~11:27 | `postgres/daily/2026-10-20_20261020T061856Z.dump.age` (852 442 B) | encSha256 (`124bb520…1a3d08`) and plainSha256 (`63a87dd8…915ce`) match the `BACKUP_OK` log and the manifest. `pg_restore --exit-on-error` into a throwaway local PG 18 (socket only) in 234 ms, no errors. **49/49 tables, 8 968/8 968 rows match the manifest**. 35 migrations. Production not queried. Temp key/dump files shredded. |
 
 Repeat monthly and append a row.
 
