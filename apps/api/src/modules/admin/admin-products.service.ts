@@ -74,6 +74,9 @@ export type CatalogPreviewRow = {
   category: string | null;
   photos: number;
   active: boolean | null;
+  /** Só quando a planilha trouxe a coluna (vazio = não muda). */
+  availability?: 'in_stock' | 'made_to_order' | null;
+  leadDays?: number | null;
   message: string | null;
   warnings: string[];
 };
@@ -240,6 +243,8 @@ export class AdminProductsService {
         category: category.kind === 'id' ? categories.find((c) => c.id === category.id)?.name ?? null : null,
         photos: row.imageUrls?.length ?? 0,
         active: row.active ?? (action.kind === 'create' ? true : null),
+        availability: row.availability ?? null,
+        leadDays: row.leadDays ?? null,
         message: null,
         warnings: catalogRowWarnings(row, action.kind),
       });
@@ -256,6 +261,8 @@ export class AdminProductsService {
         category: null,
         photos: 0,
         active: null,
+        availability: null,
+        leadDays: null,
         message: err.message,
         warnings: [],
       });
@@ -684,6 +691,8 @@ export class AdminProductsService {
           widthCm: row.widthCm == null ? null : new Prisma.Decimal(row.widthCm.toFixed(2)),
           heightCm: row.heightCm == null ? null : new Prisma.Decimal(row.heightCm.toFixed(2)),
           lengthCm: row.lengthCm == null ? null : new Prisma.Decimal(row.lengthCm.toFixed(2)),
+          availability: row.availability ?? 'in_stock',
+          availabilityLeadDays: row.availability === 'made_to_order' ? row.leadDays ?? null : null,
           inventory: { create: { qtyOnHand: row.stock ?? 0, qtyReserved: 0 } },
           ...(imageUrls.length
             ? {
@@ -732,6 +741,10 @@ export class AdminProductsService {
     if (row.widthCm !== undefined) data.widthCm = new Prisma.Decimal(row.widthCm.toFixed(2));
     if (row.heightCm !== undefined) data.heightCm = new Prisma.Decimal(row.heightCm.toFixed(2));
     if (row.lengthCm !== undefined) data.lengthCm = new Prisma.Decimal(row.lengthCm.toFixed(2));
+    if (row.availability !== undefined) {
+      data.availability = row.availability;
+      data.availabilityLeadDays = row.availability === 'made_to_order' ? row.leadDays ?? null : null;
+    }
     if (category.kind === 'id') data.category = { connect: { id: category.id } };
     // Slug stays. Renaming must not invent a new PDP URL.
 

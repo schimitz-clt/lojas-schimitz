@@ -239,3 +239,16 @@ const dailyOps = readFileSync(join(srcRoot, 'lib/admin-daily-ops.ts'), 'utf8');
 assert.ok(dailyOps.includes('body.imageUrls'), 'create persists extra photos in the same request');
 
 console.log('pdp-offer unit tests ok');
+
+{
+  const { pdpMadeToOrderNote, pdpStockLabelWithAvailability } = require('./pdp-offer');
+  const assertM = require('node:assert/strict');
+  assertM.equal(pdpMadeToOrderNote({}), null, 'padrão: nada muda');
+  assertM.equal(pdpMadeToOrderNote({ availability: 'in_stock', availabilityLeadDays: 5 }), null);
+  assertM.equal(pdpMadeToOrderNote({ availability: 'made_to_order', availabilityLeadDays: 7 }), 'Sob encomenda: envio em até 7 dias úteis a mais.');
+  assertM.equal(pdpMadeToOrderNote({ availability: 'made_to_order', availabilityLeadDays: 1 }), 'Sob encomenda: envio em até 1 dia útil a mais.');
+  assertM.match(pdpMadeToOrderNote({ availability: 'made_to_order' }), /confirmado após a compra/);
+  assertM.equal(pdpStockLabelWithAvailability('Em estoque', {}), 'Em estoque');
+  assertM.equal(pdpStockLabelWithAvailability('Em estoque', { availability: 'made_to_order', availabilityLeadDays: 3 }), 'Em estoque · Sob encomenda: envio em até 3 dias úteis a mais.');
+  console.log('pdp-offer: sob encomenda ok');
+}

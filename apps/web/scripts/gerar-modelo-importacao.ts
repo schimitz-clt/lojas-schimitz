@@ -27,6 +27,8 @@ export const TEMPLATE_EXAMPLE_ROWS: Cell[][] = [
     180,
     72,
     'geladeira-frente.jpg|geladeira-aberta.jpg',
+    'em_estoque',
+    null,
   ],
   [
     'EXEMPLO-002',
@@ -42,6 +44,8 @@ export const TEMPLATE_EXAMPLE_ROWS: Cell[][] = [
     6,
     18,
     'https://exemplo-do-fornecedor.com.br/fotos/smartphone-preto.jpg',
+    'sob_encomenda',
+    7,
   ],
 ];
 
@@ -60,6 +64,8 @@ export const TEMPLATE_INSTRUCTIONS: string[][] = [
   ['altura_cm', 'Recomendado', 'Altura da caixa embalada, em cm.', '180'],
   ['comprimento_cm', 'Recomendado', 'Comprimento (profundidade) da caixa embalada, em cm.', '72'],
   ['fotos', 'Não', 'Nomes dos arquivos de foto que você vai enviar no botão “Enviar fotos” (ex.: geladeira-frente.jpg) ou links https://. Várias fotos: separe com | . Até 10 por produto. A primeira é a capa.', 'geladeira-frente.jpg|geladeira-aberta.jpg'],
+  ['disponibilidade', 'Não', '“em_estoque” (padrão) ou “sob_encomenda” (você compra do fornecedor depois da venda). Vazio = não muda. Não altera a regra de compra: continua valendo o estoque.', 'sob_encomenda'],
+  ['prazo_dias', 'Só se sob_encomenda', 'Dias úteis a mais até o envio quando sob encomenda (1 a 120). Aparece na página do produto.', '7'],
   ['', '', '', ''],
   ['Dicas', '', '', ''],
   ['1', '', 'Apague as linhas EXEMPLO-001 e EXEMPLO-002 da aba Produtos (se esquecer, o sistema recusa essas linhas).', ''],
@@ -204,7 +210,7 @@ export function buildZip(files: { name: string; data: string }[]): Buffer {
 
 export function buildTemplateXlsx(): Buffer {
   const header: Cell[] = [...CATALOG_IMPORT_COLUMNS];
-  const produtos = sheetXml([header, ...TEMPLATE_EXAMPLE_ROWS], [16, 34, 50, 18, 12, 12, 10, 8, 10, 12, 11, 15, 50], {
+  const produtos = sheetXml([header, ...TEMPLATE_EXAMPLE_ROWS], [16, 34, 50, 18, 12, 12, 10, 8, 10, 12, 11, 15, 50, 16, 11], {
     headerStyle: 1,
     colStyle: { 0: 2 },
   });

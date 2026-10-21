@@ -17,6 +17,8 @@ export const CATALOG_IMPORT_COLUMNS = [
   'altura_cm',
   'comprimento_cm',
   'fotos',
+  'disponibilidade',
+  'prazo_dias',
 ] as const;
 
 export const CATALOG_IMPORT_TEMPLATE = `${CATALOG_IMPORT_COLUMNS.join(';')}\n`;
@@ -118,6 +120,9 @@ export type CatalogPreviewRow = {
   category: string | null;
   photos: number;
   active: boolean | null;
+  /** Só quando a planilha trouxe a coluna (vazio = não muda). */
+  availability?: 'in_stock' | 'made_to_order' | null;
+  leadDays?: number | null;
   message: string | null;
   warnings: string[];
 };
@@ -154,4 +159,11 @@ export function batchSelectionError(count: number): string | null {
   if (count < 1) return 'Marque ao menos um SKU desta página. O restante do catálogo não muda.';
   if (count > 200) return 'Máximo de 200 SKUs por lote.';
   return null;
+}
+
+/** Texto da coluna Disponibilidade na pré-visualização. */
+export function previewAvailabilityLabel(row: Pick<CatalogPreviewRow, 'availability' | 'leadDays'>): string {
+  if (row.availability === 'made_to_order') return `Sob encomenda (+${row.leadDays ?? '?'} dias)`;
+  if (row.availability === 'in_stock') return 'Em estoque';
+  return '—';
 }

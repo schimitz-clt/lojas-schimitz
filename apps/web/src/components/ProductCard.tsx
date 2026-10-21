@@ -19,6 +19,9 @@ export type Product = {
   id: string;
   name: string;
   slug: string;
+  /** "in_stock" (padrão) ou "made_to_order" — só informativo. */
+  availability?: string | null;
+  availabilityLeadDays?: number | null;
   price: number | string;
   compareAtPrice?: number | string | null;
   badge?: string | null;

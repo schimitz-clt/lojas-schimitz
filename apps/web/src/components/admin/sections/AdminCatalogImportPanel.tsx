@@ -16,6 +16,7 @@ import {
   resolvePhotoNames,
   toggleSkuSelection,
   type CatalogPreviewRow,
+  previewAvailabilityLabel,
 } from '@/lib/catalog-import-ui';
 import { shippingDataStatusText, shippingDataTone, type ShippingDataSummary } from '@/lib/admin-shipping-data';
 import { matrixToCsv, parseCsvMatrix, readSpreadsheetFile, type Matrix } from '@/lib/spreadsheet-read';
@@ -528,6 +529,7 @@ export function AdminCatalogImportPanel() {
                       <th>Estoque</th>
                       <th>Categoria</th>
                       <th>Fotos</th>
+                      <th>Disponibilidade</th>
                       <th>Observações</th>
                     </tr>
                   </thead>
@@ -548,6 +550,7 @@ export function AdminCatalogImportPanel() {
                         <td>{row.stock ?? '—'}</td>
                         <td>{row.category || '—'}</td>
                         <td>{row.photos || '—'}</td>
+                        <td>{previewAvailabilityLabel(row)}</td>
                         <td style={{ minWidth: 220 }}>
                           {row.message ? <div style={{ color: '#b91c1c' }}>{row.message}</div> : null}
                           {row.warnings.map((w) => (

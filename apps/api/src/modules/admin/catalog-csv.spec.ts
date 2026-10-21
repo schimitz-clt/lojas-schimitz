@@ -18,6 +18,8 @@ import {
   planCatalogUpserts,
   slugifyProductName,
   validateCatalogCsv,
+  parseCatalogAvailability,
+  CATALOG_WARN_MADE_TO_ORDER,
 } from './catalog-csv';
 import {
   adminProductListWindow,
@@ -280,6 +282,35 @@ const FIXTURE = [
   const onlyStock = validateCatalogCsv('sku;estoque\nW-1;5\n');
   assert.deepEqual(catalogRowWarnings(onlyStock.rows[0], 'update'), []);
   console.log('catalog-csv: avisos de pré-visualização — PASSOU');
+}
+
+{
+  assert.equal(parseCatalogAvailability('Em estoque'), 'in_stock');
+  assert.equal(parseCatalogAvailability('sob_encomenda'), 'made_to_order');
+  assert.equal(parseCatalogAvailability('Sob Encomenda'), 'made_to_order');
+  assert.equal(parseCatalogAvailability('talvez'), null);
+  const v = validateCatalogCsv(
+    'sku;nome;preco;disponibilidade;prazo_dias\n' +
+      'A1;Produto A;10;sob_encomenda;7\n' +
+      'A2;Produto B;10;em_estoque;\n' +
+      'A3;Produto C;10;sob_encomenda;\n' +
+      'A4;Produto D;10;sob_encomenda;0\n' +
+      'A5;Produto E;10;;5\n' +
+      'A6;Produto F;10;xyz;\n' +
+      'A7;Produto G;10;;\n',
+  );
+  assert.equal(v.fileError, null);
+  const bySku = Object.fromEntries(v.rows.map((r) => [r.sku, r]));
+  assert.equal(bySku.A1.availability, 'made_to_order');
+  assert.equal(bySku.A1.leadDays, 7);
+  assert.equal(bySku.A2.availability, 'in_stock');
+  assert.equal(bySku.A2.leadDays, null);
+  assert.equal(bySku.A7.availability, undefined, 'vazio = não mexe (padrão atual)');
+  assert.deepEqual(v.errors.map((e) => e.sku).sort(), ['A3', 'A4', 'A5', 'A6']);
+  assert.ok(catalogRowWarnings(bySku.A1, 'update').includes(CATALOG_WARN_MADE_TO_ORDER));
+  const upd = validateCatalogCsv('sku;disponibilidade;prazo_dias\nX1;sob_encomenda;10\n');
+  assert.equal(upd.rows.length, 1, 'só disponibilidade já conta como atualização');
+  console.log('catalog-csv: disponibilidade/prazo — PASSOU');
 }
 
 console.log('catalog-csv.spec ok');
