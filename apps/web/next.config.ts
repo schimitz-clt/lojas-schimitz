@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
   // serves `.next/` directly. Standalone only produced an unused bundle and the deploy warning
   // '"next start" does not work with "output: standalone"'. See web-start-config.spec.ts.
   poweredByHeader: false,
+  // Metadados (title, description, canonical, og) no <head> para todo visitante. Sem isso o Next 15
+  // envia por streaming no <body> para navegadores e Googlebot, e o Google ignora canonical fora do <head>.
+  htmlLimitedBots: /.*/,
   images: {
     // The optimizer only ever receives our own uploads (see src/lib/responsive-image.ts, which
     // passes relative `/api/v1/uploads/<file>` paths). It used to accept any https host (wildcard), which let

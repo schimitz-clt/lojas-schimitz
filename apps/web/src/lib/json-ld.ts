@@ -222,3 +222,23 @@ export function buildStoreJsonLd(origin: string, input: StoreJsonLdInput): JsonL
 export function stringifyJsonLd(data: JsonLdObject | JsonLdObject[]): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
 }
+
+/** ItemList da página de lista: só produtos reais mostrados (url + posição). Vazio = null. */
+export function buildProductItemList(
+  origin: string,
+  items: { slug?: string | null; name?: string | null }[],
+  startPosition = 1,
+): JsonLdObject | null {
+  const list = items.filter((p) => p.slug && p.name);
+  if (!list.length) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: list.map((p, i) => ({
+      '@type': 'ListItem',
+      position: startPosition + i,
+      url: `${origin.replace(/\/$/, '')}/produto/${encodeURIComponent(String(p.slug))}`,
+      name: String(p.name),
+    })),
+  };
+}
