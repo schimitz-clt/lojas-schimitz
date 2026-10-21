@@ -221,3 +221,19 @@ export function storefrontPageMetadata(input: StorefrontPageSeo): Metadata {
     },
   };
 }
+
+/**
+ * Canonical e robots para listas com filtros (/produtos, /departamento/...):
+ * - página 2+ é canônica de si mesma (?page=N), como o Google recomenda para paginação;
+ * - busca (?q=) não é indexada (noindex, follow) para não criar páginas finas duplicadas;
+ * - ordenação/preço apontam para a lista base (mesmo conteúdo reordenado).
+ */
+export function listingSeoFor(
+  basePath: string,
+  params: { page?: string | null; q?: string | null },
+): { path: string; index: boolean } {
+  const n = Math.floor(Number(params.page));
+  const page = Number.isFinite(n) && n > 1 ? n : 1;
+  const hasQuery = Boolean(String(params.q ?? '').trim());
+  return { path: page > 1 ? `${basePath}?page=${page}` : basePath, index: !hasQuery };
+}

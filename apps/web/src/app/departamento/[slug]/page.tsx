@@ -5,8 +5,8 @@ import DepartamentoClient from './DepartamentoClient';
 import type { Product } from '@/components/ProductCard';
 import { JsonLd } from '@/components/JsonLd';
 import { ProductGridSkeleton } from '@/components/Skeleton';
-import { buildBreadcrumbList } from '@/lib/json-ld';
-import { missingPageMetadata, storefrontPageMetadata } from '@/lib/seo-metadata';
+import { buildBreadcrumbList, buildProductItemList } from '@/lib/json-ld';
+import { listingSeoFor, missingPageMetadata, storefrontPageMetadata } from '@/lib/seo-metadata';
 import { fetchCategoryMeta, fetchStoreSettings, siteOrigin } from '@/lib/storefront';
 import { resolveApiProxyTarget } from '@/lib/api-proxy';
 import {
@@ -23,15 +23,16 @@ function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const sp = (await searchParams) || {};
   const [cat, store] = await Promise.all([fetchCategoryMeta(slug), fetchStoreSettings()]);
   const seo = departmentSeo(slug, cat, store.siteTitle);
   if (seo.notFound) return missingPageMetadata();
   return storefrontPageMetadata({
     title: seo.title,
     description: seo.description,
-    path: `/departamento/${encodeURIComponent(slug)}`,
+    ...listingSeoFor(`/departamento/${encodeURIComponent(slug)}`, { page: first(sp.page) }),
     siteName: store.siteTitle,
     origin: siteOrigin(),
   });
@@ -80,7 +81,13 @@ export default async function Page({ params, searchParams }: Props) {
 
 async function DepartmentGrid({ path }: { path: string }) {
   const initial = await fetchInitialList(path);
-  return <DepartamentoClient initial={initial} />;
+  const itemList = initial ? buildProductItemList(siteOrigin(), initial.items) : null;
+  return (
+    <>
+      {itemList ? <JsonLd data={itemList} /> : null}
+      <DepartamentoClient initial={initial} />
+    </>
+  );
 }
 
 /** Breadcrumb name follows the categories API without holding the product grid. */
