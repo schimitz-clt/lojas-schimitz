@@ -21,6 +21,9 @@ export const SITEMAP_STATIC_PAGES: SitemapStaticPage[] = [
   { path: '/suporte', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/privacidade', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/termos', changeFrequency: 'yearly', priority: 0.4 },
+  { path: '/sobre', changeFrequency: 'yearly', priority: 0.4 },
+  { path: '/trocas-e-devolucoes', changeFrequency: 'yearly', priority: 0.4 },
+  { path: '/frete', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/excluir-conta', changeFrequency: 'yearly', priority: 0.3 },
 ];
 
