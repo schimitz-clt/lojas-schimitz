@@ -3711,3 +3711,11 @@ button.acct-textlink {
     min-height: 48px;
   }
 }
+
+/* Campo legal ainda não informado pelo dono — visível de propósito. */
+mark.preencher {
+  background: #fde68a;
+  color: #3b0a14;
+  padding: 0 4px;
+  border-radius: 3px;
+}

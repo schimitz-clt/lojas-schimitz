@@ -93,8 +93,10 @@ export default function TermosPage() {
       <section style={{ marginTop: 22 }}>
         <h2 style={{ fontSize: 18 }}>Trocas e devoluções</h2>
         <p>
-          Troca em até <strong>7 dias</strong>, conforme as regras da loja e o estado do produto
-          (sem uso indevido, com acessórios e nota/pedido). Para iniciar troca, devolução ou
+          Você pode desistir da compra em até <strong>7 dias corridos</strong> após o recebimento,
+          com reembolso integral, inclusive do frete (CDC, art. 49). Produto com defeito segue os
+          prazos do CDC. Detalhes em <Link href="/trocas-e-devolucoes">Trocas e devoluções</Link>.
+          Para iniciar troca, devolução ou
           cancelamento, fale pelo WhatsApp{' '}
           <a href="https://wa.me/5551996253766" target="_blank" rel="noreferrer">
             (51) 99625-3766

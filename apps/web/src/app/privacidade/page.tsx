@@ -8,6 +8,7 @@ import {
   PRIVACY_SECTIONS,
 } from '@/lib/privacy-policy';
 import { storeLegalIdentity } from '@/lib/store-legal-identity';
+import { PREENCHER } from '@/lib/institutional-pages';
 
 export const metadata: Metadata = storefrontPageMetadata(PRIVACIDADE_SEO);
 
@@ -29,8 +30,12 @@ export default function PrivacidadePage() {
           <li>
             Controlador: <strong>{id.legalName ?? 'Lojas Schimitz'}</strong>
           </li>
-          {id.cnpj ? <li>CNPJ: {id.cnpj}</li> : null}
-          {id.address ? <li>Endereço: {id.address}</li> : null}
+          <li>
+            CNPJ ou CPF: {id.cnpj ?? <mark className="preencher">{PREENCHER}</mark>}
+          </li>
+          <li>
+            Endereço: {id.address ?? <mark className="preencher">{PREENCHER}</mark>}
+          </li>
           <li>
             WhatsApp (canal de privacidade e atendimento):{' '}
             <a href={id.whatsappHref} target="_blank" rel="noreferrer">
