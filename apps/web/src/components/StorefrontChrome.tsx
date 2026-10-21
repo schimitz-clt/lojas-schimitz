@@ -86,6 +86,21 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/sobre" prefetch={false}>
+                    Sobre
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/trocas-e-devolucoes" prefetch={false}>
+                    Trocas e devoluções
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/frete" prefetch={false}>
+                    Frete e entrega
+                  </Link>
+                </li>
+                <li>
                   <Link href="/privacidade" prefetch={true}>
                     Privacidade
                   </Link>
