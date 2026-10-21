@@ -150,6 +150,8 @@ async function main() {
     assert.equal(a.isDemo, false);
     assert.equal(a.active, true);
     assert.equal(a.inventory?.qtyOnHand, 5);
+    assert.equal(a.availability, 'in_stock', 'padrão = comportamento atual');
+    assert.equal(a.availabilityLeadDays, null);
     assert.deepEqual(a.images.map((i) => i.url), [`https://cdn.example/${tag}-a1.jpg`, `https://cdn.example/${tag}-a2.jpg`]);
     const old = await prisma.product.findUniqueOrThrow({ where: { sku: `${P}-OLD` }, include: { inventory: true } });
     assert.equal(Number(old.price), 89.9);
@@ -171,6 +173,24 @@ async function main() {
     assert.equal(Number(aAfter.price), 2999.9);
     assert.equal(await prisma.product.count({ where: { sku: `${P}-A` } }), 1);
     console.log('catalog-import.db: create_only não altera nem duplica — PASSOU');
+
+    // 6) sob encomenda: só informativo, estoque/ativo intactos.
+    const mto = await products.importCsv(
+      ['sku;disponibilidade;prazo_dias', `${P}-A;sob_encomenda;9`].join('\n'),
+      undefined,
+      { skipInvalid: false },
+    );
+    assert.equal(mto.applied, true, mto.fileError || '');
+    const aM = await prisma.product.findUniqueOrThrow({ where: { sku: `${P}-A` }, include: { inventory: true } });
+    assert.equal(aM.availability, 'made_to_order');
+    assert.equal(aM.availabilityLeadDays, 9);
+    assert.equal(aM.active, true);
+    assert.equal(aM.inventory?.qtyOnHand, 5, 'estoque não muda');
+    await products.importCsv(['sku;disponibilidade', `${P}-A;em_estoque`].join('\n'), undefined, { skipInvalid: false });
+    const aB = await prisma.product.findUniqueOrThrow({ where: { sku: `${P}-A` } });
+    assert.equal(aB.availability, 'in_stock');
+    assert.equal(aB.availabilityLeadDays, null);
+    console.log('catalog-import.db: disponibilidade sob encomenda — PASSOU');
 
     console.log('catalog-import.db.spec ok');
   } finally {

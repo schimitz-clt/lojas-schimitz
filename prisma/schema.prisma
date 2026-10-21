@@ -255,6 +255,10 @@ model Product {
   heightCm       Decimal?          @db.Decimal(8, 2)
   lengthCm       Decimal?          @db.Decimal(8, 2)
   weightKg       Decimal?          @db.Decimal(8, 3)
+  /** "in_stock" (padrão, comportamento atual) ou "made_to_order" (sob encomenda). Só informativo: não muda a regra de compra. */
+  availability   String            @default("in_stock")
+  /** Prazo extra em dias úteis quando sob encomenda (1–120). */
+  availabilityLeadDays Int?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 

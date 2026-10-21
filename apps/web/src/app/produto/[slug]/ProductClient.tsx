@@ -12,7 +12,7 @@ import {
   MAX_INSTALLMENTS,
   pixPrice,
 } from '@/lib/pricing';
-import { pdpDecisionFacts, pdpDescriptionNeedsCollapse, pdpOfferPills, productDescriptionText } from '@/lib/pdp-offer';
+import { pdpDecisionFacts, pdpDescriptionNeedsCollapse, pdpOfferPills, pdpStockLabelWithAvailability, productDescriptionText } from '@/lib/pdp-offer';
 import { pdpSharePixLabel } from '@/lib/pdp-share';
 import { PdpSkeleton } from '@/components/Skeleton';
 import { buyNowLabel, discountPercent, pdpBuyNowHref, pixHighlight } from '@/lib/storefront-pro';
@@ -43,6 +43,8 @@ import {
 
 export type ProductDetail = {
   id: string;
+  availability?: string | null;
+  availabilityLeadDays?: number | null;
   name: string;
   slug: string;
   description: string;
@@ -318,7 +320,7 @@ export default function ProductPage({
   const demo = isDemoCatalogProduct(p);
   const stock = resolveProductStock(p);
   const urgency = pdpLowStockUrgency(stock);
-  const stockLabel = demo ? 'Catálogo demonstrativo — sem venda' : pdpStockLine(stock);
+  const stockLabel = demo ? 'Catálogo demonstrativo — sem venda' : pdpStockLabelWithAvailability(pdpStockLine(stock), p);
   const trustChips = pdpCompactTrustChips(p.seller?.name, pdpPriceTrustLines());
   const benefitTrust = pdpBenefitTrustItems().filter((item) => item.id === 'frete');
   const avg = Number(p.ratingAvg ?? 0);

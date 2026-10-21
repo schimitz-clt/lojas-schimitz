@@ -29,12 +29,32 @@ export const CATALOG_TEMPLATE_COLUMNS = [
   'altura_cm',
   'comprimento_cm',
   'fotos',
+  'disponibilidade',
+  'prazo_dias',
 ] as const;
 
 export const CATALOG_CSV_TEMPLATE = `${CATALOG_TEMPLATE_COLUMNS.join(';')}\n`;
 
 /** Linhas de exemplo do modelo começam com este SKU e nunca são gravadas. */
 export const CATALOG_EXAMPLE_SKU_PREFIX = 'EXEMPLO';
+
+export type ProductAvailability = 'in_stock' | 'made_to_order';
+export const LEAD_DAYS_MAX = 120;
+export const CATALOG_WARN_MADE_TO_ORDER =
+  'Sob encomenda: a página do produto mostra o prazo extra. A regra de compra (estoque) não muda.';
+
+/** "em estoque" / "sob encomenda" (com ou sem acento, _ ou espaço). null = valor desconhecido. */
+export function parseCatalogAvailability(raw: string): ProductAvailability | null {
+  const v = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  if (['em_estoque', 'estoque', 'pronta_entrega', 'in_stock'].includes(v)) return 'in_stock';
+  if (['sob_encomenda', 'encomenda', 'made_to_order'].includes(v)) return 'made_to_order';
+  return null;
+}
 
 export type CatalogImportMode = 'upsert' | 'create_only';
 
@@ -101,6 +121,12 @@ const HEADER_ALIASES: Record<string, CatalogCsvField> = {
   imageurls: 'imageUrls',
   images: 'imageUrls',
   slug: 'slug',
+  disponibilidade: 'availability',
+  availability: 'availability',
+  prazo_dias: 'leadDays',
+  prazo: 'leadDays',
+  prazo_encomenda_dias: 'leadDays',
+  leaddays: 'leadDays',
 };
 
 export type CatalogCsvField =
@@ -117,7 +143,9 @@ export type CatalogCsvField =
   | 'heightCm'
   | 'lengthCm'
   | 'imageUrls'
-  | 'slug';
+  | 'slug'
+  | 'availability'
+  | 'leadDays';
 
 export type CatalogRowError = {
   line: number;
@@ -141,6 +169,8 @@ export type ValidatedCatalogRow = {
   heightCm?: number;
   lengthCm?: number;
   imageUrls?: string[];
+  availability?: ProductAvailability;
+  leadDays?: number | null;
 };
 
 export type CatalogCsvValidation = {
@@ -388,6 +418,7 @@ export function catalogRowWarnings(row: ValidatedCatalogRow, kind: 'create' | 'u
     if (row.stock == null) out.push(CATALOG_WARN_NO_STOCK);
     if (!row.category) out.push(CATALOG_WARN_NO_CATEGORY);
   }
+  if (row.availability === 'made_to_order') out.push(CATALOG_WARN_MADE_TO_ORDER);
   if (row.compareAtPrice != null && row.price != null && row.compareAtPrice <= row.price) {
     out.push(CATALOG_WARN_COMPARE_NOT_HIGHER);
   }
@@ -407,6 +438,7 @@ function rowHasUpdate(row: ValidatedCatalogRow): boolean {
     row.widthCm != null ||
     row.heightCm != null ||
     row.lengthCm != null ||
+    row.availability != null ||
     (row.imageUrls != null && row.imageUrls.length > 0)
   );
 }
@@ -466,6 +498,26 @@ function buildRow(
       return { message: 'Slug inválido.' };
     }
     row.slug = normalized;
+  }
+  const availabilityCell = cell(bag, 'availability');
+  const leadCell = cell(bag, 'leadDays');
+  if (availabilityCell != null) {
+    const a = parseCatalogAvailability(availabilityCell);
+    if (!a) return { message: 'Disponibilidade inválida (em_estoque ou sob_encomenda).' };
+    row.availability = a;
+  }
+  if (leadCell != null) {
+    if (!/^\d+$/.test(leadCell.trim())) return { message: `Prazo inválido (dias inteiros, 1 a ${LEAD_DAYS_MAX}).` };
+    const n = Number(leadCell.trim());
+    if (n < 1 || n > LEAD_DAYS_MAX) return { message: `Prazo inválido (dias inteiros, 1 a ${LEAD_DAYS_MAX}).` };
+    row.leadDays = n;
+  }
+  if (row.availability === 'made_to_order' && row.leadDays == null) {
+    return { message: 'Sob encomenda precisa de prazo_dias (1 a 120).' };
+  }
+  if (row.availability === 'in_stock') row.leadDays = null;
+  if (row.leadDays != null && row.availability == null) {
+    return { message: 'prazo_dias só vale com disponibilidade = sob_encomenda.' };
   }
   const weight = parseDim(cell(bag, 'weightKg'), 0, 500, 3);
   if (weight === 'bad') return { message: 'Peso inválido (kg).' };

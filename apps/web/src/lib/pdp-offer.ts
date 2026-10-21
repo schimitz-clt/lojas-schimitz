@@ -69,3 +69,22 @@ export function pdpDecisionFacts(input: {
     ...(seller ? [{ id: 'seller', label: 'Vendido por', value: seller }] : []),
   ];
 }
+
+/**
+ * Aviso de "sob encomenda" na página do produto. Só aparece quando o admin marcou o produto
+ * (padrão "in_stock" = nada muda). Não altera a regra de compra.
+ */
+export function pdpMadeToOrderNote(p: { availability?: string | null; availabilityLeadDays?: number | null }): string | null {
+  if (p.availability !== 'made_to_order') return null;
+  const d = Number(p.availabilityLeadDays);
+  if (!Number.isInteger(d) || d < 1) return 'Sob encomenda: o prazo de envio é confirmado após a compra.';
+  return `Sob encomenda: envio em até ${d} ${d === 1 ? 'dia útil' : 'dias úteis'} a mais.`;
+}
+
+export function pdpStockLabelWithAvailability(
+  stockLabel: string,
+  p: { availability?: string | null; availabilityLeadDays?: number | null },
+): string {
+  const note = pdpMadeToOrderNote(p);
+  return note ? `${stockLabel} · ${note}` : stockLabel;
+}
