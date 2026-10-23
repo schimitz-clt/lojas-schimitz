@@ -10,6 +10,7 @@ import {
   storeIdentityRows,
 } from './institutional-pages';
 import { SITEMAP_STATIC_PAGES } from './catalog-sitemap';
+import { storeLegalIdentity } from './store-legal-identity';
 
 const text = (s: typeof SOBRE_SECTIONS) => s.flatMap((x) => [x.title, ...(x.paragraphs || []), ...(x.items || [])]).join('\n');
 
@@ -56,3 +57,14 @@ for (const href of ['/sobre', '/trocas-e-devolucoes', '/frete']) assert.ok(chrom
 const priv = readFileSync(join(__dirname, '../app/privacidade/page.tsx'), 'utf8');
 assert.ok(priv.includes('{PREENCHER}'), 'privacidade mostra [PREENCHER] quando falta CNPJ/endereço');
 console.log('institutional-pages.spec ok');
+
+// CNPJ em registro: texto sem dígitos aparece; CPF/números inválidos nunca vazam.
+{
+  const sli = storeLegalIdentity;
+  const note = sli({ NEXT_PUBLIC_STORE_CNPJ: 'CNPJ em processo de registro' });
+  assert.equal(note.cnpj, null);
+  assert.equal(note.cnpjNote, 'CNPJ em processo de registro');
+  const r = Object.fromEntries(storeIdentityRows(note).map((x) => [x.label, x.value]));
+  assert.equal(r['CNPJ ou CPF'], 'CNPJ em processo de registro');
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: '123.456.789-09' }).cnpjNote, null);
+}
