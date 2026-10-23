@@ -31,7 +31,7 @@ export default function PrivacidadePage() {
             Controlador: <strong>{id.legalName ?? 'Lojas Schimitz'}</strong>
           </li>
           <li>
-            CNPJ ou CPF: {id.cnpj ?? <mark className="preencher">{PREENCHER}</mark>}
+            CNPJ ou CPF: {id.cnpj ?? id.cnpjNote ?? <mark className="preencher">{PREENCHER}</mark>}
           </li>
           <li>
             Endereço: {id.address ?? <mark className="preencher">{PREENCHER}</mark>}

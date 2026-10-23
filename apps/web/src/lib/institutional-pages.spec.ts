@@ -10,6 +10,7 @@ import {
   storeIdentityRows,
 } from './institutional-pages';
 import { SITEMAP_STATIC_PAGES } from './catalog-sitemap';
+import { storeLegalIdentity } from './store-legal-identity';
 
 const text = (s: typeof SOBRE_SECTIONS) => s.flatMap((x) => [x.title, ...(x.paragraphs || []), ...(x.items || [])]).join('\n');
 
@@ -19,6 +20,7 @@ const rows = storeIdentityRows({
   cnpj: null,
   address: null,
   privacyEmail: null,
+  cnpjNote: null,
   whatsappDigits: '5551996253766',
   whatsappDisplay: '(51) 99625-3766',
   whatsappHref: 'https://wa.me/5551996253766',
@@ -56,3 +58,16 @@ for (const href of ['/sobre', '/trocas-e-devolucoes', '/frete']) assert.ok(chrom
 const priv = readFileSync(join(__dirname, '../app/privacidade/page.tsx'), 'utf8');
 assert.ok(priv.includes('{PREENCHER}'), 'privacidade mostra [PREENCHER] quando falta CNPJ/endereço');
 console.log('institutional-pages.spec ok');
+
+// CNPJ em registro: texto sem dígitos aparece; CPF/números inválidos nunca vazam.
+{
+  const sli = storeLegalIdentity;
+  const note = sli({ NEXT_PUBLIC_STORE_CNPJ: 'CNPJ em processo de registro' });
+  assert.equal(note.cnpj, null);
+  assert.equal(note.cnpjNote, 'CNPJ em processo de registro');
+  const r = Object.fromEntries(storeIdentityRows(note).map((x) => [x.label, x.value]));
+  assert.equal(r['CNPJ ou CPF'], 'CNPJ em processo de registro');
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: '123.456.789-09' }).cnpjNote, null);
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: 'CPF: 123.456.789-09' }).cnpj, 'CPF: 123.456.789-09');
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: '11222333000181' }).cnpj, '11.222.333/0001-81');
+}

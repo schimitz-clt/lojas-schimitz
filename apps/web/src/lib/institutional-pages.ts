@@ -8,6 +8,7 @@ import { storeLegalIdentity, type StoreLegalIdentity } from './store-legal-ident
 export const PREENCHER = '[PREENCHER]';
 export const INSTITUTIONAL_UPDATED = '21 de outubro de 2026';
 export const STORE_CONTACT_EMAIL = 'schimitzclaiton@gmail.com';
+export const RETURN_ADDRESS = 'Rua Wolfram Metzler, 287, Bairro Rubem Berta, Porto Alegre/RS, CEP 91250-320';
 export const STORE_CITY = 'Porto Alegre / RS';
 
 export function orPreencher(v: string | null | undefined, what: string): string {
@@ -19,7 +20,7 @@ export function orPreencher(v: string | null | undefined, what: string): string 
 export function storeIdentityRows(id: StoreLegalIdentity = storeLegalIdentity()): { label: string; value: string }[] {
   return [
     { label: 'Nome empresarial / responsável', value: orPreencher(id.legalName, 'nome do responsável ou razão social') },
-    { label: 'CNPJ ou CPF', value: orPreencher(id.cnpj, 'CNPJ ou CPF') },
+    { label: 'CNPJ ou CPF', value: orPreencher(id.cnpj ?? id.cnpjNote, 'CNPJ ou CPF') },
     { label: 'Endereço físico', value: orPreencher(id.address, 'endereço completo') },
     { label: 'Cidade', value: STORE_CITY },
     { label: 'E-mail', value: id.privacyEmail || STORE_CONTACT_EMAIL },
@@ -69,7 +70,7 @@ export const TROCAS_SECTIONS: InstitutionalSection[] = [
     items: [
       'Fale pelo WhatsApp ou e-mail informando o número do pedido e, se for defeito, fotos ou vídeo do problema.',
       'Combinamos a coleta ou a postagem do produto, de preferência com a embalagem e acessórios.',
-      `Endereço para devolução: ${PREENCHER} (endereço físico para envio de devoluções).`,
+      `Endereço para devolução: ${RETURN_ADDRESS}.`,
       'O reembolso é feito depois que o produto chega e é conferido. Estorno no cartão segue o prazo da operadora.',
     ],
   },
