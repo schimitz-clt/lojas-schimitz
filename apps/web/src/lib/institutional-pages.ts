@@ -35,7 +35,7 @@ export const SOBRE_SECTIONS: InstitutionalSection[] = [
     title: 'Quem somos',
     paragraphs: [
       'A Lojas Schimitz é uma loja online de Porto Alegre com eletro, celulares, casa e utilidades, vendendo pelo site lojasschimitz.com.br e pelo aplicativo Android.',
-      `Histórico e fundação: ${PREENCHER} (conte em poucas linhas como a loja começou).`,
+      'A Lojas Schimitz nasceu como loja física em Porto Alegre. Em junho de 2026, o proprietário Claiton da Silva Schimitz abriu a loja online para atender um público maior. Nosso compromisso é simples: produtos de alta qualidade com um custo excelente e entregas no prazo combinado, para que cada cliente fique satisfeito com a compra.',
     ],
   },
   {
