@@ -67,4 +67,6 @@ console.log('institutional-pages.spec ok');
   const r = Object.fromEntries(storeIdentityRows(note).map((x) => [x.label, x.value]));
   assert.equal(r['CNPJ ou CPF'], 'CNPJ em processo de registro');
   assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: '123.456.789-09' }).cnpjNote, null);
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: 'CPF: 123.456.789-09' }).cnpj, 'CPF: 123.456.789-09');
+  assert.equal(sli({ NEXT_PUBLIC_STORE_CNPJ: '11222333000181' }).cnpj, '11.222.333/0001-81');
 }

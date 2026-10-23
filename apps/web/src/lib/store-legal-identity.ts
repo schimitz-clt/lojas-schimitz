@@ -15,7 +15,7 @@ import { DEFAULT_STORE_WHATSAPP } from './whatsapp';
 export type StoreLegalIdentity = {
   legalName: string | null;
   cnpj: string | null;
-  /** Texto livre quando ainda não há CNPJ (ex.: "CNPJ em processo de registro"); nunca contém dígitos. */
+  /** Texto livre quando ainda não há CNPJ/CPF; nunca contém dígitos. */
   cnpjNote: string | null;
   address: string | null;
   privacyEmail: string | null;
@@ -37,7 +37,14 @@ export function formatCnpj(value: string | undefined): string | null {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
-/** Aceita só texto sem dígitos (evita expor CPF/CNPJ inválido por engano). */
+/** CPF (11 dígitos) autorizado pelo dono enquanto o CNPJ não sai; exibido com rótulo "CPF:". */
+export function formatCpf(value: string | undefined): string | null {
+  const d = String(value ?? '').replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return null;
+  return `CPF: ${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** Aceita só texto sem dígitos. */
 export function cnpjNote(value: string | undefined): string | null {
   const v = clean(value, 80);
   return v && !/\d/.test(v) ? v : null;
@@ -64,7 +71,7 @@ export function storeLegalIdentity(env: Env = {
   const whatsappDigits = DEFAULT_STORE_WHATSAPP;
   return {
     legalName: clean(env.NEXT_PUBLIC_STORE_LEGAL_NAME, 120),
-    cnpj: formatCnpj(env.NEXT_PUBLIC_STORE_CNPJ),
+    cnpj: formatCnpj(env.NEXT_PUBLIC_STORE_CNPJ) ?? formatCpf(env.NEXT_PUBLIC_STORE_CNPJ),
     cnpjNote: cnpjNote(env.NEXT_PUBLIC_STORE_CNPJ),
     address: clean(env.NEXT_PUBLIC_STORE_ADDRESS, 240),
     privacyEmail: cleanEmail(env.NEXT_PUBLIC_STORE_PRIVACY_EMAIL),
