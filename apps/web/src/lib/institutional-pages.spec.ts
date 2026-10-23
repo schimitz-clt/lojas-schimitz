@@ -48,6 +48,8 @@ assert.match(frete, /CEP/);
 assert.match(frete, /90 ou 91/);
 assert.ok(frete.includes(PREENCHER), 'transportadoras desconhecidas ficam [PREENCHER]');
 assert.match(text(SOBRE_SECTIONS), /Porto Alegre/);
+assert.ok(!text(SOBRE_SECTIONS).includes(PREENCHER), 'sobre sem [PREENCHER]');
+assert.match(text(SOBRE_SECTIONS), /junho de 2026/);
 
 for (const path of ['/sobre', '/trocas-e-devolucoes', '/frete']) {
   assert.ok(SITEMAP_STATIC_PAGES.some((p) => p.path === path), `sitemap tem ${path}`);
