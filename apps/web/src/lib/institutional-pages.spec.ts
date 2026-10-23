@@ -20,6 +20,7 @@ const rows = storeIdentityRows({
   cnpj: null,
   address: null,
   privacyEmail: null,
+  cnpjNote: null,
   whatsappDigits: '5551996253766',
   whatsappDisplay: '(51) 99625-3766',
   whatsappHref: 'https://wa.me/5551996253766',
